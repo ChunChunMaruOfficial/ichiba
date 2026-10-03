@@ -1,0 +1,521 @@
+// Data model follows Miro frame "21 DATA MODEL / ПОЛЯ ТОВАРА".
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  RESERVED
+  SOLD
+  HIDDEN
+  BLOCKED
+  DELETED
+}
+
+enum Condition {
+  NEW_WITH_TAGS
+  LIKE_NEW
+  GOOD
+  VISIBLE_WEAR
+}
+
+enum SizeSystem {
+  ALPHA
+  SHOE_EU
+  JEANS_W
+  OTHER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNISEX
+}
+
+enum DeliveryMethod {
+  IN_PERSON
+  PICKUP
+  DELIVERY
+}
+
+enum RequestStatus {
+  CREATED
+  PENDING_SELLER
+  ACCEPTED
+  DECLINED
+  COUNTER_OFFERED
+  WAITING_PAYMENT
+  WAITING_HANDOVER
+  HANDED_OVER
+  IN_TRANSIT
+  RECEIVED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum RequestSource {
+  BUY
+  OFFER
+  CART
+  AUCTION
+}
+
+enum SaleType {
+  FIXED
+  AUCTION
+}
+
+enum CodePurpose {
+  VERIFY
+  RESET
+  LOGIN
+}
+
+model User {
+  id              String    @id @default(uuid())
+  username        String    @unique
+  email           String?   @unique
+  phone           String?   @unique
+  passwordHash    String?
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  googleSub       String?   @unique
+  appleSub        String?   @unique
+  role            Role      @default(USER)
+  city            String?
+  bio             String?
+  /// Preferred sizes from onboarding: { clothing?: string[], shoes?: string[] }
+  sizes           Json?
+  onboardedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  listings      Listing[]
+  photos        Photo[]
+  favorites     Favorite[]
+  following     Follow[]       @relation("follower")
+  followers     Follow[]       @relation("seller")
+  purchases     BuyRequest[]   @relation("buyer")
+  sales         BuyRequest[]   @relation("seller")
+  signals       Signal[]
+  notifications Notification[]
+  offersMade    Offer[]        @relation("offerBuyer")
+  offersGot     Offer[]        @relation("offerSeller")
+  cartItems     CartItem[]
+  threadsBuyer  Thread[]       @relation("threadBuyer")
+  threadsSeller Thread[]       @relation("threadSeller")
+  messages      Message[]
+  collections   Collection[]
+  reports       Report[]
+  bids          Bid[]
+  blockedAt     DateTime?
+}
+
+model VerificationCode {
+  id         String      @id @default(uuid())
+  /// Normalized email or E.164 phone.
+  target     String
+  purpose    CodePurpose
+  codeHash   String
+  attempts   Int         @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime    @default(now())
+
+  @@index([target, purpose])
+}
+
+model Listing {
+  id                 String           @id @default(uuid())
+  sellerId           String
+  seller             User             @relation(fields: [sellerId], references: [id])
+  status             ListingStatus    @default(DRAFT)
+  title              String           @default("")
+  category           String?
+  subcategory        String?
+  sizeSystem         SizeSystem?
+  sizeValue          String?
+  condition          Condition?
+  price              Int?
+  previousPrice      Int?
+  defectsPresent     Boolean?
+  defectsDescription String?
+  brand              String?
+  color              String?
+  material           String?
+  /// { shoulders, chest, waist, length, sleeve, foot_length } in cm
+  measurements       Json?
+  description        String?
+  city               String?
+  deliveryOptions    DeliveryMethod[]
+  acceptsOffers      Boolean          @default(true)
+  saleType           SaleType         @default(FIXED)
+  /// Auction settings, applied when the listing is published (decision D16).
+  auctionStep        Int?
+  auctionReserve     Int?
+  auctionHours       Int?
+  minOfferPrice      Int?
+  gender             Gender?
+  styleTags          String[]
+  /// { field: { value, confidence, accepted_by_user, edited_by_user } }
+  aiAttributes       Json?
+  aiModelVersion     String?
+  blockedReason      String?
+  viewsCount         Int              @default(0)
+  favoritesCount     Int              @default(0)
+  publishedAt        DateTime?
+  soldAt             DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  photos       Photo[]
+  favorites    Favorite[]
+  requestItems BuyRequestItem[]
+  signals      Signal[]
+  offers       Offer[]
+  cartItems    CartItem[]
+  threads      Thread[]
+  collectionItems CollectionItem[]
+  auctions        Auction[]
+
+  @@index([status, publishedAt])
+  @@index([sellerId, status])
+  @@index([category, status])
+}
+
+model Photo {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  /// Storage key prefix; variants live at `${key}_{320,640,1280}.webp`.
+  key       String
+  width     Int
+  height    Int
+  order     Int      @default(0)
+  isCover   Boolean  @default(false)
+  isDefect  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([listingId, order])
+}
+
+model Favorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  /// feed | swipe | product
+  source    String   @default("product")
+  createdAt DateTime @default(now())
+
+  @@id([userId, listingId])
+  @@index([listingId])
+}
+
+model Follow {
+  followerId String
+  follower   User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  sellerId   String
+  seller     User     @relation("seller", fields: [sellerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([followerId, sellerId])
+  @@index([sellerId])
+}
+
+/// Recommendation signals (frame 22): view, favorite, swipe_left, request, follow…
+model Signal {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  type      String
+  weight    Int
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model BuyRequest {
+  id             String          @id @default(uuid())
+  /// Human-readable deal number shown as "№ 10482".
+  number         Int             @unique @default(autoincrement())
+  buyerId        String
+  buyer          User            @relation("buyer", fields: [buyerId], references: [id])
+  sellerId       String
+  seller         User            @relation("seller", fields: [sellerId], references: [id])
+  priceTotal     Int
+  source         RequestSource   @default(BUY)
+  deliveryMethod DeliveryMethod
+  deliveryPoint  String?
+  contactPhone   String?
+  buyerComment   String?
+  trackingNumber String?
+  status         RequestStatus   @default(PENDING_SELLER)
+  /// Reason for DECLINED / CANCELLED, shown to the other side.
+  reason         String?
+  cancelledById  String?
+  expiresAt      DateTime?
+  handedOverAt   DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  items   BuyRequestItem[]
+  events  BuyRequestEvent[]
+  offer   Offer?
+  threads Thread[]
+  auction Auction?
+
+  @@index([buyerId, status])
+  @@index([sellerId, status])
+  @@index([status, expiresAt])
+}
+
+model BuyRequestItem {
+  requestId String
+  request   BuyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing    @relation(fields: [listingId], references: [id])
+  price     Int
+
+  @@id([requestId, listingId])
+  @@index([listingId])
+}
+
+/// status_history from the data model.
+model BuyRequestEvent {
+  id        String        @id @default(uuid())
+  requestId String
+  request   BuyRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  status    RequestStatus
+  byUserId  String?
+  reason    String?
+  at        DateTime      @default(now())
+
+  @@index([requestId, at])
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// request_new, request_accepted, request_declined, price_drop, item_reserved, item_sold…
+  type      String
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum OfferSide {
+  BUYER
+  SELLER
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COUNTERED
+  EXPIRED
+  CANCELLED
+}
+
+/// One row per negotiation round (frame 13: max 3 rounds, 48 h each).
+model Offer {
+  id        String      @id @default(uuid())
+  listingId String
+  listing   Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User        @relation("offerBuyer", fields: [buyerId], references: [id])
+  sellerId  String
+  seller    User        @relation("offerSeller", fields: [sellerId], references: [id])
+  round     Int
+  amount    Int
+  from      OfferSide
+  status    OfferStatus @default(PENDING)
+  /// Set on the accepted round: the buy request it turned into.
+  requestId String?     @unique
+  request   BuyRequest? @relation(fields: [requestId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([listingId, buyerId, createdAt])
+  @@index([sellerId, status])
+  @@index([buyerId, status])
+  @@index([status, expiresAt])
+}
+
+model CartItem {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  addedAt   DateTime @default(now())
+
+  @@id([userId, listingId])
+}
+
+/// One conversation per (listing, buyer); linked to the deal when there is one (frame 15).
+model Thread {
+  id            String      @id @default(uuid())
+  listingId     String
+  listing       Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId       String
+  buyer         User        @relation("threadBuyer", fields: [buyerId], references: [id])
+  sellerId      String
+  seller        User        @relation("threadSeller", fields: [sellerId], references: [id])
+  requestId     String?
+  request       BuyRequest? @relation(fields: [requestId], references: [id])
+  lastMessageAt DateTime    @default(now())
+  buyerReadAt   DateTime?
+  sellerReadAt  DateTime?
+  createdAt     DateTime    @default(now())
+
+  messages Message[]
+
+  @@unique([listingId, buyerId])
+  @@index([buyerId, lastMessageAt])
+  @@index([sellerId, lastMessageAt])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  threadId  String
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+/// Private collections inside favorites (frame 11).
+model Collection {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime         @default(now())
+  items     CollectionItem[]
+
+  @@index([userId])
+}
+
+model CollectionItem {
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listingId    String
+  listing      Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+
+  @@id([collectionId, listingId])
+}
+
+enum ReportTarget {
+  LISTING
+  USER
+  APPEAL
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  REJECTED
+}
+
+/// Complaints and appeals (frame 20).
+model Report {
+  id         String       @id @default(uuid())
+  reporterId String
+  reporter   User         @relation(fields: [reporterId], references: [id])
+  targetType ReportTarget
+  targetId   String
+  reason     String
+  comment    String?
+  status     ReportStatus @default(OPEN)
+  resolution String?
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
+
+model ModerationAction {
+  id          String   @id @default(uuid())
+  moderatorId String
+  targetType  String
+  targetId    String
+  action      String
+  reason      String?
+  at          DateTime @default(now())
+
+  @@index([targetType, targetId])
+}
+
+enum AuctionStatus {
+  ACTIVE
+  /// Winner has a deal (or the item went to the runner-up).
+  SOLD
+  /// No bids or reserve not met: the item stays on sale at a fixed price.
+  NO_SALE
+  CANCELLED
+}
+
+/// Timed auction (decision D16): highest bid wins; a bid in the last minutes extends the end.
+model Auction {
+  id            String        @id @default(uuid())
+  listingId     String
+  listing       Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startPrice    Int
+  step          Int
+  reservePrice  Int?
+  startsAt      DateTime      @default(now())
+  endsAt        DateTime
+  status        AuctionStatus @default(ACTIVE)
+  extendedTimes Int           @default(0)
+  /// Current deal with the winner or, after a no-show, the runner-up.
+  requestId     String?       @unique
+  request       BuyRequest?   @relation(fields: [requestId], references: [id])
+  createdAt     DateTime      @default(now())
+
+  bids Bid[]
+
+  @@index([status, endsAt])
+  @@index([listingId])
+}
+
+model Bid {
+  id        String   @id @default(uuid())
+  auctionId String
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidderId  String
+  bidder    User     @relation(fields: [bidderId], references: [id])
+  amount    Int
+  createdAt DateTime @default(now())
+
+  @@index([auctionId, amount])
+  @@index([bidderId, createdAt])
+}

@@ -1,0 +1,8 @@
+node_modules
+dist
+.next
+.env
+.env.local
+apps/api/src/generated
+*.log
+apps/api/storage

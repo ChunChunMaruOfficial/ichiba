@@ -1,0 +1,235 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { api, ApiError } from "@/lib/api";
+import { DELIVERY_LABEL, formatPrice, hoursLeft, timeAgo } from "@/lib/labels";
+import type { Deal } from "@/lib/types";
+import { useSession } from "./session";
+import { useToast } from "./toast";
+import { Button, ButtonLink, DealBadge, Field, IconMessage, Input, Modal } from "./ui";
+
+const DECLINE_REASONS = ["Уже продано", "Передумал продавать", "Не подходит способ получения", "Другое"];
+
+/** Every deal action for the current role and status (frames 13–14). Calls `onChange` with the updated deal. */
+/** Opens (or creates) the chat tied to this deal. */
+export function ChatButton({ requestId, size = "md", label = "Написать" }: { requestId: string; size?: "sm" | "md"; label?: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      size={size}
+      variant="secondary"
+      loading={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const t = await api<{ id: string }>("/threads", { body: { requestId } });
+          router.push(`/messages/${t.id}`);
+        } catch (e) {
+          toast(e instanceof ApiError ? e.message : "Не удалось открыть чат", { tone: "error" });
+          setBusy(false);
+        }
+      }}
+    >
+      <IconMessage className="size-4" /> {label}
+    </Button>
+  );
+}
+
+export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange: (d: Deal) => void; compact?: boolean }) {
+  const toast = useToast();
+  const { refresh } = useSession();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<null | "accept" | "decline" | "tracking" | "cancel">(null);
+  const [reason, setReason] = useState("");
+  const [tracking, setTracking] = useState("");
+  const [fieldError, setFieldError] = useState<string>();
+
+  const run = async (key: string, path: string, body?: Record<string, unknown>, success?: string) => {
+    setBusy(key);
+    setFieldError(undefined);
+    try {
+      const d = await api<Deal>(`/requests/${deal.id}/${path}`, { method: "POST", body });
+      onChange(d);
+      setDialog(null);
+      void refresh();
+      if (success) toast(success);
+    } catch (e) {
+      if (e instanceof ApiError && Object.keys(e.fields).length) setFieldError(Object.values(e.fields)[0]);
+      else toast(e instanceof ApiError ? e.message : "Не удалось сохранить · Повторите", { tone: "error" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const size = compact ? "sm" : "md";
+  const seller = deal.role === "seller";
+  const buttons: React.ReactNode[] = [];
+
+  if (seller && deal.status === "PENDING_SELLER") {
+    buttons.push(
+      <Button key="accept" size={size} onClick={() => setDialog("accept")}>
+        Принять
+      </Button>,
+      <Button key="decline" size={size} variant="secondary" onClick={() => setDialog("decline")}>
+        Отклонить
+      </Button>,
+    );
+  }
+  if (seller && deal.status === "WAITING_HANDOVER") {
+    if (deal.deliveryMethod === "DELIVERY")
+      buttons.push(
+        <Button key="track" size={size} onClick={() => setDialog("tracking")}>
+          Ввести трек-номер
+        </Button>,
+      );
+    else
+      buttons.push(
+        <Button key="handed" size={size} loading={busy === "handed"} onClick={() => run("handed", "handed-over", undefined, "Отмечено: передано")}>
+          Передано
+        </Button>,
+      );
+  }
+  if (!seller && deal.status === "ACCEPTED") {
+    buttons.push(
+      <ButtonLink key="delivery" size={size} href={`/buy/${deal.items[0]?.id}?request=${deal.id}`}>
+        Выбрать способ получения
+      </ButtonLink>,
+    );
+  }
+  if (!seller && ["WAITING_HANDOVER", "HANDED_OVER", "IN_TRANSIT"].includes(deal.status)) {
+    buttons.push(
+      <Button key="received" size={size} variant={deal.status === "WAITING_HANDOVER" ? "secondary" : "primary"} loading={busy === "received"} onClick={() => run("received", "received", undefined, "Сделка завершена")}>
+        Я получил вещь
+      </Button>,
+    );
+  }
+  const canCancel = (deal.status === "PENDING_SELLER" && !seller) || deal.status === "WAITING_HANDOVER" || deal.status === "ACCEPTED";
+  if (!compact && !["DECLINED", "CANCELLED"].includes(deal.status)) {
+    buttons.push(<ChatButton key="chat" requestId={deal.id} size={size} label={seller ? "Написать покупателю" : "Написать продавцу"} />);
+  }
+  if (canCancel && !compact) {
+    buttons.push(
+      <Button key="cancel" size={size} variant="ghost" onClick={() => setDialog("cancel")}>
+        {deal.status === "PENDING_SELLER" ? "Отменить запрос" : "Отменить сделку"}
+      </Button>,
+    );
+  }
+
+  return (
+    <>
+      {buttons.length > 0 && <div className="flex flex-wrap gap-2">{buttons}</div>}
+
+      <Modal open={dialog === "accept"} onClose={() => setDialog(null)} title="Принять запрос?">
+        <p className="text-sm text-ink-2">Вещь станет «Зарезервировано» и пропадёт из покупки у других. Другие запросы по ней будут отклонены.</p>
+        <div className="mt-6 flex gap-3">
+          <Button block loading={busy === "accept"} onClick={() => run("accept", "accept", undefined, "Запрос принят — договоритесь о передаче")}>
+            Принять
+          </Button>
+          <Button variant="secondary" onClick={() => setDialog(null)}>
+            Отмена
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={dialog === "decline"} onClose={() => setDialog(null)} title="Отклонить запрос">
+        <p className="mb-3 text-sm text-ink-2">Причина — необязательно. Покупатель её увидит.</p>
+        <div className="flex flex-col gap-2">
+          {DECLINE_REASONS.map((r) => (
+            <label key={r} className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 text-sm has-[:checked]:border-ink">
+              <input type="radio" name="reason" className="accent-[var(--accent)]" checked={reason === r} onChange={() => setReason(r)} />
+              {r}
+            </label>
+          ))}
+        </div>
+        <div className="mt-6 flex gap-3">
+          <Button block variant="danger" loading={busy === "decline"} onClick={() => run("decline", "decline", { reason: reason || null }, "Запрос отклонён")}>
+            Отклонить
+          </Button>
+          <Button variant="secondary" onClick={() => setDialog(null)}>
+            Отмена
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={dialog === "tracking"} onClose={() => setDialog(null)} title="Трек-номер">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run("tracking", "tracking", { trackingNumber: tracking }, "Трек-номер отправлен покупателю");
+          }}
+        >
+          <Field label="Номер отправления" htmlFor="tracking" error={fieldError} hint="Покупатель увидит его на странице сделки">
+            <Input id="tracking" value={tracking} onChange={(e) => setTracking(e.target.value)} error={fieldError} />
+          </Field>
+          <Button type="submit" block className="mt-6" loading={busy === "tracking"}>
+            Отправить
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal open={dialog === "cancel"} onClose={() => setDialog(null)} title={deal.status === "PENDING_SELLER" ? "Отменить запрос?" : "Отменить сделку?"}>
+        {deal.status === "WAITING_HANDOVER" && <p className="mb-3 text-sm text-ink-2">Вещь вернётся в продажу.</p>}
+        <Field label="Причина (необязательно)" htmlFor="cancel-reason">
+          <Input id="cancel-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+        <div className="mt-6 flex gap-3">
+          <Button block variant="danger" loading={busy === "cancel"} onClick={() => run("cancel", "cancel", { reason: reason || null }, "Отменено")}>
+            Отменить
+          </Button>
+          <Button variant="secondary" onClick={() => setDialog(null)}>
+            Назад
+          </Button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+/** Deal card used in My Purchases / My Sales / "Требует действия" (frame 14 ORDER CARD). */
+export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) => void }) {
+  const item = deal.items[0];
+  const left = deal.status === "PENDING_SELLER" ? hoursLeft(deal.expiresAt) : null;
+  return (
+    <article className={`flex gap-4 rounded-2xl bg-surface p-4 ${deal.needsMyAction ? "border-l-4 border-l-[#d9a100]" : ""}`}>
+      <Link href={`/deals/${deal.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+        {item?.cover && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.cover.urls.s} alt="" className="size-full object-cover" />
+        )}
+      </Link>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <DealBadge status={deal.status} role={deal.role} />
+          {left != null && <span className="text-xs text-muted">осталось {left} ч на ответ</span>}
+        </div>
+        <Link href={`/deals/${deal.id}`} className="truncate font-medium hover:underline">
+          {item?.title}
+          {item?.size && <span className="text-ink-2">, {item.size}</span>}
+        </Link>
+        <p className="text-sm text-ink-2">
+          {deal.role === "seller" ? (
+            <>
+              @{deal.counterpart.username} хочет купить за <b className="tabular text-ink">{formatPrice(deal.priceTotal)}</b>
+            </>
+          ) : (
+            <>
+              <b className="tabular text-ink">{formatPrice(deal.priceTotal)}</b> · @{deal.counterpart.username}
+            </>
+          )}
+        </p>
+        <p className="text-xs text-muted">
+          {DELIVERY_LABEL[deal.deliveryMethod]}
+          {deal.sellerCity ? `, ${deal.sellerCity}` : ""} · запрос {timeAgo(deal.createdAt)} · № {deal.number}
+        </p>
+        {deal.buyerComment && deal.role === "seller" && deal.status === "PENDING_SELLER" && <p className="text-sm italic text-ink-2">«{deal.buyerComment}»</p>}
+        <div className="mt-1">
+          <DealActions deal={deal} onChange={onChange} compact />
+        </div>
+      </div>
+    </article>
+  );
+}
