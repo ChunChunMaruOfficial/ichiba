@@ -7,17 +7,17 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CardRow, CategoryTiles, SectionHeader } from "@/components/sections";
-import { useMeta } from "@/components/session";
-import { Button, Chip, EmptyState, ErrorState, IconChevronDown, IconFilter, IconSearch, IconX, Input, Spinner } from "@/components/ui";
+import { useMeta, useSession } from "@/components/session";
+import { Button, Chip, EmptyState, ErrorState, IconChevronDown, IconFilter, IconSearch, IconSparkle, IconX, Input, Spinner } from "@/components/ui";
 import { api, qs } from "@/lib/api";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { CONDITION_LABEL, items as itemsLabel } from "@/lib/labels";
 import { pushRecent } from "@/lib/recent-searches";
-import type { Card, Meta } from "@/lib/types";
+import type { Card, Meta, SearchInterpretation } from "@/lib/types";
 
-const LIST_KEYS = ["category", "gender", "size", "condition", "color", "brand"] as const;
+const LIST_KEYS = ["category", "subcategory", "style", "gender", "size", "condition", "color", "brand"] as const;
 type ListKey = (typeof LIST_KEYS)[number];
-type Filters = Record<ListKey, string[]> & { city?: string; seller?: string; price_min?: string; price_max?: string; available: "0" | "1" };
+type Filters = Record<ListKey, string[]> & { city?: string; seller?: string; price_min?: string; price_max?: string; available: "0" | "1"; my_size?: "1" };
 
 const SORTS = [
   ["new", "Сначала новые"],
@@ -37,6 +37,8 @@ function readFilters(sp: URLSearchParams): Filters {
   const list = (k: string) => (sp.get(k) ?? "").split(",").filter(Boolean);
   return {
     category: list("category"),
+    subcategory: list("subcategory"),
+    style: list("style"),
     gender: list("gender"),
     size: list("size"),
     condition: list("condition"),
@@ -47,16 +49,19 @@ function readFilters(sp: URLSearchParams): Filters {
     price_min: sp.get("price_min") ?? undefined,
     price_max: sp.get("price_max") ?? undefined,
     available: sp.get("available") === "0" ? "0" : "1",
+    my_size: sp.get("my_size") === "1" ? "1" : undefined,
   };
 }
 
 const filterQuery = (f: Filters, extra: Record<string, string | undefined> = {}) =>
-  qs({ ...extra, ...Object.fromEntries(LIST_KEYS.map((k) => [k, f[k]])), city: f.city, seller: f.seller, price_min: f.price_min, price_max: f.price_max, available: f.available === "0" ? "0" : undefined });
+  qs({ ...extra, ...Object.fromEntries(LIST_KEYS.map((k) => [k, f[k]])), city: f.city, seller: f.seller, price_min: f.price_min, price_max: f.price_max, available: f.available === "0" ? "0" : undefined, my_size: f.my_size });
 
 function activeChips(f: Filters, meta?: Meta): Array<{ key: string; label: string; remove: (f: Filters) => Filters }> {
   const out: Array<{ key: string; label: string; remove: (f: Filters) => Filters }> = [];
   const without = (k: ListKey, v: string) => (x: Filters) => ({ ...x, [k]: x[k].filter((y) => y !== v) });
   for (const v of f.category) out.push({ key: `c:${v}`, label: meta?.categories.find((c) => c.slug === v)?.label ?? v, remove: without("category", v) });
+  for (const v of f.subcategory) out.push({ key: `sc:${v}`, label: meta?.categories.flatMap((c) => c.subcategories).find((x) => x.slug === v)?.label ?? v, remove: without("subcategory", v) });
+  for (const v of f.style) out.push({ key: `st:${v}`, label: v, remove: without("style", v) });
   for (const v of f.gender) out.push({ key: `g:${v}`, label: GENDERS.find(([g]) => g === v)?.[1] ?? v, remove: without("gender", v) });
   for (const v of f.size) out.push({ key: `s:${v}`, label: v, remove: without("size", v) });
   for (const v of f.condition) out.push({ key: `q:${v}`, label: CONDITION_LABEL[v as keyof typeof CONDITION_LABEL] ?? v, remove: without("condition", v) });
@@ -68,6 +73,7 @@ function activeChips(f: Filters, meta?: Meta): Array<{ key: string; label: strin
   }
   if (f.city) out.push({ key: "city", label: f.city, remove: (x) => ({ ...x, city: undefined }) });
   if (f.seller) out.push({ key: "seller", label: `@${f.seller}`, remove: (x) => ({ ...x, seller: undefined }) });
+  if (f.my_size) out.push({ key: "my_size", label: "Мой размер", remove: (x) => ({ ...x, my_size: undefined }) });
   return out;
 }
 
@@ -274,6 +280,8 @@ function SearchView() {
   const router = useRouter();
   const sp = useSearchParams();
   const meta = useMeta();
+  const { me, requireAuth } = useSession();
+  const hasSizes = !!me?.sizes && Object.values(me.sizes).some((v) => v?.length);
   const q = sp.get("q") ?? "";
   const sort = sp.get("sort") ?? "new";
   const filters = useMemo(() => readFilters(new URLSearchParams(sp.toString())), [sp]);
@@ -289,8 +297,28 @@ function SearchView() {
   const chips = activeChips(filters, meta);
   const hasQuery = !!q || chips.length > 0 || sp.has("sort");
   const base = filterQuery(filters, { q: q || undefined, sort: sort !== "new" ? sort : undefined });
+
+  // Natural-language search: a phrase is turned into filters first («платье на свадьбу до 50» → Платья · Classic · до 50 BYN).
+  const nlFrom = sp.get("nl");
+  const wantsParse = !!q && sp.get("raw") !== "1" && !nlFrom && q.trim().split(/\s+/).length >= 2;
+  const parse = useSWR(wantsParse ? (["/ai/search-parse", q] as const) : null, ([url, text]) => api<SearchInterpretation>(url, { body: { q: text } }), { revalidateOnFocus: false, dedupingInterval: 3_600_000, keepPreviousData: false });
+  const interpreted = wantsParse && parse.data?.status === "ok" ? parse.data : null;
+  const parsing = wantsParse && !parse.data && !parse.error;
+  useEffect(() => {
+    if (!interpreted) return;
+    const p = interpreted.filters;
+    const merged: Filters = {
+      ...filters,
+      ...Object.fromEntries(LIST_KEYS.map((k) => [k, p[k].length ? p[k] : filters[k]])),
+      city: p.city ?? filters.city,
+      price_min: p.price_min != null ? String(p.price_min) : filters.price_min,
+      price_max: p.price_max != null ? String(p.price_max) : filters.price_max,
+    } as Filters;
+    router.replace(`/search${filterQuery(merged, { q: p.q || undefined, nl: q, sort: sort !== "new" ? sort : undefined })}`, { scroll: false });
+  }, [interpreted, filters, q, sort, router]);
+
   const results = useInfiniteCards<{ items: Card[]; total: number; relax: { filter: string; label: string; count: number } | null }>((offset) =>
-    hasQuery ? `/search${base}${base ? "&" : "?"}offset=${offset}&limit=24` : null,
+    hasQuery && !parsing && !interpreted ? `/search${base}${base ? "&" : "?"}offset=${offset}&limit=24` : null,
   );
   const sentinel = useSentinel(results.loadMore, !results.done);
   const fresh = useSWR<{ items: Card[] }>(hasQuery && results.data && results.total === 0 ? "/feed?chip=new&limit=8" : null);
@@ -317,7 +345,7 @@ function SearchView() {
         }}
       >
         <label className="flex h-12 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 focus-within:border-ink">
-          <IconSearch className="text-muted" />
+          <IconSearch className="size-5 shrink-0 text-muted" />
           <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Что ищете?" className="h-full flex-1 bg-transparent outline-none" enterKeyHint="search" aria-label="Поиск" />
         </label>
       </form>
@@ -327,6 +355,14 @@ function SearchView() {
           <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
             <Chip onClick={() => setDrawer(true)}>
               <IconFilter className="size-4" /> Все фильтры{chips.length ? ` · ${chips.length}` : ""}
+            </Chip>
+            <Chip
+              active={!!filters.my_size}
+              onClick={() =>
+                requireAuth(() => (hasSizes || filters.my_size ? navigate({ ...filters, my_size: filters.my_size ? undefined : "1" }) : router.push("/settings#sizes")), { reason: "чтобы искать вещи вашего размера" })
+              }
+            >
+              Мой размер
             </Chip>
             {meta?.categories.slice(0, 6).map((c) => (
               <Chip key={c.slug} active={filters.category.includes(c.slug)} onClick={() => navigate({ ...filters, category: toggle(filters.category, c.slug) })}>
@@ -353,6 +389,18 @@ function SearchView() {
         )}
       </div>
 
+      {nlFrom && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-ai-soft/70 px-4 py-2.5 text-sm">
+          <span className="flex items-center gap-1.5 text-ai">
+            <IconSparkle className="size-4" filled />
+            Подобрали фильтры по запросу «{nlFrom}»
+          </span>
+          <Link href={`/search?q=${encodeURIComponent(nlFrom)}&raw=1`} className="ml-auto font-medium text-ink-2 underline underline-offset-4">
+            Искать как текст
+          </Link>
+        </div>
+      )}
+
       {!hasQuery ? (
         meta && <SearchLanding meta={meta} />
       ) : results.error ? (
@@ -361,18 +409,26 @@ function SearchView() {
         <>
           <div className="flex items-baseline justify-between gap-4 pb-4 pt-2">
             <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-              {q ? `Результаты для «${q}»` : "Вещи"}
+              {nlFrom ? `Результаты для «${nlFrom}»` : q ? `Результаты для «${q}»` : "Вещи"}
               {results.data && <span className="ml-2 text-base font-normal text-muted">{itemsLabel(results.total)}</span>}
             </h1>
             <div className="md:hidden">
               <SortMenu value={sort} onChange={(v) => navigate(filters, { sort: v })} />
             </div>
           </div>
+          {parsing ? (
+            <div className="flex items-center gap-2 pb-4 text-sm text-ai">
+              <IconSparkle className="size-4 animate-pulse" filled /> Разбираем запрос…
+            </div>
+          ) : null}
           {!results.data ? (
             <MasonrySkeleton />
           ) : results.total === 0 ? (
             <>
-              <EmptyState title={q ? `Мы ничего не нашли по запросу «${q}»` : "Ничего не нашли"} hint={relax ? `Без фильтра ${relax.label} — ${itemsLabel(relax.count)}` : "Попробуйте изменить запрос или фильтры"}>
+              <EmptyState
+                title={nlFrom || q ? `Мы ничего не нашли по запросу «${nlFrom ?? q}»` : "Ничего не нашли"}
+                hint={relax ? `Без ${relax.filter === "q" ? "" : "фильтра "}${relax.label} — ${itemsLabel(relax.count)}` : "Попробуйте изменить запрос или фильтры"}
+              >
                 <Button variant="secondary" onClick={() => setDrawer(true)}>
                   Изменить фильтры
                 </Button>
@@ -380,13 +436,14 @@ function SearchView() {
                   <Button
                     onClick={() => {
                       const f = { ...filters } as Filters & Record<string, unknown>;
+                      if (relax.filter === "q") return navigate(f, { q: "" });
                       if ((LIST_KEYS as readonly string[]).includes(relax.filter)) f[relax.filter as ListKey] = [];
                       else if (relax.filter === "price_max") Object.assign(f, { price_min: undefined, price_max: undefined });
                       else f[relax.filter] = undefined;
                       navigate(f);
                     }}
                   >
-                    Убрать фильтр
+                    {relax.filter === "q" ? "Искать без слов" : "Убрать фильтр"}
                   </Button>
                 )}
               </EmptyState>

@@ -19,6 +19,10 @@ export interface NotificationRow {
     trackingNumber?: string;
     auto?: boolean;
     confirmed?: boolean;
+    buyNow?: boolean;
+    rating?: number;
+    reviewId?: string;
+    reminder?: boolean;
   };
   readAt: string | null;
   createdAt: string;
@@ -47,10 +51,14 @@ export const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) =
   listing_blocked: (p) => `«${p.title}» снята модератором${p.reason ? `: ${p.reason}` : ""}`,
   listing_unblocked: (p) => `«${p.title}» снова опубликована`,
   auction_bid: (p) => `Новая ставка ${p.amount} BYN на «${p.title}»`,
-  auction_outbid: (p) => `Вашу ставку на «${p.title}» перебили: теперь ${p.amount} BYN`,
-  auction_won: (p) => `Вы выиграли аукцион «${p.title}» за ${p.amount} BYN — выберите способ получения`,
+  auction_outbid: (p) => (p.auto ? `Ваша автоставка на «${p.title}» исчерпана: теперь ${p.amount} BYN` : `Вашу ставку на «${p.title}» перебили: теперь ${p.amount} BYN`),
+  auction_won: (p) => (p.buyNow ? `Вы выкупили «${p.title}» за ${p.amount} BYN — выберите способ получения` : `Вы выиграли аукцион «${p.title}» за ${p.amount} BYN — выберите способ получения`),
   auction_runner_up: (p) => `Победитель не вышел на связь — «${p.title}» ваша за ${p.amount} BYN. Выберите способ получения`,
-  auction_sold: (p) => `Аукцион «${p.title}» завершён: ${p.amount} BYN`,
+  auction_sold: (p) => (p.buyNow ? `«${p.title}» выкупили по цене «Купить сейчас»: ${p.amount} BYN` : `Аукцион «${p.title}» завершён: ${p.amount} BYN`),
+  auction_bought_out: (p) => `«${p.title}» выкупили по цене «Купить сейчас» (${p.amount} BYN) — аукцион завершён`,
+  review_new: (p) => `@${p.buyer} оставил отзыв: ${"★".repeat(p.rating ?? 0)}${p.title ? ` — «${p.title}»` : ""}`,
+  review_reply: (p) => `@${p.seller} ответил на ваш отзыв`,
+  review_request: (p) => (p.reminder ? `Как прошла сделка с @${p.seller}? Оставьте отзыв — это займёт минуту` : `Сделка завершена — оцените @${p.seller}`),
   auction_no_sale: (p) => (p.reason === "reserve" ? `Аукцион «${p.title}» завершён: резервная цена не достигнута` : `Аукцион «${p.title}» завершён без продажи — вещь осталась в продаже`),
 };
 
@@ -60,6 +68,8 @@ export const notificationHref = (n: Pick<NotificationRow, "type" | "payload">) =
   const p = n.payload;
   if ((n.type === "auction_won" || n.type === "auction_runner_up") && p.listingId && p.requestId) return `/buy/${p.listingId}?request=${p.requestId}`;
   if (n.type === "offer_accepted" && p.requestId) return `/deals/${p.requestId}`;
+  if (n.type === "review_request" && p.requestId) return `/deals/${p.requestId}#review`;
+  if (n.type === "review_new" || n.type === "review_reply") return p.requestId ? `/deals/${p.requestId}#review` : "/wardrobe?tab=reviews";
   if (n.type.startsWith("offer_") && p.listingId) return n.type === "offer_new" ? "/sales" : `/item/${p.listingId}`;
   if (p.requestId) return `/deals/${p.requestId}`;
   if (p.listingId) return `/item/${p.listingId}`;

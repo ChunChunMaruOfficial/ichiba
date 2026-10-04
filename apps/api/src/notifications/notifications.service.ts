@@ -1,7 +1,8 @@
-import { Controller, Get, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Controller, Get, HttpCode, Injectable, Logger, Module, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { EventsService } from '../events/events.js';
+import { DealEmails } from '../mail/mail.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export type NotificationType =
@@ -30,19 +31,32 @@ export type NotificationType =
   | 'auction_won'
   | 'auction_runner_up'
   | 'auction_sold'
-  | 'auction_no_sale';
+  | 'auction_no_sale'
+  | 'auction_bought_out'
+  | 'review_new'
+  | 'review_reply'
+  | 'review_request';
 
-/** In-app notifications, pushed live over SSE (frame 15). Email delivery plugs in here later. */
+/** In-app notifications, pushed live over SSE (frame 15); deal events are also emailed (DealEmails). */
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger('Notifications');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
+    private readonly emails: DealEmails,
   ) {}
+
+  private email(userIds: string[], type: NotificationType, payload: Prisma.InputJsonValue) {
+    // Never block or fail the action because of email.
+    void this.emails.maybeSend(userIds, type, payload as Record<string, unknown>).catch((e) => this.logger.warn(`email for ${type} failed: ${(e as Error).message}`));
+  }
 
   async notify(userId: string, type: NotificationType, payload: Prisma.InputJsonValue) {
     const n = await this.prisma.notification.create({ data: { userId, type, payload } });
     this.events.emit(userId, { type: 'notification', data: n });
+    this.email([userId], type, payload);
     return n;
   }
 
@@ -51,6 +65,7 @@ export class NotificationsService {
     if (!unique.length) return;
     await this.prisma.notification.createMany({ data: unique.map((userId) => ({ userId, type, payload })) });
     for (const userId of unique) this.events.emit(userId, { type: 'notification', data: { type, payload } });
+    this.email(unique, type, payload);
   }
 
   unreadCount(userId: string) {

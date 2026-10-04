@@ -35,6 +35,7 @@ export interface ListingValues {
   auctionStep: string;
   auctionReserve: string;
   auctionHours: 24 | 72 | 168;
+  auctionBuyNow: string;
 }
 
 /** AI-filled fields the user can accept or edit (frame 22). Size, condition, material, defects are never AI-filled. */
@@ -66,6 +67,7 @@ export const emptyValues = (city: string | null): ListingValues => ({
   auctionStep: "",
   auctionReserve: "",
   auctionHours: 72,
+  auctionBuyNow: "",
 });
 
 export function valuesFromListing(l: ListingDetail): ListingValues {
@@ -93,6 +95,7 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
     auctionStep: l.owner?.auctionStep != null ? String(l.owner.auctionStep) : "",
     auctionReserve: l.owner?.auctionReserve != null ? String(l.owner.auctionReserve) : "",
     auctionHours: ([24, 72, 168] as const).find((h) => h === l.owner?.auctionHours) ?? 72,
+    auctionBuyNow: l.owner?.auctionBuyNow != null ? String(l.owner.auctionBuyNow) : "",
   };
 }
 
@@ -143,6 +146,8 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
     if (values.saleType === "AUCTION") {
       if (values.auctionReserve && Number(values.auctionReserve) < price) e.auctionReserve = "Резерв не может быть ниже стартовой цены";
       if (values.auctionStep && Number(values.auctionStep) < 1) e.auctionStep = "Шаг — от 1 BYN";
+      if (values.auctionBuyNow && Number(values.auctionBuyNow) <= price) e.auctionBuyNow = "Должна быть выше стартовой цены";
+      else if (values.auctionBuyNow && values.auctionReserve && Number(values.auctionBuyNow) < Number(values.auctionReserve)) e.auctionBuyNow = "Не может быть ниже резерва";
     }
   }
   return e;
@@ -176,6 +181,7 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     auctionStep: values.saleType === "AUCTION" ? num(values.auctionStep) : null,
     auctionReserve: values.saleType === "AUCTION" ? num(values.auctionReserve) : null,
     auctionHours: values.saleType === "AUCTION" ? values.auctionHours : null,
+    auctionBuyNow: values.saleType === "AUCTION" ? num(values.auctionBuyNow) : null,
     styleTags: values.styleTags,
     ...(Object.keys(ai).length ? { aiAttributes: ai, aiModelVersion: aiModel ?? null } : {}),
   };

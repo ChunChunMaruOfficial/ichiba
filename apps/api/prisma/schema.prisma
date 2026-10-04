@@ -98,8 +98,14 @@ model User {
   role            Role      @default(USER)
   city            String?
   bio             String?
-  /// Preferred sizes from onboarding: { clothing?: string[], shoes?: string[] }
+  /// Preferred sizes from onboarding: { clothing?: string[], shoes?: string[], jeans?: string[] }
   sizes           Json?
+  /// Body measurements for fit hints, cm: { height?, chest?, waist?, hips?, footLength? }
+  bodyMeasurements Json?
+  /// Seller's bundle discount tiers: [{ minItems, percent }] (ascending, up to 3)
+  bundleDiscounts Json?
+  /// Email preferences: { deals: boolean }
+  emailPrefs      Json?
   onboardedAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -122,6 +128,9 @@ model User {
   collections   Collection[]
   reports       Report[]
   bids          Bid[]
+  autoBids      AutoBid[]
+  reviewsWritten  Review[]   @relation("reviewAuthor")
+  reviewsReceived Review[]   @relation("reviewSeller")
   blockedAt     DateTime?
 }
 
@@ -175,9 +184,17 @@ model Listing {
   aiAttributes       Json?
   aiModelVersion     String?
   blockedReason      String?
+  /// Last automatic moderation verdict: { status: passed|review|unchecked, hash, reasons, checkedAt }.
+  moderation         Json?
   viewsCount         Int              @default(0)
   favoritesCount     Int              @default(0)
   publishedAt        DateTime?
+  /// Position in "new" feeds: publication time, moved up by a bump (frame 30 item 11).
+  liftedAt           DateTime?
+  lastBumpAt         DateTime?
+  bumpsCount         Int              @default(0)
+  /// Optional "Купить сейчас" price for an auction.
+  auctionBuyNow      Int?
   soldAt             DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -185,6 +202,8 @@ model Listing {
   photos       Photo[]
   favorites    Favorite[]
   requestItems BuyRequestItem[]
+  stats        ListingStat[]
+  reviews      Review[]
   signals      Signal[]
   offers       Offer[]
   cartItems    CartItem[]
@@ -193,6 +212,7 @@ model Listing {
   auctions        Auction[]
 
   @@index([status, publishedAt])
+  @@index([status, liftedAt])
   @@index([sellerId, status])
   @@index([category, status])
 }
@@ -210,6 +230,8 @@ model Photo {
   order     Int      @default(0)
   isCover   Boolean  @default(false)
   isDefect  Boolean  @default(false)
+  /// Technical quality measured at upload: { brightness, contrast, sharpness }.
+  quality   Json?
   createdAt DateTime @default(now())
 
   @@index([listingId, order])
@@ -262,6 +284,9 @@ model BuyRequest {
   sellerId       String
   seller         User            @relation("seller", fields: [sellerId], references: [id])
   priceTotal     Int
+  /// Sum of item prices before the bundle discount (null = no discount).
+  subtotal       Int?
+  discountPercent Int            @default(0)
   source         RequestSource   @default(BUY)
   deliveryMethod DeliveryMethod
   deliveryPoint  String?
@@ -283,6 +308,7 @@ model BuyRequest {
   offer   Offer?
   threads Thread[]
   auction Auction?
+  review  Review?
 
   @@index([buyerId, status])
   @@index([sellerId, status])
@@ -406,6 +432,8 @@ model Message {
   senderId  String
   sender    User     @relation(fields: [senderId], references: [id])
   body      String
+  /// Antifraud verdict: { level: warn|high, categories, source: rules|ai }.
+  risk      Json?
   createdAt DateTime @default(now())
 
   @@index([threadId, createdAt])
@@ -437,6 +465,7 @@ enum ReportTarget {
   LISTING
   USER
   APPEAL
+  REVIEW
 }
 
 enum ReportStatus {
@@ -448,8 +477,13 @@ enum ReportStatus {
 /// Complaints and appeals (frame 20).
 model Report {
   id         String       @id @default(uuid())
-  reporterId String
-  reporter   User         @relation(fields: [reporterId], references: [id])
+  /// Null for reports raised by automatic moderation / antifraud.
+  reporterId String?
+  reporter   User?        @relation(fields: [reporterId], references: [id])
+  /// user | ai
+  source     String       @default("user")
+  /// AI verdict details (votes per model, reasons, excerpts).
+  details    Json?
   targetType ReportTarget
   targetId   String
   reason     String
@@ -501,7 +535,11 @@ model Auction {
   request       BuyRequest?   @relation(fields: [requestId], references: [id])
   createdAt     DateTime      @default(now())
 
-  bids Bid[]
+  /// "Купить сейчас" price (decision D16+).
+  buyNowPrice   Int?
+
+  bids     Bid[]
+  autoBids AutoBid[]
 
   @@index([status, endsAt])
   @@index([listingId])
@@ -514,8 +552,107 @@ model Bid {
   bidderId  String
   bidder    User     @relation(fields: [bidderId], references: [id])
   amount    Int
+  /// Placed by the system on behalf of an auto-bid.
+  auto      Boolean  @default(false)
+  /// "Купить сейчас" purchase recorded as the final bid.
+  isBuyNow  Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([auctionId, amount])
   @@index([bidderId, createdAt])
+}
+
+/// One call of the AI ensemble: which models answered, how fast, and what they said (audit + cost tracking).
+model AiRun {
+  id          String   @id @default(uuid())
+  feature     String
+  subjectType String?
+  subjectId   String?
+  /// [{ provider, model, ok, kind?, latencyMs, inputTokens?, outputTokens? }]
+  calls       Json
+  /// Valid answers per provider.
+  votes       Json?
+  result      Json?
+  latencyMs   Int
+  createdAt   DateTime @default(now())
+
+  @@index([feature, createdAt])
+  @@index([subjectType, subjectId])
+}
+
+/// Proxy bid: the system bids for the user, one step at a time, up to maxAmount.
+model AutoBid {
+  id        String   @id @default(uuid())
+  auctionId String
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidderId  String
+  bidder    User     @relation(fields: [bidderId], references: [id])
+  maxAmount Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([auctionId, bidderId])
+  @@index([auctionId, active])
+}
+
+/// Buyer's review of the seller after a completed deal (frame 30, V2 → MVP).
+model Review {
+  id        String     @id @default(uuid())
+  requestId String     @unique
+  request   BuyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  listingId String?
+  listing   Listing?   @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  authorId  String
+  author    User       @relation("reviewAuthor", fields: [authorId], references: [id])
+  sellerId  String
+  seller    User       @relation("reviewSeller", fields: [sellerId], references: [id])
+  rating    Int
+  /// as_described | fast | polite | packaging | bad_description | late | rude
+  tags      String[]
+  text      String?
+  reply     String?
+  repliedAt DateTime?
+  /// Hidden by a moderator.
+  hidden    Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([sellerId, createdAt])
+}
+
+/// Daily per-listing counters for seller statistics.
+model ListingStat {
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  day       DateTime @db.Date
+  views     Int      @default(0)
+  favorites Int      @default(0)
+  carts     Int      @default(0)
+  chats     Int      @default(0)
+  offers    Int      @default(0)
+  requests  Int      @default(0)
+
+  @@id([listingId, day])
+  @@index([day])
+}
+
+/// Outgoing email queue: retried with backoff so a flaky SMTP never loses a deal notification.
+model EmailOutbox {
+  id        String    @id @default(uuid())
+  to        String
+  subject   String
+  html      String
+  text      String
+  /// e.g. request_new; used for List-Unsubscribe and analytics.
+  kind      String
+  userId    String?
+  status    String    @default("PENDING")
+  attempts  Int       @default(0)
+  lastError String?
+  sendAfter DateTime  @default(now())
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([status, sendAfter])
 }

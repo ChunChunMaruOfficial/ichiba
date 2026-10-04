@@ -212,6 +212,7 @@ function AccountMenu() {
     ["/wardrobe", "Мой гардероб"],
     ["/purchases", "Мои покупки"],
     ["/sales", "Мои продажи", me.pendingSales + me.pendingOffers],
+    ["/sales/stats", "Статистика"],
     ["/messages", "Сообщения", me.unreadMessages],
     ["/following", "Подписки"],
     ["/favorites", "Избранное"],

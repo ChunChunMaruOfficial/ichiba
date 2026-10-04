@@ -5,6 +5,7 @@ import { ZodPipe } from '../common/zod.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
+import { StatsService } from '../stats/stats.js';
 
 const SaveDto = z.object({ source: z.enum(['feed', 'swipe', 'product', 'wardrobe', 'search']).default('product') });
 
@@ -14,6 +15,7 @@ export class FavoritesController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly recs: RecommendationsService,
+    private readonly stats: StatsService,
   ) {}
 
   @Get()
@@ -41,6 +43,7 @@ export class FavoritesController {
         this.prisma.listing.update({ where: { id: listingId }, data: { favoritesCount: { increment: 1 } } }),
       ]);
       await this.recs.record(user.id, dto.source === 'swipe' ? 'swipe_right' : 'favorite', listingId);
+      this.stats.track(listingId, 'favorites');
     }
     return { isFavorite: true };
   }

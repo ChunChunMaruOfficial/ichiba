@@ -16,6 +16,32 @@ export interface PhotoUrls {
   l: string;
 }
 
+/** Technical photo quality (frame 22 hints): mean luminance, contrast and Laplacian variance at 320 px. */
+export interface PhotoQuality {
+  brightness: number;
+  contrast: number;
+  sharpness: number;
+}
+
+export async function measureQuality(input: Buffer | ReturnType<typeof sharp>): Promise<PhotoQuality> {
+  const base = Buffer.isBuffer(input) ? sharp(input) : input.clone();
+  const grey = base.resize(320, 320, { fit: 'inside' }).greyscale();
+  const stats = await grey.clone().stats();
+  const lap = await grey.clone().convolve({ width: 3, height: 3, kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0], offset: 128 }).raw().toBuffer();
+  let sum = 0;
+  let sq = 0;
+  for (const v of lap) {
+    sum += v;
+    sq += v * v;
+  }
+  const mean = sum / lap.length;
+  return {
+    brightness: Math.round(stats.channels[0].mean),
+    contrast: Math.round(stats.channels[0].stdev),
+    sharpness: Math.round(sq / lap.length - mean * mean),
+  };
+}
+
 export const photoUrls = (key: string): PhotoUrls => {
   const base = process.env.MEDIA_PUBLIC_URL ?? 'http://localhost:4000/media';
   return { s: `${base}/${key}_320.webp`, m: `${base}/${key}_640.webp`, l: `${base}/${key}_1280.webp` };
@@ -65,12 +91,26 @@ export class MediaService implements OnModuleInit {
       }),
     );
 
-    const photo = await this.prisma.photo.create({ data: { ownerId, key, width, height } });
+    const quality = await measureQuality(image).catch(() => null);
+    const photo = await this.prisma.photo.create({ data: { ownerId, key, width, height, quality: quality ? { ...quality } : undefined } });
     return { id: photo.id, width, height, urls: photoUrls(key) };
   }
 
-  /** Raw bytes of the 640px variant, for the AI assistant. */
-  fetchForAi(key: string): Promise<Buffer> {
-    return this.storage.get(`${key}_640.webp`);
+  /** Downscaled JPEG of a photo for the AI ensemble (every provider accepts JPEG; small = cheap and fast). */
+  async imageForAi(key: string, size = 512): Promise<Buffer> {
+    const webp = await this.storage.get(`${key}_640.webp`);
+    return sharp(webp).resize(size, size, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
+  }
+
+  /** Stored quality, measured lazily for photos uploaded before quality tracking existed. */
+  async quality(photo: { id: string; key: string; quality: unknown }): Promise<PhotoQuality | null> {
+    if (photo.quality) return photo.quality as PhotoQuality;
+    try {
+      const q = await measureQuality(await this.storage.get(`${photo.key}_640.webp`));
+      await this.prisma.photo.update({ where: { id: photo.id }, data: { quality: { ...q } } });
+      return q;
+    } catch {
+      return null;
+    }
   }
 }

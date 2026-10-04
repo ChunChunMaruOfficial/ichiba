@@ -4,6 +4,7 @@ import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StatsService } from '../stats/stats.js';
 import { photoUrls } from '../media/media.service.js';
 
 const NameDto = z.object({ name: z.string().trim().min(1, 'Введите название').max(40, 'До 40 символов') });
@@ -11,7 +12,10 @@ const NameDto = z.object({ name: z.string().trim().min(1, 'Введите наз
 /** Private collections inside Favorites (frame 11). Adding to a collection also saves the item (♡). */
 @Controller('collections')
 export class CollectionsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stats: StatsService,
+  ) {}
 
   private async own(userId: string, id: string) {
     const c = await this.prisma.collection.findUnique({ where: { id } });
@@ -83,6 +87,7 @@ export class CollectionsController {
         this.prisma.favorite.create({ data: { userId: user.id, listingId, source: 'product' } }),
         this.prisma.listing.update({ where: { id: listingId }, data: { favoritesCount: { increment: 1 } } }),
       ]);
+      this.stats.track(listingId, 'favorites');
     }
     return { ok: true };
   }

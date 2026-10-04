@@ -1,6 +1,8 @@
 import { BadRequestException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { applyDiscount, BundleTier, discountFor, nextTier, tiersOf } from '../listings/bundle.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
+import { StatsService } from '../stats/stats.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
 
@@ -15,28 +17,42 @@ export class CartController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly recs: RecommendationsService,
+    private readonly stats: StatsService,
   ) {}
 
   @Get()
   async list(@CurrentUser() user: AuthUser) {
     const rows = await this.prisma.cartItem.findMany({
       where: { userId: user.id },
-      include: { listing: { include: { ...cardInclude, seller: { select: { id: true, username: true, city: true } } } } },
+      include: { listing: { include: { ...cardInclude, seller: { select: { id: true, username: true, city: true, bundleDiscounts: true } } } } },
       orderBy: { addedAt: 'desc' },
     });
-    const groups = new Map<string, { seller: { id: string; username: string; city: string | null }; items: ReturnType<typeof serializeCard>[]; deliveryOptions: string[] }>();
+    const groups = new Map<string, { seller: { id: string; username: string; city: string | null }; tiers: BundleTier[]; items: ReturnType<typeof serializeCard>[]; deliveryOptions: string[] }>();
     for (const r of rows) {
       const l = r.listing;
       if (l.status === 'DELETED') continue;
-      const g = groups.get(l.sellerId) ?? { seller: l.seller, items: [], deliveryOptions: [...DELIVERY_ORDER] };
+      const { bundleDiscounts, ...seller } = l.seller;
+      const g = groups.get(l.sellerId) ?? { seller, tiers: tiersOf(bundleDiscounts), items: [], deliveryOptions: [...DELIVERY_ORDER] };
       g.items.push(serializeCard(l));
       // Only methods every available item supports can be offered for the combined request.
       if (l.status === 'PUBLISHED') g.deliveryOptions = g.deliveryOptions.filter((m) => l.deliveryOptions.includes(m as (typeof DELIVERY_ORDER)[number]));
       groups.set(l.sellerId, g);
     }
-    const result = [...groups.values()].map((g) => {
+    const result = [...groups.values()].map(({ tiers, ...g }) => {
       const available = g.items.filter((i) => i.status === 'PUBLISHED');
-      return { ...g, total: available.reduce((s, i) => s + (i.price ?? 0), 0), availableCount: available.length };
+      // Bundle discount for buying several items of this seller in one request (decision: seller-defined tiers).
+      const percent = discountFor(tiers, available.length);
+      const priced = applyDiscount(available.map((i) => i.price ?? 0), percent);
+      return {
+        ...g,
+        subtotal: priced.subtotal,
+        discountPercent: percent,
+        discount: priced.discount,
+        total: priced.total,
+        availableCount: available.length,
+        bundleTiers: tiers,
+        nextTier: nextTier(tiers, available.length),
+      };
     });
     return { groups: result, count: rows.length };
   }
@@ -50,6 +66,7 @@ export class CartController {
     if (listing.saleType === 'AUCTION') throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
     await this.prisma.cartItem.upsert({ where: { userId_listingId: { userId: user.id, listingId } }, create: { userId: user.id, listingId }, update: {} });
     await this.recs.record(user.id, 'cart', listingId);
+    this.stats.track(listingId, 'carts');
     return { inCart: true, count: await this.prisma.cartItem.count({ where: { userId: user.id } }) };
   }
 

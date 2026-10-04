@@ -1,12 +1,14 @@
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
+import { ChatGuard, MessageRisk } from '../ai/chat-guard.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import { EventsService } from '../events/events.js';
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Message, Prisma } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StatsService } from '../stats/stats.js';
 
 const threadInclude = {
   listing: { include: cardInclude },
@@ -23,7 +25,15 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
+    private readonly guard: ChatGuard,
+    private readonly stats: StatsService,
   ) {}
+
+  /** Antifraud warnings are shown to the recipient only. */
+  private message(m: Message, viewerId: string) {
+    const mine = m.senderId === viewerId;
+    return { id: m.id, body: m.body, mine, createdAt: m.createdAt, risk: mine ? null : ((m.risk as MessageRisk | null) ?? null) };
+  }
 
   private serialize(t: ThreadRow, viewerId: string) {
     const role = t.buyerId === viewerId ? 'buyer' : 'seller';
@@ -72,12 +82,14 @@ export class ChatService {
       requestId = active?.id ?? null;
     } else throw new BadRequestException({ message: 'Не выбрана вещь' });
 
+    const isNew = !(await this.prisma.thread.findUnique({ where: { listingId_buyerId: { listingId, buyerId } }, select: { id: true } }));
     const t = await this.prisma.thread.upsert({
       where: { listingId_buyerId: { listingId, buyerId } },
       create: { listingId, buyerId, sellerId, requestId },
       update: requestId ? { requestId } : {},
       include: threadInclude,
     });
+    if (isNew) this.stats.track(listingId, 'chats');
     return this.serialize(t, userId);
   }
 
@@ -104,7 +116,7 @@ export class ChatService {
       messages: messages
         .slice(0, 50)
         .reverse()
-        .map((m) => ({ id: m.id, body: m.body, mine: m.senderId === userId, createdAt: m.createdAt })),
+        .map((m) => this.message(m, userId)),
       hasMore: messages.length > 50,
     };
   }
@@ -113,17 +125,33 @@ export class ChatService {
     return this.prisma.thread.update({ where: { id: t.id }, data: t.buyerId === userId ? { buyerReadAt: new Date() } : { sellerReadAt: new Date() } });
   }
 
-  async send(userId: string, id: string, body: string) {
+  async send(userId: string, id: string, raw: string) {
     const t = await this.load(id, userId);
     const now = new Date();
+    // Card numbers are masked before storage; obvious scam patterns are flagged right away.
+    const check = this.guard.prepare(raw);
+    const body = check.body;
     const [m] = await this.prisma.$transaction([
-      this.prisma.message.create({ data: { threadId: id, senderId: userId, body, createdAt: now } }),
+      this.prisma.message.create({ data: { threadId: id, senderId: userId, body, createdAt: now, risk: (check.immediate ?? undefined) as Prisma.InputJsonValue | undefined } }),
       this.prisma.thread.update({ where: { id }, data: { lastMessageAt: now, ...(t.buyerId === userId ? { buyerReadAt: now } : { sellerReadAt: now }) } }),
     ]);
     const other = t.buyerId === userId ? t.sellerId : t.buyerId;
     const me = t.buyerId === userId ? t.buyer : t.seller;
-    this.events.emit(other, { type: 'message', data: { threadId: id, message: { id: m.id, body: m.body, mine: false, createdAt: m.createdAt, from: me.username, title: t.listing.title } } });
-    return { id: m.id, body: m.body, mine: true, createdAt: m.createdAt };
+    this.events.emit(other, { type: 'message', data: { threadId: id, message: { id: m.id, body: m.body, mine: false, createdAt: m.createdAt, risk: check.immediate, from: me.username, title: t.listing.title } } });
+    if (check.needsAi) {
+      // The ensemble verdict arrives later as a "message_risk" event; sending is never blocked on it.
+      void this.guard
+        .review({ messageId: m.id, threadId: id, senderId: userId, recipientId: other, signals: check.signals, masked: check.masked, immediate: check.immediate })
+        .catch(() => undefined);
+    }
+    return {
+      id: m.id,
+      body: m.body,
+      mine: true,
+      createdAt: m.createdAt,
+      risk: null,
+      notice: check.masked ? 'Номер карты скрыт. Не передавайте данные карты в чате — оплачивайте при встрече или при получении' : null,
+    };
   }
 
   async read(userId: string, id: string) {

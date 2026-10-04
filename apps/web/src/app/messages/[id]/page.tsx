@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { RequireAuth } from "@/components/require-auth";
-import { LIVE_MESSAGE_EVENT, type LiveMessage, useSession } from "@/components/session";
+import { LIVE_MESSAGE_EVENT, LIVE_RISK_EVENT, type LiveMessage, type LiveRisk, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { DealBadge, EmptyState, ErrorState, IconChevronLeft, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -17,9 +17,6 @@ export default function ThreadPage() {
   const { id } = useParams<{ id: string }>();
   return <RequireAuth reason="чтобы открыть переписку">{() => <Thread id={id} />}</RequireAuth>;
 }
-
-/** Messages that look like a request for prepayment or card details get a safety hint (frame 30 antifraud). */
-const RISKY = /(предоплат|переведи|переведите|номер карты|карт[уы] \d|cvv|cvc|код из смс|ссылк[ау] на оплату|оплат[аи] по ссылке)/i;
 
 function dayLabel(iso: string) {
   const d = new Date(iso);
@@ -49,11 +46,21 @@ function Thread({ id }: { id: string }) {
     const onMessage = (e: Event) => {
       const m = (e as CustomEvent<LiveMessage>).detail;
       if (m.threadId !== id) return;
-      void mutate((d) => d && { ...d, messages: d.messages.some((x) => x.id === m.message.id) ? d.messages : [...d.messages, { id: m.message.id, body: m.message.body, mine: false, createdAt: m.message.createdAt }] }, { revalidate: false });
+      void mutate((d) => d && { ...d, messages: d.messages.some((x) => x.id === m.message.id) ? d.messages : [...d.messages, { id: m.message.id, body: m.message.body, mine: false, createdAt: m.message.createdAt, risk: m.message.risk ?? null }] }, { revalidate: false });
       void api(`/threads/${id}/read`, { method: "POST" }).then(() => refresh());
     };
+    // Antifraud verdicts arrive a few seconds after the message itself.
+    const onRisk = (e: Event) => {
+      const r = (e as CustomEvent<LiveRisk>).detail;
+      if (r.threadId !== id) return;
+      void mutate((d) => d && { ...d, messages: d.messages.map((x) => (x.id === r.messageId ? { ...x, risk: r.risk } : x)) }, { revalidate: false });
+    };
     window.addEventListener(LIVE_MESSAGE_EVENT, onMessage);
-    return () => window.removeEventListener(LIVE_MESSAGE_EVENT, onMessage);
+    window.addEventListener(LIVE_RISK_EVENT, onRisk);
+    return () => {
+      window.removeEventListener(LIVE_MESSAGE_EVENT, onMessage);
+      window.removeEventListener(LIVE_RISK_EVENT, onRisk);
+    };
   }, [id, mutate, refresh]);
 
   // Keep the newest message in view.
@@ -71,6 +78,7 @@ function Thread({ id }: { id: string }) {
     try {
       const m = await api<ChatMessage>(`/threads/${id}/messages`, { body: { body } });
       void mutate((d) => d && { ...d, messages: d.messages.map((x) => (x.id === tempId ? m : x)) }, { revalidate: false });
+      if (m.notice) toast(m.notice, { tone: "error" });
     } catch (e) {
       void mutate((d) => d && { ...d, messages: d.messages.filter((x) => x.id !== tempId) }, { revalidate: false });
       setDraft(body);
@@ -97,7 +105,6 @@ function Thread({ id }: { id: string }) {
   }
 
   const t = data.thread;
-  const risky = data.messages.some((m) => !m.mine && RISKY.test(m.body)) || RISKY.test(draft);
   const days = data.messages.map((m) => dayLabel(m.createdAt));
 
   return (
@@ -150,17 +157,27 @@ function Thread({ id }: { id: string }) {
                     {new Date(m.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
+                {!m.mine && m.risk && (
+                  <p
+                    role="alert"
+                    className={clsx(
+                      "mt-1 flex max-w-[80%] items-start gap-1.5 self-start rounded-xl px-3 py-2 text-xs leading-snug",
+                      m.risk.level === "high" ? "bg-danger-soft text-danger" : "bg-warn-soft text-warn",
+                    )}
+                  >
+                    <span aria-hidden className="font-bold">!</span>
+                    <span>
+                      {m.risk.level === "high" && <b className="font-semibold">Похоже на мошенничество. </b>}
+                      {m.risk.text}
+                    </span>
+                  </p>
+                )}
               </li>
             );
           })}
         </ol>
       </div>
 
-      {risky && (
-        <p className="mx-4 mb-2 rounded-xl bg-warn-soft px-4 py-2.5 text-sm text-warn">
-          Не переводите предоплату и не сообщайте данные карты и коды из SMS. Безопаснее оплатить при получении.
-        </p>
-      )}
       <form
         className="flex items-end gap-2 border-t border-line px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
         onSubmit={(e) => {

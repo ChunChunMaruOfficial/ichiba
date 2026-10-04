@@ -120,8 +120,28 @@ function SellerGroup({ group: g, me, onRemove, onSent }: { group: CartGroup; me:
           </Link>
           {g.seller.city && <span className="ml-2 text-sm font-normal text-muted">{g.seller.city}</span>}
         </h2>
-        <span className="tabular text-lg font-semibold">{formatPrice(g.total)}</span>
+        <span className="tabular text-lg font-semibold">
+          {g.discountPercent > 0 && <s className="mr-2 text-sm font-normal text-muted">{g.subtotal}</s>}
+          {formatPrice(g.total)}
+        </span>
       </div>
+      {(g.discountPercent > 0 || g.nextTier) && (
+        <p className={clsx("mb-3 rounded-xl px-4 py-2.5 text-sm", g.discountPercent > 0 ? "bg-ok-soft text-ok" : "bg-kraft/60")}>
+          {g.discountPercent > 0 && (
+            <b className="font-semibold">
+              Скидка за комплект −{g.discountPercent}%: −{formatPrice(g.discount)}.{" "}
+            </b>
+          )}
+          {g.nextTier && (
+            <>
+              Добавьте ещё {itemsLabel(g.nextTier.needItems)} от @{g.seller.username} — скидка {g.nextTier.percent}%.{" "}
+              <Link href={`/u/${g.seller.username}`} className="underline underline-offset-4">
+                В гардероб
+              </Link>
+            </>
+          )}
+        </p>
+      )}
       <ul className="flex flex-col gap-3">
         {g.items.map((i) => (
           <li key={i.id} className={clsx("flex gap-4 rounded-2xl bg-surface p-3", i.status !== "PUBLISHED" && "opacity-70")}>
@@ -182,6 +202,12 @@ function SellerGroup({ group: g, me, onRemove, onSent }: { group: CartGroup; me:
           <Field label="Комментарий продавцу" htmlFor={`comment-${g.seller.id}`} hint={`${comment.length}/300`}>
             <Textarea id={`comment-${g.seller.id}`} maxLength={300} value={comment} onChange={(e) => setComment(e.target.value)} className="min-h-20" />
           </Field>
+          {g.discountPercent > 0 && (
+            <div className="flex items-baseline justify-between text-sm text-ok">
+              <span>Скидка за комплект −{g.discountPercent}%</span>
+              <span className="tabular">−{formatPrice(g.discount)}</span>
+            </div>
+          )}
           <div className="flex items-baseline justify-between">
             <span className="text-ink-2">К оплате при получении</span>
             <span className="tabular text-xl font-semibold">{formatPrice(g.total)}</span>

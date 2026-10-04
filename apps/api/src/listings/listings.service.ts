@@ -12,6 +12,10 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
 import { AUCTION_DURATIONS, auctionInclude, defaultStep, serializeAuction } from '../auctions/rules.js';
+import { ListingModerator, ModerationVerdict } from '../ai/moderation.js';
+import { nextBumpAt, StatsService } from '../stats/stats.js';
+import { tiersOf } from './bundle.js';
+import { BodyMeasurements, fitHint, PreferredSizes } from './fit.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
 import type { ListingInputT, SearchQueryT } from './listings.dto.js';
 
@@ -20,6 +24,8 @@ const ACTIVE_REQUEST_STATUSES = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT'
 /** Fields frozen while a deal is in progress (frame 10 EDIT ITEM). */
 const LOCKED_WHEN_RESERVED = ['price', 'sizeValue', 'sizeSystem', 'condition', 'defectsPresent', 'defectsDescription'] as const;
 const CANDIDATE_POOL = 1000;
+/** Edits of these on a live listing are moderated again. */
+const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
 
 @Injectable()
 export class ListingsService {
@@ -27,6 +33,8 @@ export class ListingsService {
     private readonly prisma: PrismaService,
     private readonly recs: RecommendationsService,
     private readonly notifications: NotificationsService,
+    private readonly moderator: ListingModerator,
+    private readonly stats: StatsService,
   ) {}
 
   // ---------- helpers ----------
@@ -74,7 +82,7 @@ export class ListingsService {
 
     const runningAuction = await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } });
     if (runningAuction) {
-      const frozen = (['price', 'saleType', 'auctionStep', 'auctionReserve', 'auctionHours'] as const).filter((f) => f in data && data[f] !== listing[f]);
+      const frozen = (['price', 'saleType', 'auctionStep', 'auctionReserve', 'auctionHours', 'auctionBuyNow'] as const).filter((f) => f in data && data[f] !== listing[f]);
       if (frozen.length) throw new ConflictException({ message: 'Идёт аукцион — цену и условия торгов менять нельзя' });
     }
     if (listing.status === 'RESERVED') {
@@ -85,8 +93,18 @@ export class ListingsService {
     const priceDropped = listing.status === 'PUBLISHED' && data.price != null && listing.price != null && data.price < listing.price;
     if (priceDropped) data.previousPrice = listing.price;
 
+    // Live listings are moderated again when their text, category or photos change; a rejected edit isn't saved.
+    let verdict: ModerationVerdict | null = null;
+    const live = listing.status === 'PUBLISHED' || listing.status === 'RESERVED';
+    const prospective = { ...listing, ...Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) } as typeof listing;
+    if (live && (MODERATED_FIELDS.some((f) => f in data && data[f] !== listing[f]) || input.photos)) {
+      verdict = await this.moderator.check(prospective, await this.photoKeys(userId, id, input.photos));
+      if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Изменения не прошли проверку', code: 'MODERATION', fields: verdict.fields });
+    }
+
     await this.prisma.listing.update({ where: { id }, data });
     if (input.photos) await this.attachPhotos(userId, id, input.photos);
+    if (verdict) await this.moderator.record(prospective, verdict);
 
     if (priceDropped) {
       // ♡ = save + watch: everyone who saved the item hears about the price drop (D3).
@@ -114,6 +132,16 @@ export class ListingsService {
     return data;
   }
 
+  /** Storage keys of the photos the listing will have: the submitted list, or the current one. */
+  private async photoKeys(userId: string, listingId: string, photos?: { id: string }[]) {
+    if (!photos) {
+      const rows = await this.prisma.photo.findMany({ where: { listingId }, orderBy: { order: 'asc' }, select: { key: true } });
+      return rows.map((r) => r.key);
+    }
+    const rows = await this.prisma.photo.findMany({ where: { id: { in: photos.map((p) => p.id) }, ownerId: userId }, select: { id: true, key: true } });
+    return photos.map((p) => rows.find((r) => r.id === p.id)?.key).filter((k): k is string => !!k);
+  }
+
   /** Links the given photos (in order, first = cover) and detaches any others. */
   private async attachPhotos(userId: string, listingId: string, photos: { id: string; isDefect: boolean }[]) {
     const owned = await this.prisma.photo.findMany({ where: { id: { in: photos.map((p) => p.id) }, ownerId: userId }, select: { id: true } });
@@ -133,9 +161,9 @@ export class ListingsService {
     if (listing.status === 'PUBLISHED') return this.getForOwner(userId, id);
     if (!['DRAFT', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя опубликовать' });
 
-    const photos = await this.prisma.photo.count({ where: { listingId: id } });
+    const photoKeys = await this.photoKeys(userId, id);
     const fields: Record<string, string> = {};
-    if (!photos) fields.photos = 'Добавьте хотя бы одно фото';
+    if (!photoKeys.length) fields.photos = 'Добавьте хотя бы одно фото';
     if (!listing.title.trim()) fields.title = 'Укажите название';
     if (!listing.category) fields.category = 'Выберите категорию';
     if (sizeRequired(listing.category) && !listing.sizeValue) fields.size = 'Укажите размер';
@@ -147,13 +175,20 @@ export class ListingsService {
     if (listing.saleType === 'AUCTION') {
       if (!AUCTION_DURATIONS.includes(listing.auctionHours ?? 0)) fields.auctionHours = 'Выберите длительность аукциона';
       if (listing.auctionReserve != null && listing.price != null && listing.auctionReserve < listing.price) fields.auctionReserve = 'Резерв не может быть ниже стартовой цены';
+      if (listing.auctionBuyNow != null && listing.price != null && listing.auctionBuyNow <= listing.price) fields.auctionBuyNow = 'Цена «Купить сейчас» должна быть выше стартовой';
+      else if (listing.auctionBuyNow != null && listing.auctionReserve != null && listing.auctionBuyNow < listing.auctionReserve) fields.auctionBuyNow = 'Цена «Купить сейчас» не может быть ниже резерва';
     }
     if (Object.keys(fields).length) throw new BadRequestException({ message: 'Заполните обязательные поля', fields });
 
+    // Automatic moderation (rules + AI ensemble): violations come back as field errors for the seller.
+    const verdict = await this.moderator.check(listing, photoKeys);
+    if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields });
+
     await this.prisma.listing.update({
       where: { id },
-      data: { status: 'PUBLISHED', publishedAt: listing.publishedAt ?? new Date() },
+      data: { status: 'PUBLISHED', publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date() },
     });
+    await this.moderator.record(listing, verdict);
     // Auction clock starts at publication (decision D16).
     if (listing.saleType === 'AUCTION' && !(await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } }))) {
       await this.prisma.auction.create({
@@ -162,6 +197,7 @@ export class ListingsService {
           startPrice: listing.price!,
           step: listing.auctionStep ?? defaultStep(listing.price!),
           reservePrice: listing.auctionReserve,
+          buyNowPrice: listing.auctionBuyNow,
           endsAt: new Date(Date.now() + listing.auctionHours! * 3600 * 1000),
         },
       });
@@ -183,6 +219,28 @@ export class ListingsService {
     await this.prisma.listing.update({ where: { id }, data: { status: 'HIDDEN' } });
     await this.prisma.offer.updateMany({ where: { listingId: id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
     return { ok: true };
+  }
+
+  /**
+   * "Поднять" (feature 11): moves a listing to the top of "Новинки" and search by freshness. Free, once per
+   * 72 h, the first time 24 h after publication — often enough to help a seller, rare enough not to flood.
+   */
+  async bump(userId: string, id: string) {
+    const listing = await this.ownListing(userId, id);
+    const next = nextBumpAt(listing);
+    if (!next) throw new ConflictException({ message: 'Поднять можно только вещь в продаже' });
+    if (next.getTime() > Date.now()) {
+      const hours = Math.ceil((next.getTime() - Date.now()) / 3600_000);
+      throw new ConflictException({ message: `Поднять снова можно через ${hours} ч`, nextAt: next });
+    }
+    const now = new Date();
+    // Guarded update: two clicks can't both pass the cooldown.
+    const { count } = await this.prisma.listing.updateMany({
+      where: { id, status: 'PUBLISHED', lastBumpAt: listing.lastBumpAt },
+      data: { liftedAt: now, lastBumpAt: now, bumpsCount: { increment: 1 } },
+    });
+    if (!count) throw new ConflictException({ message: 'Вещь уже подняли — обновите страницу' });
+    return { liftedAt: now, nextAt: nextBumpAt({ ...listing, lastBumpAt: now }) };
   }
 
   /** "Продано вне платформы": pending requests are declined and buyers notified. */
@@ -259,6 +317,7 @@ export class ListingsService {
 
     if (!isOwner && opts.trackView !== false) {
       await this.prisma.listing.update({ where: { id }, data: { viewsCount: { increment: 1 } } });
+      this.stats.track(id, 'views');
       if (viewerId) await this.recs.record(viewerId, 'view', id);
     }
 
@@ -270,6 +329,7 @@ export class ListingsService {
       isOwner ? this.prisma.offer.count({ where: { listingId: id, status: 'PENDING', from: 'BUYER', expiresAt: { gt: new Date() } } }) : 0,
       isOwner && listing.status === 'BLOCKED' ? this.prisma.report.count({ where: { targetType: 'APPEAL', targetId: id, status: 'OPEN' } }).then(Boolean) : false,
     ]);
+    const viewer = viewerId && !isOwner ? await this.prisma.user.findUnique({ where: { id: viewerId }, select: { sizes: true, bodyMeasurements: true } }) : null;
     const [seller, isFavorite, myRequest, ownerStats] = await Promise.all([
       this.sellerSummary(listing.sellerId, viewerId),
       viewerId ? this.prisma.favorite.findUnique({ where: { userId_listingId: { userId: viewerId, listingId: id } } }).then(Boolean) : false,
@@ -326,27 +386,57 @@ export class ListingsService {
       saleType: listing.saleType,
       auction: auctionRow ? serializeAuction(auctionRow, viewerId, listing.sellerId) : null,
       myRequest,
+      // Size hint for the signed-in buyer: null when we know nothing about their sizes.
+      fit: viewer ? fitHint(listing, { body: viewer.bodyMeasurements as BodyMeasurements | null, sizes: viewer.sizes as PreferredSizes | null }) : null,
+      fitProfile: viewer ? !!(viewer.bodyMeasurements || viewer.sizes) : null,
       // Owner-only extras (frame 10 Edit Item needs these to rebuild the form).
       owner: isOwner
-        ? { pendingRequests: ownerStats, pendingOffers, appealOpen, auctionStep: listing.auctionStep, auctionReserve: listing.auctionReserve, auctionHours: listing.auctionHours, minOfferPrice: listing.minOfferPrice, aiAttributes: listing.aiAttributes, sizeSystem: listing.sizeSystem }
+        ? {
+            pendingRequests: ownerStats,
+            pendingOffers,
+            appealOpen,
+            auctionStep: listing.auctionStep,
+            auctionReserve: listing.auctionReserve,
+            auctionHours: listing.auctionHours,
+            auctionBuyNow: listing.auctionBuyNow,
+            minOfferPrice: listing.minOfferPrice,
+            aiAttributes: listing.aiAttributes,
+            sizeSystem: listing.sizeSystem,
+            bump: (() => {
+              const next = nextBumpAt(listing);
+              return next ? { nextAt: next, available: next.getTime() <= Date.now(), count: listing.bumpsCount } : null;
+            })(),
+          }
         : null,
     };
   }
 
   async sellerSummary(sellerId: string, viewerId?: string) {
-    const [user, active, sold, followers, following, completedDeals] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true } }),
+    const [user, active, sold, followers, following, completedDeals, rating] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true } }),
       this.prisma.listing.count({ where: { sellerId, status: { in: VISIBLE_IN_FEED } } }),
       this.prisma.listing.count({ where: { sellerId, status: 'SOLD' } }),
       this.prisma.follow.count({ where: { sellerId } }),
       this.prisma.follow.count({ where: { followerId: sellerId } }),
       this.prisma.buyRequest.count({ where: { sellerId, status: 'COMPLETED' } }),
+      this.prisma.review.aggregate({ where: { sellerId, hidden: false }, _avg: { rating: true }, _count: true }),
     ]);
     const isFollowing =
       viewerId && viewerId !== sellerId
         ? !!(await this.prisma.follow.findUnique({ where: { followerId_sellerId: { followerId: viewerId, sellerId } } }))
         : false;
-    return { ...user, activeCount: active, soldCount: sold, followers, following, completedDeals, isFollowing };
+    const { bundleDiscounts, ...profile } = user;
+    return {
+      ...profile,
+      activeCount: active,
+      soldCount: sold,
+      followers,
+      following,
+      completedDeals,
+      isFollowing,
+      rating: rating._count ? { avg: Math.round((rating._avg.rating ?? 0) * 10) / 10, count: rating._count } : null,
+      bundleDiscounts: tiersOf(bundleDiscounts),
+    };
   }
 
   async related(id: string, viewerId?: string) {
@@ -428,7 +518,7 @@ export class ListingsService {
       where.category = { in: categoriesInGroup(effective as 'clothing') };
     }
     const [rows, total] = await Promise.all([
-      this.prisma.listing.findMany({ where, include: cardInclude, orderBy: { publishedAt: 'desc' }, skip: offset, take: limit }),
+      this.prisma.listing.findMany({ where, include: cardInclude, orderBy: [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }], skip: offset, take: limit }),
       this.prisma.listing.count({ where }),
     ]);
     return { chip: effective, items: await this.cards(rows, viewerId), total };
@@ -489,6 +579,13 @@ export class ListingsService {
   }
 
   async search(q: SearchQueryT, viewerId?: string) {
+    // "Мой размер": the sizes the buyer saved in the profile.
+    if (q.my_size === '1' && viewerId) {
+      const me = await this.prisma.user.findUnique({ where: { id: viewerId }, select: { sizes: true } });
+      const s = (me?.sizes ?? {}) as PreferredSizes;
+      const mine = [...(s.clothing ?? []), ...(s.shoes ?? []), ...(s.jeans ?? [])];
+      if (mine.length) q = { ...q, size: [...new Set([...(q.size ?? []), ...mine])] };
+    }
     const where = this.searchWhere(q);
     let items;
     let total: number;
@@ -510,7 +607,7 @@ export class ListingsService {
             ? [{ price: 'desc' }]
             : q.sort === 'popular'
               ? [{ favoritesCount: 'desc' }, { viewsCount: 'desc' }]
-              : [{ publishedAt: 'desc' }];
+              : [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }];
       const [rows, count] = await Promise.all([
         this.prisma.listing.findMany({ where, include: cardInclude, orderBy, skip: q.offset, take: q.limit }),
         this.prisma.listing.count({ where }),
@@ -524,7 +621,12 @@ export class ListingsService {
     // Empty-state hint (frame 07): "без фильтра «M» — 23 вещи".
     let relax: { filter: string; label: string; count: number } | null = null;
     if (total === 0) {
+      const hasFilters = !!(q.category?.length || q.subcategory?.length || q.style?.length || q.size?.length || q.color?.length || q.brand?.length || q.price_max != null || q.condition?.length);
       const candidates: Array<[keyof SearchQueryT, string]> = [
+        // After a natural-language search the leftover words are the most likely culprit.
+        ...(q.q && hasFilters ? ([['q', `слов «${q.q}»`]] as Array<[keyof SearchQueryT, string]>) : []),
+        ['style', `стиля «${q.style?.join(', ')}»`],
+        ['subcategory', 'подкатегории'],
         ['size', `«${q.size?.join(', ')}»`],
         ['condition', 'по состоянию'],
         ['color', 'по цвету'],
@@ -565,6 +667,8 @@ export class ListingsService {
       }
     }
     if (q.category?.length) and.push({ category: { in: q.category } });
+    if (q.subcategory?.length) and.push({ subcategory: { in: q.subcategory } });
+    if (q.style?.length) and.push({ styleTags: { hasSome: q.style } });
     if (q.gender?.length) and.push({ gender: { in: q.gender as ('MALE' | 'FEMALE' | 'UNISEX')[] } });
     if (q.size?.length) and.push({ sizeValue: { in: q.size } });
     if (q.condition?.length) and.push({ condition: { in: q.condition as ('GOOD' | 'LIKE_NEW')[] } });
@@ -574,6 +678,19 @@ export class ListingsService {
     if (q.seller) and.push({ seller: { username: q.seller.replace(/^@/, '').toLowerCase() } });
     if (q.price_min != null || q.price_max != null) and.push({ price: { gte: q.price_min, lte: q.price_max } });
     return { status: q.available === '1' ? 'PUBLISHED' : { in: VISIBLE_IN_FEED }, AND: and };
+  }
+
+  async sitemap() {
+    const [listings, sellers] = await Promise.all([
+      this.prisma.listing.findMany({ where: { status: { in: ['PUBLISHED', 'RESERVED'] } }, select: { id: true, updatedAt: true }, orderBy: { liftedAt: 'desc' }, take: 45_000 }),
+      this.prisma.listing.groupBy({ by: ['sellerId'], where: { status: 'PUBLISHED' }, _max: { updatedAt: true } }),
+    ]);
+    const users = await this.prisma.user.findMany({ where: { id: { in: sellers.map((s) => s.sellerId) }, blockedAt: null }, select: { id: true, username: true } });
+    const last = new Map(sellers.map((s) => [s.sellerId, s._max.updatedAt]));
+    return {
+      listings: listings.map((l) => ({ id: l.id, updatedAt: l.updatedAt })),
+      wardrobes: users.map((u) => ({ username: u.username, updatedAt: last.get(u.id) })),
+    };
   }
 
   // ---------- wardrobe ----------

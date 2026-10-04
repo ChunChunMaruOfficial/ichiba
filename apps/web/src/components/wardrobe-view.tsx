@@ -1,5 +1,7 @@
 "use client";
 
+import clsx from "clsx";
+
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -9,6 +11,8 @@ import { useListingActions } from "@/lib/listing-actions";
 import type { Card, Deal, Offer, SellerSummary } from "@/lib/types";
 import { DealCard } from "./deal-actions";
 import { ReportModal } from "./report-modal";
+import { ReviewsSection } from "./reviews";
+import { BundleNote, RatingInline } from "./trust";
 import { OfferCard } from "./offer";
 import { ItemCard } from "./item-card";
 import { FollowButton } from "./sections";
@@ -16,7 +20,7 @@ import { useSession } from "./session";
 import { useToast } from "./toast";
 import { Button, ButtonLink, Chip, EmptyState, ErrorState, IconMore, IconPlus, IconShare, Modal, Skeleton, Spinner } from "./ui";
 
-interface WardrobeData {
+export interface WardrobeData {
   seller: SellerSummary;
   isOwner: boolean;
   counts: Record<"all" | "top" | "bottom" | "shoes" | "accessories" | "new" | "selling" | "sold", number>;
@@ -150,16 +154,17 @@ function ActionRequired({ onChange }: { onChange: () => void }) {
 }
 
 /** Seller Wardrobe and My Wardrobe share one template (frame 09); MVP is a 2D grid grouped by section. */
-export function WardrobeView({ username }: { username: string }) {
+export function WardrobeView({ username, initial }: { username: string; initial?: WardrobeData | null }) {
   const params = useSearchParams();
   const section = (FILTERS.find(([k]) => k === params.get("section"))?.[0] ?? "all") as (typeof FILTERS)[number][0];
   const sort = SORTS.find(([k]) => k === params.get("sort"))?.[0] ?? "new";
+  const tab = params.get("tab") === "reviews" ? "reviews" : "items";
   const { me, requireAuth } = useSession();
   const toast = useToast();
   const router = useRouter();
   const [reporting, setReporting] = useState(false);
   const [people, setPeople] = useState<"followers" | "following" | null>(null);
-  const setQuery = (next: { section?: string; sort?: string }) => {
+  const setQuery = (next: { section?: string; sort?: string; tab?: string }) => {
     const sp = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(next)) {
       if (!v || v === "all" || v === "new") sp.delete(k);
@@ -170,7 +175,10 @@ export function WardrobeView({ username }: { username: string }) {
   };
   const setSection = (s: string) => setQuery({ section: s });
   const setSort = (s: string) => setQuery({ sort: s });
-  const { data, error, mutate, isLoading } = useSWR<WardrobeData>(`/wardrobes/${username}?section=${section}&sort=${sort}`);
+  // Server-rendered first page (default section and sort) makes the wardrobe indexable and paints instantly.
+  const { data, error, mutate } = useSWR<WardrobeData>(`/wardrobes/${username}?section=${section}&sort=${sort}`, {
+    fallbackData: section === "all" && sort === "new" ? (initial ?? undefined) : undefined,
+  });
 
   if (error) {
     return (error as { status?: number }).status === 404 ? (
@@ -199,7 +207,7 @@ export function WardrobeView({ username }: { username: string }) {
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-6 md:py-10">
       {/* Header */}
-      {!s || isLoading ? (
+      {!s ? (
         <div className="flex flex-col gap-3">
           <Skeleton className="h-9 w-48" />
           <Skeleton className="h-5 w-80" />
@@ -224,6 +232,7 @@ export function WardrobeView({ username }: { username: string }) {
                 </button>
               </p>
             )}
+            <RatingInline rating={s.rating} username={s.username} className="mt-2" />
             {s.bio && <p className="mt-2 max-w-xl text-[15px] text-ink-2">{s.bio}</p>}
             {!owner && s.completedDeals > 0 && <p className="mt-2 text-sm text-muted">{s.completedDeals} {plural(s.completedDeals, "завершённая сделка", "завершённые сделки", "завершённых сделок")}</p>}
           </div>
@@ -232,6 +241,9 @@ export function WardrobeView({ username }: { username: string }) {
               <>
                 <ButtonLink href="/sell">
                   <IconPlus className="size-4" /> Добавить вещь
+                </ButtonLink>
+                <ButtonLink href="/sales/stats" variant="secondary">
+                  Статистика
                 </ButtonLink>
                 <ButtonLink href="/settings" variant="secondary">
                   Редактировать профиль
@@ -276,9 +288,30 @@ export function WardrobeView({ username }: { username: string }) {
         </div>
       )}
 
+      {s && !owner && s.bundleDiscounts.length > 0 && <BundleNote tiers={s.bundleDiscounts} username={s.username} className="mt-6 max-w-2xl" />}
+
       <div className="mt-8">{owner && <ActionRequired onChange={() => mutate()} />}</div>
 
-      {empty ? (
+      {s && (
+        <div role="tablist" aria-label="Разделы гардероба" className="mb-2 flex gap-6 border-b border-line">
+          {(
+            [
+              ["items", "Вещи"],
+              ["reviews", `Отзывы${s.rating ? ` · ${s.rating.count}` : ""}`],
+            ] as const
+          ).map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setQuery({ tab: k === "items" ? undefined : k })} className={clsx("-mb-px border-b-2 pb-2.5 text-[15px] font-medium", tab === k ? "border-ink text-ink" : "border-transparent text-ink-2 hover:text-ink")}>
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "reviews" ? (
+        <div className="mt-6">
+          <ReviewsSection username={username} />
+        </div>
+      ) : empty ? (
         owner ? (
           <EmptyState title="Гардероб пока пуст" hint="Выставление занимает около минуты">
             <ButtonLink href="/sell">+ Добавить первую вещь</ButtonLink>

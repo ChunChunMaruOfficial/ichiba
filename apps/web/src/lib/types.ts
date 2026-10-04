@@ -29,11 +29,42 @@ export interface Me {
   role: "USER" | "ADMIN";
   onboardedAt: string | null;
   createdAt: string;
+  emailVerified: boolean;
+  emailPrefs: { deals: boolean };
+  sizes: PreferredSizes | null;
+  bodyMeasurements: BodyMeasurements | null;
+  bundleDiscounts: BundleTier[];
   unreadNotifications: number;
   pendingSales: number;
   pendingOffers: number;
   cartCount: number;
   unreadMessages: number;
+}
+
+export interface PreferredSizes {
+  clothing?: string[];
+  shoes?: string[];
+  jeans?: string[];
+}
+
+export interface BodyMeasurements {
+  height?: number | null;
+  chest?: number | null;
+  waist?: number | null;
+  hips?: number | null;
+  footLength?: number | null;
+}
+
+export interface BundleTier {
+  minItems: number;
+  percent: number;
+}
+
+export interface FitHint {
+  verdict: "good" | "snug" | "loose" | "small" | "large";
+  title: string;
+  details: string[];
+  basis: "measurements" | "size";
 }
 
 export interface Cover {
@@ -76,9 +107,13 @@ export interface AuctionView {
   reservePrice: number | null;
   leaderIsMe: boolean;
   myMaxBid: number | null;
+  myAutoMax: number | null;
+  buyNowPrice: number | null;
+  buyNowAvailable: boolean;
+  boughtOut: boolean;
   winnerIsMe: boolean;
   requestId: string | null;
-  bids: Array<{ bidder: string; amount: number; at: string; mine: boolean }>;
+  bids: Array<{ bidder: string; amount: number; at: string; mine: boolean; auto: boolean; buyNow: boolean }>;
 }
 
 export interface Photo {
@@ -103,6 +138,8 @@ export interface SellerSummary {
   following: number;
   completedDeals: number;
   isFollowing: boolean;
+  rating: { avg: number; count: number } | null;
+  bundleDiscounts: BundleTier[];
 }
 
 export interface AiAttr {
@@ -151,7 +188,23 @@ export interface ListingDetail {
   saleType: "FIXED" | "AUCTION";
   auction: AuctionView | null;
   myRequest: { id: string; status: RequestStatus; number: number } | null;
-  owner: { pendingRequests: number; pendingOffers: number; appealOpen: boolean; auctionStep: number | null; auctionReserve: number | null; auctionHours: number | null; minOfferPrice: number | null; aiAttributes: Record<string, AiAttr> | null; sizeSystem: SizeSystem | null } | null;
+  /** Size hint for the signed-in buyer (null for guests and when nothing is known). */
+  fit: FitHint | null;
+  /** Whether the viewer has saved sizes/measurements (null for guests and the owner). */
+  fitProfile: boolean | null;
+  owner: {
+    pendingRequests: number;
+    pendingOffers: number;
+    appealOpen: boolean;
+    auctionStep: number | null;
+    auctionReserve: number | null;
+    auctionHours: number | null;
+    auctionBuyNow: number | null;
+    minOfferPrice: number | null;
+    aiAttributes: Record<string, AiAttr> | null;
+    sizeSystem: SizeSystem | null;
+    bump: { nextAt: string; available: boolean; count: number } | null;
+  } | null;
 }
 
 export type ListingResponse = ListingDetail | { unavailable: "hidden" | "blocked"; id: string; seller: { username: string } };
@@ -162,6 +215,8 @@ export interface Deal {
   role: "buyer" | "seller";
   status: RequestStatus;
   priceTotal: number;
+  subtotal: number | null;
+  discountPercent: number;
   listPriceTotal: number;
   source: "BUY" | "OFFER" | "CART" | "AUCTION";
   deliveryMethod: DeliveryMethod;
@@ -179,7 +234,58 @@ export interface Deal {
   sellerCity: string | null;
   threadId: string | null;
   needsMyAction: boolean;
+  review: { id: string; rating: number; text: string | null; tags: string[]; reply: string | null; createdAt: string; repliedAt: string | null; hidden: boolean; canEdit: boolean } | null;
+  canReview: boolean;
   events?: Array<{ status: RequestStatus; at: string; reason: string | null; byMe: boolean }>;
+}
+
+export interface Review {
+  id: string;
+  rating: number;
+  tags: Array<{ key: string; label: string; positive: boolean }>;
+  text: string | null;
+  reply: string | null;
+  repliedAt: string | null;
+  createdAt: string;
+  edited: boolean;
+  author: string;
+  listing: { id: string; title: string } | null;
+  mine: boolean;
+  canEdit: boolean;
+  canReply: boolean;
+}
+
+export interface ReviewsPage {
+  summary: { avg: number; count: number; distribution: Array<{ stars: number; count: number }>; topTags: Array<{ key: string; label: string; count: number }> };
+  items: Review[];
+  hasMore: boolean;
+}
+
+export interface StatTotals {
+  views: number;
+  favorites: number;
+  carts: number;
+  chats: number;
+  offers: number;
+  requests: number;
+}
+
+export interface StatsOverview {
+  days: 7 | 30;
+  totals: StatTotals & { contacts: number; sales: number; revenue: number };
+  previous: StatTotals & { contacts: number; sales: number; revenue: number };
+  funnel: Array<{ key: string; label: string; value: number }>;
+  series: Array<{ day: string; views: number; favorites: number; contacts: number }>;
+  listings: Array<{ listing: Card; period: StatTotals; allTime: { views: number; favorites: number }; bump: { nextAt: string; available: boolean } | null; tips: string[] }>;
+  tips: Array<{ listingId: string; title: string; text: string }>;
+}
+
+export interface ListingStats {
+  allTime: { views: number; favorites: number };
+  last30: StatTotals;
+  series: Array<{ day: string; views: number }>;
+  bump: { nextAt: string; available: boolean; lastAt: string | null; count: number } | null;
+  tips: string[];
 }
 
 export interface Category {
@@ -239,8 +345,13 @@ export interface CartGroup {
   seller: { id: string; username: string; city: string | null };
   items: Card[];
   deliveryOptions: DeliveryMethod[];
+  subtotal: number;
+  discountPercent: number;
+  discount: number;
   total: number;
   availableCount: number;
+  bundleTiers: BundleTier[];
+  nextTier: { needItems: number; percent: number } | null;
 }
 
 export interface ThreadSummary {
@@ -260,6 +371,10 @@ export interface ChatMessage {
   mine: boolean;
   createdAt: string;
   pending?: boolean;
+  /** Antifraud warning, shown to the recipient only. */
+  risk?: MessageRisk | null;
+  /** Shown to the sender, e.g. "card number hidden". */
+  notice?: string | null;
 }
 
 export interface CollectionSummary {
@@ -268,4 +383,80 @@ export interface CollectionSummary {
   count: number;
   covers: (string | null)[];
   hasItem?: boolean;
+}
+
+// ---------- AI ensemble ----------
+
+export interface PhotoIssue {
+  code: string;
+  severity: "error" | "warn" | "info";
+  text: string;
+}
+
+export interface PhotoCheck {
+  photos: Array<{ id: string; issues: PhotoIssue[] }>;
+  cover: { photoId: string; reason: string } | null;
+  missing: Array<{ code: string; text: string }>;
+  score: number;
+  ai: boolean;
+  model: string;
+}
+
+export interface PriceSuggestion {
+  status: "ok" | "insufficient";
+  recommended: number | null;
+  low: number | null;
+  high: number | null;
+  quickSale: number | null;
+  confidence: "high" | "medium" | "low";
+  facts: string[];
+  reasoning: string | null;
+  basis: { comparables: number; sold: number; aiVotes: number };
+  comparables: Card[];
+  auction: { start: number; reserve: number } | null;
+  model: string;
+}
+
+export interface NegotiationAdvice {
+  action: "accept" | "counter" | "decline";
+  counter: number | null;
+  confidence: "high" | "medium" | "low";
+  facts: string[];
+  reason: string | null;
+  market: { low: number; high: number; recommended: number } | null;
+  model: string;
+}
+
+export interface OpeningSuggestion {
+  suggested: number;
+  min: number;
+  chance: "high" | "medium" | "low";
+  facts: string[];
+}
+
+export interface SearchInterpretation {
+  status: "ok" | "skip";
+  filters: {
+    q: string;
+    category: string[];
+    subcategory: string[];
+    color: string[];
+    size: string[];
+    condition: string[];
+    brand: string[];
+    style: string[];
+    gender: string[];
+    city: string | null;
+    price_min: number | null;
+    price_max: number | null;
+  };
+  chips: Array<{ key: string; label: string }>;
+  source: "rules" | "ai";
+}
+
+export interface MessageRisk {
+  level: "warn" | "high";
+  categories: string[];
+  text: string;
+  source: "rules" | "ai";
 }

@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { DeliveryMethod, Prisma, RequestSource, RequestStatus } from '../generated/prisma/client.js';
+import { applyDiscount, discountFor, tiersOf } from '../listings/bundle.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
+import { StatsService } from '../stats/stats.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -18,6 +20,7 @@ export const requestInclude = {
   buyer: { select: { id: true, username: true, phone: true } },
   seller: { select: { id: true, username: true, phone: true, city: true } },
   threads: { select: { id: true }, take: 1 },
+  review: { select: { id: true, rating: true, text: true, tags: true, reply: true, createdAt: true, repliedAt: true, hidden: true } },
 } satisfies Prisma.BuyRequestInclude;
 type RequestRow = Prisma.BuyRequestGetPayload<{ include: typeof requestInclude }>;
 
@@ -42,6 +45,7 @@ export class RequestsService {
     private readonly listings: ListingsService,
     private readonly notifications: NotificationsService,
     private readonly recs: RecommendationsService,
+    private readonly stats: StatsService,
   ) {}
 
   // ---------- serialization ----------
@@ -57,6 +61,8 @@ export class RequestsService {
       role,
       status: r.status,
       priceTotal: r.priceTotal,
+      subtotal: r.subtotal,
+      discountPercent: r.discountPercent,
       listPriceTotal: r.items.reduce((s, i) => s + (i.listing.price ?? i.price), 0),
       source: r.source,
       deliveryMethod: r.deliveryMethod,
@@ -79,6 +85,12 @@ export class RequestsService {
       sellerCity: r.seller.city,
       threadId: r.threads[0]?.id ?? null,
       needsMyAction: this.needsAction(r, role),
+      review:
+        r.review && (!r.review.hidden || role === 'buyer')
+          ? { ...r.review, canEdit: role === 'buyer' && Date.now() - r.review.createdAt.getTime() < 14 * 24 * 3600 * 1000 }
+          : null,
+      // The buyer reviews the seller once, within 30 days after completion.
+      canReview: role === 'buyer' && r.status === 'COMPLETED' && !r.review && !!r.completedAt && Date.now() - r.completedAt.getTime() < 30 * 24 * 3600 * 1000,
     };
   }
 
@@ -130,11 +142,17 @@ export class RequestsService {
     if (existing) throw new ConflictException({ message: 'Вы уже отправили запрос на эту вещь', requestId: existing.id, code: 'DUPLICATE' });
 
     const sellerId = listings[0].sellerId;
+    // Several items of one seller: the seller's bundle discount applies (feature 10).
+    const seller = await this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { bundleDiscounts: true } });
+    const percent = listings.length > 1 ? discountFor(tiersOf(seller.bundleDiscounts), listings.length) : 0;
+    const priced = applyDiscount(listings.map((l) => l.price!), percent);
     const request = await this.prisma.buyRequest.create({
       data: {
         buyerId,
         sellerId,
-        priceTotal: listings.reduce((s, l) => s + l.price!, 0),
+        priceTotal: priced.total,
+        subtotal: percent ? priced.subtotal : null,
+        discountPercent: percent,
         source: input.source,
         deliveryMethod: input.deliveryMethod,
         deliveryPoint: input.deliveryPoint?.trim() || null,
@@ -142,7 +160,7 @@ export class RequestsService {
         buyerComment: input.buyerComment?.trim() || null,
         status: 'PENDING_SELLER',
         expiresAt: new Date(Date.now() + REPLY_MS),
-        items: { create: listings.map((l) => ({ listingId: l.id, price: l.price! })) },
+        items: { create: listings.map((l, i) => ({ listingId: l.id, price: priced.itemPrices[i] })) },
         events: { create: [{ status: 'CREATED', byUserId: buyerId }, { status: 'PENDING_SELLER', byUserId: buyerId }] },
       },
       include: requestInclude,
@@ -151,7 +169,10 @@ export class RequestsService {
     await this.linkThreads(request.id, buyerId, ids);
     const title = listings.length > 1 ? `${listings[0].title} и ещё ${listings.length - 1}` : listings[0].title;
     await this.notifications.notify(sellerId, 'request_new', { requestId: request.id, title, price: request.priceTotal, buyer: request.buyer.username });
-    for (const l of listings) await this.recs.record(buyerId, 'request', l.id);
+    for (const l of listings) {
+      await this.recs.record(buyerId, 'request', l.id);
+      this.stats.track(l.id, 'requests');
+    }
     return this.serialize(request, buyerId);
   }
 
@@ -329,6 +350,9 @@ export class RequestsService {
       this.prisma.listing.updateMany({ where: { id: { in: listingIds } }, data: { status: 'SOLD', soldAt: new Date() } }),
       this.prisma.cartItem.deleteMany({ where: { listingId: { in: listingIds } } }),
     ]);
+    // Ask the buyer to rate the seller (reviews: buyer → seller only).
+    const r = await this.prisma.buyRequest.findUnique({ where: { id }, select: { buyerId: true, seller: { select: { username: true } }, items: { take: 1, select: { listing: { select: { id: true, title: true } } } } } });
+    if (r) await this.notifications.notify(r.buyerId, 'review_request', { requestId: id, listingId: r.items[0]?.listing.id, title: r.items[0]?.listing.title, seller: r.seller.username });
   }
 
   // ---------- scheduled rules (frame 14 MVP) ----------

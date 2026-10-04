@@ -29,10 +29,11 @@ import { PrismaService } from '../prisma/prisma.service.js';
 export const REPORT_REASONS = {
   LISTING: ['Подделка или копия бренда', 'Запрещённый товар', 'Фото не соответствует вещи', 'Мошенничество', 'Оскорбительное содержание', 'Другое'],
   USER: ['Мошенничество', 'Оскорбления в чате', 'Не выходит на связь после сделки', 'Спам', 'Другое'],
+  REVIEW: ['Оскорбления', 'Ложная информация', 'Отзыв не о сделке', 'Спам', 'Другое'],
 };
 
 const ReportDto = z.object({
-  targetType: z.enum(['LISTING', 'USER']),
+  targetType: z.enum(['LISTING', 'USER', 'REVIEW']),
   targetId: z.string().min(1),
   reason: z.string().min(1, 'Выберите причину').max(100),
   comment: z.string().trim().max(1000).nullish(),
@@ -55,6 +56,10 @@ export class ReportsController {
       if (!u) throw new NotFoundException({ message: 'Пользователь не найден' });
       if (u.id === user.id) throw new BadRequestException({ message: 'Нельзя пожаловаться на себя' });
       dto.targetId = u.id;
+    } else if (dto.targetType === 'REVIEW') {
+      const r = await this.prisma.review.findUnique({ where: { id: dto.targetId }, select: { sellerId: true, authorId: true } });
+      if (!r) throw new NotFoundException({ message: 'Отзыв не найден' });
+      if (r.authorId === user.id) throw new BadRequestException({ message: 'Это ваш отзыв' });
     } else if (!(await this.prisma.listing.findUnique({ where: { id: dto.targetId }, select: { id: true } }))) {
       throw new NotFoundException({ message: 'Такой вещи нет' });
     }
@@ -135,8 +140,11 @@ export class AdminController {
       orderBy: { createdAt: status === 'OPEN' ? 'asc' : 'desc' },
       take: 100,
     });
-    const listingIds = rows.filter((r) => r.targetType !== 'USER').map((r) => r.targetId);
+    const listingIds = rows.filter((r) => r.targetType === 'LISTING' || r.targetType === 'APPEAL').map((r) => r.targetId);
     const userIds = rows.filter((r) => r.targetType === 'USER').map((r) => r.targetId);
+    const reviewIds = rows.filter((r) => r.targetType === 'REVIEW').map((r) => r.targetId);
+    const reviews = await this.prisma.review.findMany({ where: { id: { in: reviewIds } }, include: { author: { select: { username: true } }, seller: { select: { username: true } } } });
+    const R = new Map(reviews.map((r) => [r.id, { id: r.id, rating: r.rating, text: r.text, reply: r.reply, hidden: r.hidden, author: r.author.username, seller: r.seller.username }]));
     const [listings, users, counts] = await Promise.all([
       this.prisma.listing.findMany({ where: { id: { in: listingIds } }, include: cardInclude }),
       this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, username: true, blockedAt: true, createdAt: true } }),
@@ -155,10 +163,13 @@ export class AdminController {
         status: r.status,
         resolution: r.resolution,
         createdAt: r.createdAt,
-        reporter: r.reporter.username,
+        reporter: r.reporter?.username ?? null,
+        source: r.source,
+        details: r.details,
         reportsOnTarget: C.get(r.targetId) ?? 1,
         listing: L.get(r.targetId) ?? null,
         user: U.get(r.targetId) ?? null,
+        review: R.get(r.targetId) ?? null,
       })),
     };
   }
@@ -168,10 +179,23 @@ export class AdminController {
   async resolve(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(ResolveDto)) dto: z.infer<typeof ResolveDto>) {
     const r = await this.prisma.report.findUnique({ where: { id } });
     if (!r) throw new NotFoundException({ message: 'Жалоба не найдена' });
-    if (dto.action === 'block' && r.targetType !== 'USER') await this.blockListing(admin.id, r.targetId, dto.reason || r.reason);
-    if (dto.action === 'unblock' && r.targetType !== 'USER') await this.unblockListing(admin.id, r.targetId, dto.reason);
+    if (r.targetType === 'REVIEW') {
+      // Reviews are hidden, never deleted: the rating is recalculated without them.
+      if (dto.action === 'block' || dto.action === 'unblock') {
+        await this.prisma.review.update({ where: { id: r.targetId }, data: { hidden: dto.action === 'block' } });
+        await this.prisma.moderationAction.create({ data: { moderatorId: admin.id, targetType: 'REVIEW', targetId: r.targetId, action: dto.action === 'block' ? 'hide' : 'unhide', reason: dto.reason ?? null } });
+      }
+    } else {
+      if (dto.action === 'block' && r.targetType !== 'USER') await this.blockListing(admin.id, r.targetId, dto.reason || r.reason);
+      if (dto.action === 'unblock' && r.targetType !== 'USER') await this.unblockListing(admin.id, r.targetId, dto.reason);
+    }
     if (dto.action === 'block_user') {
-      const userId = r.targetType === 'USER' ? r.targetId : (await this.prisma.listing.findUniqueOrThrow({ where: { id: r.targetId } })).sellerId;
+      const userId =
+        r.targetType === 'USER'
+          ? r.targetId
+          : r.targetType === 'REVIEW'
+            ? (await this.prisma.review.findUniqueOrThrow({ where: { id: r.targetId } })).authorId
+            : (await this.prisma.listing.findUniqueOrThrow({ where: { id: r.targetId } })).sellerId;
       await this.blockUser(admin.id, userId, dto.reason || r.reason);
     }
     // Resolving one report closes all open reports on the same target.

@@ -5,12 +5,22 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AiController } from './ai/ai.controller.js';
 import { AiService } from './ai/ai.service.js';
+import { ChatGuard } from './ai/chat-guard.js';
+import { AiEnsemble } from './ai/ensemble/ensemble.js';
+import { ListingModerator } from './ai/moderation.js';
+import { NegotiationAdvisor } from './ai/negotiation.js';
+import { PhotoChecker } from './ai/photo-check.js';
+import { PriceAdvisor } from './ai/price.js';
+import { SearchParser } from './ai/search-parse.js';
+import { ReviewsController, ReviewsService } from './reviews/reviews.js';
+import { StatsController, StatsService } from './stats/stats.js';
 import { AuctionsController, AuctionsService } from './auctions/auctions.js';
 import { AuthController } from './auth/auth.controller.js';
 import { CartController } from './cart/cart.js';
 import { ChatController, ChatService } from './chat/chat.js';
 import { CollectionsController } from './collections/collections.js';
 import { EventsModule } from './events/events.js';
+import { MailModule } from './mail/mail.module.js';
 import { FollowingController } from './follows/following.js';
 import { AdminController, AdminGuard, ReportsController } from './moderation/moderation.js';
 import { OffersController, OffersService } from './offers/offers.js';
@@ -36,6 +46,7 @@ import { UsersController, UsersService } from './users/users.service.js';
   imports: [
     PrismaModule,
     EventsModule,
+    MailModule,
     NotificationsModule,
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
@@ -59,13 +70,24 @@ import { UsersController, UsersService } from './users/users.service.js';
     FollowingController,
     ReportsController,
     AdminController,
+    ReviewsController,
+    StatsController,
   ],
   providers: [
     AuthService,
     CodeSenderService,
     UsersService,
     MediaService,
+    AiEnsemble,
     AiService,
+    PriceAdvisor,
+    PhotoChecker,
+    ListingModerator,
+    NegotiationAdvisor,
+    SearchParser,
+    ChatGuard,
+    StatsService,
+    ReviewsService,
     ListingsService,
     RecommendationsService,
     RequestsService,

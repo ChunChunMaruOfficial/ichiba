@@ -7,8 +7,8 @@ import { useToast } from "./toast";
 import { Button, Field, Modal, Textarea } from "./ui";
 
 /** Complaint about an item or a user (frame 20). */
-export function ReportModal({ open, onClose, targetType, targetId, title }: { open: boolean; onClose: () => void; targetType: "LISTING" | "USER"; targetId: string; title: string }) {
-  const { data: reasons } = useSWR<{ LISTING: string[]; USER: string[] }>(open ? "/reports/reasons" : null);
+export function ReportModal({ open, onClose, targetType, targetId, title }: { open: boolean; onClose: () => void; targetType: "LISTING" | "USER" | "REVIEW"; targetId: string; title?: string }) {
+  const { data: reasons } = useSWR<{ LISTING: string[]; USER: string[]; REVIEW: string[] }>(open ? "/reports/reasons" : null);
   const [reason, setReason] = useState("");
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,7 +30,7 @@ export function ReportModal({ open, onClose, targetType, targetId, title }: { op
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={targetType === "LISTING" ? "Пожаловаться на вещь" : "Пожаловаться на пользователя"}>
+    <Modal open={open} onClose={onClose} title={targetType === "LISTING" ? "Пожаловаться на вещь" : targetType === "REVIEW" ? "Пожаловаться на отзыв" : "Пожаловаться на пользователя"}>
       <p className="-mt-2 mb-4 truncate text-sm text-muted">{title}</p>
       <fieldset className="flex flex-col gap-2">
         <legend className="sr-only">Причина</legend>

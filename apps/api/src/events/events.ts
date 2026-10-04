@@ -5,6 +5,7 @@ import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 export type RealtimeEvent =
   | { type: 'notification'; data: unknown }
   | { type: 'message'; data: { threadId: string; message: unknown } }
+  | { type: 'message_risk'; data: { threadId: string; messageId: string; risk: unknown } }
   | { type: 'counters'; data: Record<string, never> };
 
 /**

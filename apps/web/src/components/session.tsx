@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import useSWR, { useSWRConfig } from "swr";
 import { api } from "@/lib/api";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
-import type { Me, Meta } from "@/lib/types";
+import type { Me, MessageRisk, Meta } from "@/lib/types";
 import { AuthModal } from "./auth-modal";
 import { useToast } from "./toast";
 
@@ -34,11 +34,19 @@ export function useSession() {
 
 export interface LiveMessage {
   threadId: string;
-  message: { id: string; body: string; mine: boolean; createdAt: string; from: string; title: string };
+  message: { id: string; body: string; mine: boolean; createdAt: string; from: string; title: string; risk?: MessageRisk | null };
+}
+
+export interface LiveRisk {
+  threadId: string;
+  messageId: string;
+  risk: MessageRisk | null;
 }
 
 /** Pages subscribe to live chat messages through this window event. */
 export const LIVE_MESSAGE_EVENT = "ichiba:message";
+/** Antifraud verdict for a message that arrived earlier. */
+export const LIVE_RISK_EVENT = "ichiba:message-risk";
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { data, isLoading, mutate } = useSWR<{ user: Me | null }>("/auth/me", { revalidateOnFocus: true });
@@ -86,6 +94,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       void globalMutate("/threads");
       if (!window.location.pathname.startsWith(`/messages/${m.threadId}`)) {
         toast(`@${m.message.from}: ${m.message.body.slice(0, 60)}`, { action: { label: "Ответить", onClick: () => router.push(`/messages/${m.threadId}`) } });
+      }
+    });
+    es.addEventListener("message_risk", (e) => {
+      const r = JSON.parse((e as MessageEvent).data) as LiveRisk;
+      window.dispatchEvent(new CustomEvent(LIVE_RISK_EVENT, { detail: r }));
+      if (r.risk?.level === "high" && !window.location.pathname.startsWith(`/messages/${r.threadId}`)) {
+        toast("Подозрительное сообщение в чате — будьте осторожны", { tone: "error", action: { label: "Открыть", onClick: () => router.push(`/messages/${r.threadId}`) } });
       }
     });
     return () => es.close();

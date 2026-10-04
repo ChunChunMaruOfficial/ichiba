@@ -4,6 +4,7 @@ import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StatsService } from '../stats/stats.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
 
 const DAY = 24 * 3600 * 1000;
@@ -23,6 +24,7 @@ export class SwipeController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly recs: RecommendationsService,
+    private readonly stats: StatsService,
   ) {}
 
   /**
@@ -81,6 +83,7 @@ export class SwipeController {
           this.prisma.favorite.create({ data: { userId: user.id, listingId: dto.listingId, source: 'swipe' } }),
           this.prisma.listing.update({ where: { id: dto.listingId }, data: { favoritesCount: { increment: 1 } } }),
         ]);
+        this.stats.track(dto.listingId, 'favorites');
       }
       await this.recs.record(user.id, 'swipe_right', dto.listingId);
     } else {

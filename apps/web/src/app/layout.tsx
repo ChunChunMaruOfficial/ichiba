@@ -6,9 +6,16 @@ import "./globals.css";
 
 const geologica = Geologica({ variable: "--font-geologica", subsets: ["latin", "cyrillic"] });
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: "ichiba — вещи из открытых гардеробов", template: "%s · ichiba" },
-  description: "Маркетплейс одежды, обуви и аксессуаров из гардеробов людей.",
+  description: "Маркетплейс одежды, обуви и аксессуаров из гардеробов людей в Беларуси: покупайте и продавайте б/у вещи, торгуйтесь, участвуйте в аукционах.",
+  applicationName: "ichiba",
+  openGraph: { type: "website", siteName: "ichiba", locale: "ru_RU", url: SITE_URL, title: "ichiba — вещи из открытых гардеробов", description: "Покупайте и продавайте вещи из гардеробов людей в Беларуси." },
+  twitter: { card: "summary_large_image" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

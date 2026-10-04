@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
 import * as catalog from '../catalog/catalog.js';
@@ -43,8 +43,9 @@ export class ListingsController {
 
   @Public()
   @Get('listings/:id')
-  get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: AuthUser) {
-    return this.listings.get(id, user?.id);
+  get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: AuthUser, @Headers('x-ichiba-render') render?: string) {
+    // Server-side renders (and crawlers hitting them) are not views; the browser's own request counts.
+    return this.listings.get(id, user?.id, { trackView: render !== 'ssr' });
   }
 
   @Public()
@@ -67,6 +68,19 @@ export class ListingsController {
   @HttpCode(200)
   publish(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.listings.publish(user.id, id);
+  }
+
+  @Post('listings/:id/bump')
+  @HttpCode(200)
+  bump(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.listings.bump(user.id, id);
+  }
+
+  /** URLs for sitemap.xml: live listings and wardrobes with something on sale (SEO, feature 15). */
+  @Public()
+  @Get('seo/sitemap')
+  sitemap() {
+    return this.listings.sitemap();
   }
 
   @Post('listings/:id/hide')

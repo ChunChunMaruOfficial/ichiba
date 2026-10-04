@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { CoreFields, MoreFields, PriceFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
+import { issuesById, PhotoAdvice, PriceHint, usePhotoCheck } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
 import { useToast } from "@/components/toast";
@@ -89,6 +90,12 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
   };
 
   const set = (patch: Partial<ListingValues>) => setValues((v) => ({ ...v, ...patch }));
+  const photoCheck = usePhotoCheck(photos, values.category);
+  const makeCover = (photoId: string) =>
+    setPhotos((prev) => {
+      const i = prev.findIndex((p) => p.id === photoId);
+      return i > 0 ? [prev[i], ...prev.slice(0, i), ...prev.slice(i + 1)] : prev;
+    });
   const fieldProps = { values, set, ai, setAi: setAi, errors, meta, photos, setPhotos, locked, mode: "edit" as const };
 
   return (
@@ -102,12 +109,18 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
       <div className="mt-8 grid gap-10 md:grid-cols-[260px_1fr]">
         <div className="md:sticky md:top-24 md:self-start">
           <p className="mb-3 text-sm font-medium">Фото</p>
-          <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} />
+          <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} issues={issuesById(photoCheck.check)} />
           <p className="mt-2 text-xs text-muted">Первое фото — обложка. Перетащите, чтобы поменять порядок.</p>
+          <div className="mt-4">
+            <PhotoAdvice check={photoCheck.check} loading={photoCheck.loading} photos={photos} onMakeCover={makeCover} />
+          </div>
         </div>
         <div className="flex flex-col gap-10">
           <CoreFields {...fieldProps} />
-          <PriceFields values={values} set={set} errors={errors} locked={locked} auctionLocked={listing.auction?.status === "ACTIVE"} />
+          <div className="flex flex-col gap-4">
+            {!locked && listing.auction?.status !== "ACTIVE" && <PriceHint values={values} photos={photos} listingId={listing.id} set={set} />}
+            <PriceFields values={values} set={set} errors={errors} locked={locked} auctionLocked={listing.auction?.status === "ACTIVE"} />
+          </div>
           <MoreFields {...fieldProps} />
           {!draft && (
             <div className="flex flex-wrap gap-3 border-t border-line pt-6">

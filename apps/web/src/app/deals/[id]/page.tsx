@@ -7,6 +7,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { DealActions } from "@/components/deal-actions";
 import { RequireAuth } from "@/components/require-auth";
+import { DealReview } from "@/components/reviews";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconCheck, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -162,10 +163,12 @@ function DealView({ id }: { id: string }) {
           <Link href={`/item/${item.id}`} className="mt-2 block font-medium hover:underline">
             {item.title}
           </Link>
+          {deal.items.length > 1 && <p className="text-sm text-ink-2">и ещё {deal.items.length - 1} — комплект из {deal.items.length} вещей</p>}
           <p className="tabular mt-1 text-xl font-semibold">
             {formatPrice(deal.priceTotal)}
-            {negotiated && <s className="ml-2 text-sm font-normal text-muted">{deal.listPriceTotal}</s>}
+            {negotiated && <s className="ml-2 text-sm font-normal text-muted">{deal.subtotal ?? deal.listPriceTotal}</s>}
           </p>
+          {deal.discountPercent > 0 && <p className="text-sm font-medium text-ok">Скидка за комплект −{deal.discountPercent}%</p>}
           <p className="mt-1 text-sm text-ink-2">
             {deal.role === "buyer" ? "Продавец" : "Покупатель"}:{" "}
             <Link href={`/u/${deal.counterpart.username}`} className="font-medium hover:underline">
@@ -178,6 +181,26 @@ function DealView({ id }: { id: string }) {
           </p>
         </div>
       </div>
+
+      {deal.items.length > 1 && (
+        <ul className="mt-3 flex flex-col divide-y divide-line rounded-2xl bg-surface px-4">
+          {deal.items.map((it) => (
+            <li key={it.id} className="flex items-center gap-3 py-2.5 text-sm">
+              <Link href={`/item/${it.id}`} className="w-10 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {it.cover && <img src={it.cover.urls.s} alt="" className="size-full object-cover" />}
+              </Link>
+              <Link href={`/item/${it.id}`} className="min-w-0 flex-1 truncate hover:underline">
+                {it.title}
+              </Link>
+              <span className="tabular shrink-0">
+                {formatPrice(it.dealPrice)}
+                {it.price != null && it.price > it.dealPrice && <s className="ml-1.5 text-xs text-muted">{it.price}</s>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="mt-6 grid gap-6 md:grid-cols-[1fr_1fr]">
         <section className="rounded-3xl bg-surface p-5 md:p-6">
@@ -201,6 +224,12 @@ function DealView({ id }: { id: string }) {
           {deal.status === "DECLINED" && deal.role === "buyer" && <ButtonLink href={`/search?category=${item.category ?? ""}`}>Похожие вещи</ButtonLink>}
         </section>
       </div>
+
+      {(deal.canReview || deal.review) && (
+        <div className="mt-6">
+          <DealReview deal={deal} onChange={() => mutate()} />
+        </div>
+      )}
 
       {["WAITING_HANDOVER", "HANDED_OVER", "IN_TRANSIT"].includes(deal.status) && (
         <button className="mt-8 text-sm text-ink-2 underline underline-offset-4 hover:text-ink" onClick={() => setDispute(true)}>

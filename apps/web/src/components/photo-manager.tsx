@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useRef, useState } from "react";
 import { ApiError, uploadPhoto } from "@/lib/api";
 import type { PhotoDraft } from "@/lib/listing-form";
+import type { PhotoIssue } from "@/lib/types";
 import { IconCamera, IconChevronLeft, IconChevronRight, IconPlus, IconX, Spinner } from "./ui";
 
 const MAX_PHOTOS = 10;
@@ -18,11 +19,14 @@ export function PhotoManager({
   onChange,
   big,
   error,
+  issues,
 }: {
   photos: PhotoDraft[];
   onChange: (update: (prev: PhotoDraft[]) => PhotoDraft[]) => void;
   big?: boolean;
   error?: string;
+  /** AI photo check results by photo id: a marker on the thumbnail. */
+  issues?: Record<string, PhotoIssue[]>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
@@ -140,6 +144,18 @@ export function PhotoManager({
             {p.status === "error" && <span className="absolute inset-x-0 bottom-0 bg-danger px-1 py-0.5 text-center text-[10px] font-medium text-white">{p.error}</span>}
             {i === 0 && p.status !== "error" && <span className="absolute left-1 top-1 rounded bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-white">Обложка</span>}
             {p.isDefect && i !== 0 && <span className="absolute left-1 top-1 rounded bg-warn-soft px-1.5 py-0.5 text-[10px] font-semibold text-warn">Дефект</span>}
+            {p.id && issues?.[p.id]?.some((x) => x.severity !== "info") && (
+              <span
+                title={issues[p.id].map((x) => x.text).join(". ")}
+                aria-label={issues[p.id].map((x) => x.text).join(". ")}
+                className={clsx(
+                  "absolute bottom-1 left-1 grid size-5 place-items-center rounded-full text-[11px] font-bold text-white shadow group-hover:opacity-0",
+                  issues[p.id].some((x) => x.severity === "error") ? "bg-danger" : "bg-[#d9a100]",
+                )}
+              >
+                !
+              </span>
+            )}
             <button type="button" aria-label="Удалить фото" onClick={() => onChange((prev) => prev.filter((x) => x.key !== p.key))} className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white">
               <IconX className="size-3.5" />
             </button>

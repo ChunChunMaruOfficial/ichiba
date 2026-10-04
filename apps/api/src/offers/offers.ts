@@ -17,6 +17,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
+import { NegotiationAdvisor } from '../ai/negotiation.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import type { Offer, Prisma } from '../generated/prisma/client.js';
@@ -24,6 +25,7 @@ import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestsService } from '../requests/requests.service.js';
+import { StatsService } from '../stats/stats.js';
 
 /** Negotiation rules from frame 13. */
 const OFFER_TTL_MS = 48 * 3600 * 1000;
@@ -46,6 +48,8 @@ export class OffersService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly requests: RequestsService,
+    private readonly negotiation: NegotiationAdvisor,
+    private readonly stats: StatsService,
   ) {}
 
   private serialize(o: OfferRow, viewerId: string, history: Offer[] = []) {
@@ -102,6 +106,21 @@ export class OffersService {
     return { offer: this.serialize(latest, buyerId, await this.history(latest)) };
   }
 
+  /** AI hint for the side whose turn it is: accept, counter (with an amount in range) or decline. */
+  async advice(actorId: string, id: string) {
+    const { o, role } = await this.answerable(id, actorId);
+    const history = await this.history(o);
+    const range = o.round < MAX_ROUNDS ? this.counterRange(o, history) : null;
+    return this.negotiation.advise(o, role as 'buyer' | 'seller', history, range, MAX_ROUNDS);
+  }
+
+  /** A first offer that is likely to be accepted (shown in the offer sheet). */
+  async opening(buyerId: string, listingId: string) {
+    const listing = await this.prisma.listing.findUnique({ where: { id: listingId } });
+    if (!listing || listing.status !== 'PUBLISHED' || listing.sellerId === buyerId || !listing.acceptsOffers || listing.saleType === 'AUCTION') return { suggestion: null };
+    return { suggestion: await this.negotiation.opening(listing) };
+  }
+
   async create(buyerId: string, listingId: string, amount: number) {
     const listing = await this.prisma.listing.findUnique({ where: { id: listingId }, include: { seller: { select: { username: true } } } });
     if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
@@ -133,6 +152,7 @@ export class OffersService {
       },
       include: offerInclude,
     });
+    this.stats.track(listingId, 'offers');
     if (autoDecline) {
       await this.notifications.notify(buyerId, 'offer_declined', { listingId, title: listing.title, amount, auto: true });
     } else {
@@ -267,6 +287,18 @@ export class OffersController {
   @Get('listing/:listingId')
   forListing(@CurrentUser() user: AuthUser, @Param('listingId', ParseUUIDPipe) listingId: string) {
     return this.offers.forListing(listingId, user.id);
+  }
+
+  @Get('opening/:listingId')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  opening(@CurrentUser() user: AuthUser, @Param('listingId', ParseUUIDPipe) listingId: string) {
+    return this.offers.opening(user.id, listingId);
+  }
+
+  @Get(':id/advice')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  advice(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.offers.advice(user.id, id);
   }
 
   @Post(':id/counter')

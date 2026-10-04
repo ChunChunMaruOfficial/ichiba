@@ -41,7 +41,12 @@ function Sales() {
   const s = data?.summary;
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">Мои продажи</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight">Мои продажи</h1>
+        <ButtonLink href="/sales/stats" variant="secondary" size="sm">
+          Статистика
+        </ButtonLink>
+      </div>
 
       {s && (
         <div className="mt-6 grid grid-cols-3 gap-3">

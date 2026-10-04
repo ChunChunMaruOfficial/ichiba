@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CoreFields, MoreFields, PriceFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
+import { issuesById, PhotoAdvice, PriceHint, usePhotoCheck } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
 import { useToast } from "@/components/toast";
@@ -155,6 +156,12 @@ function Sell({ me }: { me: Me }) {
   const aiRun = useRef(0);
 
   const set = useCallback((patch: Partial<ListingValues>) => setValues((v) => ({ ...v, ...patch })), []);
+  const photoCheck = usePhotoCheck(step >= 2 ? photos : [], values.category);
+  const makeCover = (photoId: string) =>
+    setPhotos((prev) => {
+      const i = prev.findIndex((p) => p.id === photoId);
+      return i > 0 ? [prev[i], ...prev.slice(0, i), ...prev.slice(i + 1)] : prev;
+    });
   const uploaded = photos.filter((p) => p.status === "done");
   const uploading = photos.some((p) => p.status === "uploading");
 
@@ -278,6 +285,9 @@ function Sell({ me }: { me: Me }) {
       if (err instanceof ApiError && Object.keys(err.fields).length) {
         setErrors(err.fields);
         setStep(err.fields.price ? 3 : 2);
+        // Automatic moderation explains what to fix next to the field itself.
+        if (err.code === "MODERATION") toast(`${err.message}: исправьте отмеченные поля`, { tone: "error" });
+        scrollToError();
       } else toast("Не удалось опубликовать. Черновик сохранён", { tone: "error", action: { label: "Повторить", onClick: () => void publish() } });
     } finally {
       setPublishing(false);
@@ -352,8 +362,9 @@ function Sell({ me }: { me: Me }) {
             />
           ) : (
             <div className="grid gap-8 md:grid-cols-[200px_1fr]">
-              <div className="md:sticky md:top-24 md:self-start">
-                <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} />
+              <div className="flex flex-col gap-4 md:sticky md:top-24 md:self-start">
+                <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} issues={issuesById(photoCheck.check)} />
+                <PhotoAdvice check={photoCheck.check} loading={photoCheck.loading} photos={photos} onMakeCover={makeCover} />
               </div>
               <div className="flex flex-col gap-7">
                 <h1 className="text-2xl font-semibold tracking-tight">Проверьте описание</h1>
@@ -376,6 +387,7 @@ function Sell({ me }: { me: Me }) {
       {step === 3 && (
         <section>
           <h1 className="mb-6 text-2xl font-semibold tracking-tight">Цена и формат продажи</h1>
+          <PriceHint values={values} photos={photos} listingId={draftId} set={set} className="mb-6" />
           <PriceFields values={values} set={set} errors={errors} />
         </section>
       )}

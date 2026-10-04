@@ -18,7 +18,10 @@ interface ReportRow {
   status: "OPEN" | "RESOLVED" | "REJECTED";
   resolution: string | null;
   createdAt: string;
-  reporter: string;
+  reporter: string | null;
+  /** user | ai — raised by automatic moderation or chat antifraud. */
+  source: "user" | "ai";
+  details: { reasons?: string[]; votes?: number; providers?: string[]; excerpts?: Array<{ body: string; threadId: string }> } | null;
   reportsOnTarget: number;
   listing: (Card & { blockedReason: string | null }) | null;
   user: { id: string; username: string; blockedAt: string | null } | null;
@@ -96,12 +99,30 @@ function ReportItem({ r, onDone }: { r: ReportRow; onDone: () => void }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={r.targetType === "APPEAL" ? "warn" : r.targetType === "USER" ? "muted" : "danger"}>{TYPE_LABEL[r.targetType]}</Badge>
           {r.reportsOnTarget > 1 && <Badge tone="danger">жалоб: {r.reportsOnTarget}</Badge>}
+          {r.source === "ai" && <Badge tone="outline">ИИ · {r.details?.providers?.length ? r.details.providers.join(", ") : "правила"}</Badge>}
           <span className="text-xs text-muted">
-            @{r.reporter} · {timeAgo(r.createdAt)}
+            {r.reporter ? `@${r.reporter}` : "Автомодерация"} · {timeAgo(r.createdAt)}
           </span>
         </div>
         <p className="mt-2 font-medium">{r.reason}</p>
-        {r.comment && <p className="mt-1 text-sm text-ink-2">«{r.comment}»</p>}
+        {r.source === "ai" && r.details?.reasons?.length ? (
+          <ul className="mt-1 list-inside list-disc text-sm text-ink-2">
+            {r.details.reasons.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+        ) : (
+          r.comment && <p className="mt-1 text-sm text-ink-2">«{r.comment}»</p>
+        )}
+        {r.details?.excerpts?.length ? (
+          <ul className="mt-2 flex flex-col gap-1">
+            {r.details.excerpts.slice(0, 3).map((x, i) => (
+              <li key={i} className="rounded-lg bg-black/5 px-3 py-1.5 text-sm text-ink-2">
+                «{x.body}»
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {l && (
           <p className="mt-2 text-sm">
             <Link href={`/item/${l.id}`} target="_blank" className="hover:underline">

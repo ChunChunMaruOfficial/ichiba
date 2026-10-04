@@ -267,7 +267,7 @@ export function MoreFields(props: FieldsProps) {
         </div>
       </Field>
 
-      <Field label="Замеры, см" hint="Помогают покупателю понять посадку">
+      <Field label="Замеры, см" hint="Грудь и талию — в разложенном виде, от шва до шва. По замерам покупатели видят, подойдёт ли размер">
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {MEASUREMENTS.map(([k, label]) => (
             <label key={k} className="flex flex-col gap-1 text-xs text-muted">
@@ -405,6 +405,9 @@ export function PriceFields({ values, set, errors, locked, auctionLocked }: Pick
             </Field>
             <Field label="Резервная цена (не видна покупателям)" error={errors.auctionReserve} hint="Ниже неё вещь не продаётся — останется в продаже по стартовой цене">
               <Input inputMode="numeric" disabled={auctionLocked} value={values.auctionReserve} onChange={(e) => set({ auctionReserve: e.target.value.replace(/\D/g, "") })} error={errors.auctionReserve} placeholder="Необязательно" />
+            </Field>
+            <Field label="Цена «Купить сейчас», BYN" error={errors.auctionBuyNow} hint="Покупатель может сразу выкупить вещь, пока ставки ниже 75% этой цены">
+              <Input inputMode="numeric" disabled={auctionLocked} value={values.auctionBuyNow} onChange={(e) => set({ auctionBuyNow: e.target.value.replace(/\D/g, "") })} error={errors.auctionBuyNow} placeholder="Необязательно" />
             </Field>
           </div>
           <p className="text-sm text-muted">Ставка в последние 5 минут продлевает аукцион. Победитель выбирает способ получения в течение 48 часов, иначе вещь предложим следующему участнику. Отменить аукцион можно до первой ставки.</p>

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice, hoursLeft } from "@/lib/labels";
 import type { Offer } from "@/lib/types";
+import { NegotiationHint, OpeningHint } from "./ai-hints";
 import { useSession } from "./session";
 import { useToast } from "./toast";
 import { Badge, Button, Chip, Field, Input, Modal } from "./ui";
@@ -94,6 +95,7 @@ export function OfferSheet({
             );
           })}
         </div>
+        <OpeningHint listingId={listing.id} onPick={(v) => setValue(String(v))} />
         {tooHigh && (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-accent-soft px-4 py-3 text-sm">
             Это не меньше цены — просто купите
@@ -112,8 +114,8 @@ export function OfferSheet({
 }
 
 /** Counter-offer dialog: price must sit strictly between the last two offers. */
-export function CounterDialog({ offer, open, onClose, onDone }: { offer: Offer; open: boolean; onClose: () => void; onDone: (o: Offer) => void }) {
-  const [value, setValue] = useState("");
+export function CounterDialog({ offer, open, onClose, onDone, initial = "" }: { offer: Offer; open: boolean; onClose: () => void; onDone: (o: Offer) => void; initial?: string }) {
+  const [value, setValue] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
@@ -195,7 +197,8 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
     onChange(o);
     if (requestId) router.push(`/buy/${listingId}?request=${requestId}`);
   });
-  const [counter, setCounter] = useState(false);
+  /** Counter dialog: null = closed, otherwise the prefilled amount. */
+  const [counter, setCounter] = useState<string | null>(null);
   const left = hoursLeft(offer.expiresAt);
 
   if (offer.status === "ACCEPTED") {
@@ -239,12 +242,15 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
             Отклонить
           </Button>
           {offer.canCounter && (
-            <Button size="sm" variant="ghost" onClick={() => setCounter(true)}>
+            <Button size="sm" variant="ghost" onClick={() => setCounter("")}>
               Предложить новую цену
             </Button>
           )}
         </div>
-        <CounterDialog offer={offer} open={counter} onClose={() => setCounter(false)} onDone={(o) => onChange(o)} />
+        <div className="mt-3">
+          <NegotiationHint offer={offer} onAccept={() => run("accept")} onDecline={() => run("decline")} onCounter={(v) => setCounter(String(v))} compact />
+        </div>
+        {counter !== null && <CounterDialog offer={offer} open initial={counter} onClose={() => setCounter(null)} onDone={(o) => onChange(o)} />}
       </div>
     );
   }
@@ -264,7 +270,7 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
 /** Offer card for the seller's "Требует действия" and for lists (frame 13 SELLER OFFER SCREEN). */
 export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => void }) {
   const { busy, run } = useOfferActions(offer, () => onChange());
-  const [counter, setCounter] = useState(false);
+  const [counter, setCounter] = useState<string | null>(null);
   const left = hoursLeft(offer.expiresAt);
   const discount = offer.listPrice ? Math.round((1 - offer.amount / offer.listPrice) * 100) : 0;
   const cover = offer.listing.cover?.urls.s;
@@ -303,10 +309,15 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
               Отклонить
             </Button>
             {offer.canCounter && (
-              <Button size="sm" variant="ghost" onClick={() => setCounter(true)}>
+              <Button size="sm" variant="ghost" onClick={() => setCounter("")}>
                 Своя цена
               </Button>
             )}
+          </div>
+        )}
+        {offer.myTurn && (
+          <div className="mt-2">
+            <NegotiationHint offer={offer} onAccept={() => run("accept")} onDecline={() => run("decline")} onCounter={(v) => setCounter(String(v))} />
           </div>
         )}
         {offer.status === "ACCEPTED" && offer.requestId && (
@@ -315,7 +326,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
           </Link>
         )}
       </div>
-      <CounterDialog offer={offer} open={counter} onClose={() => setCounter(false)} onDone={() => onChange()} />
+      {counter !== null && <CounterDialog offer={offer} open initial={counter} onClose={() => setCounter(null)} onDone={() => onChange()} />}
     </article>
   );
 }
