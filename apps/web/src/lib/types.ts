@@ -3,7 +3,20 @@ import type { PhotoUrls } from "./api";
 export type ListingStatus = "DRAFT" | "PUBLISHED" | "RESERVED" | "SOLD" | "HIDDEN" | "BLOCKED" | "DELETED";
 export type Condition = "NEW_WITH_TAGS" | "LIKE_NEW" | "GOOD" | "VISIBLE_WEAR";
 export type DeliveryMethod = "IN_PERSON" | "PICKUP" | "DELIVERY";
-export type SizeSystem = "ALPHA" | "SHOE_EU" | "JEANS_W" | "OTHER";
+export type SizeSystem = "ALPHA" | "SHOE_EU" | "JEANS_W" | "KIDS" | "OTHER";
+/** "Для кого"; null (or a legacy UNISEX) means the item fits anyone. */
+export type Gender = "FEMALE" | "MALE" | "KIDS";
+export type MeasurementKey = "shoulders" | "chest" | "waist" | "hips" | "length" | "sleeve" | "inseam" | "foot_length";
+
+export interface VideoView {
+  id: string;
+  url: string;
+  mime: string;
+  poster: string;
+  width: number;
+  height: number;
+  durationMs: number;
+}
 export type RequestStatus =
   | "CREATED"
   | "PENDING_SELLER"
@@ -78,6 +91,9 @@ export interface Card {
   title: string;
   price: number | null;
   previousPrice: number | null;
+  originalPrice?: number | null;
+  hasVideo?: boolean;
+  scheduledAt?: string | null;
   size: string | null;
   condition: Condition | null;
   brand: string | null;
@@ -155,6 +171,7 @@ export interface ListingDetail {
   title: string;
   price: number | null;
   previousPrice: number | null;
+  originalPrice: number | null;
   category: string | null;
   categoryLabel: string | null;
   subcategory: string | null;
@@ -167,13 +184,13 @@ export interface ListingDetail {
   brand: string | null;
   color: string | null;
   material: string | null;
-  measurements: Partial<Record<"shoulders" | "chest" | "waist" | "length" | "sleeve" | "foot_length", number | null>> | null;
+  measurements: Partial<Record<MeasurementKey, number | null>> | null;
   description: string | null;
   descriptionByAi: boolean;
   city: string | null;
   deliveryOptions: DeliveryMethod[];
   acceptsOffers: boolean;
-  gender: "MALE" | "FEMALE" | "UNISEX" | null;
+  gender: Gender | "UNISEX" | null;
   styleTags: string[];
   viewsCount: number;
   favoritesCount: number;
@@ -181,6 +198,9 @@ export interface ListingDetail {
   createdAt: string;
   blockedReason: string | null;
   photos: Photo[];
+  video: VideoView | null;
+  /** Other sizes of the same item; null when it's listed in one size. */
+  sizes: Array<{ id: string; size: string | null; available: boolean; current: boolean }> | null;
   seller: SellerSummary;
   isOwner: boolean;
   isFavorite: boolean;
@@ -201,6 +221,10 @@ export interface ListingDetail {
     auctionHours: number | null;
     auctionBuyNow: number | null;
     minOfferPrice: number | null;
+    autoAcceptPrice: number | null;
+    extraSizes: string[];
+    scheduledAt: string | null;
+    likersOfferAt: string | null;
     aiAttributes: Record<string, AiAttr> | null;
     sizeSystem: SizeSystem | null;
     bump: { nextAt: string; available: boolean; count: number } | null;
@@ -294,12 +318,14 @@ interface Category {
   section: "top" | "bottom" | "shoes" | "accessories";
   group: "clothing" | "shoes" | "accessories" | "bags";
   sizeSystems: SizeSystem[];
+  genders?: Gender[];
   subcategories: Array<{ slug: string; label: string }>;
 }
 
 export interface Meta {
   categories: Category[];
-  sizes: { ALPHA: string[]; SHOE_EU: string[]; JEANS_W: string[] };
+  genders: Array<{ value: Gender; label: string; menu: string }>;
+  sizes: { ALPHA: string[]; SHOE_EU: string[]; JEANS_W: string[]; KIDS: string[]; KIDS_SHOE: string[] };
   conditions: Array<{ value: Condition; label: string; hint: string }>;
   colors: Array<{ value: string; label: string; hex: string }>;
   materials: string[];
@@ -337,6 +363,8 @@ export interface Offer {
   counterpart: { id: string; username: string };
   myTurn: boolean;
   canCounter: boolean;
+  /** A "скидка лайкнувшим" from the seller: accept or decline only. */
+  fromLikers?: boolean;
   counterRange: { min: number; max: number } | null;
   history: Array<{ round: number; amount: number; from: "BUYER" | "SELLER"; status: OfferStatus; createdAt: string }>;
 }

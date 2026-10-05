@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/labels";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
 import { getRecent, pushRecent, removeRecent } from "@/lib/recent-searches";
+import { CatalogButton, MobileCatalog } from "./catalog-nav";
 import { useMeta, useSession } from "./session";
 import { IconBag, IconBell, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconSearch, IconX } from "./ui";
 
@@ -261,11 +262,14 @@ export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const showMobileSearch = pathname === "/";
+  const header = useRef<HTMLElement>(null);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-md">
+    <header ref={header} className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-4 px-4 md:h-16 md:px-6">
+        <MobileCatalog />
         <Logo />
+        <CatalogButton anchor={header} />
         <Suspense fallback={<div className="hidden flex-1 md:block" />}>
           <SearchBox className="mx-auto hidden w-full max-w-[560px] md:block" />
         </Suspense>

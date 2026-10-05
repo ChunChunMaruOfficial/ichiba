@@ -1,10 +1,12 @@
 "use client";
 
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { type AiField, type AiState, type ListingValues, markEdited, type PhotoDraft } from "@/lib/listing-form";
 import type { Meta, SizeSystem } from "@/lib/types";
+import { BrandPicker } from "./brand-picker";
+import { MeasureFields, measureKind } from "./measure-guide";
 import { Button, Chip, Field, IconChevronDown, IconSparkle, Input, inputClass, Textarea } from "./ui";
 
 /** "AI" badge, or a yellow "check this" hint for 0.5–0.8 confidence (frame 22 UNCERTAINTY). */
@@ -25,16 +27,7 @@ const aiFrame = (ai: AiState, field: AiField) => {
   return a.confidence < 0.8 ? "!border-[#d9a100] bg-warn-soft/40" : "!border-ai/50";
 };
 
-const MEASUREMENTS = [
-  ["shoulders", "Плечи"],
-  ["chest", "Грудь"],
-  ["waist", "Талия"],
-  ["length", "Длина"],
-  ["sleeve", "Рукав"],
-  ["foot_length", "Длина стопы"],
-] as const;
-
-const SIZE_SYSTEM_LABEL: Record<SizeSystem, string> = { ALPHA: "Одежда", SHOE_EU: "Обувь EU", JEANS_W: "Джинсы W", OTHER: "Другой" };
+const SIZE_SYSTEM_LABEL: Record<SizeSystem, string> = { ALPHA: "Одежда", SHOE_EU: "Обувь EU", JEANS_W: "Джинсы W", KIDS: "Рост, см", OTHER: "Другой" };
 
 export interface FieldsProps {
   values: ListingValues;
@@ -49,14 +42,20 @@ export interface FieldsProps {
   locked?: boolean;
   /** Edit page shows everything expanded and no AI marks. */
   mode: "create" | "edit";
+  /** "Есть и в других размерах" is offered only before publication. */
+  multiSize?: boolean;
 }
 
 /** The core listing fields (frame 10 STEP 3 — HUMAN CONFIRMATION). */
-export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPhotos, locked }: FieldsProps) {
+export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPhotos, locked, multiSize }: FieldsProps) {
   const category = meta.categories.find((c) => c.slug === values.category);
-  const systems = category?.sizeSystems ?? [];
+  const kids = values.gender === "KIDS";
+  // Children's clothing is sized by height; children's shoes use the EU scale from 16.
+  const systems: SizeSystem[] = kids && category?.group === "clothing" ? ["KIDS"] : (category?.sizeSystems ?? []);
   const activeSystem = values.sizeSystem && systems.includes(values.sizeSystem) ? values.sizeSystem : systems[0];
+  const sizeList = (s: Exclude<SizeSystem, "OTHER">) => (s === "SHOE_EU" && kids ? meta.sizes.KIDS_SHOE : meta.sizes[s]);
   const [otherSize, setOtherSize] = useState(values.sizeSystem === "OTHER");
+  const [showExtra, setShowExtra] = useState(values.extraSizes.length > 0);
   const lockedHint = locked ? "Идёт сделка — поле нельзя изменить" : undefined;
 
   const setAiValue = (field: AiField, patch: Partial<ListingValues>, value: unknown) => {
@@ -104,6 +103,26 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
         </div>
       </Field>
 
+      <Field label="Для кого" hint={values.gender ? undefined : "Не выбрано — вещь подходит всем"}>
+        <div className="flex flex-wrap gap-2">
+          {meta.genders.map((g) => (
+            <Chip
+              key={g.value}
+              disabled={locked}
+              active={values.gender === g.value}
+              onClick={() => {
+                const gender = values.gender === g.value ? null : g.value;
+                // Switching to or from children's sizes invalidates the chosen size.
+                const resetSize = (gender === "KIDS") !== kids;
+                set({ gender, ...(resetSize ? { sizeSystem: null, sizeValue: null, extraSizes: [] } : {}) });
+              }}
+            >
+              {g.label}
+            </Chip>
+          ))}
+        </div>
+      </Field>
+
       {systems.length > 0 && (
         <Field label="Размер" required error={errors.size} hint={lockedHint ?? "Посмотрите на этикетку"}>
           {systems.length > 1 && (
@@ -117,8 +136,8 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
           )}
           <div className="flex flex-wrap gap-2">
             {activeSystem && activeSystem !== "OTHER" &&
-              meta.sizes[activeSystem].map((s) => (
-                <Chip key={s} disabled={locked} active={!otherSize && values.sizeValue === s} onClick={() => (setOtherSize(false), set({ sizeSystem: activeSystem, sizeValue: s }))} className="min-w-12 justify-center">
+              sizeList(activeSystem).map((s) => (
+                <Chip key={s} disabled={locked} active={!otherSize && values.sizeValue === s} onClick={() => (setOtherSize(false), set({ sizeSystem: activeSystem, sizeValue: s, extraSizes: values.extraSizes.filter((x) => x !== s) }))} className="min-w-12 justify-center">
                   {s}
                 </Chip>
               ))}
@@ -127,6 +146,41 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
             </Chip>
           </div>
           {otherSize && <Input aria-label="Свой размер" placeholder="Например, 44 RU или One size" disabled={locked} value={values.sizeValue ?? ""} onChange={(e) => set({ sizeSystem: "OTHER", sizeValue: e.target.value || null })} className="max-w-xs" />}
+          {multiSize && activeSystem && activeSystem !== "OTHER" && !otherSize && values.sizeValue && (
+            <div className="mt-3 rounded-xl bg-surface p-3.5">
+              <label className="flex items-center gap-3 text-[15px]">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--accent)]"
+                  checked={showExtra}
+                  onChange={(e) => {
+                    setShowExtra(e.target.checked);
+                    if (!e.target.checked) set({ extraSizes: [] });
+                  }}
+                />
+                Есть и в других размерах
+              </label>
+              {showExtra && (
+                <>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {sizeList(activeSystem)
+                      .filter((s) => s !== values.sizeValue)
+                      .map((s) => (
+                        <Chip key={s} active={values.extraSizes.includes(s)} onClick={() => set({ extraSizes: values.extraSizes.includes(s) ? values.extraSizes.filter((x) => x !== s) : [...values.extraSizes, s].slice(0, 10) })} className="min-w-12 justify-center">
+                          {s}
+                        </Chip>
+                      ))}
+                  </div>
+                  <p className="mt-2 text-sm text-muted">
+                    {values.extraSizes.length
+                      ? `Опубликуем ${values.extraSizes.length + 1} объявления — по одному на размер, с этими фото и описанием. Покупатель выберет свой размер на странице вещи.`
+                      : "Отметьте размеры, которые у вас тоже есть. Только при фиксированной цене."}
+                  </p>
+                  {errors.extraSizes && <p className="mt-1 text-sm text-danger">{errors.extraSizes}</p>}
+                </>
+              )}
+            </div>
+          )}
         </Field>
       )}
 
@@ -188,7 +242,40 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
         </span>
         <Input maxLength={80} value={values.title} onChange={(e) => setAiValue("title", { title: e.target.value }, e.target.value)} error={errors.title} className={aiFrame(ai, "title")} placeholder="Чёрная кожаная куртка Zara" />
       </Field>
+
+      <Field label="Бренд" hint={ai.brand && !ai.brand.edited_by_user ? "Определён по логотипу или бирке" : "Выберите из каталога или впишите свой"}>
+        <span className="-mt-1">
+          <AiMark ai={ai} field="brand" />
+        </span>
+        <BrandPicker value={values.brand} onChange={(brand) => setAiValue("brand", { brand }, brand)} className={aiFrame(ai, "brand")} />
+        {!values.brand.trim() && <BrandFromTitle title={values.title} onPick={(brand) => setAiValue("brand", { brand }, brand)} />}
+      </Field>
     </div>
+  );
+}
+
+/** "Бренд в названии: Nike — указать" when the title names a catalogue brand and the brand field is empty. */
+function BrandFromTitle({ title, onPick }: { title: string; onPick: (brand: string) => void }) {
+  const [found, setFound] = useState<{ title: string; brand: string | null } | null>(null);
+  useEffect(() => {
+    const text = title.trim();
+    if (text.length < 3) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      api<{ brand: string | null }>(`/brands/detect?text=${encodeURIComponent(text)}`, { signal: ctrl.signal })
+        .then((r) => setFound({ title: text, brand: r.brand }))
+        .catch(() => {});
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [title]);
+  if (!found?.brand || found.title !== title.trim()) return null;
+  return (
+    <button type="button" onClick={() => onPick(found.brand!)} className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-sm text-accent hover:brightness-95">
+      В названии бренд <span className="font-semibold">{found.brand}</span> — указать
+    </button>
   );
 }
 
@@ -226,17 +313,6 @@ export function MoreFields(props: FieldsProps) {
   const body = (
     <div className="flex flex-col gap-7">
       <div className="grid gap-7 sm:grid-cols-2">
-        <Field label="Бренд" hint={ai.brand && !ai.brand.edited_by_user ? "Определён по логотипу или бирке" : undefined}>
-          <span className="-mt-1">
-            <AiMark ai={ai} field="brand" />
-          </span>
-          <Input list="brands" value={values.brand} onChange={(e) => setAiValue("brand", { brand: e.target.value }, e.target.value)} className={aiFrame(ai, "brand")} placeholder="Например, Zara" />
-          <datalist id="brands">
-            {meta.brands.map((b) => (
-              <option key={b} value={b} />
-            ))}
-          </datalist>
-        </Field>
         <Field label="Материал">
           <select value={values.material ?? ""} onChange={(e) => set({ material: e.target.value || null })} className={inputClass()}>
             <option value="">Не указан</option>
@@ -267,16 +343,11 @@ export function MoreFields(props: FieldsProps) {
         </div>
       </Field>
 
-      <Field label="Замеры, см" hint="Грудь и талию — в разложенном виде, от шва до шва. По замерам покупатели видят, подойдёт ли размер">
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          {MEASUREMENTS.map(([k, label]) => (
-            <label key={k} className="flex flex-col gap-1 text-xs text-muted">
-              {label}
-              <Input inputMode="numeric" value={values.measurements[k] ?? ""} onChange={(e) => set({ measurements: { ...values.measurements, [k]: e.target.value.replace(/[^\d.]/g, "") } })} className="h-10 px-2.5" />
-            </label>
-          ))}
-        </div>
-      </Field>
+      {measureKind(values.category) && (
+        <Field label="Замеры, см" hint="По замерам покупатели видят, подойдёт ли вещь. Измеряйте в разложенном виде">
+          <MeasureFields values={values} set={set} />
+        </Field>
+      )}
 
       <Field label="Описание" error={errors.description} hint={`${values.description.length}/2000`}>
         <span className="-mt-1">
@@ -330,7 +401,7 @@ export function MoreFields(props: FieldsProps) {
       <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between px-4 py-3.5 text-left font-medium">
         Ещё детали
         <span className="flex items-center gap-2 text-sm font-normal text-muted">
-          бренд, цвет, замеры, описание, передача
+          цвет, замеры, описание, передача
           <IconChevronDown className={clsx("size-4 transition-transform", open && "rotate-180")} />
         </span>
       </button>
@@ -343,6 +414,8 @@ export function PriceFields({ values, set, errors, locked, auctionLocked }: Pick
   const auction = values.saleType === "AUCTION";
   const price = Number(values.price) || 0;
   const autoStep = price ? Math.max(1, Math.round(price * 0.05)) : null;
+  const original = Number(values.originalPrice) || 0;
+  const discount = price && original > price ? Math.round((1 - price / original) * 100) : 0;
   return (
     <div className="flex flex-col gap-7">
       <fieldset disabled={auctionLocked}>
@@ -380,6 +453,10 @@ export function PriceFields({ values, set, errors, locked, auctionLocked }: Pick
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg text-muted">BYN</span>
         </div>
+      </Field>
+
+      <Field label="Цена в магазине, BYN" error={errors.originalPrice} hint={discount ? `Покупатели увидят «−${discount}% от цены в магазине»` : "Сколько вещь стоила новой — покупателям проще оценить выгоду"}>
+        <Input inputMode="numeric" value={values.originalPrice} onChange={(e) => set({ originalPrice: e.target.value.replace(/\D/g, "").slice(0, 7) })} error={errors.originalPrice} className="max-w-xs" placeholder="Необязательно" />
       </Field>
 
       {auction ? (
@@ -423,9 +500,14 @@ export function PriceFields({ values, set, errors, locked, auctionLocked }: Pick
           </label>
           {values.acceptsOffers && (
             <div className="mt-4">
-              <Field label="Минимальная цена (не видна покупателям)" error={errors.minOfferPrice} hint="Предложения ниже будут отклоняться автоматически">
-                <Input inputMode="numeric" value={values.minOfferPrice} onChange={(e) => set({ minOfferPrice: e.target.value.replace(/\D/g, "") })} error={errors.minOfferPrice} className="max-w-xs" placeholder="Необязательно" />
-              </Field>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Автоотказ ниже, BYN" error={errors.minOfferPrice} hint="Предложения ниже отклоним сразу. Покупатели порог не видят">
+                  <Input inputMode="numeric" value={values.minOfferPrice} onChange={(e) => set({ minOfferPrice: e.target.value.replace(/\D/g, "") })} error={errors.minOfferPrice} placeholder="Необязательно" />
+                </Field>
+                <Field label="Автопринятие от, BYN" error={errors.autoAcceptPrice} hint="Предложение от этой суммы примем за вас — сразу откроется сделка">
+                  <Input inputMode="numeric" value={values.autoAcceptPrice} onChange={(e) => set({ autoAcceptPrice: e.target.value.replace(/\D/g, "") })} error={errors.autoAcceptPrice} placeholder="Необязательно" />
+                </Field>
+              </div>
             </div>
           )}
         </div>

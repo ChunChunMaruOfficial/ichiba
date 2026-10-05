@@ -1,0 +1,946 @@
+# Hand-picked brands for the ichiba brand catalogue.
+# One brand per line: "Canonical Name | alias, alias". Aliases are other spellings people type
+# (Cyrillic, without punctuation, old names); they resolve to the canonical name.
+# "@top", "@popular" and "@normal" set the ranking tier for the lines below them:
+# top = what Belarusian second-hand shoppers type most often, popular = well known, normal = the rest.
+
+@top
+Nike | найк, найки, nike sportswear
+Adidas | адидас, адик, adidas originals
+Zara | зара
+H&M | hm, h and m, эйч энд эм, хм
+Mango | манго
+Bershka | бершка
+Pull&Bear | pull and bear, pull bear, пул энд бир, пулл энд бир
+Stradivarius | страдивариус
+Massimo Dutti | массимо дутти
+Reserved | резервед
+Mohito | мохито
+Cropp | кропп
+House | хаус
+Sinsay | синсей, синсэй
+Uniqlo | юникло
+COS | кос
+& Other Stories | other stories, and other stories
+Levi's | levis, levi strauss, левайс, ливайс, левис
+Tommy Hilfiger | томми хилфигер, tommy jeans, томми
+Calvin Klein | кельвин кляйн, келвин кляйн, ck, calvin klein jeans
+Lacoste | лакост, лакоста
+Ralph Lauren | ральф лорен, polo ralph lauren, поло ральф лорен
+Puma | пума
+Reebok | рибок
+New Balance | нью баланс, нью беленс, nb
+The North Face | north face, tnf, норт фейс, зе норт фейс
+Columbia | коламбия, колумбия
+Converse | конверс
+Vans | ванс
+Asics | асикс
+Under Armour | андер армор, андер армер
+Fila | фила
+Skechers | скечерс
+Timberland | тимберленд, тимбы
+Dr. Martens | dr martens, doc martens, мартинсы, доктор мартинс
+Ecco | экко
+Geox | геокс
+Gucci | гуччи
+Prada | прада
+Louis Vuitton | lv, луи виттон, луи витон
+Chanel | шанель
+Dior | диор, christian dior
+Balenciaga | баленсиага
+Burberry | барберри, бербери
+Stone Island | стон айленд, стоник
+Carhartt WIP | carhartt, кархарт
+Supreme | суприм
+Off-White | off white, офф вайт
+Guess | гесс, гес
+Michael Kors | майкл корс
+Furla | фурла
+Coach | коуч, коач
+Gloria Jeans | глория джинс
+Love Republic | лав репаблик
+befree | бифри
+Zarina | зарина
+O'stin | ostin, остин
+Sela | села
+Incity | инсити
+12 Storeez | 12storeez, твелв сторис
+Lime | лайм
+Ekonika | эконика
+Mark Formelle | марк формель, марк формэль
+Milavitsa | милавица
+Conte | конте, conte elegant
+Belwest | белвест
+Marko | марко
+Tom Tailor | том тейлор
+Esprit | эсприт
+s.Oliver | s oliver, сОливер
+Marc O'Polo | marc opolo, марк о поло
+United Colors of Benetton | benetton, бенеттон
+Diesel | дизель
+Wrangler | вранглер, ренглер
+Lee | ли
+Mavi | мави
+Colin's | colins, колинс
+LC Waikiki | lcw, вайкики
+Koton | котон
+DeFacto | de facto, дефакто
+Shein | шеин, шейн
+Hugo Boss | hugo, boss, хуго босс, хьюго босс
+Armani Exchange | ax, армани эксчейндж
+Emporio Armani | эмпорио армани
+Giorgio Armani | армани, джорджио армани
+Napapijri | напапири
+Helly Hansen | хелли хансен
+Jack Wolfskin | джек вольфскин
+Patagonia | патагония
+Arc'teryx | arcteryx, арктерикс
+Salomon | саломон
+Merrell | меррелл
+Kappa | каппа
+Ellesse | эллесс
+Champion | чемпион
+Umbro | умбро
+Lonsdale | лонсдейл
+Dickies | дикис
+Stüssy | stussy, стусси
+Palace | палас
+A Bathing Ape | bape, бейп
+Jordan | air jordan, джордан, джорданы
+Yeezy | изи, йизи
+Weekday | викдей
+Monki | монки
+Topshop | топшоп
+River Island | ривер айленд
+Next | некст
+Marks & Spencer | m&s, marks and spencer, маркс энд спенсер
+Primark | примарк
+New Yorker | нью йоркер
+Terranova | терранова
+Calliope | каллиопа
+Tally Weijl | тали вейл
+Pimkie | пимки
+Orsay | орсей, орсэй
+Vero Moda | веро мода
+Only | онли
+Jack & Jones | jack and jones, джек энд джонс
+Selected | selected homme, selected femme
+Oysho | ойшо
+Intimissimi | интимиссими
+Calzedonia | кальцедония
+Tezenis | тезенис
+Victoria's Secret | victorias secret, виктория сикрет
+Bonprix | бонприкс
+Finn Flare | фин флаер, финн флаер
+Baon | баон
+Savage | саваж
+Concept Club | концепт клаб
+Твоё | tvoe, твое
+Gate31 | gate 31
+Zolla | золла
+Kanzler | канцлер
+Henderson | хендерсон
+Fred Perry | фред перри
+Barbour | барбур
+Moncler | монклер
+Canada Goose | канада гус
+Max Mara | макс мара, maxmara
+Sandro | сандро
+Maje | мажи
+Acne Studios | acne, акне
+Kenzo | кензо
+Givenchy | живанши
+Saint Laurent | ysl, yves saint laurent, сен лоран, ив сен лоран
+Bottega Veneta | боттега венета
+Celine | селин
+Fendi | фенди
+Versace | версаче
+Dolce & Gabbana | d&g, dolce gabbana, дольче габбана
+Valentino | валентино
+Moschino | москино
+Miu Miu | миу миу
+Alexander McQueen | mcqueen, александр маккуин
+Hermès | hermes, гермес, эрмес
+Philipp Plein | филипп плейн
+Dsquared2 | dsquared, дискваред
+Golden Goose | голден гус
+Birkenstock | биркеншток, биркены
+Crocs | крокс, кроксы
+UGG | угги, уги, ugg australia
+Clarks | кларкс
+Camper | кампер
+Tamaris | тамарис
+Rieker | рикер
+Marco Tozzi | марко тоцци
+Gabor | габор
+Carlo Pazolini | карло пазолини
+Rendez-Vous | rendez vous, рандеву
+Ralf Ringer | ральф рингер
+Thomas Münz | thomas munz, томас мюнц
+Kari | кари
+Zenden | зенден
+Sokolov | соколов
+Pandora | пандора
+Swarovski | сваровски
+Ray-Ban | ray ban, рей бен, рэй бэн
+Casio | касио
+Fjällräven | fjallraven, kanken, фьялравен, канкен
+Eastpak | истпак
+Herschel | хершель
+Mexx | мекс
+Oodji | оджи, oodji
+Lichi | личи
+Ushatava | ушатава
+Demix | демикс
+Outventure | аутвенчер
+Quechua | кечуа
+Decathlon | декатлон
+Kiabi | киаби
+Acoola | акула
+Crockid | крокид
+Reima | рейма
+Kerry | керри
+Huppa | хуппа
+Lassie | ласси
+Gymshark | гимшарк
+Lululemon | лулулемон
+Alo Yoga | alo, ало
+Hoka | hoka one one, хока
+Salewa | салева
+Mizuno | мизуно
+Onitsuka Tiger | оницука тайгер
+Saucony | сакони
+Brooks | брукс
+Superdry | супердрай
+Desigual | дезигуаль
+Liu Jo | лиу джо
+Pinko | пинко
+Twinset | твинсет, twin set
+Elisabetta Franchi | элизабетта франки
+Patrizia Pepe | патриция пепе
+Replay | реплей
+Pepe Jeans | пепе джинс
+G-Star Raw | g-star, g star, джи стар
+Jack Wills
+Abercrombie & Fitch | abercrombie, аберкромби
+Hollister | холлистер
+American Eagle | американ игл
+Gap | гап, гэп
+Banana Republic | банана репаблик
+Polo Ralph Lauren
+Armani Jeans | армани джинс
+Love Moschino | лав москино
+Karl Lagerfeld | карл лагерфельд
+Trussardi | труссарди
+Baldinini | балдинини
+Pollini | поллини
+Tod's | tods, тодс
+Hogan | хоган
+Salvatore Ferragamo | ferragamo, феррагамо
+Jimmy Choo | джимми чу
+Christian Louboutin | louboutin, лабутены, лубутен
+Steve Madden | стив мадден
+Nine West | найн вест
+Vagabond | вагабонд
+Sorel | сорел
+Hunter | хантер
+Columbia Sportswear
+Rains | рейнс
+Moose Knuckles | мус наклз
+Parajumpers | параджамперс
+Woolrich | вулрич
+Peuterey | пьютерей
+Colmar | колмар
+Bogner | богнер
+Ermenegildo Zegna | zegna, зегна
+Brunello Cucinelli | брунелло кучинелли
+Loro Piana | лоро пиана
+Tom Ford | том форд
+Ganni | ганни
+Jacquemus | жакмюс
+Ami Paris | ami, ами
+Maison Margiela | margiela, mm6, марджела
+Rick Owens | рик оуэнс
+Comme des Garçons | comme des garcons, cdg, play cdg, ком де гарсон
+Vivienne Westwood | вивьен вествуд
+Stella McCartney | стелла маккартни
+Fear of God | fog
+Essentials | fear of god essentials, эссеншиалс
+Palm Angels | палм энджелс
+C.P. Company | cp company, си пи компани
+Lyle & Scott | lyle and scott, лайл скотт
+Paul & Shark | paul and shark, пол энд шарк
+Ben Sherman | бен шерман
+Kangol | кангол
+Diadora | диадора
+Le Coq Sportif | ле кок спортиф
+Sergio Tacchini | серджио таккини
+Lotto | лотто
+Joma | жома
+Errea
+Hummel | хуммель
+Head | хед
+Wilson
+Babolat
+Speedo | спидо
+Arena | арена
+Roxy | рокси
+Quiksilver | квиксильвер
+Billabong | биллабонг
+O'Neill | oneill, о нил
+Volcom
+DC Shoes | dc
+Etnies
+Element
+Thrasher | трешер
+Obey | обей
+Huf
+Ripndip | rip n dip
+Anti Social Social Club | assc
+Kith | кит
+Rhude
+Amiri | амири
+Represent | репрезент
+Corteiz | crtz, кортез
+Trapstar | трапстар
+Chrome Hearts | хром хартс
+Gallery Dept. | gallery dept
+Denim Tears
+Aimé Leon Dore | aime leon dore, ald
+Bape
+Human Made
+Evisu | эвису
+Kapital | капитал
+Visvim
+Neighborhood
+WTAPS
+Undercover
+Sacai
+Needles
+Yohji Yamamoto | y-3, y3, йоджи ямамото
+Issey Miyake | pleats please, homme plisse, иссей мияке
+Muji | муджи
+GU
+Beams
+Porter | porter yoshida, yoshida
+Snow Peak
+And Wander | and wander
+Gramicci
+Montbell
+Ader Error
+Thisisneverthat
+Gentle Monster
+Andersson Bell
+Mardi Mercredi
+Matin Kim
+Wooyoungmi
+Li-Ning | li ning, ли нинг
+Anta | анта
+Xtep
+Peak
+361°
+Urban Revivo
+Bosideng | босиденг
+Gosha Rubchinskiy | гоша рубчинский
+Walk of Shame
+Alena Akhmadullina | алена ахмадуллина
+Ulyana Sergeenko | ульяна сергеенко
+Vika Gazinskaya | вика газинская
+Yasya Minochkina | яся миночкина
+Alexander Terekhov | александр терехов
+A La Russe | a la russe
+Tegin
+Igor Gulyaev | игорь гуляев
+Bosco | боско
+Charuel | шаруэль
+Choux | шу
+Monochrome
+Askent | аскент
+Eleganzza | элеганза
+Paolo Conte | паоло конте
+Respect | респект
+Westfalika | вестфалика
+Mascotte | маскотт
+Sunlight | санлайт
+Elis | элис
+Emka | эмка
+Vilet | вилет
+Modis | модис
+Снежная Королева | snow queen
+Termit | термит
+Glissade | глиссад
+Torneo | торнео
+Nordway | нордвей
+Joss | джосс
+Kalenji | календжи
+Domyos | домиос
+Kipsta | кипста
+Wedze | ведзе
+Forclaz | форклаз
+Choupette | шупетт
+Button Blue | баттон блю
+Playtoday | плейтудей, play today
+Futurino | футурино
+Mothercare | мазеркеа
+Premont | премонт
+Svitanak | свитанак, світанак
+Elema | элема
+Kupalinka | купалинка
+Serge | серж
+Galanteya | галантэя, галантея
+Kachorovska | качоровская
+Bevza | бевза
+Litkovskaya | литковская
+Frolov | фролов
+Ksenia Schnaider | ксения шнайдер
+Gunia Project | gunia
+4F | 4ф
+Big Star | биг стар
+Diverse | диверс
+Medicine | медисин
+Top Secret | топ сикрет
+Wólczanka | wolczanka
+Vistula | вистула
+Ochnik | охник
+Wittchen | виттхен
+CCC
+Gino Rossi | джино росси
+Answear
+Network
+Ipekyol
+Vakko
+Beymen
+Twist
+Ramsey
+Avva
+
+@popular
+Arket | аркет
+Our Legacy
+Filippa K
+Samsøe Samsøe | samsoe samsoe
+Wood Wood
+Norse Projects
+Tiger of Sweden
+J.Lindeberg | j lindeberg
+Holzweiler
+Stine Goya
+Rotate Birger Christensen | rotate
+Baum und Pferdgarten
+By Malene Birger
+Totême | toteme
+Mads Nørgaard | mads norgaard
+Pieces
+Vila
+Object
+Noisy May
+JDY | jacqueline de yong
+Name It
+Didriksons
+Haglöfs | haglofs
+Peak Performance
+Bergans
+Norrøna | norrona
+Houdini
+Swedish Hasbeens
+Eytys
+Axel Arigato
+Hugo
+Boss
+Jil Sander
+Gerry Weber
+Betty Barclay
+Comma
+Street One
+Cecil
+Opus
+Someday
+Marc Cain
+Drykorn
+Closed
+Armedangels
+Strenesse
+Escada
+Windsor
+Strellson
+Joop! | joop
+Baldessarini
+Bugatti
+Camel Active
+Brax
+Mustang | мустанг
+Lerros
+Pierre Cardin | пьер карден
+Olymp
+Eterna
+Seidensticker
+Falke | фальке
+Vaude
+Schöffel | schoffel
+Deuter
+Lloyd
+Lowa
+Meindl
+Hanwag
+Salamander | саламандер
+Lala Berlin
+Etro
+Missoni
+Emilio Pucci | pucci
+Roberto Cavalli | кавалли
+Just Cavalli
+Ermanno Scervino
+Blumarine
+Herno
+Fay
+Dondup
+Jacob Cohën | jacob cohen
+Sisley
+Falconeri
+Premiata
+Superga
+Alberta Ferretti
+Philosophy di Lorenzo Serafini
+MSGM
+GCDS
+Marcelo Burlon
+Iceberg
+Byblos
+Frankie Morello
+Gianfranco Ferré | gianfranco ferre
+Fiorucci
+Miss Sixty
+Energie
+Killah
+Motivi
+Oltre
+Alcott
+OVS
+Piazza Italia
+Sportmax
+Max&Co | max and co
+Marella
+Pennyblack
+Weekend Max Mara
+Santoni
+Sergio Rossi
+René Caovilla | rene caovilla
+Giuseppe Zanotti
+Casadei
+Le Silla
+Cesare Paciotti
+Fabi
+Bally
+Borsalino
+Lanvin
+Chloé | chloe
+Isabel Marant
+Claudie Pierlot
+The Kooples
+Zadig & Voltaire | zadig et voltaire
+A.P.C. | apc
+Maison Kitsuné | maison kitsune, kitsune
+Agnès b. | agnes b
+Sonia Rykiel
+Courrèges | courreges
+Rabanne | paco rabanne
+Jean Paul Gaultier | gaultier
+Mugler | thierry mugler
+Rochas
+Nina Ricci
+Carven
+Vanessa Bruno
+Sézane | sezane
+Rouje
+Ba&sh | bash
+Comptoir des Cotonniers
+Naf Naf | наф наф
+Promod
+Camaïeu | camaieu
+Kookaï | kookai
+Morgan
+Cache Cache
+Jennyfer
+Celio
+Jules
+Etam
+Undiz
+Aigle
+Petit Bateau
+Bonpoint
+Jacadi
+Cyrillus
+Okaïdi | okaidi
+Sergent Major
+Longchamp | лонгшамп
+Lancel
+Goyard
+Repetto
+Veja
+Saint James
+Armor Lux
+Eden Park
+Faguo
+Marine Serre
+Coperni
+Lemaire
+Officine Générale | officine generale
+Berluti
+Roger Vivier
+Jérôme Dreyfuss | jerome dreyfuss
+Polène | polene
+Lefties
+Springfield
+Cortefiel
+Women'secret | womensecret, women secret
+Pedro del Hierro
+Bimba y Lola
+Loewe
+Pikolinos
+Mascaró | mascaro
+Castañer | castaner
+Uterqüe | uterque
+Adolfo Dominguez
+Custo Barcelona
+Tous
+Munich
+El Ganso
+Scalpers
+Sfera
+Paloma Wool
+Mulberry
+Paul Smith
+Ted Baker
+AllSaints | all saints
+Reiss
+Whistles
+Jigsaw
+Hobbs
+Karen Millen
+Coast
+Oasis
+Warehouse
+Topman
+Miss Selfridge
+Dorothy Perkins
+Wallis
+Evans
+Burton
+New Look
+ASOS | asos design, асос
+Boohoo
+PrettyLittleThing | plt
+Missguided
+Monsoon
+Accessorize
+Joules
+Boden
+FatFace | fat face
+White Stuff
+Hackett
+Pringle of Scotland
+Belstaff
+Kurt Geiger
+Office
+Christopher Kane
+JW Anderson
+Craig Green
+Martine Rose
+Wales Bonner
+Simone Rocha
+Molly Goddard
+Erdem
+Self-Portrait | self portrait
+Aquascutum
+Daks
+Gieves & Hawkes
+Turnbull & Asser
+Charles Tyrwhitt
+T.M.Lewin | tm lewin
+John Smedley
+Sunspel
+Church's | churchs
+Grenson
+Tricker's | trickers
+Loake
+Crockett & Jones
+Joseph
+L.K.Bennett | lk bennett
+Phase Eight
+Hush
+Seasalt
+Admiral
+Hi-Tec
+Berghaus
+Rab
+Mountain Equipment
+Montane
+Regatta
+Craghoppers
+Karrimor
+Old Navy
+J.Crew | j crew
+Madewell
+Anthropologie
+Free People
+Urban Outfitters
+Forever 21 | f21
+Kate Spade
+Tory Burch
+Marc Jacobs
+DKNY
+Donna Karan
+Oscar de la Renta
+Carolina Herrera
+Diane von Furstenberg | dvf
+Proenza Schouler
+Alexander Wang
+Rag & Bone | rag and bone
+Theory
+Vince
+Reformation
+Everlane
+Aritzia
+Vuori
+Russell Athletic
+Starter
+Carhartt
+Ben Davis
+Red Wing | red wing shoes
+K-Swiss
+Allbirds
+Sperry
+Sebago
+Cole Haan
+Sam Edelman
+Stuart Weitzman
+Teva
+Keen
+Marmot
+Mountain Hardwear
+Eddie Bauer
+L.L.Bean | ll bean
+Filson
+Pendleton
+Schott NYC | schott
+Alpha Industries | alpha
+Avirex
+Hanes
+Fruit of the Loom
+Pink
+Spanx
+Juicy Couture
+True Religion
+7 For All Mankind | seven for all mankind
+AG Jeans
+Citizens of Humanity
+Mother
+Frame
+Paige
+Hudson
+J Brand
+Ed Hardy
+Von Dutch
+Affliction
+Hurley
+Rip Curl
+RVCA
+Diamond Supply Co.
+Noah
+Brain Dead
+Online Ceramics
+Sp5der | spider
+Broken Planet
+Hellstar
+Sky High Farm
+Eric Emanuel
+Engineered Garments
+Nautica
+Izod
+Perry Ellis
+Brooks Brothers
+Vineyard Vines
+Lands' End | lands end
+Express
+Ann Taylor
+Loft
+Talbots
+Fashion Nova
+Skims
+Good American
+Telfar
+Heron Preston
+Ambush
+Undefeated
+Roots
+Mackage
+Reigning Champ
+Zimmermann
+Ksubi
+Camilla
+Aje
+Cotton On
+Country Road
+Seed Heritage
+Witchery
+R.M. Williams | rm williams
+Blundstone
+Emu Australia
+Rolla's | rollas
+Havaianas
+Osklen
+Farm Rio
+Melissa
+Machka
+Kiğılı | kigili
+Altınyıldız Classics | altinyildiz
+Bytom
+Simple
+Samsonite
+Tumi
+Rimowa
+Lipault
+JanSport
+Tiffany & Co. | tiffany
+Cartier
+Bvlgari | bulgari
+Van Cleef & Arpels
+Chopard
+Thomas Sabo
+Oakley
+Persol
+Polaroid
+G-Shock
+Daniel Wellington
+Seiko
+Swatch
+Tissot
+Fossil
+Rolex
+Omega
+Longines
+Michael Kors Collection
+Moschino Couture
+See by Chloé | see by chloe
+Marc by Marc Jacobs
+Red Valentino
+Valentino Garavani
+Boss Orange
+Hugo Red
+Tommy Jeans
+Calvin Klein Jeans
+Polo Jeans
+Lauren Ralph Lauren
+Ralph Lauren Purple Label
+Nike ACG | acg
+Adidas by Stella McCartney
+Y-3
+Adidas Originals
+Reebok Classic
+Puma Select
+New Balance Made in USA
+Jordan Brand
+Converse Chuck Taylor | chuck taylor
+Vans Vault
+Timberland Pro
+Dr. Martens Made in England
+
+@normal
+Acler
+Aeropostale | aéropostale
+Agolde
+Alexa Chung
+Alice + Olivia | alice and olivia
+Altuzarra
+Anine Bing
+Anna Sui
+Anya Hindmarch
+Area
+Ashish
+Attico | the attico
+Avant Toi
+Balmain
+Barena
+Barrie
+Bellerose
+Bevza
+Blazé Milano
+Boglioli
+Bonsai
+Brioni
+Brock Collection
+By Far
+Canali
+Cecilie Bahnsen
+Charlotte Olympia
+Christopher Esber
+Coach 1941
+Collina Strada
+Commission
+Corneliani
+Cult Gaia
+Dion Lee
+Dries Van Noten
+Each x Other
+Ellery
+Emilia Wickstead
+Eckhaus Latta
+Etudes
+Filles à Papa
+Gabriela Hearst
+Giambattista Valli
+Gianvito Rossi
+Golden Bear
+Hood by Air
+Ienki Ienki
+Isaia
+Jeremy Scott
+Johanna Ortiz
+Junya Watanabe
+Kiton
+Khaite
+Kim Shui
+Koché
+Lemaire
+Ludovic de Saint Sernin
+Magda Butrym
+Maison Kitsuné
+Manolo Blahnik
+Marine Layer
+Marques'Almeida
+Max Mara Studio
+Missoni Mare
+Moncler Grenoble
+Moncler Genius
+Mr & Mrs Italy
+Nanushka
+Nensi Dojaka
+Orlebar Brown
+Paco Rabanne
+Patou
+Peter Do
+Prada Linea Rossa
+Proenza Schouler White Label
+Rachel Comey
+Raf Simons
+Rejina Pyo
+Roberto Cavalli Class
+Rodarte
+Rokh
+Roksanda
+Sacai
+Salvatore Santoro
+Schiaparelli
+Sies Marjan
+Sportmax Code
+Staud
+Sunnei
+Tibi
+Ulla Johnson
+Valextra
+Vetements
+Victoria Beckham
+Wandler
+Y/Project
+Yuzefi
+Zuhair Murad

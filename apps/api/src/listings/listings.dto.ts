@@ -16,7 +16,7 @@ export const ListingInput = z.object({
   title: z.string().trim().max(80, 'До 80 символов').optional(),
   category: z.enum(CATEGORY_SLUGS as [string, ...string[]]).nullish(),
   subcategory: z.string().max(40).nullish(),
-  sizeSystem: z.enum(['ALPHA', 'SHOE_EU', 'JEANS_W', 'OTHER']).nullish(),
+  sizeSystem: z.enum(['ALPHA', 'SHOE_EU', 'JEANS_W', 'KIDS', 'OTHER']).nullish(),
   sizeValue: z.string().trim().max(20).nullish(),
   condition: z.enum(['NEW_WITH_TAGS', 'LIKE_NEW', 'GOOD', 'VISIBLE_WEAR']).nullish(),
   price: z.number().int('Целое число').min(1, 'Укажите цену').max(100_000).nullish(),
@@ -26,7 +26,7 @@ export const ListingInput = z.object({
   color: z.enum(COLOR_VALUES as [string, ...string[]]).nullish(),
   material: z.string().max(40).nullish(),
   measurements: z
-    .object({ shoulders: measurement, chest: measurement, waist: measurement, length: measurement, sleeve: measurement, foot_length: measurement })
+    .object({ shoulders: measurement, chest: measurement, waist: measurement, hips: measurement, length: measurement, sleeve: measurement, inseam: measurement, foot_length: measurement })
     .nullish(),
   description: z.string().trim().max(2000, 'До 2000 символов').nullish(),
   city: z.enum(CITIES as [string, ...string[]]).nullish(),
@@ -38,7 +38,12 @@ export const ListingInput = z.object({
   auctionHours: z.union([z.literal(24), z.literal(72), z.literal(168)]).nullish(),
   auctionBuyNow: z.number().int().min(2).max(100_000).nullish(),
   minOfferPrice: z.number().int().min(1).nullish(),
-  gender: z.enum(['MALE', 'FEMALE', 'UNISEX']).nullish(),
+  autoAcceptPrice: z.number().int().min(1).max(100_000).nullish(),
+  originalPrice: z.number().int().min(1).max(1_000_000).nullish(),
+  gender: z.enum(['MALE', 'FEMALE', 'UNISEX', 'KIDS']).nullish(),
+  /** Other sizes of the same item, listed as separate copies on publish. */
+  extraSizes: z.array(z.string().trim().min(1).max(20)).max(10).optional(),
+  videoId: z.uuid().nullish(),
   styleTags: z.array(z.string().max(30)).max(3).optional(),
   aiAttributes: z.record(z.string(), aiField).nullish(),
   aiModelVersion: z.string().max(80).nullish(),

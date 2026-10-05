@@ -1,10 +1,13 @@
 import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
+import { POPULAR_BRANDS } from '../catalog/brands.js';
 import * as catalog from '../catalog/catalog.js';
 import { ZodPipe } from '../common/zod.js';
 import { FeedQuery, ListingInput, ListingInputT, SearchQuery, SearchQueryT, WardrobeQuery } from './listings.dto.js';
 import { ListingsService } from './listings.service.js';
+
+const ScheduleDto = z.object({ at: z.coerce.date() });
 
 @Controller()
 export class ListingsController {
@@ -13,8 +16,8 @@ export class ListingsController {
   @Public()
   @Get('meta')
   meta() {
-    const { CATEGORIES, SIZES, CONDITIONS, COLORS, MATERIALS, STYLE_TAGS, CITIES, TOP_BRANDS } = catalog;
-    return { categories: CATEGORIES, sizes: SIZES, conditions: CONDITIONS, colors: COLORS, materials: MATERIALS, styleTags: STYLE_TAGS, cities: CITIES, brands: TOP_BRANDS };
+    const { CATEGORIES, SIZES, CONDITIONS, COLORS, MATERIALS, STYLE_TAGS, CITIES, GENDERS } = catalog;
+    return { categories: CATEGORIES, genders: GENDERS, sizes: SIZES, conditions: CONDITIONS, colors: COLORS, materials: MATERIALS, styleTags: STYLE_TAGS, cities: CITIES, brands: POPULAR_BRANDS };
   }
 
   @Public()
@@ -68,6 +71,17 @@ export class ListingsController {
   @HttpCode(200)
   publish(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.listings.publish(user.id, id);
+  }
+
+  @Post('listings/:id/schedule')
+  @HttpCode(200)
+  schedule(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(ScheduleDto)) dto: z.infer<typeof ScheduleDto>) {
+    return this.listings.schedule(user.id, id, dto.at);
+  }
+
+  @Delete('listings/:id/schedule')
+  unschedule(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.listings.unschedule(user.id, id);
   }
 
   @Post('listings/:id/bump')

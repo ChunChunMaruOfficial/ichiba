@@ -4,6 +4,7 @@ import { photoUrls } from '../media/media.service.js';
 export const cardInclude = {
   photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 },
   seller: { select: { id: true, username: true } },
+  video: { select: { id: true } },
   auctions: {
     where: { status: 'ACTIVE' },
     take: 1,
@@ -33,6 +34,10 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     title: l.title,
     price: l.price,
     previousPrice: l.previousPrice,
+    originalPrice: l.originalPrice,
+    hasVideo: !!l.video,
+    /** Owner's drafts only: when a scheduled draft goes live. */
+    scheduledAt: l.status === 'DRAFT' ? l.scheduledAt : null,
     size: sizeLabel(l),
     condition: l.condition,
     brand: l.brand,

@@ -68,6 +68,8 @@ export function fitHint(
   listing: { category: string | null; sizeSystem: string | null; sizeValue: string | null; measurements: unknown },
   profile: { body?: BodyMeasurements | null; sizes?: PreferredSizes | null },
 ): FitHint | null {
+  // Children's sizes go by height and aren't compared with the adult profile.
+  if (listing.sizeSystem === 'KIDS' || (listing as { gender?: string | null }).gender === 'KIDS') return null;
   const m = (listing.measurements ?? {}) as Partial<Record<'chest' | 'waist' | 'foot_length' | 'length' | 'shoulders', number | null>>;
   const body = profile.body ?? {};
   const checks: Array<{ verdict: FitVerdict; text: string }> = [];

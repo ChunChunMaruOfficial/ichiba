@@ -32,6 +32,8 @@ const OFFER_TTL_MS = 48 * 3600 * 1000;
 const MAX_ROUNDS = 3;
 const MIN_SHARE = 0.3;
 const COOLDOWN_AFTER_DECLINE_MS = 24 * 3600 * 1000;
+/** "Скидка лайкнувшим": one mailing per listing per 3 days, so likers aren't spammed. */
+const LIKERS_COOLDOWN_MS = 72 * 3600 * 1000;
 
 const offerInclude = {
   listing: { include: cardInclude },
@@ -57,6 +59,8 @@ export class OffersService {
     const pending = o.status === 'PENDING' && o.expiresAt > new Date();
     // The side that did not make the latest offer is the one who answers it.
     const myTurn = pending && ((o.from === 'BUYER' && role === 'seller') || (o.from === 'SELLER' && role === 'buyer'));
+    // A discount the seller sent to everyone who liked the item is accepted or declined, not haggled over.
+    const fromLikers = history[0]?.round === 1 && history[0]?.from === 'SELLER';
     return {
       id: o.id,
       role,
@@ -71,9 +75,10 @@ export class OffersService {
       listing: serializeCard(o.listing),
       counterpart: role === 'buyer' ? o.seller : o.buyer,
       myTurn,
-      canCounter: myTurn && o.round < MAX_ROUNDS,
+      fromLikers,
+      canCounter: myTurn && o.round < MAX_ROUNDS && !fromLikers,
       /** Allowed range for a counter-offer: strictly between the last two prices. */
-      counterRange: myTurn && o.round < MAX_ROUNDS ? this.counterRange(o, history) : null,
+      counterRange: myTurn && o.round < MAX_ROUNDS && !fromLikers ? this.counterRange(o, history) : null,
       history: history.map((h) => ({ round: h.round, amount: h.amount, from: h.from, status: h.status, createdAt: h.createdAt })),
     };
   }
@@ -155,6 +160,9 @@ export class OffersService {
     this.stats.track(listingId, 'offers');
     if (autoDecline) {
       await this.notifications.notify(buyerId, 'offer_declined', { listingId, title: listing.title, amount, auto: true });
+    } else if (listing.autoAcceptPrice != null && amount >= listing.autoAcceptPrice) {
+      await this.autoAccept(offer.id, listing.sellerId, buyerId);
+      return (await this.forListing(listingId, buyerId)).offer!;
     } else {
       await this.notifications.notify(listing.sellerId, 'offer_new', { offerId: offer.id, listingId, title: listing.title, amount, price: listing.price, buyer: offer.buyer.username });
     }
@@ -174,6 +182,7 @@ export class OffersService {
   async counter(actorId: string, id: string, amount: number) {
     const { o, role } = await this.answerable(id, actorId);
     if (o.round >= MAX_ROUNDS) throw new BadRequestException({ message: 'Это последний раунд — можно только принять или отклонить' });
+    if (o.round === 1 && o.from === 'SELLER') throw new BadRequestException({ message: 'Это скидка от продавца — её можно принять или отклонить' });
     const range = this.counterRange(o, await this.history(o));
     if (amount < range.min || amount > range.max) {
       throw new BadRequestException({ message: `Цена должна быть между ${range.min - 1} и ${range.max + 1} BYN`, fields: { amount: `От ${range.min} до ${range.max} BYN` } });
@@ -194,6 +203,11 @@ export class OffersService {
         include: offerInclude,
       });
     });
+    const auto = role === 'buyer' ? await this.prisma.listing.findUnique({ where: { id: o.listingId }, select: { autoAcceptPrice: true } }) : null;
+    if (auto?.autoAcceptPrice != null && amount >= auto.autoAcceptPrice) {
+      await this.autoAccept(next.id, o.sellerId, o.buyerId);
+      return (await this.forListing(o.listingId, actorId)).offer!;
+    }
     const to = role === 'seller' ? o.buyerId : o.sellerId;
     await this.notifications.notify(to, 'offer_countered', { offerId: next.id, listingId: o.listingId, title: o.listing.title, amount, by: role === 'seller' ? o.seller.username : o.buyer.username });
     return this.serialize(next, actorId, await this.history(next));
@@ -214,6 +228,61 @@ export class OffersService {
     const to = role === 'seller' ? o.buyerId : o.sellerId;
     await this.notifications.notify(to, 'offer_accepted', { offerId: id, requestId: request.id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
     return { ...this.serialize({ ...o, status: 'ACCEPTED', requestId: request.id }, actorId, await this.history(o)), requestId: request.id };
+  }
+
+  /** The seller's auto-accept threshold was met: accepted on the seller's behalf, who is told about the deal. */
+  private async autoAccept(offerId: string, sellerId: string, buyerId: string) {
+    const r = await this.accept(sellerId, offerId);
+    const buyer = await this.prisma.user.findUnique({ where: { id: buyerId }, select: { username: true } });
+    await this.notifications.notify(sellerId, 'offer_auto_accepted', { offerId, requestId: r.requestId, listingId: r.listing.id, title: r.listing.title, amount: r.amount, buyer: buyer?.username });
+  }
+
+  /** How many people a "скидка лайкнувшим" would reach, and when it's available again. */
+  async likersInfo(sellerId: string, listingId: string) {
+    const listing = await this.prisma.listing.findUnique({ where: { id: listingId }, select: { sellerId: true, likersOfferAt: true } });
+    if (!listing || listing.sellerId !== sellerId) throw new NotFoundException({ message: 'Такой вещи нет' });
+    const recipients = await this.likers(listingId, sellerId);
+    const nextAt = listing.likersOfferAt ? new Date(listing.likersOfferAt.getTime() + LIKERS_COOLDOWN_MS) : null;
+    return { count: recipients.length, nextAt: nextAt && nextAt > new Date() ? nextAt : null };
+  }
+
+  /** People who saved the item and aren't already negotiating on it. */
+  private async likers(listingId: string, sellerId: string) {
+    const [favs, busy] = await Promise.all([
+      this.prisma.favorite.findMany({ where: { listingId, userId: { not: sellerId }, user: { deletedAt: null, blockedAt: null } }, select: { userId: true } }),
+      this.prisma.offer.findMany({ where: { listingId, status: 'PENDING', expiresAt: { gt: new Date() } }, select: { buyerId: true } }),
+    ]);
+    const skip = new Set(busy.map((b) => b.buyerId));
+    return favs.map((f) => f.userId).filter((u) => !skip.has(u));
+  }
+
+  /**
+   * "Скидка лайкнувшим" (Poshmark/Depop "offer to likers"): a personal lower price for everyone who saved
+   * the item, valid 48 h. Each gets an ordinary offer from the seller, so accepting it opens a normal deal.
+   */
+  async offerLikers(sellerId: string, listingId: string, amount: number) {
+    const listing = await this.prisma.listing.findUnique({ where: { id: listingId } });
+    if (!listing || listing.sellerId !== sellerId || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
+    if (listing.status !== 'PUBLISHED' || !listing.price) throw new ConflictException({ message: 'Скидку можно отправить только по вещи в продаже' });
+    if (listing.saleType === 'AUCTION') throw new BadRequestException({ message: 'Для аукциона скидка не отправляется' });
+    if (amount >= listing.price) throw new BadRequestException({ message: 'Цена со скидкой должна быть ниже текущей', fields: { amount: 'Ниже текущей цены' } });
+    if (amount < Math.ceil(listing.price * 0.5)) throw new BadRequestException({ message: 'Скидка больше 50% — лучше просто снизить цену', fields: { amount: 'Не ниже 50% цены' } });
+    if (listing.likersOfferAt && Date.now() - listing.likersOfferAt.getTime() < LIKERS_COOLDOWN_MS) {
+      throw new ConflictException({ message: 'Скидку лайкнувшим можно отправлять раз в 3 дня' });
+    }
+    const recipients = await this.likers(listingId, sellerId);
+    if (!recipients.length) throw new ConflictException({ message: 'Пока некому отправить: вещь никто не добавил в избранное' });
+
+    const expiresAt = new Date(Date.now() + OFFER_TTL_MS);
+    // Guarded on likersOfferAt, so two clicks can't send two mailings.
+    const { count } = await this.prisma.listing.updateMany({ where: { id: listingId, likersOfferAt: listing.likersOfferAt }, data: { likersOfferAt: new Date() } });
+    if (!count) throw new ConflictException({ message: 'Скидка уже отправлена' });
+    await this.prisma.offer.createMany({
+      data: recipients.map((buyerId) => ({ listingId, buyerId, sellerId, round: 1, amount, from: 'SELLER' as const, expiresAt })),
+    });
+    const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { username: true } });
+    await this.notifications.notifyMany(recipients, 'offer_likers', { listingId, title: listing.title, amount, price: listing.price, seller: seller?.username });
+    return { sent: recipients.length };
   }
 
   async decline(actorId: string, id: string) {
@@ -260,7 +329,8 @@ export class OffersService {
     const stale = await this.prisma.offer.findMany({ where: { status: 'PENDING', expiresAt: { lt: new Date() } }, include: { listing: { select: { title: true } } } });
     for (const o of stale) {
       const { count } = await this.prisma.offer.updateMany({ where: { id: o.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
-      if (count) await this.notifications.notify(o.from === 'BUYER' ? o.buyerId : o.sellerId, 'offer_expired', { offerId: o.id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
+      // Unanswered "скидка лайкнувшим" offers expire quietly: one note per liker would flood the seller.
+      if (count && !(o.round === 1 && o.from === 'SELLER')) await this.notifications.notify(o.from === 'BUYER' ? o.buyerId : o.sellerId, 'offer_expired', { offerId: o.id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
     }
     if (stale.length) this.logger.log(`expired ${stale.length} offers`);
   }
@@ -282,6 +352,17 @@ export class OffersController {
   @Get()
   list(@CurrentUser() user: AuthUser, @Query('role') role = 'seller', @Query('turn') turn?: string) {
     return this.offers.list(user.id, role === 'buyer' ? 'buyer' : 'seller', turn === 'mine');
+  }
+
+  @Get('likers/:listingId')
+  likersInfo(@CurrentUser() user: AuthUser, @Param('listingId', ParseUUIDPipe) listingId: string) {
+    return this.offers.likersInfo(user.id, listingId);
+  }
+
+  @Post('likers/:listingId')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  offerLikers(@CurrentUser() user: AuthUser, @Param('listingId', ParseUUIDPipe) listingId: string, @Body(new ZodPipe(AmountDto)) dto: z.infer<typeof AmountDto>) {
+    return this.offers.offerLikers(user.id, listingId, dto.amount);
   }
 
   @Get('listing/:listingId')

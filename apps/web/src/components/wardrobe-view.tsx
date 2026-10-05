@@ -81,6 +81,7 @@ function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="fade-in absolute right-0 top-11 z-20 w-52 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
             {item(card.status === "DRAFT" ? "Продолжить" : "Редактировать", () => router.push(`/item/${card.id}/edit`))}
+            {card.status !== "DRAFT" && item("Выставить похожую", () => router.push(`/sell?similar=${card.id}`))}
             {card.status === "PUBLISHED" && item("Снять с продажи", () => actions.hide(card.id))}
             {card.status === "HIDDEN" && item("Вернуть в продажу", () => actions.unhide(card.id))}
             {(card.status === "PUBLISHED" || card.status === "HIDDEN" || reserved) && item("Пометить как проданное", () => actions.markSold(card.id), { disabled: reserved })}

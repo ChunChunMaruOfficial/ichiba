@@ -2,14 +2,30 @@
 
 import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Photo } from "@/lib/types";
+import type { Photo, VideoView } from "@/lib/types";
 import { IconChevronLeft, IconChevronRight, IconExpand, IconX } from "./ui";
 
-/** Product gallery: main photo + thumbnails (desktop), swipe carousel (mobile), fullscreen viewer (frame 08). */
-export function Gallery({ photos, title, index, onIndex, overlay }: { photos: Photo[]; title: string; index: number; onIndex: (i: number) => void; overlay?: React.ReactNode }) {
+function VideoSlide({ video, className }: { video: VideoView; className?: string }) {
+  return <video src={video.url} poster={video.poster} controls playsInline preload="metadata" className={clsx("bg-black object-contain", className)} />;
+}
+
+function PlayBadge() {
+  return (
+    <span className="absolute inset-0 grid place-items-center bg-black/25" aria-hidden>
+      <span className="grid size-7 place-items-center rounded-full bg-white/90 text-[11px] text-ink">▶</span>
+    </span>
+  );
+}
+
+/**
+ * Product gallery: main photo + thumbnails (desktop), swipe carousel (mobile), fullscreen viewer (frame 08).
+ * A listing video, if any, is the last slide.
+ */
+export function Gallery({ photos, video, title, index, onIndex, overlay }: { photos: Photo[]; video?: VideoView | null; title: string; index: number; onIndex: (i: number) => void; overlay?: React.ReactNode }) {
   const [fullscreen, setFullscreen] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
-  const count = photos.length;
+  const count = photos.length + (video ? 1 : 0);
+  const onVideo = !!video && index === photos.length;
   const go = useCallback((i: number) => onIndex((i + count) % count), [onIndex, count]);
 
   // Keep the mobile carousel in sync when the index changes from outside (e.g. "Смотреть на фото" for defects).
@@ -20,6 +36,7 @@ export function Gallery({ photos, title, index, onIndex, overlay }: { photos: Ph
 
   if (!count) return <div className="aspect-[4/5] rounded-3xl bg-skeleton" />;
   const current = photos[index] ?? photos[0];
+  const dots = [...photos.map((p) => p.id), ...(video ? [video.id] : [])];
 
   return (
     <div>
@@ -40,12 +57,17 @@ export function Gallery({ photos, title, index, onIndex, overlay }: { photos: Ph
               <img src={p.urls.l} alt={i === 0 ? title : ""} className="aspect-[4/5] w-full object-cover" loading={i === 0 ? "eager" : "lazy"} />
             </button>
           ))}
+          {video && (
+            <div className="w-full shrink-0 snap-center">
+              <VideoSlide video={video} className="aspect-[4/5] w-full" />
+            </div>
+          )}
         </div>
         {overlay}
         {count > 1 && (
-          <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5" aria-hidden>
-            {photos.map((p, i) => (
-              <span key={p.id} className={clsx("size-1.5 rounded-full", i === index ? "bg-white" : "bg-white/50")} />
+          <div className={clsx("pointer-events-none absolute inset-x-0 flex justify-center gap-1.5", onVideo ? "top-3" : "bottom-3")} aria-hidden>
+            {dots.map((id, i) => (
+              <span key={id} className={clsx("size-1.5 rounded-full", i === index ? "bg-white" : "bg-white/50")} />
             ))}
           </div>
         )}
@@ -54,10 +76,14 @@ export function Gallery({ photos, title, index, onIndex, overlay }: { photos: Ph
       {/* Desktop: main photo + thumbnails */}
       <div className="hidden md:block">
         <div className="group relative overflow-hidden rounded-3xl bg-skeleton">
-          <button className="block w-full cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img key={current.id} src={current.urls.l} alt={title} className="fade-in mx-auto max-h-[80vh] w-full object-contain" style={{ aspectRatio: `${current.width} / ${current.height}` }} />
-          </button>
+          {onVideo ? (
+            <VideoSlide video={video} className="mx-auto max-h-[80vh] w-full" />
+          ) : (
+            <button className="block w-full cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img key={current.id} src={current.urls.l} alt={title} className="fade-in mx-auto max-h-[80vh] w-full object-contain" style={{ aspectRatio: `${current.width} / ${current.height}` }} />
+            </button>
+          )}
           {overlay}
           {count > 1 && (
             <>
@@ -69,10 +95,12 @@ export function Gallery({ photos, title, index, onIndex, overlay }: { photos: Ph
               </button>
             </>
           )}
-          <span className="tabular absolute bottom-3 right-3 flex items-center gap-2 rounded-full bg-black/55 px-3 py-1 text-xs font-medium text-white">
-            {index + 1} / {count}
-            <IconExpand className="size-3.5" />
-          </span>
+          {!onVideo && (
+            <span className="tabular absolute bottom-3 right-3 flex items-center gap-2 rounded-full bg-black/55 px-3 py-1 text-xs font-medium text-white">
+              {index + 1} / {count}
+              <IconExpand className="size-3.5" />
+            </span>
+          )}
         </div>
         {count > 1 && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -90,11 +118,23 @@ export function Gallery({ photos, title, index, onIndex, overlay }: { photos: Ph
                 {p.isDefect && <span className="absolute inset-x-0 bottom-0 bg-warn-soft py-0.5 text-[10px] font-semibold text-warn">дефект</span>}
               </button>
             ))}
+            {video && (
+              <button
+                onClick={() => onIndex(photos.length)}
+                aria-label="Видео"
+                aria-current={onVideo}
+                className={clsx("relative size-18 overflow-hidden rounded-xl border-2", onVideo ? "border-ink" : "border-transparent opacity-80 hover:opacity-100")}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={video.poster} alt="" className="size-full object-cover" />
+                <PlayBadge />
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {fullscreen && <Fullscreen photos={photos} index={index} onIndex={go} onClose={() => setFullscreen(false)} />}
+      {fullscreen && !onVideo && <Fullscreen photos={photos} index={Math.min(index, photos.length - 1)} onIndex={(i) => onIndex((i + photos.length) % photos.length)} onClose={() => setFullscreen(false)} />}
     </div>
   );
 }

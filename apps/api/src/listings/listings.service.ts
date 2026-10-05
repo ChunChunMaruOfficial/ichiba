@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CATEGORIES,
   categoriesInGroup,
@@ -14,8 +15,10 @@ import { RecommendationsService } from '../recommendations/recommendations.servi
 import { AUCTION_DURATIONS, auctionInclude, defaultStep, serializeAuction } from '../auctions/rules.js';
 import { ListingModerator, ModerationVerdict } from '../ai/moderation.js';
 import { nextBumpAt, StatsService } from '../stats/stats.js';
+import { canonicalBrand } from '../catalog/brands.js';
 import { tiersOf } from './bundle.js';
 import { BodyMeasurements, fitHint, PreferredSizes } from './fit.js';
+import { serializeVideo } from '../media/media.service.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
 import type { ListingInputT, SearchQueryT } from './listings.dto.js';
 
@@ -72,6 +75,7 @@ export class ListingsService {
       data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...this.toData(input) },
     });
     if (input.photos) await this.attachPhotos(userId, listing.id, input.photos);
+    if (input.videoId !== undefined) await this.attachVideo(userId, listing.id, input.videoId);
     return this.getForOwner(userId, listing.id);
   }
 
@@ -97,13 +101,14 @@ export class ListingsService {
     let verdict: ModerationVerdict | null = null;
     const live = listing.status === 'PUBLISHED' || listing.status === 'RESERVED';
     const prospective = { ...listing, ...Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) } as typeof listing;
-    if (live && (MODERATED_FIELDS.some((f) => f in data && data[f] !== listing[f]) || input.photos)) {
-      verdict = await this.moderator.check(prospective, await this.photoKeys(userId, id, input.photos));
+    if (live && (MODERATED_FIELDS.some((f) => f in data && data[f] !== listing[f]) || input.photos || input.videoId)) {
+      verdict = await this.moderator.check(prospective, await this.moderationKeys(userId, id, input.photos, input.videoId));
       if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Изменения не прошли проверку', code: 'MODERATION', fields: verdict.fields });
     }
 
     await this.prisma.listing.update({ where: { id }, data });
     if (input.photos) await this.attachPhotos(userId, id, input.photos);
+    if (input.videoId !== undefined) await this.attachVideo(userId, id, input.videoId);
     if (verdict) await this.moderator.record(prospective, verdict);
 
     if (priceDropped) {
@@ -120,8 +125,8 @@ export class ListingsService {
 
   /** Plain column values (no Prisma update operators), so they work for create, update and comparisons. */
   private toData(input: ListingInputT) {
-    const { photos: _photos, measurements, aiAttributes, ...rest } = input;
-    const data: Omit<ListingInputT, 'photos' | 'measurements' | 'aiAttributes'> & {
+    const { photos: _photos, videoId: _videoId, measurements, aiAttributes, ...rest } = input;
+    const data: Omit<ListingInputT, 'photos' | 'videoId' | 'measurements' | 'aiAttributes'> & {
       measurements?: Prisma.InputJsonValue;
       aiAttributes?: Prisma.InputJsonValue;
       previousPrice?: number | null;
@@ -129,6 +134,7 @@ export class ListingsService {
     if (measurements !== undefined) data.measurements = (measurements ?? undefined) as Prisma.InputJsonValue | undefined;
     if (aiAttributes !== undefined) data.aiAttributes = (aiAttributes ?? undefined) as Prisma.InputJsonValue | undefined;
     if (input.defectsPresent === false) data.defectsDescription = null;
+    if (input.brand !== undefined) data.brand = canonicalBrand(input.brand);
     return data;
   }
 
@@ -154,16 +160,28 @@ export class ListingsService {
     ]);
   }
 
-  // ---------- lifecycle ----------
+  /** One video per listing: links the given one (if it's the user's) and unlinks any other. */
+  private async attachVideo(userId: string, listingId: string, videoId: string | null) {
+    await this.prisma.video.updateMany({ where: { listingId, ...(videoId ? { id: { not: videoId } } : {}) }, data: { listingId: null } });
+    if (videoId) await this.prisma.video.updateMany({ where: { id: videoId, ownerId: userId }, data: { listingId } });
+  }
 
-  async publish(userId: string, id: string) {
-    const listing = await this.ownListing(userId, id);
-    if (listing.status === 'PUBLISHED') return this.getForOwner(userId, id);
-    if (!['DRAFT', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя опубликовать' });
+  /** Images moderation looks at: the photos plus the video's poster frame (stored like a photo). */
+  private async moderationKeys(userId: string, listingId: string, photos?: { id: string }[], videoId?: string | null) {
+    const keys = await this.photoKeys(userId, listingId, photos);
+    const video =
+      videoId === undefined
+        ? await this.prisma.video.findUnique({ where: { listingId }, select: { key: true } })
+        : videoId
+          ? await this.prisma.video.findFirst({ where: { id: videoId, ownerId: userId }, select: { key: true } })
+          : null;
+    return video ? [...keys, video.key] : keys;
+  }
 
-    const photoKeys = await this.photoKeys(userId, id);
+  /** Missing or inconsistent fields that block publication, as field errors. */
+  private publishErrors(listing: Listing, photoCount: number) {
     const fields: Record<string, string> = {};
-    if (!photoKeys.length) fields.photos = 'Добавьте хотя бы одно фото';
+    if (!photoCount) fields.photos = 'Добавьте хотя бы одно фото';
     if (!listing.title.trim()) fields.title = 'Укажите название';
     if (!listing.category) fields.category = 'Выберите категорию';
     if (sizeRequired(listing.category) && !listing.sizeValue) fields.size = 'Укажите размер';
@@ -172,23 +190,92 @@ export class ListingsService {
     if (listing.defectsPresent && !listing.defectsDescription?.trim()) fields.defectsDescription = 'Опишите дефекты';
     if (!listing.price) fields.price = 'Укажите цену';
     if (!listing.deliveryOptions.length) fields.deliveryOptions = 'Выберите способ передачи';
+    if (listing.originalPrice != null && listing.price != null && listing.originalPrice <= listing.price) fields.originalPrice = 'Цена в магазине должна быть выше вашей';
     if (listing.saleType === 'AUCTION') {
       if (!AUCTION_DURATIONS.includes(listing.auctionHours ?? 0)) fields.auctionHours = 'Выберите длительность аукциона';
       if (listing.auctionReserve != null && listing.price != null && listing.auctionReserve < listing.price) fields.auctionReserve = 'Резерв не может быть ниже стартовой цены';
       if (listing.auctionBuyNow != null && listing.price != null && listing.auctionBuyNow <= listing.price) fields.auctionBuyNow = 'Цена «Купить сейчас» должна быть выше стартовой';
       else if (listing.auctionBuyNow != null && listing.auctionReserve != null && listing.auctionBuyNow < listing.auctionReserve) fields.auctionBuyNow = 'Цена «Купить сейчас» не может быть ниже резерва';
+      if (listing.extraSizes.length) fields.extraSizes = 'Несколько размеров можно выставить только с фиксированной ценой';
+    } else if (listing.acceptsOffers && listing.autoAcceptPrice != null && listing.price != null) {
+      if (listing.autoAcceptPrice >= listing.price) fields.autoAcceptPrice = 'Должно быть ниже цены — по цене покупают без торга';
+      else if (listing.minOfferPrice != null && listing.autoAcceptPrice <= listing.minOfferPrice) fields.autoAcceptPrice = 'Должно быть выше порога автоотказа';
     }
-    if (Object.keys(fields).length) throw new BadRequestException({ message: 'Заполните обязательные поля', fields });
+    return fields;
+  }
 
-    // Automatic moderation (rules + AI ensemble): violations come back as field errors for the seller.
-    const verdict = await this.moderator.check(listing, photoKeys);
-    if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields });
+  /**
+   * "Несколько размеров" (Avito multi-listing): every extra size becomes its own listing with the same
+   * photos, text and price, linked by groupId, so buying, deals and reviews stay one item = one listing.
+   */
+  private async publishSizeCopies(listing: Listing, verdict: ModerationVerdict) {
+    const sizes = [...new Set(listing.extraSizes.map((s) => s.trim()).filter((s) => s && s !== listing.sizeValue))].slice(0, 10);
+    if (!sizes.length) return;
+    const groupId = listing.groupId ?? listing.id;
+    const [photos, video] = await Promise.all([
+      this.prisma.photo.findMany({ where: { listingId: listing.id }, orderBy: { order: 'asc' } }),
+      this.prisma.video.findUnique({ where: { listingId: listing.id } }),
+    ]);
+    const now = new Date();
+    for (const size of sizes) {
+      const copy = await this.prisma.listing.create({
+        data: {
+          sellerId: listing.sellerId,
+          status: 'PUBLISHED',
+          groupId,
+          title: listing.title,
+          category: listing.category,
+          subcategory: listing.subcategory,
+          sizeSystem: listing.sizeSystem,
+          sizeValue: size,
+          condition: listing.condition,
+          price: listing.price,
+          originalPrice: listing.originalPrice,
+          defectsPresent: listing.defectsPresent,
+          defectsDescription: listing.defectsDescription,
+          brand: listing.brand,
+          color: listing.color,
+          material: listing.material,
+          description: listing.description,
+          city: listing.city,
+          deliveryOptions: listing.deliveryOptions,
+          acceptsOffers: listing.acceptsOffers,
+          minOfferPrice: listing.minOfferPrice,
+          autoAcceptPrice: listing.autoAcceptPrice,
+          gender: listing.gender,
+          styleTags: listing.styleTags,
+          aiAttributes: listing.aiAttributes ?? undefined,
+          aiModelVersion: listing.aiModelVersion,
+          publishedAt: now,
+          liftedAt: now,
+        },
+      });
+      // Storage files are shared: rows point at the same keys, nothing is copied.
+      await this.prisma.photo.createMany({
+        data: photos.map((p) => ({ ownerId: p.ownerId, listingId: copy.id, key: p.key, width: p.width, height: p.height, order: p.order, isCover: p.isCover, isDefect: p.isDefect, quality: p.quality ?? undefined })),
+      });
+      if (video) {
+        await this.prisma.video.create({ data: { ownerId: video.ownerId, listingId: copy.id, key: video.key, ext: video.ext, mime: video.mime, width: video.width, height: video.height, durationMs: video.durationMs } });
+      }
+      await this.moderator.record(copy, verdict);
+    }
+    await this.prisma.listing.update({ where: { id: listing.id }, data: { groupId, extraSizes: [] } });
+  }
 
+  // ---------- lifecycle ----------
+
+  async publish(userId: string, id: string) {
+    const listing = await this.ownListing(userId, id);
+    if (listing.status === 'PUBLISHED') return this.getForOwner(userId, id);
+    if (!['DRAFT', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя опубликовать' });
+
+    const verdict = await this.checkPublishable(userId, listing);
     await this.prisma.listing.update({
       where: { id },
-      data: { status: 'PUBLISHED', publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date() },
+      data: { status: 'PUBLISHED', publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date(), scheduledAt: null },
     });
     await this.moderator.record(listing, verdict);
+    if (listing.saleType === 'FIXED') await this.publishSizeCopies(listing, verdict);
     // Auction clock starts at publication (decision D16).
     if (listing.saleType === 'AUCTION' && !(await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } }))) {
       await this.prisma.auction.create({
@@ -210,6 +297,57 @@ export class ListingsService {
       await this.notifications.notifyMany(followers.map((f) => f.followerId), 'follow_new_item', { listingId: id, title: listing.title, seller: seller.username });
     }
     return this.getForOwner(userId, id);
+  }
+
+  /** Required fields, then automatic moderation (rules + AI ensemble); violations come back as field errors. */
+  private async checkPublishable(userId: string, listing: Listing) {
+    const keys = await this.moderationKeys(userId, listing.id);
+    const photoCount = await this.prisma.photo.count({ where: { listingId: listing.id } });
+    const fields = this.publishErrors(listing, photoCount);
+    if (Object.keys(fields).length) throw new BadRequestException({ message: 'Заполните обязательные поля', fields });
+    const verdict = await this.moderator.check(listing, keys);
+    if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields });
+    return verdict;
+  }
+
+  /**
+   * "Отложенная публикация": the draft is checked now, so the seller fixes problems while still here,
+   * and published by the cron at the chosen time.
+   */
+  async schedule(userId: string, id: string, at: Date) {
+    const listing = await this.ownListing(userId, id);
+    if (listing.status !== 'DRAFT') throw new ConflictException({ message: 'Запланировать можно только черновик' });
+    const ms = at.getTime() - Date.now();
+    if (ms < 5 * 60_000) throw new BadRequestException({ message: 'Выберите время хотя бы через 5 минут', fields: { scheduledAt: 'Не раньше чем через 5 минут' } });
+    if (ms > 30 * 24 * 3600_000) throw new BadRequestException({ message: 'Запланировать можно не дальше чем на 30 дней', fields: { scheduledAt: 'Не дальше 30 дней' } });
+    await this.checkPublishable(userId, listing);
+    await this.prisma.listing.update({ where: { id }, data: { scheduledAt: at } });
+    return this.getForOwner(userId, id);
+  }
+
+  async unschedule(userId: string, id: string) {
+    await this.ownListing(userId, id);
+    await this.prisma.listing.update({ where: { id }, data: { scheduledAt: null } });
+    return { ok: true };
+  }
+
+  private readonly logger = new Logger('Listings');
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async publishScheduled() {
+    const due = await this.prisma.listing.findMany({ where: { status: 'DRAFT', scheduledAt: { lte: new Date() } }, select: { id: true, sellerId: true, title: true }, take: 20 });
+    for (const l of due) {
+      try {
+        await this.publish(l.sellerId, l.id);
+        await this.notifications.notify(l.sellerId, 'listing_scheduled_published', { listingId: l.id, title: l.title });
+      } catch (e) {
+        // Something changed since scheduling (moderation rules, a deleted photo): back to a plain draft.
+        await this.prisma.listing.update({ where: { id: l.id }, data: { scheduledAt: null } });
+        const reason = e instanceof BadRequestException || e instanceof ConflictException ? ((e.getResponse() as { message?: string }).message ?? null) : null;
+        await this.notifications.notify(l.sellerId, 'listing_schedule_failed', { listingId: l.id, title: l.title, reason });
+        if (!reason) this.logger.warn(`scheduled publish of ${l.id} failed: ${(e as Error).message}`);
+      }
+    }
   }
 
   async hide(userId: string, id: string) {
@@ -303,7 +441,7 @@ export class ListingsService {
   async get(id: string, viewerId?: string, opts: { trackView?: boolean } = {}) {
     const listing = await this.prisma.listing.findUnique({
       where: { id },
-      include: { photos: { orderBy: { order: 'asc' } }, seller: { select: { id: true, username: true, city: true, createdAt: true } } },
+      include: { photos: { orderBy: { order: 'asc' } }, video: true, seller: { select: { id: true, username: true, city: true, createdAt: true } } },
     });
     if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
 
@@ -345,6 +483,14 @@ export class ListingsService {
         : null,
     ]);
 
+    // Other sizes of the same item (multi-size listing).
+    const siblings = listing.groupId
+      ? await this.prisma.listing.findMany({
+          where: { groupId: listing.groupId, OR: [{ status: { in: VISIBLE_IN_FEED } }, { id }] },
+          select: { id: true, sizeValue: true, status: true },
+        })
+      : [];
+    const sizeOrder = (s: string | null) => (s && /^\d+$/.test(s.replace(/^W/, '')) ? Number(s.replace(/^W/, '')) : ['XS', 'S', 'M', 'L', 'XL', 'XXL'].indexOf(s ?? ''));
     const ai = (listing.aiAttributes ?? {}) as Record<string, { accepted_by_user?: boolean; edited_by_user?: boolean }>;
     const category = categoryBySlug(listing.category);
     return {
@@ -353,6 +499,7 @@ export class ListingsService {
       title: listing.title,
       price: listing.price,
       previousPrice: listing.previousPrice,
+      originalPrice: listing.originalPrice,
       category: listing.category,
       categoryLabel: category?.label ?? null,
       subcategory: listing.subcategory,
@@ -379,6 +526,11 @@ export class ListingsService {
       createdAt: listing.createdAt,
       blockedReason: isOwner ? listing.blockedReason : null,
       photos: listing.photos.map(serializePhoto),
+      video: listing.video ? serializeVideo(listing.video) : null,
+      sizes:
+        siblings.length > 1
+          ? siblings.sort((a, b) => sizeOrder(a.sizeValue) - sizeOrder(b.sizeValue)).map((s) => ({ id: s.id, size: s.sizeValue, available: s.status === 'PUBLISHED', current: s.id === id }))
+          : null,
       seller,
       isOwner,
       isFavorite,
@@ -400,6 +552,10 @@ export class ListingsService {
             auctionHours: listing.auctionHours,
             auctionBuyNow: listing.auctionBuyNow,
             minOfferPrice: listing.minOfferPrice,
+            autoAcceptPrice: listing.autoAcceptPrice,
+            extraSizes: listing.extraSizes,
+            scheduledAt: listing.scheduledAt,
+            likersOfferAt: listing.likersOfferAt,
             aiAttributes: listing.aiAttributes,
             sizeSystem: listing.sizeSystem,
             bump: (() => {
@@ -669,11 +825,19 @@ export class ListingsService {
     if (q.category?.length) and.push({ category: { in: q.category } });
     if (q.subcategory?.length) and.push({ subcategory: { in: q.subcategory } });
     if (q.style?.length) and.push({ styleTags: { hasSome: q.style } });
-    if (q.gender?.length) and.push({ gender: { in: q.gender as ('MALE' | 'FEMALE' | 'UNISEX')[] } });
+    if (q.gender?.length) {
+      // A gender that wasn't chosen means "fits anyone": such items show up for women and for men,
+      // except skirts and dresses for men. Kids' items are only ever explicitly marked.
+      const g = q.gender.filter((x): x is 'MALE' | 'FEMALE' | 'KIDS' => ['MALE', 'FEMALE', 'KIDS'].includes(x));
+      const adults = g.filter((x) => x !== 'KIDS');
+      const womenOnly = adults.length === 1 && adults[0] === 'MALE' ? CATEGORIES.filter((c) => c.genders && !c.genders.includes('MALE')).map((c) => c.slug) : [];
+      const neutral = { OR: [{ gender: null }, { gender: 'UNISEX' as const }], ...(womenOnly.length ? { category: { notIn: womenOnly } } : {}) };
+      and.push({ OR: [{ gender: { in: g } }, ...(adults.length ? [neutral] : [])] });
+    }
     if (q.size?.length) and.push({ sizeValue: { in: q.size } });
     if (q.condition?.length) and.push({ condition: { in: q.condition as ('GOOD' | 'LIKE_NEW')[] } });
     if (q.color?.length) and.push({ color: { in: q.color } });
-    if (q.brand?.length) and.push({ OR: q.brand.map((b) => ({ brand: { equals: b, mode: 'insensitive' as const } })) });
+    if (q.brand?.length) and.push({ OR: q.brand.map((b) => ({ brand: { equals: canonicalBrand(b) ?? b, mode: 'insensitive' as const } })) });
     if (q.city) and.push({ city: q.city });
     if (q.seller) and.push({ seller: { username: q.seller.replace(/^@/, '').toLowerCase() } });
     if (q.price_min != null || q.price_max != null) and.push({ price: { gte: q.price_min, lte: q.price_max } });

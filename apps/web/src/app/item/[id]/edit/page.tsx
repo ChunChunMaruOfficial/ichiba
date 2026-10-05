@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { CoreFields, MoreFields, PriceFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
+import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
+import { VideoField } from "@/components/video-field";
 import { issuesById, PhotoAdvice, PriceHint, usePhotoCheck } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
@@ -52,6 +54,7 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
   const actions = useListingActions(onSaved);
   const locked = listing.status === "RESERVED";
   const draft = listing.status === "DRAFT";
+  const [scheduledAt, setScheduledAt] = useState(listing.owner?.scheduledAt ?? null);
 
   const dirty = JSON.stringify(values) !== JSON.stringify(initial.values) || JSON.stringify(photos.map((p) => [p.id, p.isDefect])) !== JSON.stringify(initial.photos.map((p) => [p.id, p.isDefect]));
 
@@ -90,13 +93,51 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
   };
 
   const set = (patch: Partial<ListingValues>) => setValues((v) => ({ ...v, ...patch }));
+
+  // Drafts autosave quietly, like on /sell; live listings keep the explicit "Сохранить".
+  const lastAutosave = useRef("");
+  useEffect(() => {
+    if (!draft || !dirty || saving || photos.some((p) => p.status === "uploading")) return;
+    const payload = { ...toPayload(values, photos, {}, undefined), aiAttributes: Object.keys(ai).length ? ai : undefined };
+    const snapshot = JSON.stringify(payload);
+    if (snapshot === lastAutosave.current) return;
+    const t = setTimeout(() => {
+      lastAutosave.current = snapshot;
+      api(`/listings/${listing.id}`, { method: "PATCH", body: payload }).catch(() => {});
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [draft, dirty, saving, values, photos, ai, listing.id]);
+
+  const schedule = async (at: Date) => {
+    const e = validate(values, meta, photos, "all");
+    if (Object.keys(e).length) return setErrors(e);
+    setSaving(true);
+    try {
+      await api(`/listings/${listing.id}`, { method: "PATCH", body: { ...toPayload(values, photos, {}, undefined), aiAttributes: Object.keys(ai).length ? ai : undefined } });
+      await api(`/listings/${listing.id}/schedule`, { body: { at: at.toISOString() } });
+      setScheduledAt(at.toISOString());
+      onSaved();
+      toast(`Опубликуем ${scheduleLabel(at.toISOString())}`);
+    } catch (err) {
+      if (err instanceof ApiError && Object.keys(err.fields).length) setErrors(err.fields);
+      toast(err instanceof ApiError ? err.message : "Не удалось запланировать", { tone: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const unschedule = async () => {
+    await api(`/listings/${listing.id}/schedule`, { method: "DELETE" }).catch(() => {});
+    setScheduledAt(null);
+    onSaved();
+  };
   const photoCheck = usePhotoCheck(photos, values.category);
   const makeCover = (photoId: string) =>
     setPhotos((prev) => {
       const i = prev.findIndex((p) => p.id === photoId);
       return i > 0 ? [prev[i], ...prev.slice(0, i), ...prev.slice(i + 1)] : prev;
     });
-  const fieldProps = { values, set, ai, setAi: setAi, errors, meta, photos, setPhotos, locked, mode: "edit" as const };
+  const fieldProps = { values, set, ai, setAi: setAi, errors, meta, photos, setPhotos, locked, mode: "edit" as const, multiSize: draft };
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-32 pt-4 md:pb-16 md:pt-8">
@@ -105,6 +146,14 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
       </Link>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">{draft ? "Черновик" : "Редактировать вещь"}</h1>
       {locked && <p className="mt-4 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Идёт сделка — цену, размер, состояние и дефекты менять нельзя.</p>}
+      {draft && scheduledAt && (
+        <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
+          Опубликуется {scheduleLabel(scheduledAt)}. Изменения сохраняются автоматически.
+          <button type="button" onClick={unschedule} className="font-medium underline underline-offset-4">
+            Отменить
+          </button>
+        </p>
+      )}
 
       <div className="mt-8 grid gap-10 md:grid-cols-[260px_1fr]">
         <div className="md:sticky md:top-24 md:self-start">
@@ -113,6 +162,9 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
           <p className="mt-2 text-xs text-muted">Первое фото — обложка. Перетащите, чтобы поменять порядок.</p>
           <div className="mt-4">
             <PhotoAdvice check={photoCheck.check} loading={photoCheck.loading} photos={photos} onMakeCover={makeCover} />
+          </div>
+          <div className="mt-4">
+            <VideoField value={values.video} onChange={(video) => set({ video })} />
           </div>
         </div>
         <div className="flex flex-col gap-10">
@@ -153,8 +205,9 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
         {draft ? (
           <>
             <Button variant="secondary" loading={saving} disabled={!dirty} onClick={() => save(false)}>
-              Сохранить черновик
+              Сохранить
             </Button>
+            {!scheduledAt && <SchedulePicker disabled={saving} onSchedule={schedule} />}
             <Button className="flex-1 md:flex-none md:px-10" loading={saving} onClick={() => save(true)}>
               Опубликовать
             </Button>

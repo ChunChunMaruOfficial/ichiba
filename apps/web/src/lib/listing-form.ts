@@ -1,4 +1,4 @@
-import type { AiAttr, AiSuggestion, Condition, DeliveryMethod, ListingDetail, Meta, SizeSystem } from "./types";
+import type { AiAttr, AiSuggestion, Condition, DeliveryMethod, Gender, ListingDetail, MeasurementKey, Meta, SizeSystem, VideoView } from "./types";
 
 export interface PhotoDraft {
   key: string;
@@ -23,7 +23,7 @@ export interface ListingValues {
   brand: string;
   color: string | null;
   material: string | null;
-  measurements: Partial<Record<"shoulders" | "chest" | "waist" | "length" | "sleeve" | "foot_length", string>>;
+  measurements: Partial<Record<MeasurementKey, string>>;
   description: string;
   city: string | null;
   deliveryOptions: DeliveryMethod[];
@@ -36,6 +36,13 @@ export interface ListingValues {
   auctionReserve: string;
   auctionHours: 24 | 72 | 168;
   auctionBuyNow: string;
+  gender: Gender | null;
+  /** Price new in a shop. */
+  originalPrice: string;
+  autoAcceptPrice: string;
+  /** Other sizes of the same item, listed as copies on publish. */
+  extraSizes: string[];
+  video: VideoView | null;
 }
 
 /** AI-filled fields the user can accept or edit (frame 22). Size, condition, material, defects are never AI-filled. */
@@ -67,6 +74,11 @@ export const emptyValues = (city: string | null): ListingValues => ({
   auctionReserve: "",
   auctionHours: 72,
   auctionBuyNow: "",
+  gender: null,
+  originalPrice: "",
+  autoAcceptPrice: "",
+  extraSizes: [],
+  video: null,
 });
 
 export function valuesFromListing(l: ListingDetail): ListingValues {
@@ -95,6 +107,28 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
     auctionReserve: l.owner?.auctionReserve != null ? String(l.owner.auctionReserve) : "",
     auctionHours: ([24, 72, 168] as const).find((h) => h === l.owner?.auctionHours) ?? 72,
     auctionBuyNow: l.owner?.auctionBuyNow != null ? String(l.owner.auctionBuyNow) : "",
+    gender: l.gender === "UNISEX" ? null : l.gender,
+    originalPrice: l.originalPrice != null ? String(l.originalPrice) : "",
+    autoAcceptPrice: l.owner?.autoAcceptPrice != null ? String(l.owner.autoAcceptPrice) : "",
+    extraSizes: l.owner?.extraSizes ?? [],
+    video: l.video,
+  };
+}
+
+/**
+ * "Выставить похожую": the same item description without what is unique to the physical piece —
+ * photos, video, size, condition, defects and measurements.
+ */
+export function similarValues(l: ListingDetail): ListingValues {
+  return {
+    ...valuesFromListing(l),
+    sizeValue: null,
+    condition: null,
+    defectsPresent: null,
+    defectsDescription: "",
+    measurements: {},
+    extraSizes: [],
+    video: null,
   };
 }
 
@@ -142,6 +176,12 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
     const price = Number(values.price);
     if (!values.price || !Number.isInteger(price) || price < 1) e.price = "Укажите цену";
     if (values.saleType === "FIXED" && values.minOfferPrice && Number(values.minOfferPrice) >= price) e.minOfferPrice = "Минимальная цена должна быть меньше цены";
+    if (values.saleType === "FIXED" && values.acceptsOffers && values.autoAcceptPrice) {
+      const auto = Number(values.autoAcceptPrice);
+      if (auto >= price) e.autoAcceptPrice = "Должно быть ниже цены — по цене покупают без торга";
+      else if (values.minOfferPrice && auto <= Number(values.minOfferPrice)) e.autoAcceptPrice = "Должно быть выше порога автоотказа";
+    }
+    if (values.originalPrice && Number(values.originalPrice) <= price) e.originalPrice = "Цена в магазине должна быть выше вашей";
     if (values.saleType === "AUCTION") {
       if (values.auctionReserve && Number(values.auctionReserve) < price) e.auctionReserve = "Резерв не может быть ниже стартовой цены";
       if (values.auctionStep && Number(values.auctionStep) < 1) e.auctionStep = "Шаг — от 1 BYN";
@@ -176,6 +216,11 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     price: num(values.price),
     acceptsOffers: values.saleType === "FIXED" && values.acceptsOffers,
     minOfferPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.minOfferPrice) : null,
+    autoAcceptPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.autoAcceptPrice) : null,
+    originalPrice: num(values.originalPrice),
+    gender: values.gender,
+    extraSizes: values.saleType === "FIXED" && values.sizeValue ? values.extraSizes.filter((s) => s !== values.sizeValue) : [],
+    videoId: values.video?.id ?? null,
     saleType: values.saleType,
     auctionStep: values.saleType === "AUCTION" ? num(values.auctionStep) : null,
     auctionReserve: values.saleType === "AUCTION" ? num(values.auctionReserve) : null,

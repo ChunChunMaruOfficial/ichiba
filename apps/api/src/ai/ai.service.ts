@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
+import { canonicalBrand } from '../catalog/brands.js';
 import { CATEGORIES, COLORS, CONDITIONS, STYLE_TAGS } from '../catalog/catalog.js';
 import { majority, quorumSet, share } from './ensemble/aggregate.js';
 import { AiEnsemble, Vote } from './ensemble/ensemble.js';
@@ -67,7 +68,8 @@ ${subcategoryList}
 const keep = <T>(value: T, confidence: number, blank: T): AiField<T> => (confidence < 0.5 ? { value: blank, confidence } : { value, confidence });
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-const normBrand = (b: string | null | undefined) => (b ?? '').trim().replace(/\s+/g, ' ');
+/** Brand as the catalogue spells it, so «nike» from one model and «Nike» from another are one vote. */
+const normBrand = (b: string | null | undefined) => canonicalBrand(b) ?? '';
 
 const empty = (model: string): AiSuggestion => ({
   category: { value: null, confidence: 0 },

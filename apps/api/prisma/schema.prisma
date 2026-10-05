@@ -36,13 +36,17 @@ enum SizeSystem {
   ALPHA
   SHOE_EU
   JEANS_W
+  /// Children's clothing by height, cm.
+  KIDS
   OTHER
 }
 
+/// Who the item is for. Not chosen (null) or UNISEX means it fits anyone.
 enum Gender {
   MALE
   FEMALE
   UNISEX
+  KIDS
 }
 
 enum DeliveryMethod {
@@ -136,6 +140,7 @@ model User {
   autoBids      AutoBid[]
   reviewsWritten  Review[]   @relation("reviewAuthor")
   reviewsReceived Review[]   @relation("reviewSeller")
+  videos        Video[]
   blockedAt     DateTime?
 }
 
@@ -203,6 +208,18 @@ model Listing {
   bumpsCount         Int              @default(0)
   /// Optional "Купить сейчас" price for an auction.
   auctionBuyNow      Int?
+  /// Price new in a shop, shown as "−70% от новой".
+  originalPrice      Int?
+  /// Offers at or above this are accepted automatically (minOfferPrice is the auto-decline floor).
+  autoAcceptPrice    Int?
+  /// Draft to publish automatically at this time.
+  scheduledAt        DateTime?
+  /// Same item listed in several sizes: every copy shares the id of the first listing.
+  groupId            String?
+  /// Other sizes to list as separate copies when the draft is published.
+  extraSizes         String[]         @default([])
+  /// Last "скидка лайкнувшим" mailing, for the cooldown.
+  likersOfferAt      DateTime?
   soldAt             DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -218,8 +235,11 @@ model Listing {
   threads      Thread[]
   collectionItems CollectionItem[]
   auctions        Auction[]
+  video           Video?
 
   @@index([status, publishedAt])
+  @@index([groupId])
+  @@index([status, scheduledAt])
   @@index([status, liftedAt])
   @@index([sellerId, status])
   @@index([category, status])
@@ -243,6 +263,24 @@ model Photo {
   createdAt DateTime @default(now())
 
   @@index([listingId, order])
+}
+
+/// Short video of a listing (up to 30 s). The file is `${key}.${ext}`, the poster frame `${key}_{320,640}.webp`.
+model Video {
+  id         String   @id @default(uuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  listingId  String?  @unique
+  listing    Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  key        String
+  ext        String
+  mime       String
+  width      Int
+  height     Int
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([ownerId])
 }
 
 model Favorite {

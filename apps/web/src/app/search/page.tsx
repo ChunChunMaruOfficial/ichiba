@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import { useBrandSuggestions } from "@/components/brand-picker";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CardRow, CategoryTiles, SectionHeader } from "@/components/sections";
 import { useMeta, useSession } from "@/components/session";
@@ -27,10 +28,11 @@ const SORTS = [
   ["for_you", "Для вас"],
 ] as const;
 
+// Items without a chosen gender fit anyone and show up under both «Женское» and «Мужское».
 const GENDERS = [
-  ["MALE", "Мужское"],
   ["FEMALE", "Женское"],
-  ["UNISEX", "Унисекс"],
+  ["MALE", "Мужское"],
+  ["KIDS", "Детское"],
 ] as const;
 
 function readFilters(sp: URLSearchParams): Filters {
@@ -94,10 +96,11 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: Filters) => void; meta: Meta }) {
   const shoes = value.category.includes("shoes");
   const [brandQuery, setBrandQuery] = useState("");
-  const brands = useMemo(() => {
-    const all = Array.from(new Set([...meta.brands, ...value.brand]));
-    return brandQuery ? all.filter((b) => b.toLowerCase().includes(brandQuery.toLowerCase())) : all;
-  }, [meta.brands, value.brand, brandQuery]);
+  const suggestions = useBrandSuggestions(brandQuery, !!brandQuery.trim(), 16);
+  const brands = useMemo(
+    () => Array.from(new Set([...value.brand, ...(brandQuery.trim() ? suggestions.items : meta.brands.slice(0, 20))])),
+    [meta.brands, value.brand, brandQuery, suggestions.items],
+  );
   const pills = (key: ListKey, options: ReadonlyArray<readonly [string, string]>) => (
     <div className="flex flex-wrap gap-2">
       {options.map(([v, label]) => (
@@ -111,7 +114,7 @@ function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: 
   return (
     <div>
       <Group title="Категория">{pills("category", meta.categories.map((c) => [c.slug, c.label] as const))}</Group>
-      <Group title="Пол">{pills("gender", GENDERS)}</Group>
+      <Group title="Для кого">{pills("gender", GENDERS)}</Group>
       <Group title="Цена, BYN">
         <div className="flex items-center gap-3">
           <Input inputMode="numeric" placeholder="от" aria-label="Цена от" value={value.price_min ?? ""} onChange={(e) => onChange({ ...value, price_min: e.target.value.replace(/\D/g, "") || undefined })} />
@@ -141,7 +144,7 @@ function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: 
         </div>
       </Group>
       <Group title="Бренд">
-        <Input placeholder="Найти бренд…" value={brandQuery} onChange={(e) => setBrandQuery(e.target.value)} className="mb-3" />
+        <Input placeholder="Найти среди 5 000 брендов…" value={brandQuery} onChange={(e) => setBrandQuery(e.target.value)} className="mb-3" />
         <div className="flex flex-wrap gap-2">
           {brands.map((b) => (
             <Chip key={b} active={value.brand.includes(b)} onClick={() => onChange({ ...value, brand: toggle(value.brand, b) })}>

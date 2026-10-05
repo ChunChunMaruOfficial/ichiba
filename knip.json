@@ -6,7 +6,7 @@
     "apps/api": {
       "entry": ["src/main.ts", "prisma/seed-auctions.ts", "_*.mjs"],
       "project": ["src/**/*.ts", "prisma/**/*.ts"],
-      "ignoreDependencies": ["@prisma/client", "pg", "@types/pg"]
+      "ignoreDependencies": ["@prisma/client"]
     },
     "apps/web": {
       "project": ["src/**/*.{ts,tsx}"],

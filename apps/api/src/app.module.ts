@@ -32,6 +32,7 @@ import { SmsService } from './auth/sms.js';
 import { PrivacyController, PrivacyService } from './privacy/privacy.js';
 import { FavoritesController } from './favorites/favorites.controller.js';
 import { FollowsController } from './follows/follows.controller.js';
+import { BrandsController } from './catalog/brands.controller.js';
 import { ListingsController } from './listings/listings.controller.js';
 import { ListingsService } from './listings/listings.service.js';
 import { MediaController } from './media/media.controller.js';
@@ -60,6 +61,7 @@ import { UsersController, UsersService } from './users/users.service.js';
     MediaController,
     AiController,
     ListingsController,
+    BrandsController,
     FavoritesController,
     FollowsController,
     RequestsController,

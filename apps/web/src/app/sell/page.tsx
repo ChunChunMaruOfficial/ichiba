@@ -2,10 +2,13 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 import { CoreFields, MoreFields, PriceFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
+import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
+import { VideoField } from "@/components/video-field";
 import { issuesById, PhotoAdvice, PriceHint, usePhotoCheck } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
@@ -13,15 +16,54 @@ import { useToast } from "@/components/toast";
 import { Button, ButtonLink, IconCheck, IconSparkle, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice } from "@/lib/labels";
-import { type AiState, applySuggestion, emptyValues, type ListingValues, type PhotoDraft, toPayload, validate } from "@/lib/listing-form";
-import type { AiSuggestion, ListingDetail, Me, Meta } from "@/lib/types";
+import { type AiState, applySuggestion, emptyValues, type ListingValues, type PhotoDraft, similarValues, toPayload, validate } from "@/lib/listing-form";
+import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me, Meta } from "@/lib/types";
 
 type Step = 1 | 2 | 3 | 4;
 const STEPS = ["Фото", "Описание", "Цена", "Превью"];
 const AI_MANUAL_AFTER_MS = 10_000;
 
 export default function SellPage() {
-  return <RequireAuth reason="чтобы выставить вещь">{(me) => <Sell me={me} />}</RequireAuth>;
+  return (
+    <RequireAuth reason="чтобы выставить вещь">
+      {(me) => (
+        <Suspense>
+          <SimilarLoader me={me} />
+        </Suspense>
+      )}
+    </RequireAuth>
+  );
+}
+
+/** "/sell?similar=<id>": starts from one of the seller's listings ("Выставить похожую", eBay "Sell similar"). */
+function SimilarLoader({ me }: { me: Me }) {
+  const params = useSearchParams();
+  const similar = params.get("similar");
+  const { data, error } = useSWR<ListingResponse>(similar ? `/listings/${similar}` : null, { revalidateOnFocus: false });
+  if (similar && !data && !error) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
+  const source = data && !("unavailable" in data) && data.isOwner ? data : null;
+  // "?new=…" remounts the form for "Добавить ещё" without a full reload.
+  return <Sell key={source?.id ?? params.get("new") ?? "new"} me={me} source={source} />;
+}
+
+/** Shown on an empty /sell when an unfinished draft exists, so work isn't lost or duplicated. */
+function DraftReminder({ me }: { me: Me }) {
+  const { data } = useSWR<{ drafts: Card[] }>(`/wardrobes/${me.username}`, { revalidateOnFocus: false });
+  const draft = data?.drafts.find((d) => !d.scheduledAt);
+  if (!draft) return null;
+  return (
+    <Link href={`/item/${draft.id}/edit`} className="mb-6 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-ink">
+      <span className="size-14 shrink-0 overflow-hidden rounded-xl bg-skeleton">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {draft.cover && <img src={draft.cover.urls.s} alt="" className="size-full object-cover" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm text-muted">Незаконченный черновик</span>
+        <span className="block truncate font-medium">{draft.title || "Без названия"}</span>
+      </span>
+      <span className="shrink-0 text-sm font-medium">Продолжить →</span>
+    </Link>
+  );
 }
 
 function StepIndicator({ step, onStep }: { step: Step; onStep: (s: Step) => void }) {
@@ -109,8 +151,11 @@ function Preview({ values, photos, meta, onEdit }: { values: ListingValues; phot
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[15px]">
           {(
             [
-              ["Размер", values.sizeValue],
+              ["Размер", values.sizeValue && (values.extraSizes.length ? [values.sizeValue, ...values.extraSizes].join(", ") : values.sizeValue)],
+              ["Для кого", meta.genders.find((g) => g.value === values.gender)?.label ?? "Подходит всем"],
               ["Бренд", values.brand],
+              ["Цена в магазине", values.originalPrice && formatPrice(Number(values.originalPrice))],
+              ["Видео", values.video && `${Math.round(values.video.durationMs / 1000)} с`],
               ["Состояние", values.condition && CONDITION_LABEL[values.condition]],
               ["Цвет", color?.label],
               ["Материал", values.material],
@@ -136,22 +181,25 @@ function Preview({ values, photos, meta, onEdit }: { values: ListingValues; phot
   );
 }
 
-function Sell({ me }: { me: Me }) {
+function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
   const meta = useMeta();
   const router = useRouter();
   const toast = useToast();
   const [step, setStep] = useState<Step>(1);
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
-  const [values, setValues] = useState<ListingValues>(() => emptyValues(me.city));
+  const [values, setValues] = useState<ListingValues>(() => (source ? similarValues(source) : emptyValues(me.city)));
   const [ai, setAi] = useState<AiState>({});
   const [aiModel, setAiModel] = useState<string>();
-  const [aiPhase, setAiPhase] = useState<"idle" | "running" | "done" | "failed" | "disabled">("idle");
+  // A "similar" listing already has its description: AI autofill would overwrite it.
+  const [aiPhase, setAiPhase] = useState<"idle" | "running" | "done" | "failed" | "disabled">(source ? "disabled" : "idle");
   const [aiSlow, setAiSlow] = useState(false);
   const [aiFlags, setAiFlags] = useState<AiSuggestion["flags"] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [draftId, setDraftId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState<ListingDetail | null>(null);
+  const [scheduled, setScheduled] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const autoAdvanced = useRef(false);
   const aiRun = useRef(0);
 
@@ -176,11 +224,13 @@ function Sell({ me }: { me: Me }) {
         const existing = draftId ?? (creating.current ? await creating.current : null);
         if (existing) {
           await api(`/listings/${existing}`, { method: "PATCH", body: payload });
+          setSavedAt(new Date());
           return existing;
         }
         creating.current = api<ListingDetail>("/listings", { body: payload }).then((l) => l.id);
         const id = await creating.current;
         setDraftId(id);
+        setSavedAt(new Date());
         return id;
       } catch (e) {
         creating.current = null;
@@ -236,6 +286,19 @@ function Sell({ me }: { me: Me }) {
     window.addEventListener("beforeunload", onBefore);
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [photos.length, published]);
+
+  // Autosave: once the draft exists, every change is saved quietly a moment after typing stops.
+  const lastSaved = useRef("");
+  useEffect(() => {
+    if (!draftId || published || scheduled || uploading) return;
+    const snapshot = JSON.stringify(toPayload(values, photos, ai, aiModel));
+    if (snapshot === lastSaved.current) return;
+    const t = setTimeout(() => {
+      lastSaved.current = snapshot;
+      void saveDraft({ quiet: true });
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [draftId, published, scheduled, uploading, values, photos, ai, aiModel, saveDraft]);
 
   const scrollToError = () => requestAnimationFrame(() => {
     const el = document.querySelector<HTMLElement>("[data-error]"); el?.scrollIntoView({ behavior: "smooth", block: "center" }); el?.querySelector<HTMLElement>("input, select, textarea, button")?.focus({ preventScroll: true });
@@ -294,15 +357,63 @@ function Sell({ me }: { me: Me }) {
     }
   };
 
+  const schedule = async (at: Date) => {
+    const e = validate(values, meta, photos, "all");
+    if (Object.keys(e).length) {
+      setErrors(e);
+      setStep(e.price ? 3 : 2);
+      return scrollToError();
+    }
+    setPublishing(true);
+    try {
+      const id = await saveDraft();
+      if (!id) return;
+      await api(`/listings/${id}/schedule`, { body: { at: at.toISOString() } });
+      setScheduled(at.toISOString());
+      window.scrollTo({ top: 0 });
+    } catch (err) {
+      if (err instanceof ApiError && Object.keys(err.fields).length && !err.fields.scheduledAt) {
+        setErrors(err.fields);
+        setStep(err.fields.price ? 3 : 2);
+        scrollToError();
+      }
+      toast(err instanceof ApiError ? err.message : "Не удалось запланировать", { tone: "error" });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const exit = async () => {
     if (!photos.length) return router.push("/");
-    const choice = window.confirm("Сохранить черновик?\n\nОК — сохранить и выйти, Отмена — остаться");
-    if (!choice) return;
+    // Progress is autosaved; leaving just flushes the latest changes.
     await saveDraft();
+    toast("Черновик сохранён — он в вашем гардеробе");
     router.push("/wardrobe");
   };
 
   if (!meta) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
+
+  if (scheduled) {
+    const cover = uploaded[0];
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center px-4 py-16 text-center">
+        <div className="sheet-up w-40 overflow-hidden rounded-2xl shadow-xl" style={{ aspectRatio: cover?.width ? `${cover.width} / ${cover.height}` : "4 / 5" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {cover && <img src={cover.preview} alt="" className="size-full object-cover" />}
+        </div>
+        <h1 className="mt-8 text-2xl font-semibold">Публикация запланирована</h1>
+        <p className="mt-2 text-ink-2">Вещь появится в каталоге {scheduleLabel(scheduled)}. До этого её видите только вы — в черновиках гардероба.</p>
+        <div className="mt-8 flex w-full flex-col gap-3">
+          <ButtonLink href="/wardrobe" size="lg" block>
+            Открыть гардероб
+          </ButtonLink>
+          <Button variant="secondary" block onClick={() => router.push(`/sell?new=${Date.now()}`)}>
+            Добавить ещё
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (published) {
     const cover = published.photos[0];
@@ -312,14 +423,17 @@ function Sell({ me }: { me: Me }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {cover && <img src={cover.urls.m} alt="" className="size-full object-cover" />}
         </div>
-        <h1 className="mt-8 text-2xl font-semibold">Вещь опубликована</h1>
+        <h1 className="mt-8 text-2xl font-semibold">{published.sizes ? `Опубликовано в ${published.sizes.length} размерах` : "Вещь опубликована"}</h1>
         <p className="mt-2 text-ink-2">Она уже в каталоге, в вашем гардеробе и в «Новинках».</p>
         <div className="mt-8 flex w-full flex-col gap-3">
           <ButtonLink href={`/item/${published.id}`} size="lg" block>
             Посмотреть вещь
           </ButtonLink>
-          <Button variant="secondary" block onClick={() => window.location.reload()}>
+          <Button variant="secondary" block onClick={() => router.push(`/sell?new=${Date.now()}`)}>
             Добавить ещё
+          </Button>
+          <Button variant="ghost" block onClick={() => router.push(`/sell?similar=${published.id}`)}>
+            Выставить похожую
           </Button>
           <Link href="/wardrobe" className="py-2 text-sm font-medium text-ink-2 hover:text-ink">
             Открыть гардероб
@@ -329,7 +443,7 @@ function Sell({ me }: { me: Me }) {
     );
   }
 
-  const fieldProps = { values, set, ai, setAi, errors, meta, photos, setPhotos, mode: "create" as const };
+  const fieldProps = { values, set, ai, setAi, errors, meta, photos, setPhotos, mode: "create" as const, multiSize: true };
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-32 pt-4 md:pb-16 md:pt-8">
@@ -338,12 +452,21 @@ function Sell({ me }: { me: Me }) {
           <IconX />
         </button>
         <StepIndicator step={step} onStep={setStep} />
-        <span className="w-10" />
+        <span className="w-10 text-right text-xs text-muted" aria-live="polite" title={savedAt ? `Черновик сохранён в ${savedAt.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}` : undefined}>
+          {savedAt && <IconCheck className="ml-auto size-4" aria-label="Черновик сохранён" />}
+        </span>
       </div>
 
       {step === 1 && (
         <section>
-          <h1 className="mb-6 text-3xl font-semibold tracking-tight">Что продаём?</h1>
+          <h1 className="mb-6 text-3xl font-semibold tracking-tight">{source ? "Похожая вещь: добавьте фото" : "Что продаём?"}</h1>
+          {source ? (
+            <p className="mb-6 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
+              Описание, бренд, цена и категория взяты из «{source.title}». Добавьте фото этой вещи, затем укажите размер и состояние.
+            </p>
+          ) : (
+            !photos.length && <DraftReminder me={me} />
+          )}
           <PhotoManager photos={photos} onChange={setPhotos} big error={errors.photos} />
         </section>
       )}
@@ -365,6 +488,7 @@ function Sell({ me }: { me: Me }) {
               <div className="flex flex-col gap-4 md:sticky md:top-24 md:self-start">
                 <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} issues={issuesById(photoCheck.check)} />
                 <PhotoAdvice check={photoCheck.check} loading={photoCheck.loading} photos={photos} onMakeCover={makeCover} />
+                <VideoField value={values.video} onChange={(video) => set({ video })} />
               </div>
               <div className="flex flex-col gap-7">
                 <h1 className="text-2xl font-semibold tracking-tight">Проверьте описание</h1>
@@ -408,9 +532,7 @@ function Sell({ me }: { me: Me }) {
           )}
           {step === 4 ? (
             <>
-              <Button variant="ghost" onClick={async () => (await saveDraft()) && (toast("Черновик сохранён"), router.push("/wardrobe"))}>
-                Сохранить черновик
-              </Button>
+              <SchedulePicker disabled={publishing} onSchedule={schedule} />
               <Button size="lg" className="flex-1 md:flex-none md:px-10" loading={publishing} onClick={publish}>
                 {publishing ? "Публикуем…" : "Опубликовать"}
               </Button>

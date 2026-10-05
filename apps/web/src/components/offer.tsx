@@ -228,12 +228,24 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
   if (offer.status === "PENDING" && offer.from === "SELLER") {
     return (
       <div className="rounded-xl border border-ink bg-surface p-4">
-        <p className="text-sm">
-          @{offer.counterpart.username} предлагает <b className="tabular text-lg">{formatPrice(offer.amount)}</b>
-        </p>
-        <p className="mt-0.5 text-xs text-muted">
-          Раунд {offer.round} из 3{left != null && ` · осталось ${left} ч`}
-        </p>
+        {offer.fromLikers ? (
+          <>
+            <p className="text-sm">
+              ♡ Скидка для вас: <b className="tabular text-lg">{formatPrice(offer.amount)}</b>
+              {offer.listPrice != null && <s className="ml-2 text-muted">{formatPrice(offer.listPrice)}</s>}
+            </p>
+            <p className="mt-0.5 text-xs text-muted">Вы сохранили вещь — @{offer.counterpart.username} снизил цену лично для вас{left != null && ` · осталось ${left} ч`}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm">
+              @{offer.counterpart.username} предлагает <b className="tabular text-lg">{formatPrice(offer.amount)}</b>
+            </p>
+            <p className="mt-0.5 text-xs text-muted">
+              Раунд {offer.round} из 3{left != null && ` · осталось ${left} ч`}
+            </p>
+          </>
+        )}
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" loading={busy === "accept"} onClick={() => run("accept")}>
             Принять
@@ -247,9 +259,11 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
             </Button>
           )}
         </div>
-        <div className="mt-3">
-          <NegotiationHint offer={offer} onAccept={() => run("accept")} onDecline={() => run("decline")} onCounter={(v) => setCounter(String(v))} compact />
-        </div>
+        {!offer.fromLikers && (
+          <div className="mt-3">
+            <NegotiationHint offer={offer} onAccept={() => run("accept")} onDecline={() => run("decline")} onCounter={(v) => setCounter(String(v))} compact />
+          </div>
+        )}
         {counter !== null && <CounterDialog offer={offer} open initial={counter} onClose={() => setCounter(null)} onDone={(o) => onChange(o)} />}
       </div>
     );
@@ -299,7 +313,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
             </>
           )}
         </p>
-        <p className="text-xs text-muted">Раунд {offer.round} из 3</p>
+        <p className="text-xs text-muted">{offer.fromLikers ? "Скидка лайкнувшим" : `Раунд ${offer.round} из 3`}</p>
         {offer.myTurn && (
           <div className="mt-1 flex flex-wrap gap-2">
             <Button size="sm" loading={busy === "accept"} onClick={() => run("accept")}>
@@ -315,7 +329,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
             )}
           </div>
         )}
-        {offer.myTurn && (
+        {offer.myTurn && !offer.fromLikers && (
           <div className="mt-2">
             <NegotiationHint offer={offer} onAccept={() => run("accept")} onDecline={() => run("decline")} onCounter={(v) => setCounter(String(v))} />
           </div>

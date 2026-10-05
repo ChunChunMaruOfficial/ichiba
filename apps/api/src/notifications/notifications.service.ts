@@ -35,7 +35,11 @@ export type NotificationType =
   | 'auction_bought_out'
   | 'review_new'
   | 'review_reply'
-  | 'review_request';
+  | 'review_request'
+  | 'listing_scheduled_published'
+  | 'listing_schedule_failed'
+  | 'offer_likers'
+  | 'offer_auto_accepted';
 
 /** In-app notifications, pushed live over SSE (frame 15); deal events are also emailed (DealEmails). */
 @Injectable()

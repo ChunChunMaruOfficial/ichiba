@@ -3,7 +3,8 @@
 
 export type WardrobeSection = 'top' | 'bottom' | 'shoes' | 'accessories';
 export type ChipGroup = 'clothing' | 'shoes' | 'accessories' | 'bags';
-type SizeSystemKey = 'ALPHA' | 'SHOE_EU' | 'JEANS_W' | 'OTHER';
+type SizeSystemKey = 'ALPHA' | 'SHOE_EU' | 'JEANS_W' | 'KIDS' | 'OTHER';
+export type GenderKey = 'FEMALE' | 'MALE' | 'KIDS';
 
 export interface Category {
   slug: string;
@@ -11,6 +12,8 @@ export interface Category {
   section: WardrobeSection;
   group: ChipGroup;
   sizeSystems: SizeSystemKey[];
+  /** Audiences the category is shown to in the catalogue menu; all when omitted. */
+  genders?: GenderKey[];
   subcategories: Array<{ slug: string; label: string }>;
 }
 
@@ -19,55 +22,59 @@ const sub = (pairs: string[][]) => pairs.map(([slug, label]) => ({ slug, label }
 export const CATEGORIES: Category[] = [
   {
     slug: 'outerwear', label: 'Верхняя одежда', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
-    subcategories: sub([['jacket', 'Куртка'], ['leather-jacket', 'Кожаная куртка'], ['coat', 'Пальто'], ['puffer', 'Пуховик'], ['trench', 'Тренч'], ['vest', 'Жилет']]),
+    subcategories: sub([['jacket', 'Куртка'], ['leather-jacket', 'Кожаная куртка'], ['denim-jacket', 'Джинсовка'], ['bomber', 'Бомбер'], ['windbreaker', 'Ветровка'], ['parka', 'Парка'], ['coat', 'Пальто'], ['puffer', 'Пуховик'], ['trench', 'Тренч'], ['raincoat', 'Плащ'], ['fur', 'Шуба'], ['sheepskin', 'Дублёнка'], ['vest', 'Жилет']]),
   },
   {
     slug: 'tshirts', label: 'Футболки', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
-    subcategories: sub([['tshirt', 'Футболка'], ['longsleeve', 'Лонгслив'], ['tank', 'Майка'], ['polo', 'Поло']]),
+    subcategories: sub([['tshirt', 'Футболка'], ['longsleeve', 'Лонгслив'], ['top', 'Топ'], ['tank', 'Майка'], ['polo', 'Поло']]),
   },
   {
     slug: 'shirts', label: 'Рубашки', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
-    subcategories: sub([['shirt', 'Рубашка'], ['blouse', 'Блузка'], ['overshirt', 'Овершот']]),
+    subcategories: sub([['shirt', 'Рубашка'], ['blouse', 'Блузка'], ['overshirt', 'Овершот'], ['tunic', 'Туника']]),
   },
   {
     slug: 'knitwear', label: 'Свитера и худи', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
-    subcategories: sub([['sweater', 'Свитер'], ['hoodie', 'Худи'], ['sweatshirt', 'Свитшот'], ['cardigan', 'Кардиган']]),
+    subcategories: sub([['sweater', 'Свитер'], ['turtleneck', 'Водолазка'], ['hoodie', 'Худи'], ['zip-hoodie', 'Зип-худи'], ['sweatshirt', 'Свитшот'], ['cardigan', 'Кардиган']]),
   },
   {
     slug: 'trousers', label: 'Брюки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA', 'JEANS_W'],
-    subcategories: sub([['trousers', 'Брюки'], ['cargo', 'Карго'], ['joggers', 'Джоггеры']]),
+    subcategories: sub([['trousers', 'Брюки'], ['chinos', 'Чиносы'], ['cargo', 'Карго'], ['joggers', 'Джоггеры'], ['sweatpants', 'Спортивные штаны'], ['leggings', 'Леггинсы']]),
   },
   {
     slug: 'jeans', label: 'Джинсы', section: 'bottom', group: 'clothing', sizeSystems: ['JEANS_W', 'ALPHA'],
-    subcategories: sub([['straight', 'Прямые'], ['skinny', 'Скинни'], ['wide', 'Широкие']]),
+    subcategories: sub([['straight', 'Прямые'], ['slim', 'Слим'], ['skinny', 'Скинни'], ['wide', 'Широкие'], ['mom', 'Мом'], ['baggy', 'Багги'], ['flare', 'Клёш']]),
   },
   {
     slug: 'shorts', label: 'Шорты', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA', 'JEANS_W'],
-    subcategories: sub([['shorts', 'Шорты'], ['denim-shorts', 'Джинсовые шорты']]),
+    subcategories: sub([['shorts', 'Шорты'], ['denim-shorts', 'Джинсовые шорты'], ['sport-shorts', 'Спортивные шорты'], ['bermuda', 'Бермуды']]),
   },
   {
-    slug: 'skirts', label: 'Юбки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA'],
-    subcategories: sub([['mini', 'Мини'], ['midi', 'Миди'], ['maxi', 'Макси']]),
+    slug: 'skirts', label: 'Юбки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE', 'KIDS'],
+    subcategories: sub([['mini', 'Мини'], ['midi', 'Миди'], ['maxi', 'Макси'], ['pleated', 'Плиссе'], ['pencil', 'Карандаш'], ['denim-skirt', 'Джинсовая юбка']]),
   },
   {
-    slug: 'dresses', label: 'Платья', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
-    subcategories: sub([['dress', 'Платье'], ['jumpsuit', 'Комбинезон']]),
+    slug: 'dresses', label: 'Платья', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE', 'KIDS'],
+    subcategories: sub([['dress', 'Платье'], ['evening-dress', 'Вечернее платье'], ['shirt-dress', 'Платье-рубашка'], ['knit-dress', 'Трикотажное платье'], ['sundress', 'Сарафан'], ['jumpsuit', 'Комбинезон']]),
   },
   {
     slug: 'suits', label: 'Костюмы', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
-    subcategories: sub([['suit', 'Костюм'], ['blazer', 'Пиджак']]),
+    subcategories: sub([['suit', 'Костюм'], ['pantsuit', 'Брючный костюм'], ['blazer', 'Пиджак'], ['tracksuit', 'Спортивный костюм']]),
+  },
+  {
+    slug: 'swimwear', label: 'Купальники и домашнее', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
+    subcategories: sub([['swimsuit', 'Купальник'], ['swim-trunks', 'Плавки'], ['pajamas', 'Пижама'], ['robe', 'Халат'], ['homewear', 'Домашний костюм']]),
   },
   {
     slug: 'shoes', label: 'Обувь', section: 'shoes', group: 'shoes', sizeSystems: ['SHOE_EU'],
-    subcategories: sub([['sneakers', 'Кроссовки'], ['boots', 'Ботинки'], ['shoes', 'Туфли'], ['sandals', 'Сандалии'], ['loafers', 'Лоферы']]),
+    subcategories: sub([['sneakers', 'Кроссовки'], ['keds', 'Кеды'], ['boots', 'Ботинки'], ['chelsea', 'Челси'], ['high-boots', 'Сапоги'], ['ankle-boots', 'Ботильоны'], ['uggs', 'Угги'], ['shoes', 'Туфли'], ['loafers', 'Лоферы'], ['ballet-flats', 'Балетки'], ['mules', 'Мюли'], ['sandals', 'Сандалии'], ['slides', 'Шлёпанцы']]),
   },
   {
     slug: 'bags', label: 'Сумки', section: 'accessories', group: 'bags', sizeSystems: [],
-    subcategories: sub([['handbag', 'Сумка'], ['backpack', 'Рюкзак'], ['tote', 'Шоппер'], ['crossbody', 'Кросс-боди']]),
+    subcategories: sub([['handbag', 'Сумка'], ['backpack', 'Рюкзак'], ['tote', 'Шоппер'], ['crossbody', 'Кросс-боди'], ['clutch', 'Клатч'], ['belt-bag', 'Поясная сумка'], ['travel-bag', 'Дорожная сумка'], ['wallet', 'Кошелёк']]),
   },
   {
     slug: 'accessories', label: 'Аксессуары', section: 'accessories', group: 'accessories', sizeSystems: [],
-    subcategories: sub([['hat', 'Головной убор'], ['scarf', 'Шарф'], ['belt', 'Ремень'], ['jewelry', 'Украшения'], ['glasses', 'Очки'], ['other', 'Другое']]),
+    subcategories: sub([['hat', 'Головной убор'], ['cap', 'Кепка'], ['beanie', 'Шапка'], ['scarf', 'Шарф'], ['gloves', 'Перчатки'], ['belt', 'Ремень'], ['tie', 'Галстук'], ['jewelry', 'Украшения'], ['watch', 'Часы'], ['glasses', 'Очки'], ['hair', 'Для волос'], ['other', 'Другое']]),
   },
 ];
 
@@ -83,7 +90,18 @@ export const SIZES = {
   ALPHA: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
   SHOE_EU: Array.from({ length: 12 }, (_, i) => String(35 + i)),
   JEANS_W: Array.from({ length: 13 }, (_, i) => `W${26 + i}`),
+  /** Children's clothing: height in cm. */
+  KIDS: ['50', '56', '62', '68', '74', '80', '86', '92', '98', '104', '110', '116', '122', '128', '134', '140', '146', '152', '158', '164'],
+  /** Children's shoes, EU (stored with the SHOE_EU system). */
+  KIDS_SHOE: Array.from({ length: 20 }, (_, i) => String(16 + i)),
 };
+
+/** "Для кого": not chosen means the item fits anyone. */
+export const GENDERS: Array<{ value: GenderKey; label: string; menu: string }> = [
+  { value: 'FEMALE', label: 'Женское', menu: 'Женщинам' },
+  { value: 'MALE', label: 'Мужское', menu: 'Мужчинам' },
+  { value: 'KIDS', label: 'Детское', menu: 'Детям' },
+];
 
 export const CONDITIONS = [
   { value: 'NEW_WITH_TAGS', label: 'Новое с биркой', hint: 'Не носилась' },
@@ -116,4 +134,3 @@ export const STYLE_TAGS = ['Casual', 'Vintage', 'Sport', 'Streetwear', 'Classic'
 
 export const CITIES = ['Минск', 'Брест', 'Витебск', 'Гомель', 'Гродно', 'Могилёв', 'Бобруйск', 'Барановичи', 'Борисов', 'Пинск'];
 
-export const TOP_BRANDS = ['Nike', 'Adidas', 'Zara', "Levi's", 'H&M', 'Mango', 'Massimo Dutti', 'COS', 'Uniqlo', 'The North Face', 'New Balance', 'Carhartt'];

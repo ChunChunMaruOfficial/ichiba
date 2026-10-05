@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import { CATEGORIES, CITIES, COLORS, CONDITIONS, SIZES, STYLE_TAGS, TOP_BRANDS } from '../catalog/catalog.js';
+import { findBrandInText, knownBrand, POPULAR_BRANDS } from '../catalog/brands.js';
+import { CATEGORIES, CITIES, COLORS, CONDITIONS, SIZES, STYLE_TAGS } from '../catalog/catalog.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { majority, median, quorumSet } from './ensemble/aggregate.js';
 import { AiEnsemble, hashKey, TtlCache, Vote } from './ensemble/ensemble.js';
@@ -35,7 +36,7 @@ export interface SearchInterpretation {
 }
 
 const ALL_SIZES = [...SIZES.ALPHA, ...SIZES.SHOE_EU, ...SIZES.JEANS_W];
-const GENDERS = ['MALE', 'FEMALE', 'UNISEX'];
+const GENDERS = ['MALE', 'FEMALE', 'KIDS'];
 
 const Vote_ = z.object({
   keywords: z.string().catch(''),
@@ -60,7 +61,7 @@ ${CATEGORIES.map((c) => `${c.slug} (${c.label}): ${c.subcategories.map((s) => `$
 Размеры: ${ALL_SIZES.join(', ')}
 Состояние: ${CONDITIONS.map((c) => `${c.value}=${c.label}`).join(', ')}
 Стили (style_tags): ${STYLE_TAGS.join(', ')} — повод переводи в стиль: свадьба/выпускной/театр → Classic, офис → Business, спорт/зал → Sport, поход → Outdoor.
-Пол (gender): MALE, FEMALE, UNISEX — только если пол прямо назван в запросе. Города: ${CITIES.join(', ')}.
+Пол (gender): MALE, FEMALE, KIDS (детское) — только если прямо назван в запросе. Города: ${CITIES.join(', ')}.
 Цены в BYN: «до 50» → price_max 50, «от 20» → price_min 20.
 keywords — только слова, которые стоит искать в названии и не покрыты фильтрами (например «оверсайз», «кожаная», модель «air max»). Повод, сезон, «недорого», «хочу», «ищу» в keywords не включай. Если всё покрыто фильтрами — пустая строка.
 Если чего-то в запросе нет — null или пустой список.`;
@@ -92,11 +93,14 @@ function presentMajority<T>(votes: Vote<T>[], pick: (v: T) => string | null): st
 }
 
 const stem = (w: string) => (w.length > 5 ? w.slice(0, -2) : w.length > 3 ? w.slice(0, -1) : w);
+const labelWords = (label: string) => label.toLowerCase().replace(/ё/g, 'е').split(/[\s-]+/);
+const SUBCATEGORIES = CATEGORIES.flatMap((c) => c.subcategories.map((s) => ({ c, s })));
+const MULTI_WORD_SUBCATEGORIES = SUBCATEGORIES.filter(({ s }) => labelWords(s.label).length > 1).sort((a, b) => labelWords(b.s.label).length - labelWords(a.s.label).length);
 
 @Injectable()
 export class SearchParser {
   private readonly cache = new TtlCache<SearchInterpretation>(60 * 60_000, 2000);
-  private brands: { at: number; list: string[] } = { at: 0, list: TOP_BRANDS };
+  private brands: { at: number; list: string[] } = { at: 0, list: POPULAR_BRANDS };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -106,7 +110,7 @@ export class SearchParser {
   private async knownBrands() {
     if (Date.now() - this.brands.at > 10 * 60_000) {
       const rows = await this.prisma.listing.groupBy({ by: ['brand'], where: { brand: { not: null }, status: { in: ['PUBLISHED', 'RESERVED'] } }, _count: true, orderBy: { _count: { brand: 'desc' } }, take: 300 });
-      this.brands = { at: Date.now(), list: [...new Set([...TOP_BRANDS, ...rows.map((r) => r.brand!.trim()).filter((b) => b.length >= 2)])] };
+      this.brands = { at: Date.now(), list: [...new Set([...POPULAR_BRANDS, ...rows.map((r) => r.brand!.trim()).filter((b) => b.length >= 2)])] };
     }
     return this.brands.list;
   }
@@ -182,7 +186,7 @@ export class SearchParser {
 
     if (take(/\sмужск\S*/)) vote.gender = 'MALE';
     else if (take(/\sженск\S*/)) vote.gender = 'FEMALE';
-    else if (take(/\sунисекс/)) vote.gender = 'UNISEX';
+    else if (take(/\s(?:детск|для\s+(?:ребен|мальчик|девочк|дет))\S*/)) vote.gender = 'KIDS';
 
     for (const city of CITIES) {
       const s = city.toLowerCase().replace(/ё/g, 'е').slice(0, Math.max(4, city.length - 2));
@@ -191,6 +195,24 @@ export class SearchParser {
     for (const b of brands) {
       const esc = b.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       if (take(new RegExp(`\\s${esc}(?:['’]s)?(?=\\s)`, 'i'))) vote.brands.push(b);
+    }
+    // Any other catalogue brand, including Cyrillic spellings: «найк», «доктор мартинс».
+    if (!vote.brands.length) {
+      const found = findBrandInText(q);
+      if (found) {
+        const esc = found.match.toLowerCase().replace(/ё/g, 'е').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        take(new RegExp(`\\s${esc}(?:['’]s)?(?=\\s)`));
+        vote.brands.push(found.brand);
+      }
+    }
+
+    // Multi-word subcategories as phrases first: «спортивный костюм» is not «Спортивные штаны» + a stray word.
+    for (const { c, s } of MULTI_WORD_SUBCATEGORIES) {
+      if (vote.category) break;
+      if (take(new RegExp(`\\s${labelWords(s.label).map((w) => stem(w)).join('\\S*\\s+')}\\S*(?=\\s)`))) {
+        vote.category = c.slug;
+        vote.subcategory = s.slug;
+      }
     }
 
     const leftover: string[] = [];
@@ -208,10 +230,28 @@ export class SearchParser {
       }
       if (SEASON.test(word)) continue;
       const st = stem(word);
-      const sub = CATEGORIES.flatMap((c) => c.subcategories.map((s) => ({ c, s }))).find(({ s }) => s.label.toLowerCase().startsWith(st) && st.length >= (word.length >= 4 ? 3 : 4));
+      // Most specific first: a subcategory named by this word («куртка»), then a category («джинсы» must not
+      // become «Джинсовые шорты»), then any word of a subcategory, then prefixes.
+      const exactCat = CATEGORIES.find((c) => labelWords(c.label).some((w) => stem(w) === st));
+      const sub =
+        SUBCATEGORIES.find(({ s }) => stem(labelWords(s.label)[0]) === st) ??
+        (exactCat
+          ? undefined
+          : (SUBCATEGORIES.find(({ s }) => labelWords(s.label).some((w) => stem(w) === st)) ??
+            SUBCATEGORIES.find(({ s }) => s.label.toLowerCase().startsWith(st) && st.length >= (word.length >= 4 ? 3 : 4))));
+      if (exactCat && !sub && !vote.category) {
+        vote.category = exactCat.slug;
+        continue;
+      }
       if (sub && !vote.category) {
         vote.category = sub.c.slug;
         if (sub.s.slug !== sub.c.slug && sub.c.subcategories.length > 1) vote.subcategory = sub.s.slug;
+        continue;
+      }
+      // «юбка плиссе»: the category came first, this word narrows it.
+      const narrower = SUBCATEGORIES.find(({ c, s }) => c.slug === vote.category && labelWords(s.label).some((w) => stem(w) === st));
+      if (narrower && !vote.subcategory) {
+        vote.subcategory = narrower.s.slug;
         continue;
       }
       const cat = CATEGORIES.find((c) => c.label.toLowerCase().split(' ').some((w) => w.length >= 4 && w.startsWith(st) && st.length >= 4));
@@ -237,7 +277,7 @@ export class SearchParser {
       ),
     };
     const brandList = brands.map((b) => b.toLowerCase());
-    const canonBrand = (b: string) => brands[brandList.indexOf(b.trim().toLowerCase())] ?? null;
+    const canonBrand = (b: string) => brands[brandList.indexOf(b.trim().toLowerCase())] ?? knownBrand(b);
 
     // Prices: an explicit number in the query (rules) beats any model reading of it.
     const price = (k: 'price_min' | 'price_max') => {

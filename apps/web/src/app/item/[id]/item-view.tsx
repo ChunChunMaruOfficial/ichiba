@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
 import { Gallery } from "@/components/gallery";
+import { LikersOfferButton } from "@/components/likers-offer";
+import { MEASURE_LABEL } from "@/components/measure-guide";
 import { CardRow, FollowButton, SectionHeader } from "@/components/sections";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
@@ -22,7 +24,7 @@ import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice, items, plural, timeAgo } 
 import { useListingActions } from "@/lib/listing-actions";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
 
-const MEASUREMENT_LABEL = { shoulders: "плечи", chest: "грудь", waist: "талия", length: "длина", sleeve: "рукав", foot_length: "длина стопы" } as const;
+const measurementLabel = (k: string) => (MEASURE_LABEL[k as keyof typeof MEASURE_LABEL] ?? k).toLowerCase();
 
 function ProductSkeleton() {
   return (
@@ -153,10 +155,26 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
     }
   };
 
+  const discount = l.originalPrice && l.price && l.originalPrice > l.price ? Math.round((1 - l.price / l.originalPrice) * 100) : 0;
   const params: Array<[string, React.ReactNode]> = [
     ["Размер", l.size ? (
       <span>
-        <b>{l.size}</b>
+        {l.sizes ? (
+          // Same item in several sizes: each size is its own listing.
+          <span className="inline-flex flex-wrap gap-1.5 align-middle">
+            {l.sizes.map((s) =>
+              s.current ? (
+                <b key={s.id} className="rounded-lg bg-ink px-2.5 py-0.5 text-white">{s.size}</b>
+              ) : (
+                <Link key={s.id} href={`/item/${s.id}`} className={clsx("rounded-lg border px-2.5 py-0.5", s.available ? "border-line-strong hover:border-ink" : "border-line text-muted line-through")}>
+                  {s.size}
+                </Link>
+              ),
+            )}
+          </span>
+        ) : (
+          <b>{l.size}</b>
+        )}
         {measurements.length > 0 && (
           <button className="ml-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => setShowMeasurements((v) => !v)} aria-expanded={showMeasurements}>
             Замеры
@@ -164,7 +182,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         )}
       </span>
     ) : null],
-    ["Бренд", l.brand],
+    ["Бренд", l.brand && <Link href={`/search?brand=${encodeURIComponent(l.brand)}`} className="hover:underline">{l.brand}</Link>],
+    ["Для кого", meta?.genders.find((g) => g.value === l.gender)?.label],
     ["Состояние", l.condition && CONDITION_LABEL[l.condition]],
     ["Цвет", color?.label],
     ["Материал", l.material],
@@ -220,6 +239,10 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           )}
         </p>
       )}
+      {l.status === "PUBLISHED" && l.saleType === "FIXED" && l.price != null && <LikersOfferButton listingId={l.id} price={l.price} />}
+      <ButtonLink href={`/sell?similar=${l.id}`} variant="ghost" block>
+        Выставить похожую
+      </ButtonLink>
       {l.status !== "DRAFT" && <ListingStatsCard listingId={l.id} onBumped={refresh} />}
       {l.status === "BLOCKED" && (
         <div className="rounded-xl bg-danger-soft p-3 text-sm text-danger">
@@ -326,6 +349,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
       <div className="grid gap-8 md:grid-cols-[58fr_42fr] md:gap-12">
         <Gallery
           photos={l.photos}
+          video={l.video}
           title={l.title}
           index={photo}
           onIndex={setPhoto}
@@ -359,6 +383,12 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             {formatPrice(l.price)}
             {l.previousPrice && l.price && l.previousPrice > l.price && <s className="ml-3 text-lg font-normal text-muted">{formatPrice(l.previousPrice)}</s>}
           </p>
+          {discount > 0 && !auctionRunning && (
+            <p className="mt-1 text-sm text-ink-2">
+              <span className="mr-1.5 rounded-md bg-ok-soft px-1.5 py-0.5 font-semibold text-ok">−{discount}%</span>
+              от цены в магазине · {formatPrice(l.originalPrice)}
+            </p>
+          )}
 
           <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[15px]">
             {params
@@ -372,8 +402,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           </dl>
           {showMeasurements && (
             <p className="mt-2 rounded-xl bg-surface px-4 py-3 text-sm text-ink-2">
-              {measurements.map(([k, v]) => `${MEASUREMENT_LABEL[k as keyof typeof MEASUREMENT_LABEL]} ${v} см`).join(" · ")}
-              <span className="block text-xs text-muted">Грудь и талия — в разложенном виде</span>
+              {measurements.map(([k, v]) => `${measurementLabel(k)} ${v} см`).join(" · ")}
+              <span className="block text-xs text-muted">Замеры в разложенном виде</span>
             </p>
           )}
           {!l.isOwner && !sold && <FitHintBox fit={l.fit} hasProfile={l.fitProfile} signedIn={!!me} hasSize={!!l.size} />}
