@@ -3,7 +3,7 @@
 
 export type WardrobeSection = 'top' | 'bottom' | 'shoes' | 'accessories';
 export type ChipGroup = 'clothing' | 'shoes' | 'accessories' | 'bags';
-export type SizeSystemKey = 'ALPHA' | 'SHOE_EU' | 'JEANS_W' | 'OTHER';
+type SizeSystemKey = 'ALPHA' | 'SHOE_EU' | 'JEANS_W' | 'OTHER';
 
 export interface Category {
   slug: string;

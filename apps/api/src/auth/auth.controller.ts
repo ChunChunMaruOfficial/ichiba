@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Post, Query, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -25,6 +25,12 @@ const VerifyDto = z.object({ login, code });
 const ResendDto = z.object({ login, purpose: z.enum(['VERIFY', 'RESET']).default('VERIFY') });
 const ResetConfirmDto = z.object({ login, code, password });
 const TokenDto = z.object({ idToken: z.string().min(10) });
+const StartDto = z.object({ login });
+const CompleteDto = z.object({
+  token: z.string().min(20),
+  username: z.string().trim().toLowerCase().regex(USERNAME_RE, 'Латиница, цифры и _, от 3 до 24 символов'),
+  acceptPrivacy: z.literal(true, { error: 'Нужно согласие на обработку персональных данных' }),
+});
 
 @Controller('auth')
 @Public()
@@ -38,6 +44,29 @@ export class AuthController {
   @Get('username-available')
   usernameAvailable(@Query('u') u = '') {
     return this.auth.usernameAvailability(u);
+  }
+
+  /** Passwordless step 1: code to phone (SMS) or email. */
+  @Post('start')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 3600_000 } })
+  start(@Body(new ZodPipe(StartDto)) dto: z.infer<typeof StartDto>) {
+    return this.auth.start(dto.login);
+  }
+
+  /** Step 2: existing account → session; new address → sign-up token for step 3. */
+  @Post('confirm')
+  @HttpCode(200)
+  async confirm(@Body(new ZodPipe(VerifyDto)) dto: z.infer<typeof VerifyDto>, @Res({ passthrough: true }) res: Response) {
+    const r = await this.auth.confirm(dto.login, dto.code);
+    return r.session ? this.startSession(res, r.session) : { signup: r.signup };
+  }
+
+  /** Step 3: nickname + consent to personal data processing → account created, session started. */
+  @Post('complete')
+  @HttpCode(200)
+  async complete(@Body(new ZodPipe(CompleteDto)) dto: z.infer<typeof CompleteDto>, @Res({ passthrough: true }) res: Response) {
+    return this.startSession(res, await this.auth.complete(dto.token, dto.username));
   }
 
   @Post('register')
@@ -80,7 +109,8 @@ export class AuthController {
   @Post('google')
   @HttpCode(200)
   async google(@Body(new ZodPipe(TokenDto)) dto: { idToken: string }, @Res({ passthrough: true }) res: Response) {
-    return this.startSession(res, await this.auth.google(dto.idToken));
+    const r = await this.auth.google(dto.idToken);
+    return r.session ? this.startSession(res, r.session) : { signup: r.signup };
   }
 
   @Post('apple')
@@ -109,6 +139,7 @@ export class AuthController {
   }
 
   private async startSession(res: Response, { user, isNew }: { user: User; isNew: boolean }) {
+    if (user.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
     res.cookie(AUTH_COOKIE, await this.auth.sign(user), {
       httpOnly: true,
       sameSite: 'lax',

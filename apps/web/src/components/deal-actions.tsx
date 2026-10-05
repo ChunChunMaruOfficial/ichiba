@@ -14,7 +14,7 @@ const DECLINE_REASONS = ["Уже продано", "Передумал прода
 
 /** Every deal action for the current role and status (frames 13–14). Calls `onChange` with the updated deal. */
 /** Opens (or creates) the chat tied to this deal. */
-export function ChatButton({ requestId, size = "md", label = "Написать" }: { requestId: string; size?: "sm" | "md"; label?: string }) {
+function ChatButton({ requestId, size = "md", label = "Написать" }: { requestId: string; size?: "sm" | "md"; label?: string }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);

@@ -13,6 +13,9 @@
     "build": "npm run build -w apps/api && npm run build -w apps/web"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@eslint/mcp": "^0.3.13",
+    "@knip/mcp": "^0.0.36",
+    "concurrently": "^9.2.1",
+    "knip": "^6.39.0"
   }
 }

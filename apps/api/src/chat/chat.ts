@@ -63,7 +63,7 @@ export class ChatService {
     let listingId: string;
     let buyerId: string;
     let sellerId: string;
-    let requestId: string | null = null;
+    let requestId: string | null;
     if (input.requestId) {
       const r = await this.prisma.buyRequest.findUnique({ where: { id: input.requestId }, include: { items: { take: 1 } } });
       if (!r || (r.buyerId !== userId && r.sellerId !== userId)) throw new NotFoundException({ message: 'Сделка не найдена' });

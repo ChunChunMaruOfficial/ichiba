@@ -15,7 +15,7 @@ export function useCountdown(endsAt: string | null | undefined) {
   return { left, label: formatLeft(left), urgent: left > 0 && left < 3600_000, over: !!endsAt && left === 0 };
 }
 
-export function formatLeft(ms: number) {
+function formatLeft(ms: number) {
   if (ms <= 0) return "завершён";
   const s = Math.floor(ms / 1000);
   const d = Math.floor(s / 86400);

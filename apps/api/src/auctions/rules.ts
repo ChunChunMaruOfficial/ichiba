@@ -7,7 +7,7 @@ export const WINNER_REPLY_MS = 48 * 3600 * 1000;
 
 export const defaultStep = (start: number) => Math.max(1, Math.round(start * 0.05));
 /** "Купить сейчас" stays available while the current bid is below this share of the buy-now price. */
-export const BUY_NOW_THRESHOLD = 0.75;
+const BUY_NOW_THRESHOLD = 0.75;
 export const buyNowAvailable = (a: { status: string; buyNowPrice: number | null; endsAt: Date }, current: number | null) =>
   a.status === 'ACTIVE' && a.buyNowPrice != null && a.endsAt > new Date() && (current == null || current < a.buyNowPrice * BUY_NOW_THRESHOLD);
 
@@ -66,5 +66,3 @@ export function serializeAuction(a: AuctionFull, viewerId: string | undefined, s
     })),
   };
 }
-
-export type AuctionView = ReturnType<typeof serializeAuction>;

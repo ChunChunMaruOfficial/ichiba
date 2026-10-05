@@ -29,7 +29,7 @@ export interface NotificationRow {
 }
 
 /** Human text for every notification type (frame 15). */
-export const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => string> = {
+const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => string> = {
   request_new: (p) => `@${p.buyer} хочет купить «${p.title}» за ${p.price} BYN`,
   request_accepted: (p) => (p.confirmed ? `@${p.buyer} выбрал способ получения «${p.title}» — договоритесь о передаче` : `@${p.seller} подтвердил запрос на «${p.title}»`),
   request_declined: (p) => `Продавец отклонил запрос на «${p.title}»${p.reason ? `: ${p.reason.toLowerCase()}` : ""}`,

@@ -3,7 +3,7 @@ import type { Listing } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 /** Signal weights from frame 22 "RECOMMENDATION LOGIC MVP" (rules, not ML). */
-export const SIGNAL_WEIGHTS = {
+const SIGNAL_WEIGHTS = {
   view: 1,
   favorite: 5,
   swipe_right: 5,

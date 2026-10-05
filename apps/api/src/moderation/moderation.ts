@@ -17,7 +17,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { AuthUser, CurrentUser, forgetSessionStatus } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import type { Prisma, ReportStatus } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
@@ -26,7 +26,7 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { PrismaService } from '../prisma/prisma.service.js';
 
 /** Reasons offered in the report modal (frame 20). */
-export const REPORT_REASONS = {
+const REPORT_REASONS = {
   LISTING: ['Подделка или копия бренда', 'Запрещённый товар', 'Фото не соответствует вещи', 'Мошенничество', 'Оскорбительное содержание', 'Другое'],
   USER: ['Мошенничество', 'Оскорбления в чате', 'Не выходит на связь после сделки', 'Спам', 'Другое'],
   REVIEW: ['Оскорбления', 'Ложная информация', 'Отзыв не о сделке', 'Спам', 'Другое'],
@@ -133,7 +133,8 @@ export class AdminController {
   }
 
   @Get('reports')
-  async reports(@Query('status') status: ReportStatus = 'OPEN') {
+  async reports(@Query('status') raw = 'OPEN') {
+    const status: ReportStatus = (['OPEN', 'RESOLVED', 'REJECTED'] as const).find((s) => s === raw) ?? 'OPEN';
     const rows = await this.prisma.report.findMany({
       where: { status },
       include: { reporter: { select: { username: true } } },
@@ -207,9 +208,11 @@ export class AdminController {
   }
 
   @Get('listings')
-  async listingsList(@Query('status') status = 'BLOCKED', @Query('q') q?: string) {
+  async listingsList(@Query('status') raw = 'BLOCKED', @Query('q') q?: string) {
+    // Unknown values would reach Prisma as an invalid enum and turn into a 500.
+    const status = (['BLOCKED', 'PUBLISHED', 'HIDDEN', 'RESERVED', 'SOLD', 'DRAFT'] as const).find((s) => s === raw) ?? 'BLOCKED';
     const where: Prisma.ListingWhereInput = {
-      status: status as 'BLOCKED',
+      status,
       ...(q ? { OR: [{ title: { contains: q, mode: 'insensitive' } }, { seller: { username: { contains: q.toLowerCase() } } }] } : {}),
     };
     const rows = await this.prisma.listing.findMany({ where, include: cardInclude, orderBy: { updatedAt: 'desc' }, take: 100 });
@@ -256,6 +259,7 @@ export class AdminController {
   /** Blocked users can't sign in; their published items are hidden. */
   private async blockUser(adminId: string, userId: string, reason: string) {
     await this.prisma.user.update({ where: { id: userId }, data: { blockedAt: new Date() } });
+    forgetSessionStatus(userId);
     await this.prisma.listing.updateMany({ where: { sellerId: userId, status: 'PUBLISHED' }, data: { status: 'HIDDEN' } });
     await this.prisma.moderationAction.create({ data: { moderatorId: adminId, targetType: 'USER', targetId: userId, action: 'block', reason } });
   }

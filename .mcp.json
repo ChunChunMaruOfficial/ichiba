@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "semgrep": {
+      "command": "${USERPROFILE}\.mcp-tools\semgrep\Scripts\semgrep-mcp.exe",
+      "args": []
+    },
+    "trivy": {
+      "command": "${USERPROFILE}\.mcp-tools\trivy\trivy.exe",
+      "args": ["mcp", "--transport", "stdio"]
+    },
+    "eslint": {
+      "command": "node",
+      "args": ["node_modules/@eslint/mcp/src/mcp-cli.js"]
+    },
+    "knip": {
+      "command": "node",
+      "args": ["node_modules/@knip/mcp/src/cli.js"]
+    }
+  }
+}

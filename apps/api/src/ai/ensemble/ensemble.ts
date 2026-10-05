@@ -27,7 +27,7 @@ export interface Vote<T> {
   latencyMs: number;
 }
 
-export interface Failure {
+interface Failure {
   provider: string;
   model?: string;
   kind: FailureKind | 'skipped';
@@ -63,7 +63,7 @@ export interface EnsembleOptions<T> {
 // ---------- JSON parsing ----------
 
 /** Pulls a JSON object out of a model reply: tolerates code fences, prose around it and special markers. */
-export function extractJson(text: string): unknown {
+function extractJson(text: string): unknown {
   const s = text
     .replace(/<\|[^|]*\|>/g, '')
     .replace(/^\s*```(?:json)?/i, '')
@@ -350,7 +350,7 @@ export class AiEnsemble {
       )
         .then(({ reply, model, latencyMs }) => {
           if (closed) return;
-          let value: T | null = null;
+          let value: T | null;
           try {
             value = parseWith(opts.schema, extractJson(reply.text));
           } catch {

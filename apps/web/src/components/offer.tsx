@@ -114,7 +114,7 @@ export function OfferSheet({
 }
 
 /** Counter-offer dialog: price must sit strictly between the last two offers. */
-export function CounterDialog({ offer, open, onClose, onDone, initial = "" }: { offer: Offer; open: boolean; onClose: () => void; onDone: (o: Offer) => void; initial?: string }) {
+function CounterDialog({ offer, open, onClose, onDone, initial = "" }: { offer: Offer; open: boolean; onClose: () => void; onDone: (o: Offer) => void; initial?: string }) {
   const [value, setValue] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

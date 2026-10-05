@@ -11,7 +11,7 @@ import { hasProfanity, isGibberish } from './text-rules.js';
  * by a weighted vote of the providers; a field the models disagree on is left for the seller.
  */
 
-export interface AiField<T> {
+interface AiField<T> {
   value: T;
   confidence: number;
 }

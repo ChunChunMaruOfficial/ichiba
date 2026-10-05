@@ -141,10 +141,8 @@ export class AuctionsService {
       const exhausted = await this.resolveProxies(tx, a);
       const after = (await this.top(tx, auctionId))!;
       // Anti-sniping: any bid in the last 5 minutes pushes the end 5 minutes out.
-      let endsAt = a.endsAt;
       if (after.id !== before?.id && a.endsAt.getTime() - Date.now() < EXTEND_WINDOW_MS) {
-        endsAt = new Date(Date.now() + EXTEND_WINDOW_MS);
-        await tx.auction.update({ where: { id: auctionId }, data: { endsAt, extendedTimes: { increment: 1 } } });
+        await tx.auction.update({ where: { id: auctionId }, data: { endsAt: new Date(Date.now() + EXTEND_WINDOW_MS), extendedTimes: { increment: 1 } } });
       }
       return { a, before, after, exhausted };
     });

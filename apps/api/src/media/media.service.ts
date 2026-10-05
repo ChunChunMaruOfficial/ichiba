@@ -23,7 +23,7 @@ export interface PhotoQuality {
   sharpness: number;
 }
 
-export async function measureQuality(input: Buffer | ReturnType<typeof sharp>): Promise<PhotoQuality> {
+async function measureQuality(input: Buffer | ReturnType<typeof sharp>): Promise<PhotoQuality> {
   const base = Buffer.isBuffer(input) ? sharp(input) : input.clone();
   const grey = base.resize(320, 320, { fit: 'inside' }).greyscale();
   const stats = await grey.clone().stats();

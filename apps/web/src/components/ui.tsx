@@ -277,5 +277,4 @@ export const IconCheck = icon(<path d="m5 12.5 4.5 4.5L19 7.5" />);
 export const IconFilter = icon(<path d="M4 6h16M7 12h10M10 18h4" />);
 export const IconMore = icon(<><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>);
 export const IconSparkle = icon(<path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.9L12 18.5l-1.8-5.8L4.5 10.8 10.2 9Z" />);
-export const IconTrash = icon(<><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></>);
 export const IconMessage = icon(<path d="M5 5h14v10H9l-4 4Z" />);

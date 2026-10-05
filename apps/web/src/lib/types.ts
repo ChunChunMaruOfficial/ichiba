@@ -261,7 +261,7 @@ export interface ReviewsPage {
   hasMore: boolean;
 }
 
-export interface StatTotals {
+interface StatTotals {
   views: number;
   favorites: number;
   carts: number;
@@ -288,7 +288,7 @@ export interface ListingStats {
   tips: string[];
 }
 
-export interface Category {
+interface Category {
   slug: string;
   label: string;
   section: "top" | "bottom" | "shoes" | "accessories";
@@ -320,7 +320,7 @@ export interface AiSuggestion {
   model: string;
 }
 
-export type OfferStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "COUNTERED" | "EXPIRED" | "CANCELLED";
+type OfferStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "COUNTERED" | "EXPIRED" | "CANCELLED";
 
 export interface Offer {
   id: string;

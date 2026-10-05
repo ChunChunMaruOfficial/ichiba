@@ -13,7 +13,7 @@ export const cardInclude = {
 
 export type CardListing = Prisma.ListingGetPayload<{ include: typeof cardInclude }>;
 
-export const sizeLabel = (l: { sizeValue: string | null }) => l.sizeValue ?? null;
+const sizeLabel = (l: { sizeValue: string | null }) => l.sizeValue ?? null;
 
 export const serializePhoto = (p: { id: string; key: string; width: number; height: number; isCover: boolean; isDefect: boolean; order: number }) => ({
   id: p.id,
@@ -49,4 +49,3 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
   };
 }
 
-export type ListingCard = ReturnType<typeof serializeCard>;

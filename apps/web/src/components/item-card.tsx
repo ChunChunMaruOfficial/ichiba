@@ -12,7 +12,7 @@ import { useSession } from "./session";
 import { IconHeart, StatusBadge } from "./ui";
 
 /** Photo that fades in when loaded and keeps its real aspect ratio (no forced crop). */
-export function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean }) {
+function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const ratio = card.cover ? `${card.cover.width} / ${card.cover.height}` : "4 / 5";

@@ -55,12 +55,6 @@ export function quorumSet<T>(votes: Vote<T>[], pick: (v: T) => string[], quorum 
     .map(([k]) => k);
 }
 
-/**
- * How many agreeing providers are needed to act on a flag: with one healthy provider a single vote
- * can only send something to review, never reject on its own.
- */
-export const quorumFor = (n: number) => (n <= 1 ? 2 : n === 2 ? 2 : Math.ceil((n * 2) / 3));
-
 /** Rounds a price to a "shop" number: 1 BYN below 100, 5 BYN below 500, 10 BYN above. */
 export function nicePrice(x: number): number {
   if (!Number.isFinite(x) || x <= 1) return 1;

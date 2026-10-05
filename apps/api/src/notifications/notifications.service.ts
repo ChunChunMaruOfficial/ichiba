@@ -74,7 +74,7 @@ export class NotificationsService {
 }
 
 @Controller('notifications')
-export class NotificationsController {
+class NotificationsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()

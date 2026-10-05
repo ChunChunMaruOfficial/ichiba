@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from "clsx";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
@@ -70,6 +71,14 @@ function Settings({ me }: { me: Me }) {
       <SizesSection me={me} />
       <BundleSection me={me} />
       <EmailSection me={me} />
+      <DangerSection me={me} />
+      <p className="text-sm text-ink-2">
+        Как мы обращаемся с вашими данными — в{" "}
+        <Link href="/privacy" className="font-medium text-ink underline underline-offset-4">
+          Политике конфиденциальности
+        </Link>
+        .
+      </p>
       <button
         className="self-start text-sm text-ink-2 underline underline-offset-4 hover:text-ink"
         onClick={async () => {
@@ -251,6 +260,56 @@ function EmailSection({ me }: { me: Me }) {
             />
           </label>
         </>
+      )}
+    </Section>
+  );
+}
+
+function DangerSection({ me }: { me: Me }) {
+  const router = useRouter();
+  const toast = useToast();
+  const { refresh } = useSession();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Section id="danger" title="Удаление аккаунта" hint="Ник, телефон, почта, профиль, объявления в продаже, избранное и подписки будут удалены сразу. Завершённые сделки, переписка и отзывы останутся у второй стороны без вашего ника и контактов. Восстановить аккаунт будет нельзя.">
+      {!open ? (
+        <Button variant="secondary" className="text-danger" onClick={() => setOpen(true)}>
+          Удалить аккаунт
+        </Button>
+      ) : (
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError(null);
+            try {
+              await api("/users/me", { method: "DELETE", body: { confirm } });
+              await refresh();
+              toast("Аккаунт удалён");
+              router.push("/");
+            } catch (err) {
+              setError(err instanceof ApiError ? (err.fields.confirm ?? err.message) : "Не удалось удалить аккаунт");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Field label={`Введите ник @${me.username}, чтобы подтвердить`} htmlFor="delete-confirm" error={error ?? undefined}>
+            <Input id="delete-confirm" autoComplete="off" spellCheck={false} autoCapitalize="none" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={error ?? undefined} />
+          </Field>
+          <div className="flex gap-2">
+            <Button type="submit" loading={busy} disabled={confirm.replace(/^@/, "").toLowerCase() !== me.username.toLowerCase()} className="bg-danger hover:bg-danger/90">
+              Удалить навсегда
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => (setOpen(false), setConfirm(""), setError(null))}>
+              Отмена
+            </Button>
+          </div>
+        </form>
       )}
     </Section>
   );

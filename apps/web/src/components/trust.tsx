@@ -138,7 +138,7 @@ export function BundleNote({ tiers, username, className }: { tiers: BundleTier[]
 // ---------- bump + listing stats (owner) ----------
 
 const hoursUntil = (iso: string) => Math.max(1, Math.ceil((new Date(iso).getTime() - Date.now()) / 3600_000));
-export const bumpLabel = (bump: { nextAt: string; available: boolean }) => (bump.available ? "Поднять в ленте" : `Поднять через ${hoursUntil(bump.nextAt)} ч`);
+const bumpLabel = (bump: { nextAt: string; available: boolean }) => (bump.available ? "Поднять в ленте" : `Поднять через ${hoursUntil(bump.nextAt)} ч`);
 
 export function BumpButton({ listingId, bump, onDone, size = "md", block }: { listingId: string; bump: { nextAt: string; available: boolean } | null; onDone: () => void; size?: "sm" | "md"; block?: boolean }) {
   const toast = useToast();

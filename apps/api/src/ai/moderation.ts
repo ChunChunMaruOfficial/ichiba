@@ -22,7 +22,7 @@ import { counterfeitSignal, findContacts, hasProfanity, isGibberish, mentionsIte
  * queue). When no provider is reachable the listing is published as "unchecked" and re-checked by cron.
  */
 
-export type ModerationDecision = 'allow' | 'review' | 'reject';
+type ModerationDecision = 'allow' | 'review' | 'reject';
 export interface ModerationVerdict {
   decision: ModerationDecision;
   /** Field → message for the seller (on reject). */
@@ -163,23 +163,38 @@ export class ListingModerator {
     if (photoKeys.length) {
       if (majority((x) => !x.photos_show_item)) {
         if (n >= 2) reject('photos', MSG.photosNoItem, `На фото нет вещи (${of((x) => !x.photos_show_item)})`);
-        else (review = true), reasons.push('На фото может не быть вещи (1 модель)');
+        else {
+          review = true;
+          reasons.push('На фото может не быть вещи (1 модель)');
+        }
       } else if (n >= 2 && majority((x) => !x.photos_match_title)) {
         review = true;
         reasons.push(`Фото не совпадают с названием (${of((x) => !x.photos_match_title)})`);
       }
       const inappropriate = count(v, (x) => x.photos_inappropriate) + votes.blocked.length;
       if (n >= 2 && majority((x) => x.photos_inappropriate)) reject('photos', MSG.photosInappropriate, `Неприемлемые фото (${of((x) => x.photos_inappropriate)})`);
-      else if (inappropriate > 0) (review = true), reasons.push(votes.blocked.length ? `Провайдер отказался обрабатывать фото: ${votes.blocked.join(', ')}` : 'Фото могут быть неприемлемыми (1 модель)');
+      else if (inappropriate > 0) {
+        review = true;
+        reasons.push(votes.blocked.length ? `Провайдер отказался обрабатывать фото: ${votes.blocked.join(', ')}` : 'Фото могут быть неприемлемыми (1 модель)');
+      }
     }
 
     if (n >= 2 && majority((x) => x.prohibited_item)) reject('title', MSG.prohibited, `Запрещённый товар (${of((x) => x.prohibited_item)})`);
-    else if (prohibitedWords || count(v, (x) => x.prohibited_item) > 0) (review = true), reasons.push(prohibitedWords ? 'В тексте есть слова о запрещённых товарах' : 'Возможно, запрещённый товар (1 модель)');
+    else if (prohibitedWords || count(v, (x) => x.prohibited_item) > 0) {
+      review = true;
+      reasons.push(prohibitedWords ? 'В тексте есть слова о запрещённых товарах' : 'Возможно, запрещённый товар (1 модель)');
+    }
 
     if (majority((x) => x.counterfeit)) {
       if (fake === 'weak' && n >= 1) reject('description', MSG.counterfeit, `Похоже на копию бренда (${of((x) => x.counterfeit)} + слова «копия/фейк»)`);
-      else (review = true), reasons.push(`Возможна подделка (${of((x) => x.counterfeit)})`);
-    } else if (fake === 'weak') (review = true), reasons.push('В тексте слова «копия/фейк/люкс»');
+      else {
+        review = true;
+        reasons.push(`Возможна подделка (${of((x) => x.counterfeit)})`);
+      }
+    } else if (fake === 'weak') {
+      review = true;
+      reasons.push('В тексте слова «копия/фейк/люкс»');
+    }
 
     if (n >= 2 && majority((x) => x.offensive_text)) reject('description', MSG.offensive, `Оскорбительный текст (${of((x) => x.offensive_text)})`);
     if (n >= 2 && majority((x) => x.contacts_in_text)) reject('description', MSG.contacts, `Скрытые контакты в тексте (${of((x) => x.contacts_in_text)})`);

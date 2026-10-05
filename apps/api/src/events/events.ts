@@ -32,7 +32,7 @@ export class EventsService {
 }
 
 @Controller('events')
-export class EventsController {
+class EventsController {
   constructor(private readonly events: EventsService) {}
 
   @Sse()

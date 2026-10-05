@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
@@ -36,6 +36,9 @@ export class FavoritesController {
 
   @Post(':listingId')
   async save(@CurrentUser() user: AuthUser, @Param('listingId', ParseUUIDPipe) listingId: string, @Body(new ZodPipe(SaveDto)) dto: z.infer<typeof SaveDto>) {
+    // Only listings others can see: no ♡ on drafts, hidden or deleted items (and no 500 on a wrong id).
+    const listing = await this.prisma.listing.findUnique({ where: { id: listingId }, select: { status: true } });
+    if (!listing || !['PUBLISHED', 'RESERVED', 'SOLD'].includes(listing.status)) throw new NotFoundException({ message: 'Такой вещи нет' });
     const existing = await this.prisma.favorite.findUnique({ where: { userId_listingId: { userId: user.id, listingId } } });
     if (!existing) {
       await this.prisma.$transaction([

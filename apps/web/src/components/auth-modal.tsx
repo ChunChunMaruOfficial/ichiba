@@ -1,13 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
 import type { Me } from "@/lib/types";
 import { Button, Field, Input, Modal } from "./ui";
 
-type Step = "login" | "register" | "verify" | "reset" | "reset-confirm";
+/**
+ * Sign-in and sign-up in one flow, the way Avito, Kufar and Vinted do it:
+ *   1. Google — or a phone / email → we send a one-time code (no password to invent);
+ *   2. the code (autofill from SMS on phones);
+ *   3. only for new people: a nickname + consent to personal data processing → account created.
+ * Password sign-in stays available for accounts that have a password.
+ */
+type Step = "start" | "code" | "profile" | "password" | "reset" | "reset-confirm";
 type SessionResult = { user: Me; isNew: boolean };
+type Signup = { token: string; contact: string; suggestion: string };
 
 declare global {
   interface Window {
@@ -16,17 +25,30 @@ declare global {
   }
 }
 
+/** One promise per script: a second caller waits for the same load instead of resolving before it finishes. */
+const scripts = new Map<string, Promise<void>>();
 function loadScript(src: string) {
-  return new Promise<void>((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(src));
-    document.head.appendChild(s);
-  });
+  let p = scripts.get(src);
+  if (!p) {
+    p = new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => (scripts.delete(src), reject(new Error(src)));
+      document.head.appendChild(s);
+    });
+    scripts.set(src, p);
+  }
+  return p;
 }
+
+const isEmail = (v: string) => v.includes("@");
+/** Pretty-prints a Belarusian number: +375 29 123-45-67. */
+const prettyPhone = (v: string) => {
+  const m = v.match(/^\+375(\d{2})(\d{3})(\d{2})(\d{2})$/);
+  return m ? `+375 ${m[1]} ${m[2]}-${m[3]}-${m[4]}` : v;
+};
 
 interface AuthModalProps {
   open: boolean;
@@ -35,26 +57,30 @@ interface AuthModalProps {
   onSignedIn: (me: Me, isNew?: boolean) => void;
 }
 
-/** Login / Sign up / code / reset in one modal (frame 18). Mounted fresh on every open, so it always starts at "login". */
+/** Mounted fresh on every open, so it always starts at the first step. */
 export function AuthModal(props: AuthModalProps) {
   return props.open ? <AuthForm {...props} /> : null;
 }
 
 function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
-  const [step, setStep] = useState<Step>("login");
+  const [step, setStep] = useState<Step>("start");
   const [login, setLogin] = useState("");
-  const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [terms, setTerms] = useState(false);
+  const [target, setTarget] = useState("");
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [signup, setSignup] = useState<Signup | null>(null);
+  const [username, setUsername] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [usernameHint, setUsernameHint] = useState<{ ok: boolean; text: string; suggestion?: string } | null>(null);
-  const hint = step === "register" && username.length >= 3 ? usernameHint : null;
   const { data: providers } = useSWR<{ google: string | null; apple: string | null; devAnyCode?: boolean }>(open ? "/auth/providers" : null);
+  const codeInput = useRef<HTMLInputElement>(null);
+  const hint = step === "profile" && username.length >= 3 ? usernameHint : null;
+  const byEmail = isEmail(target || login);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -62,13 +88,12 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
     return () => clearTimeout(t);
   }, [resendIn]);
 
-  // Live username availability check (debounced).
+  // Live nickname availability (debounced).
   useEffect(() => {
-    if (step !== "register" || username.length < 3) return;
+    if (step !== "profile" || username.length < 3) return;
     const t = setTimeout(async () => {
       const r = await api<{ available: boolean; reason?: string; suggestion?: string }>(`/auth/username-available?u=${encodeURIComponent(username)}`).catch(() => null);
-      if (!r) return;
-      setUsernameHint(r.available ? { ok: true, text: `@${username.toLowerCase()} свободен` } : { ok: false, text: r.reason ?? "Ник занят", suggestion: r.suggestion });
+      if (r) setUsernameHint(r.available ? { ok: true, text: `@${username.toLowerCase()} свободен` } : { ok: false, text: r.reason ?? "Ник занят", suggestion: r.suggestion });
     }, 350);
     return () => clearTimeout(t);
   }, [username, step]);
@@ -83,6 +108,8 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
       if (e instanceof ApiError) {
         setError(e.message);
         setFields(e.fields);
+        if (typeof e.data.resendIn === "number") setResendIn(e.data.resendIn);
+        if (e.code === "SIGNUP_EXPIRED") setStep("start");
       } else setError("Что-то пошло не так. Повторите");
     } finally {
       setBusy(false);
@@ -90,202 +117,278 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
   };
 
   const finish = (r: SessionResult) => onSignedIn(r.user, r.isNew);
+  const toProfile = (s: Signup) => {
+    setSignup(s);
+    setUsername(s.suggestion);
+    setStep("profile");
+  };
+  /** Session or "new person" — the same handling for codes and Google. */
+  const handle = (r: SessionResult | { signup: Signup }) => ("signup" in r ? toProfile(r.signup) : finish(r));
 
-  const submitLogin = () =>
+  const sendCode = () =>
     run(async () => {
-      const r = await api<SessionResult | { needsVerification: true }>("/auth/login", { body: { login, password } });
+      const r = await api<{ target: string; resendIn: number }>("/auth/start", { body: { login } });
+      setTarget(r.target);
+      setCode("");
+      setResendIn(r.resendIn);
+      setStep("code");
+    });
+
+  const checkCode = (value = code) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/confirm", { body: { login: target, code: value } })));
+
+  const completeSignup = () =>
+    run(async () => {
+      if (!consent) {
+        setFields({ acceptPrivacy: "Без согласия мы не можем создать аккаунт" });
+        throw new ApiError(400, "Нужно согласие на обработку персональных данных", { acceptPrivacy: "Без согласия мы не можем создать аккаунт" });
+      }
+      finish(await api<SessionResult>("/auth/complete", { body: { token: signup!.token, username, acceptPrivacy: true } }));
+    });
+
+  const passwordLogin = () =>
+    run(async () => {
+      const r = await api<SessionResult | { needsVerification: true; target: string }>("/auth/login", { body: { login, password } });
       if ("needsVerification" in r) {
-        setStep("verify");
+        // An old unverified account: confirm the address with a code first.
+        await api("/auth/start", { body: { login } }).catch(() => undefined);
+        setTarget(r.target);
         setResendIn(60);
+        setStep("code");
       } else finish(r);
     });
 
-  const submitRegister = () =>
+  const requestReset = () =>
     run(async () => {
-      await api("/auth/register", { body: { login, password, username, acceptTerms: terms } });
-      setStep("verify");
+      const r = await api<{ target: string }>("/auth/reset/request", { body: { login } });
+      setTarget(r.target);
+      setCode("");
       setResendIn(60);
-    });
-
-  const submitVerify = () => run(async () => finish(await api<SessionResult>("/auth/verify", { body: { login, code } })));
-
-  const submitReset = () =>
-    run(async () => {
-      await api("/auth/reset/request", { body: { login } });
       setStep("reset-confirm");
-      setResendIn(60);
     });
 
-  const submitResetConfirm = () => run(async () => finish(await api<SessionResult>("/auth/reset/confirm", { body: { login, code, password } })));
+  const confirmReset = () => run(async () => finish(await api<SessionResult>("/auth/reset/confirm", { body: { login: target, code, password } })));
 
-  const resend = () =>
-    run(async () => {
-      await api("/auth/resend", { body: { login, purpose: step === "reset-confirm" ? "RESET" : "VERIFY" } });
-      setResendIn(60);
-    });
+  // Android/Chrome: read the code from the incoming SMS (WebOTP) and submit it.
+  useEffect(() => {
+    if (step !== "code" || byEmail || typeof window === "undefined" || !("OTPCredential" in window)) return;
+    const ctrl = new AbortController();
+    (navigator.credentials as unknown as { get: (o: object) => Promise<{ code?: string } | null> })
+      .get({ otp: { transport: ["sms"] }, signal: ctrl.signal })
+      .then((otp) => {
+        if (otp?.code) {
+          setCode(otp.code);
+          void checkCode(otp.code);
+        }
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, byEmail]);
 
-  const title =
-    step === "register" ? "Создать аккаунт" : step === "verify" ? "Введите код" : step === "reset" || step === "reset-confirm" ? "Восстановить пароль" : "Войдите, чтобы продолжить";
+  const title = {
+    start: "Вход или регистрация",
+    code: "Введите код",
+    profile: "Последний шаг",
+    password: "Вход по паролю",
+    reset: "Восстановить пароль",
+    "reset-confirm": "Новый пароль",
+  }[step];
+
+  const submit = { start: sendCode, code: () => checkCode(), profile: completeSignup, password: passwordLogin, reset: requestReset, "reset-confirm": confirmReset }[step];
+  const generalError = error && !Object.keys(fields).length;
 
   return (
     <Modal open={open} onClose={onClose} title={title}>
-      {reason && (step === "login" || step === "register") && <p className="-mt-2 mb-5 text-sm text-muted">{reason}</p>}
+      {reason && step === "start" && <p className="-mt-2 mb-5 text-sm text-muted">{reason}</p>}
+
+      {step === "start" && providers?.google && (
+        <>
+          <GoogleButton clientId={providers.google} onToken={(idToken) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/google", { body: { idToken } })))} />
+          {providers.apple && (
+            <div className="mt-3">
+              <AppleButton clientId={providers.apple} onToken={(idToken) => run(async () => finish(await api<SessionResult>("/auth/apple", { body: { idToken } })))} />
+            </div>
+          )}
+          <div className="my-5 flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-line" />
+            или по номеру телефона или почте
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      )}
 
       <form
         noValidate
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          ({ login: submitLogin, register: submitRegister, verify: submitVerify, reset: submitReset, "reset-confirm": submitResetConfirm })[step]();
+          void submit();
         }}
       >
-        {(step === "login" || step === "register" || step === "reset") && (
-          <Field label="Email или телефон" htmlFor="auth-login" error={fields.login}>
-            <Input id="auth-login" name="login" spellCheck={false} autoCapitalize="none" autoComplete="username" inputMode="email" value={login} onChange={(e) => setLogin(e.target.value)} error={fields.login} placeholder="you@mail.com или +375…" />
-          </Field>
-        )}
-
-        {step === "register" && (
+        {(step === "start" || step === "password" || step === "reset") && (
           <Field
-            label="Ник"
-            htmlFor="auth-username"
-            error={fields.username ?? (hint && !hint.ok ? hint.text : undefined)}
-            hint={hint?.ok ? hint.text : "Латиница, цифры и _ — так вас увидят покупатели"}
+            label="Телефон или почта"
+            htmlFor="auth-login"
+            error={fields.login}
+            hint={step === "start" && login.trim() ? (isEmail(login) ? "Пришлём код на почту" : "Пришлём код в SMS") : step === "start" ? "Пароль придумывать не нужно — войдёте по коду" : undefined}
           >
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">@</span>
-              <Input id="auth-username" name="username" spellCheck={false} autoCapitalize="none" className="pl-8" autoComplete="nickname" value={username} onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))} error={fields.username} />
-            </div>
-            {hint?.suggestion && (
-              <button type="button" className="self-start text-sm text-accent underline-offset-4 hover:underline" onClick={() => setUsername(hint.suggestion!)}>
-                Взять @{hint.suggestion}
-              </button>
-            )}
-          </Field>
-        )}
-
-        {(step === "login" || step === "register" || step === "reset-confirm") && (
-          <Field
-            label={step === "reset-confirm" ? "Новый пароль" : "Пароль"}
-            htmlFor="auth-password"
-            error={fields.password}
-            hint={step !== "login" ? "Минимум 8 символов" : undefined}
-          >
-            <div className="relative">
-              <Input
-                id="auth-password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete={step === "login" ? "current-password" : "new-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                error={fields.password}
-                className="pr-24"
-              />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-2" onClick={() => setShowPassword((v) => !v)}>
-                {showPassword ? "Скрыть" : "Показать"}
-              </button>
-            </div>
-            {step !== "login" && password.length > 0 && <PasswordMeter value={password} />}
-          </Field>
-        )}
-
-        {(step === "verify" || step === "reset-confirm") && (
-          <Field label={`Код из ${login.includes("@") ? "письма" : "SMS"} на ${login}`} htmlFor="auth-code" error={fields.code}>
             <Input
-              id="auth-code"
-              name="code"
+              id="auth-login"
+              name="login"
               spellCheck={false}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-              error={fields.code}
-              className="text-center text-2xl tracking-[0.5em]"
-              placeholder="••••••"
+              autoCapitalize="none"
+              autoComplete="username"
+              autoFocus
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
+              error={fields.login}
+              placeholder="+375 29 123-45-67 или you@mail.by"
             />
           </Field>
         )}
 
-        {step === "register" && (
-          <label className="flex items-start gap-3 text-sm text-ink-2">
-            <input type="checkbox" className="mt-0.5 size-4 accent-[var(--accent)]" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
-            <span>
-              Принимаю <a className="underline" href="#">условия</a> и <a className="underline" href="#">политику конфиденциальности</a>
-              {fields.acceptTerms && <span className="block text-danger">{fields.acceptTerms}</span>}
-            </span>
-          </label>
+        {step === "code" && (
+          <>
+            <p className="-mt-1 text-sm text-ink-2">
+              {byEmail ? "Отправили письмо на" : "Отправили SMS на"} <b className="font-semibold text-ink">{byEmail ? target : prettyPhone(target)}</b>.{" "}
+              <button type="button" className="underline underline-offset-4" onClick={() => setStep("start")}>
+                Изменить
+              </button>
+            </p>
+            <Field label="Код из 6 цифр" htmlFor="auth-code" error={fields.code}>
+              <Input
+                ref={codeInput}
+                id="auth-code"
+                name="code"
+                spellCheck={false}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                maxLength={6}
+                value={code}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setCode(v);
+                  // Six digits typed or pasted → check right away.
+                  if (v.length === 6 && !busy) void checkCode(v);
+                }}
+                error={fields.code}
+                className="tabular text-center text-2xl tracking-[0.5em]"
+                placeholder="••••••"
+              />
+            </Field>
+            {byEmail && <p className="-mt-2 text-xs text-muted">Письма нет? Проверьте папку «Спам».</p>}
+          </>
         )}
 
-        {error && !Object.keys(fields).length && (
+        {step === "profile" && signup && (
+          <>
+            <p className="-mt-1 text-sm text-ink-2">
+              Создаём аккаунт для <b className="font-semibold text-ink">{isEmail(signup.contact) || signup.contact === "Google" ? signup.contact : prettyPhone(signup.contact)}</b>. Придумайте ник — так вас увидят в гардеробе и чатах.
+            </p>
+            <Field label="Ник" htmlFor="auth-username" error={fields.username ?? (hint && !hint.ok ? hint.text : undefined)} hint={hint?.ok ? hint.text : "Латиница, цифры и _ — от 3 до 24 символов"}>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">@</span>
+                <Input id="auth-username" name="username" spellCheck={false} autoCapitalize="none" autoFocus className="pl-8" autoComplete="nickname" value={username} onChange={(e) => setUsername(e.target.value.replace(/\s/g, "").toLowerCase())} error={fields.username} />
+              </div>
+              {hint?.suggestion && (
+                <button type="button" className="self-start text-sm text-accent underline-offset-4 hover:underline" onClick={() => setUsername(hint.suggestion!)}>
+                  Взять @{hint.suggestion}
+                </button>
+              )}
+            </Field>
+            <label className="flex items-start gap-3 text-sm text-ink-2">
+              <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]" checked={consent} onChange={(e) => (setConsent(e.target.checked), setFields({}))} />
+              <span>
+                Даю согласие на обработку моих персональных данных, включая их передачу за рубеж, на условиях{" "}
+                <Link href="/privacy" target="_blank" className="font-medium text-ink underline underline-offset-4">
+                  Политики конфиденциальности
+                </Link>
+                . Мне есть 16 лет.
+                {fields.acceptPrivacy && <span className="mt-1 block text-danger">{fields.acceptPrivacy}</span>}
+              </span>
+            </label>
+          </>
+        )}
+
+        {(step === "password" || step === "reset-confirm") && (
+          <>
+            {step === "reset-confirm" && (
+              <Field label={`Код из ${byEmail ? "письма" : "SMS"} на ${byEmail ? target : prettyPhone(target)}`} htmlFor="auth-code" error={fields.code}>
+                <Input id="auth-code" name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} error={fields.code} className="tabular text-center text-2xl tracking-[0.5em]" placeholder="••••••" />
+              </Field>
+            )}
+            <Field label={step === "reset-confirm" ? "Новый пароль" : "Пароль"} htmlFor="auth-password" error={fields.password} hint={step === "reset-confirm" ? "Минимум 8 символов" : undefined}>
+              <div className="relative">
+                <Input
+                  id="auth-password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={step === "password" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  error={fields.password}
+                  className="pr-24"
+                />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-2" onClick={() => setShowPassword((v) => !v)}>
+                  {showPassword ? "Скрыть" : "Показать"}
+                </button>
+              </div>
+            </Field>
+          </>
+        )}
+
+        {generalError && (
           <p role="alert" className="rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
             {error}
           </p>
         )}
 
-        <Button type="submit" size="lg" block loading={busy}>
-          {{ login: "Войти", register: "Создать аккаунт", verify: "Подтвердить", reset: "Получить код", "reset-confirm": "Сохранить пароль" }[step]}
+        <Button type="submit" size="lg" block loading={busy} disabled={step === "code" && code.length < 6}>
+          {{ start: "Получить код", code: "Продолжить", profile: "Создать аккаунт", password: "Войти", reset: "Получить код", "reset-confirm": "Сохранить и войти" }[step]}
         </Button>
 
-        {(step === "verify" || step === "reset-confirm") && providers?.devAnyCode && (
-          <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-sm text-warn">Режим разработки: подойдёт любой код из 6 цифр, например 000000.</p>
-        )}
+        {(step === "code" || step === "reset-confirm") && providers?.devAnyCode && <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-sm text-warn">Режим разработки: подойдёт любой код из 6 цифр, например 000000.</p>}
 
-        {(step === "verify" || step === "reset-confirm") && (
-          <button type="button" disabled={resendIn > 0 || busy} onClick={resend} className="text-sm text-ink-2 disabled:text-muted">
-            {resendIn > 0 ? `Отправить ещё раз через ${resendIn} с` : "Отправить ещё раз"}
+        {step === "code" && (
+          <button type="button" disabled={resendIn > 0 || busy} onClick={sendCode} className="text-sm text-ink-2 disabled:text-muted">
+            {resendIn > 0 ? `Отправить код ещё раз через ${resendIn} с` : "Отправить код ещё раз"}
           </button>
         )}
       </form>
 
-      {step === "login" && (
+      {step === "start" && (
+        <p className="mt-4 text-center text-sm text-ink-2">
+          Есть пароль?{" "}
+          <button className="font-medium text-ink underline underline-offset-4" onClick={() => setStep("password")}>
+            Войти по паролю
+          </button>
+        </p>
+      )}
+      {step === "password" && (
         <div className="mt-4 flex justify-between text-sm">
-          <button className="font-medium text-accent hover:underline" onClick={() => setStep("register")}>
-            Создать аккаунт
+          <button className="font-medium text-ink underline underline-offset-4" onClick={() => setStep("start")}>
+            Войти по коду
           </button>
           <button className="text-ink-2 hover:underline" onClick={() => setStep("reset")}>
             Забыли пароль?
           </button>
         </div>
       )}
-      {(step === "register" || step === "reset") && (
-        <button className="mt-4 text-sm text-ink-2 hover:underline" onClick={() => setStep("login")}>
-          Уже есть аккаунт? Войти
+      {(step === "reset" || step === "reset-confirm") && (
+        <button className="mt-4 text-sm text-ink-2 hover:underline" onClick={() => setStep("password")}>
+          Назад ко входу
         </button>
       )}
-
-      {(step === "login" || step === "register") && (providers?.google || providers?.apple) && (
-        <>
-          <div className="my-5 flex items-center gap-3 text-xs text-muted">
-            <span className="h-px flex-1 bg-line" />
-            или
-            <span className="h-px flex-1 bg-line" />
-          </div>
-          <div className="flex flex-col gap-3">
-            {providers.google && <GoogleButton clientId={providers.google} onToken={(idToken) => run(async () => finish(await api<SessionResult>("/auth/google", { body: { idToken } })))} />}
-            {providers.apple && (
-              <AppleButton clientId={providers.apple} onToken={(idToken) => run(async () => finish(await api<SessionResult>("/auth/apple", { body: { idToken } })))} />
-            )}
-          </div>
-        </>
+      {step === "start" && (
+        <p className="mt-5 text-center text-xs leading-relaxed text-muted">
+          Продолжая, вы соглашаетесь с{" "}
+          <Link href="/privacy" target="_blank" className="underline underline-offset-2">
+            Политикой конфиденциальности
+          </Link>
+        </p>
       )}
     </Modal>
-  );
-}
-
-function PasswordMeter({ value }: { value: string }) {
-  const score = [value.length >= 8, /[A-ZА-Я]/.test(value) && /[a-zа-я]/.test(value), /\d/.test(value), /[^\w]/.test(value) || value.length >= 12].filter(Boolean).length;
-  const labels = ["Слабый", "Слабый", "Средний", "Хороший", "Надёжный"];
-  return (
-    <div className="flex items-center gap-2" aria-live="polite">
-      <div className="flex flex-1 gap-1">
-        {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={`h-1 flex-1 rounded-full ${i < score ? (score < 2 ? "bg-danger" : score < 3 ? "bg-warn" : "bg-ok") : "bg-line"}`} />
-        ))}
-      </div>
-      <span className="text-xs text-muted">{labels[score]}</span>
-    </div>
   );
 }
 

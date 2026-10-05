@@ -39,8 +39,7 @@ export interface ListingValues {
 }
 
 /** AI-filled fields the user can accept or edit (frame 22). Size, condition, material, defects are never AI-filled. */
-export const AI_FIELDS = ["category", "subcategory", "color", "brand", "style_tags", "title", "description"] as const;
-export type AiField = (typeof AI_FIELDS)[number];
+export type AiField = "category" | "subcategory" | "color" | "brand" | "style_tags" | "title" | "description";
 export type AiState = Partial<Record<AiField, AiAttr>>;
 
 export const emptyValues = (city: string | null): ListingValues => ({
@@ -125,7 +124,7 @@ export function markEdited(ai: AiState, field: AiField, newValue: unknown): AiSt
   return { ...ai, [field]: { ...a, edited_by_user: true } };
 }
 
-export const sizeRequired = (meta: Meta | undefined, category: string | null) => (meta?.categories.find((c) => c.slug === category)?.sizeSystems.length ?? 0) > 0;
+const sizeRequired = (meta: Meta | undefined, category: string | null) => (meta?.categories.find((c) => c.slug === category)?.sizeSystems.length ?? 0) > 0;
 
 export function validate(values: ListingValues, meta: Meta | undefined, photos: PhotoDraft[], step: "describe" | "price" | "all"): Record<string, string> {
   const e: Record<string, string> = {};

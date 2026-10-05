@@ -21,7 +21,7 @@ interface TagDef {
 }
 
 /** Buyer's review form on the deal page (feature 3: buyer → seller). Also used to edit within 14 days. */
-export function ReviewForm({ deal, initial, onDone }: { deal: Pick<Deal, "id" | "counterpart">; initial?: { id: string; rating: number; tags: string[]; text: string | null }; onDone: () => void }) {
+function ReviewForm({ deal, initial, onDone }: { deal: Pick<Deal, "id" | "counterpart">; initial?: { id: string; rating: number; tags: string[]; text: string | null }; onDone: () => void }) {
   const toast = useToast();
   const { data: tags } = useSWR<TagDef[]>("/reviews/tags");
   const [rating, setRating] = useState(initial?.rating ?? 0);
@@ -84,7 +84,7 @@ export function ReviewForm({ deal, initial, onDone }: { deal: Pick<Deal, "id" | 
 }
 
 /** One review with the seller's public answer; the seller can answer, the author can edit, others can report. */
-export function ReviewCard({ review: r, onChange, showListing = true }: { review: Review; onChange: () => void; showListing?: boolean }) {
+function ReviewCard({ review: r, onChange, showListing = true }: { review: Review; onChange: () => void; showListing?: boolean }) {
   const toast = useToast();
   const { requireAuth } = useSession();
   const [replying, setReplying] = useState(false);

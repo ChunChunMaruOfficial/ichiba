@@ -12,7 +12,7 @@ import { AiEnsemble, hashKey, TtlCache, Vote } from './ensemble/ensemble.js';
  * the catalog, so a model can never invent a filter value.
  */
 
-export interface ParsedFilters {
+interface ParsedFilters {
   q: string;
   category: string[];
   subcategory: string[];
@@ -157,7 +157,10 @@ export class SearchParser {
     };
 
     const range = take(/(\d{1,6})\s*[-–—]\s*(\d{1,6})\s*(?:byn|бел\S*|руб\S*|р\.?)(?=\s)/);
-    if (range) (vote.price_min = Number(range[1])), (vote.price_max = Number(range[2]));
+    if (range) {
+      vote.price_min = Number(range[1]);
+      vote.price_max = Number(range[2]);
+    }
     const max = take(/(?:до|дешевле|не дороже|меньше|max|<)\s*(\d{1,6})(?!\d|\s*(?:размер|р-р|eu|см))/);
     if (max) vote.price_max = Number(max[1]);
     const min = take(/(?:от|дороже|больше|min|>)\s*(\d{1,6})(?!\d|\s*(?:размер|р-р|eu|см))/);

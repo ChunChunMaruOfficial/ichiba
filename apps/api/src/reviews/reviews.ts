@@ -18,7 +18,7 @@ const REVIEW_WINDOW_MS = 30 * 24 * 3600 * 1000;
 const EDIT_WINDOW_MS = 14 * 24 * 3600 * 1000;
 const REMIND_AFTER_MS = 3 * 24 * 3600 * 1000;
 
-export const REVIEW_TAGS = {
+const REVIEW_TAGS = {
   as_described: { label: 'Как в описании', positive: true },
   fast: { label: 'Быстро передал', positive: true },
   polite: { label: 'Вежливый продавец', positive: true },

@@ -16,7 +16,7 @@ import { FraudCategory, FraudSignals, fraudSignals, maskCardNumbers } from './te
  * the evidence is unambiguous or no provider is reachable. Repeat offenders go to the moderation queue.
  */
 
-export type RiskLevel = 'warn' | 'high';
+type RiskLevel = 'warn' | 'high';
 export interface MessageRisk {
   level: RiskLevel;
   categories: FraudCategory[];

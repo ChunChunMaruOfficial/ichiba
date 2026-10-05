@@ -15,11 +15,11 @@ const FIELDS: StatField[] = ['views', 'favorites', 'carts', 'chats', 'offers', '
 const DAY_MS = 24 * 3600 * 1000;
 const MINSK_OFFSET_MS = 3 * 3600 * 1000;
 
-export const BUMP_COOLDOWN_MS = 72 * 3600 * 1000;
-export const FIRST_BUMP_AFTER_MS = 24 * 3600 * 1000;
+const BUMP_COOLDOWN_MS = 72 * 3600 * 1000;
+const FIRST_BUMP_AFTER_MS = 24 * 3600 * 1000;
 
 /** Calendar day (Minsk) as a UTC-midnight Date, which is how Postgres DATE values come back. */
-export function minskDay(at = Date.now()) {
+function minskDay(at = Date.now()) {
   const d = new Date(at + MINSK_OFFSET_MS);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }

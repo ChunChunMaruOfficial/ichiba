@@ -131,7 +131,7 @@ const page = (title: string, text: string) => `<!doctype html><html lang="ru"><h
 <a href="${esc(appUrl())}/settings" style="color:#1e2433">Настройки уведомлений</a></div></body></html>`;
 
 @Controller('email')
-export class EmailController {
+class EmailController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,

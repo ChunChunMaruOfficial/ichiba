@@ -24,7 +24,7 @@ export const SizesDto = z.object({
 });
 export type PreferredSizes = z.infer<typeof SizesDto>;
 
-export type FitVerdict = 'good' | 'snug' | 'loose' | 'small' | 'large';
+type FitVerdict = 'good' | 'snug' | 'loose' | 'small' | 'large';
 export interface FitHint {
   verdict: FitVerdict;
   title: string;

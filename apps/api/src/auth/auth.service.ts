@@ -20,6 +20,11 @@ import { CodeSenderService } from './code-sender.service.js';
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 const MAX_CODE_ATTEMPTS = 5;
+/** Per address: protects users from being spammed and the SMS balance from being drained. */
+const MAX_CODES_PER_HOUR = 5;
+const SIGNUP_TOKEN_TTL = '30m';
+/** Bump when the privacy policy changes materially; stored with each consent. */
+const PRIVACY_VERSION = '2026-10-05';
 /** Dev only: any 6-digit code passes verification. Never enabled in production. */
 export const DEV_ANY_CODE = process.env.AUTH_DEV_ANY_CODE === 'true' && process.env.NODE_ENV !== 'production';
 
@@ -27,14 +32,33 @@ const appleJwks = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/key
 
 export const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
-/** Email is lower-cased; anything else is treated as a phone and reduced to +digits. */
-export function normalizeLogin(raw: string): { kind: 'email' | 'phone'; value: string } {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const BY_OPERATOR = /^(25|29|33|44|17)\d{7}$/;
+
+/**
+ * Email is lower-cased; anything else is a phone in E.164. Belarusian habits are understood:
+ * "8 029 123-45-67", "29 123 45 67" and "+375 29 1234567" all become +375291234567.
+ */
+function normalizeLogin(raw: string): { kind: 'email' | 'phone'; value: string } {
   const trimmed = raw.trim();
-  if (trimmed.includes('@')) return { kind: 'email', value: trimmed.toLowerCase() };
-  const digits = trimmed.replace(/\D/g, '');
-  if (digits.length < 9 || digits.length > 15) throw new BadRequestException({ message: 'Проверьте email или телефон', fields: { login: 'Проверьте email или телефон' } });
+  if (trimmed.includes('@')) {
+    const email = trimmed.toLowerCase();
+    if (!EMAIL_RE.test(email)) throw new BadRequestException({ message: 'Проверьте адрес почты', fields: { login: 'Проверьте адрес почты' } });
+    return { kind: 'email', value: email };
+  }
+  let digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('80')) digits = `375${digits.slice(2)}`;
+  else if (BY_OPERATOR.test(digits)) digits = `375${digits}`;
+  if (digits.length < 10 || digits.length > 15 || (digits.startsWith('375') && digits.length !== 12)) {
+    throw new BadRequestException({ message: 'Проверьте номер телефона', fields: { login: 'Проверьте номер: +375 XX XXX-XX-XX' } });
+  }
   return { kind: 'phone', value: `+${digits}` };
 }
+
+/** Pending sign-up after a confirmed code or a new Google account: the account is created on "complete". */
+type SignupClaims =
+  | { purpose: 'signup'; kind: 'email' | 'phone'; value: string }
+  | { purpose: 'signup'; kind: 'google'; sub: string; email?: string; nameHint?: string };
 
 @Injectable()
 export class AuthService {
@@ -67,6 +91,89 @@ export class AuthService {
     return `${stem}_${Date.now().toString(36)}`;
   }
 
+  private findByContact(login: { kind: 'email' | 'phone'; value: string }) {
+    return this.prisma.user.findUnique({ where: login.kind === 'email' ? { email: login.value } : { phone: login.value } });
+  }
+
+  // ---------- passwordless: one flow for sign-in and sign-up (Avito / Kufar / Vinted style) ----------
+
+  /** Step 1: send a code to the phone or email. Same answer for new and existing accounts. */
+  async start(rawLogin: string) {
+    const login = normalizeLogin(rawLogin);
+    await this.issueCode(login.value, 'LOGIN');
+    return { target: login.value, kind: login.kind, resendIn: RESEND_COOLDOWN_MS / 1000 };
+  }
+
+  /**
+   * Step 2: check the code. An existing account signs in right away; for a new address the caller gets a
+   * short-lived sign-up token and fills in the nickname + consent (step 3). Nothing is created before consent.
+   */
+  async confirm(rawLogin: string, code: string) {
+    const login = normalizeLogin(rawLogin);
+    await this.consumeCode(login.value, 'LOGIN', code);
+    const existing = await this.findByContact(login);
+    if (existing) {
+      if (existing.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
+      const user = await this.prisma.user.update({
+        where: { id: existing.id },
+        data: login.kind === 'email' ? { emailVerifiedAt: existing.emailVerifiedAt ?? new Date() } : { phoneVerifiedAt: existing.phoneVerifiedAt ?? new Date() },
+      });
+      return { session: { user, isNew: !user.onboardedAt } };
+    }
+    const hint = login.kind === 'email' ? login.value.split('@')[0] : `user${randomInt(1000, 10000)}`;
+    return {
+      signup: {
+        token: await this.jwt.signAsync({ purpose: 'signup', kind: login.kind, value: login.value } satisfies SignupClaims, { expiresIn: SIGNUP_TOKEN_TTL }),
+        contact: login.value,
+        suggestion: await this.freeUsername(hint),
+      },
+    };
+  }
+
+  /** Step 3: nickname + consent → the account exists and the session starts. */
+  async complete(token: string, username: string) {
+    let claims: SignupClaims;
+    try {
+      claims = await this.jwt.verifyAsync<SignupClaims>(token);
+      if (claims.purpose !== 'signup') throw new Error('purpose');
+    } catch {
+      throw new UnauthorizedException({ message: 'Время на регистрацию истекло — начните заново', code: 'SIGNUP_EXPIRED' });
+    }
+    const name = username.toLowerCase();
+    const consent = { privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION };
+
+    if (claims.kind === 'google') {
+      // The account may have appeared meanwhile (second tab): then just sign in.
+      const existing = await this.prisma.user.findUnique({ where: { googleSub: claims.sub } });
+      if (existing) return { user: existing, isNew: false };
+      await this.assertUsername(name);
+      const byEmail = claims.email ? await this.prisma.user.findUnique({ where: { email: claims.email } }) : null;
+      if (byEmail) return { user: await this.prisma.user.update({ where: { id: byEmail.id }, data: { googleSub: claims.sub, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() } }), isNew: false };
+      const user = await this.prisma.user.create({ data: { username: name, googleSub: claims.sub, email: claims.email ?? null, emailVerifiedAt: claims.email ? new Date() : null, ...consent } });
+      return { user, isNew: true };
+    }
+
+    const login = { kind: claims.kind, value: claims.value };
+    const existing = await this.findByContact(login);
+    if (existing) return { user: existing, isNew: false };
+    await this.assertUsername(name);
+    const user = await this.prisma.user.create({
+      data: { username: name, ...(login.kind === 'email' ? { email: login.value, emailVerifiedAt: new Date() } : { phone: login.value, phoneVerifiedAt: new Date() }), ...consent },
+    });
+    return { user, isNew: true };
+  }
+
+  private async assertUsername(name: string) {
+    const avail = await this.usernameAvailability(name);
+    if (!avail.available) throw new ConflictException({ message: avail.reason, fields: { username: avail.reason }, suggestion: avail.suggestion });
+  }
+
+  private async freeUsername(hint: string) {
+    const base = hint.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 18);
+    const stem = base.length >= 3 ? base : `user${base}`;
+    return (await this.usernameAvailability(stem)).available ? stem : this.suggestUsername(stem);
+  }
+
   async register(input: { login: string; password: string; username: string }) {
     const login = normalizeLogin(input.login);
     const username = input.username.toLowerCase();
@@ -79,7 +186,7 @@ export class AuthService {
     }
     const passwordHash = await bcrypt.hash(input.password, 10);
     // An unverified leftover registration is overwritten so the address is not locked forever.
-    const data = { username, passwordHash, [login.kind]: login.value };
+    const data = { username, passwordHash, [login.kind]: login.value, privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION };
     if (existing) await this.prisma.user.update({ where: { id: existing.id }, data });
     else await this.prisma.user.create({ data });
 
@@ -149,7 +256,19 @@ export class AuthService {
       });
     const p = ticket.getPayload();
     if (!p?.sub) throw new UnauthorizedException({ message: 'Не удалось войти через Google' });
-    return this.upsertOAuth('googleSub', p.sub, p.email_verified ? p.email : undefined, p.email?.split('@')[0]);
+    const email = p.email_verified ? p.email?.toLowerCase() : undefined;
+    const bySub = await this.prisma.user.findUnique({ where: { googleSub: p.sub } });
+    const byEmail = !bySub && email ? await this.prisma.user.findUnique({ where: { email } }) : null;
+    if (bySub || byEmail) return { session: await this.upsertOAuth('googleSub', p.sub, email) };
+    // New person: ask for a nickname and consent before creating the account.
+    const hint = (p.given_name && /^[a-z0-9_]+$/i.test(p.given_name) ? p.given_name : email?.split('@')[0]) ?? 'user';
+    return {
+      signup: {
+        token: await this.jwt.signAsync({ purpose: 'signup', kind: 'google', sub: p.sub, email, nameHint: hint } satisfies SignupClaims, { expiresIn: SIGNUP_TOKEN_TTL }),
+        contact: email ?? 'Google',
+        suggestion: await this.freeUsername(hint),
+      },
+    };
   }
 
   async apple(idToken: string) {
@@ -190,13 +309,22 @@ export class AuthService {
   private async issueCode(target: string, purpose: CodePurpose) {
     const last = await this.prisma.verificationCode.findFirst({ where: { target, purpose }, orderBy: { createdAt: 'desc' } });
     if (last && Date.now() - last.createdAt.getTime() < RESEND_COOLDOWN_MS) {
-      throw new HttpException({ message: 'Код уже отправлен — повторите через минуту' }, HttpStatus.TOO_MANY_REQUESTS);
+      const wait = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - last.createdAt.getTime())) / 1000);
+      throw new HttpException({ message: `Код уже отправлен — повторить можно через ${wait} с`, resendIn: wait }, HttpStatus.TOO_MANY_REQUESTS);
     }
+    const lastHour = await this.prisma.verificationCode.count({ where: { target, createdAt: { gt: new Date(Date.now() - 3600_000) } } });
+    if (lastHour >= MAX_CODES_PER_HOUR) throw new HttpException({ message: 'Слишком много кодов за час — попробуйте позже' }, HttpStatus.TOO_MANY_REQUESTS);
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.prisma.verificationCode.create({
+    const record = await this.prisma.verificationCode.create({
       data: { target, purpose, codeHash: await bcrypt.hash(code, 8), expiresAt: new Date(Date.now() + CODE_TTL_MS) },
     });
-    await this.codes.send(target, code, purpose);
+    try {
+      await this.codes.send(target, code, purpose);
+    } catch (e) {
+      // Not delivered: don't start the resend cooldown or count it against the hourly limit.
+      await this.prisma.verificationCode.delete({ where: { id: record.id } }).catch(() => undefined);
+      throw e;
+    }
   }
 
   private async consumeCode(target: string, purpose: CodePurpose, code: string) {

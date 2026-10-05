@@ -14,8 +14,8 @@ import { modelLabel } from './ai.service.js';
  * ensemble and are decided by majority.
  */
 
-export type IssueSeverity = 'error' | 'warn' | 'info';
-export interface PhotoIssue {
+type IssueSeverity = 'error' | 'warn' | 'info';
+interface PhotoIssue {
   code: string;
   severity: IssueSeverity;
   text: string;

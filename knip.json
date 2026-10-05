@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreDependencies": ["@eslint/mcp", "@knip/mcp"],
+  "workspaces": {
+    ".": {},
+    "apps/api": {
+      "entry": ["src/main.ts", "prisma/seed-auctions.ts", "_*.mjs"],
+      "project": ["src/**/*.ts", "prisma/**/*.ts"],
+      "ignoreDependencies": ["@prisma/client", "pg", "@types/pg"]
+    },
+    "apps/web": {
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["tailwindcss"]
+    }
+  }
+}

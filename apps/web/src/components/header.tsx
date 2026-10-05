@@ -12,7 +12,7 @@ import { getRecent, pushRecent, removeRecent } from "@/lib/recent-searches";
 import { useMeta, useSession } from "./session";
 import { IconBag, IconBell, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconSearch, IconX } from "./ui";
 
-export function Logo({ className }: { className?: string }) {
+function Logo({ className }: { className?: string }) {
   return (
     <Link href="/" className={clsx("flex items-center gap-2 font-semibold tracking-tight", className)} onClick={() => window.scrollTo({ top: 0 })}>
       <svg aria-hidden viewBox="0 0 32 20" className="h-5 w-8 -rotate-6 text-kraft drop-shadow-[0_1px_1px_rgb(30_36_51/0.25)]">

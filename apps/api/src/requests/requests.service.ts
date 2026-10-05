@@ -15,7 +15,7 @@ const AUTO_COMPLETE_MS = 7 * 24 * 3600 * 1000;
 export const ACTIVE_REQUEST: RequestStatus[] = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT', 'WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED', 'DISPUTED'];
 const AFTER_ACCEPT: RequestStatus[] = ['ACCEPTED', 'WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED', 'COMPLETED', 'DISPUTED'];
 
-export const requestInclude = {
+const requestInclude = {
   items: { include: { listing: { include: cardInclude } } },
   buyer: { select: { id: true, username: true, phone: true } },
   seller: { select: { id: true, username: true, phone: true, city: true } },

@@ -97,7 +97,7 @@ const dataUrl = (b: Buffer) => `data:image/jpeg;base64,${b.toString('base64')}`;
 
 // ---------- Google Gemini ----------
 
-export class GeminiProvider implements LlmProvider {
+class GeminiProvider implements LlmProvider {
   readonly id = 'gemini';
   readonly weight = num(process.env.GEMINI_WEIGHT, 1);
   readonly concurrency = num(process.env.GEMINI_CONCURRENCY, 8);
@@ -215,7 +215,7 @@ abstract class ChatCompletionsProvider implements LlmProvider {
   }
 }
 
-export class MistralProvider extends ChatCompletionsProvider {
+class MistralProvider extends ChatCompletionsProvider {
   readonly id = 'mistral';
   readonly weight = num(process.env.MISTRAL_WEIGHT, 1);
   readonly concurrency = num(process.env.MISTRAL_CONCURRENCY, 2);
@@ -236,7 +236,7 @@ export class MistralProvider extends ChatCompletionsProvider {
   }
 }
 
-export class ZaiProvider extends ChatCompletionsProvider {
+class ZaiProvider extends ChatCompletionsProvider {
   readonly id = 'glm';
   readonly weight = num(process.env.ZAI_WEIGHT, 0.9);
   /** Free GLM flash models allow about two parallel requests per model. */

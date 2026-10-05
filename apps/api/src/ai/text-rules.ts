@@ -19,7 +19,7 @@ const U = (re: RegExp, flags = re.flags) =>
 const LOOKALIKES: Record<string, string> = { a: 'а', e: 'е', o: 'о', p: 'р', c: 'с', x: 'х', y: 'у', k: 'к', m: 'м', t: 'т', h: 'н', b: 'в', '3': 'з', '0': 'о', '@': 'а', u: 'и' };
 
 /** Lower-case, ё→е, Latin look-alikes → Cyrillic, glued single letters ("х у й", "х.у.й") joined. */
-export function normalizeForProfanity(text: string): string[] {
+function normalizeForProfanity(text: string): string[] {
   const lower = text.toLowerCase().replace(/ё/g, 'е');
   const tokens = lower.split(/\s+/).filter(Boolean);
   const merged: string[] = [];
@@ -30,7 +30,10 @@ export function normalizeForProfanity(text: string): string[] {
       run += letters;
       continue;
     }
-    if (run) merged.push(run), (run = '');
+    if (run) {
+      merged.push(run);
+      run = '';
+    }
     merged.push(letters);
   }
   if (run) merged.push(run);
@@ -72,7 +75,7 @@ export function hasProfanity(text: string): boolean {
 
 // ---------- contacts / links ----------
 
-const PHONE = /(?:\+?\s*375|\b8\s*0)[\s\-()]*(?:17|25|29|33|44)[\s\-()]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}|(?:\+?\d[\s\-()]{0,2}){10,}/;
+const PHONE = /(?:\+?\s*375|\b8\s*0)[\s()-]*(?:17|25|29|33|44)[\s()-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}|(?:\+?\d[\s()-]{0,2}){10,}/;
 const EMAIL = /[\w.+-]+@[\w-]+\.[a-z]{2,}/i;
 const URL = /\bhttps?:\/\/\S+|\bwww\.\S+|\b[a-z0-9][a-z0-9-]{1,62}\.(?:by|ru|com|net|org|me|io|su|ua|kz|shop|store|site|online|link|ly|cc|xyz|top|pro|info|biz|app|page)\b(?:\/\S*)?/gi;
 const MESSENGER = U(/\bt\.me\b|\bwa\.me\b|\bvk\.com\b|телеграм|телег[аеиу]\b|\bтг\b|\btg\b|telegram|вайбер|viber|ватсап|вотсап|вацап|whatsapp|инстаграм|instagram|\bинст[аеуы]?\b|\binsta?\b|\bвк\b|\bв личку\b|\bв лс\b|\bпишите в\b|\bзвоните\b/i);
@@ -97,7 +100,7 @@ export function findContacts(text: string): ContactHit[] {
   return hits;
 }
 
-export const findLinks = (text: string) => text.match(URL) ?? [];
+const findLinks = (text: string) => text.match(URL) ?? [];
 
 // ---------- gibberish / "is this an item" ----------
 
@@ -149,9 +152,9 @@ export const counterfeitSignal = (text: string): 'strong' | 'weak' | null => (CO
 // ---------- chat fraud signals ----------
 
 /** Payment card numbers (Luhn-valid, 13–19 digits). */
-export function findCardNumbers(text: string): string[] {
+function findCardNumbers(text: string): string[] {
   const out: string[] = [];
-  for (const m of text.match(/(?:\d[ \-]?){12,18}\d/g) ?? []) {
+  for (const m of text.match(/(?:\d[ -]?){12,18}\d/g) ?? []) {
     const digits = m.replace(/\D/g, '');
     if (digits.length < 13 || digits.length > 19) continue;
     let sum = 0;

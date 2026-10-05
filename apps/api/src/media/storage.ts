@@ -1,6 +1,6 @@
 import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutBucketPolicyCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { mkdir, readFile, writeFile } from 'fs/promises';
-import { dirname, join, resolve } from 'path';
+import { dirname, resolve, sep } from 'path';
 
 /**
  * Photo storage. `local` (default for dev) writes to MEDIA_DIR and the API serves it at /media;
@@ -14,19 +14,26 @@ export interface Storage {
 
 export const MEDIA_DIR = resolve(process.env.MEDIA_DIR ?? 'storage/media');
 
+/** Keys are server-generated, but a key must never resolve outside MEDIA_DIR (defense in depth). */
+function safePath(key: string) {
+  const path = resolve(MEDIA_DIR, key);
+  if (path !== MEDIA_DIR && !path.startsWith(MEDIA_DIR + sep)) throw new Error(`invalid media key: ${key}`);
+  return path;
+}
+
 class LocalStorage implements Storage {
   async init() {
     await mkdir(MEDIA_DIR, { recursive: true });
   }
 
   async put(key: string, body: Buffer) {
-    const path = join(MEDIA_DIR, key);
+    const path = safePath(key);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, body);
   }
 
   get(key: string) {
-    return readFile(join(MEDIA_DIR, key));
+    return readFile(safePath(key));
   }
 }
 
