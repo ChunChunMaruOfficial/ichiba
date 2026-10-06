@@ -101,7 +101,7 @@ function WhatNext({ deal }: { deal: Deal }) {
         ACCEPTED: deal.source === "AUCTION" ? "Аукцион завершён. Ждём, когда победитель выберет способ получения (до 48 часов)" : "Вы приняли предложение цены. Ждём, когда покупатель выберет способ получения",
         WAITING_HANDOVER:
           deal.deliveryMethod === "DELIVERY"
-            ? `Отправьте вещь${deal.deliveryPoint ? ` в пункт: ${deal.deliveryPoint}` : ""} и введите трек-номер`
+            ? `Отправьте вещь${deal.deliveryPoint ? ` по адресу: ${deal.deliveryPoint}` : ""} и введите трек-номер`
             : phone
               ? `Договоритесь о передаче: ${phone}`
               : "Договоритесь с покупателем о передаче",

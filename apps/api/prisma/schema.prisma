@@ -36,8 +36,6 @@ enum SizeSystem {
   ALPHA
   SHOE_EU
   JEANS_W
-  /// Children's clothing by height, cm.
-  KIDS
   OTHER
 }
 
@@ -46,7 +44,6 @@ enum Gender {
   MALE
   FEMALE
   UNISEX
-  KIDS
 }
 
 enum DeliveryMethod {

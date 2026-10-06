@@ -192,221 +192,209 @@ Ushatava|2630|ушатава
 Quechua|2629|кечуа;рубашки фирмы quechua
 Demix|2628|демикс
 Outventure|2626|аутвенчер
-Reima|2619|рейма
-Acoola|2618|акула
-Crockid|2616|крокид
-Kerry|2612|керри
-Gymshark|2611|гимшарк
-Hoka|2610|hoka one one;хока
-Huppa|2610|хуппа
-Lululemon|2609|лулулемон
-Lassie|2608|ласси
-Mizuno|2606|мизуно
-Alo Yoga|2602|alo;ало
-Onitsuka Tiger|2599|оницука тайгер
-Salewa|2598|салева
-Superdry|2598|супердрай
-Saucony|2597|сакони
-Desigual|2596|дезигуаль
-Liu Jo|2594|лиу джо
-Pinko|2592|пинко
-Brooks|2590|брукс
-Gap|2590|гап;гэп
-Twinset|2585|твинсет
-Replay|2584|реплей
-Elisabetta Franchi|2583|элизабетта франки
-Patrizia Pepe|2581|патриция пепе
-G-Star Raw|2580|g-star;джи стар
-Pepe Jeans|2577|пепе джинс
-Hollister|2574|холлистер
-Banana Republic|2573|банана репаблик
-Jack Wills|2573
-Abercrombie & Fitch|2571|abercrombie;аберкромби
-American Eagle|2562|американ игл
-Karl Lagerfeld|2560|карл лагерфельд
-Armani Jeans|2559|армани джинс
-Trussardi|2553|труссарди
-Love Moschino|2552|лав москино
-Tod's|2552|тодс
-Jimmy Choo|2551|джимми чу
-Salvatore Ferragamo|2548|ferragamo;феррагамо
-Baldinini|2546|балдинини
-Christian Louboutin|2544|louboutin;лабутены;лубутен
-Pollini|2544|поллини
-Steve Madden|2542|стив мадден
-Hogan|2540|хоган
-Nine West|2535|найн вест
-Vagabond|2528|вагабонд
-Columbia Sportswear|2527
-Sorel|2526|сорел
-Rains|2525|рейнс
-Hunter|2524|хантер
-Woolrich|2524|вулрич
-Moose Knuckles|2523|мус наклз
-Bogner|2518|богнер
-Ermenegildo Zegna|2516|zegna;зегна
-Parajumpers|2516|параджамперс
-Brunello Cucinelli|2514|брунелло кучинелли
-Loro Piana|2512|лоро пиана
-Peuterey|2512|пьютерей
-Colmar|2510|колмар
-Tom Ford|2510|том форд
-Ganni|2503|ганни
-Maison Margiela|2502|margiela;mm6;марджела
-Jacquemus|2501|жакмюс
-Ami Paris|2499|ami;ами
-Rick Owens|2495|рик оуэнс
-Stella McCartney|2494|стелла маккартни
-Comme des Garçons|2493|cdg;play cdg;ком де гарсон
-Vivienne Westwood|2491|вивьен вествуд
-Fear of God|2487|fog
-Palm Angels|2483|палм энджелс
-Essentials|2480|fear of god essentials;эссеншиалс
-Lyle & Scott|2479|лайл скотт
-Paul & Shark|2477|пол энд шарк
-C.P. Company|2476|си пи компани
-Ben Sherman|2475|бен шерман
-Le Coq Sportif|2474|ле кок спортиф
-Kangol|2473|кангол
-Diadora|2471|диадора
-Sergio Tacchini|2467|серджио таккини
-Joma|2463|жома
-Head|2462|хед
-Errea|2461
-Lotto|2460|лотто
-Hummel|2459|хуммель
-O'Neill|2451|о нил
-Speedo|2451|спидо
-Quiksilver|2450|квиксильвер
-Wilson|2450
-Arena|2449|арена
-Babolat|2448
-Billabong|2448|биллабонг
-Roxy|2447|рокси
-Volcom|2444
-DC Shoes|2437|dc
-Etnies|2430
-Element|2428
-Thrasher|2426|трешер
-Obey|2424|обей
-Anti Social Social Club|2423|assc
-Huf|2422
-Ripndip|2420
-Amiri|2417|амири
-Kith|2416|кит
-Rhude|2414
-Corteiz|2413|crtz;кортез
-Trapstar|2411|трапстар
-Represent|2410|репрезент
-Chrome Hearts|2409|хром хартс
-Aimé Leon Dore|2403|ald
-Gallery Dept.|2402
-Denim Tears|2400
-Kapital|2400|капитал
-Human Made|2399
-Evisu|2397|эвису
-Visvim|2388
-Undercover|2387
-Neighborhood|2386
-GU|2385
-Sacai|2385
-WTAPS|2384
-Beams|2383
-Needles|2383
-Yohji Yamamoto|2381|y-3;йоджи ямамото
-Issey Miyake|2379|pleats please;homme plisse;иссей мияке
-Muji|2372|муджи
-Porter|2366|porter yoshida;yoshida
-Snow Peak|2364
-And Wander|2362
-Ader Error|2361
-Gramicci|2360
-Thisisneverthat|2359
-Montbell|2358
-Gentle Monster|2357
-Li-Ning|2357|ли нинг
-Andersson Bell|2350
-Anta|2350|анта
-Wooyoungmi|2349
-Mardi Mercredi|2348
-Xtep|2348
-Matin Kim|2346
-Bosideng|2340|босиденг
-Peak|2336
-361°|2334
-Urban Revivo|2332
-Gosha Rubchinskiy|2328|гоша рубчинский
-Walk of Shame|2326
-Alena Akhmadullina|2324|алена ахмадуллина
-Ulyana Sergeenko|2322|ульяна сергеенко
-Vika Gazinskaya|2320|вика газинская
-Yasya Minochkina|2318|яся миночкина
-Alexander Terekhov|2316|александр терехов
-A La Russe|2314
-Bosco|2313|боско
-Tegin|2312
-Charuel|2311|шаруэль
-Igor Gulyaev|2310|игорь гуляев
-Choux|2304|шу
-Respect|2304|респект
-Monochrome|2302
-Askent|2300|аскент
-Mascotte|2300|маскотт
-Eleganzza|2298|элеганза
-Paolo Conte|2296|паоло конте
-Sunlight|2293|санлайт
-Westfalika|2292|вестфалика
-Vilet|2287|вилет
-Elis|2286|элис
-Modis|2285|модис
-Emka|2284|эмка
-Снежная Королева|2283|snow queen
-Termit|2276|термит
-Glissade|2274|глиссад
-Torneo|2272|торнео
-Kalenji|2271|календжи
-Nordway|2270|нордвей
-Joss|2268|джосс
-Domyos|2264|домиос
-Kipsta|2262|кипста
-Wedze|2260|ведзе
-Forclaz|2258|форклаз
-Choupette|2256|шупетт
-Button Blue|2254|баттон блю
-Svitanak|2254|свитанак;світанак
-Playtoday|2252|плейтудей
-Futurino|2250|футурино
-Mothercare|2248|мазеркеа
-Premont|2246|премонт
-Kupalinka|2245|купалинка
-Elema|2242|элема
-Serge|2238|серж
-Bevza|2237|бевза
-Galanteya|2236|галантэя;галантея
-Kachorovska|2234|качоровская
-4F|2232|4ф
-Ksenia Schnaider|2231|ксения шнайдер
-Big Star|2230|биг стар
-Litkovskaya|2230|литковская
-Frolov|2228|фролов
-Medicine|2226|медисин
-Gunia Project|2224|gunia
-Diverse|2223|диверс
-Vistula|2220|вистула
-Top Secret|2219|топ сикрет
-Wólczanka|2217
-Ochnik|2213|охник
-CCC|2209
-Wittchen|2206|виттхен
-Gino Rossi|2202|джино росси
-Ipekyol|2201
-Answear|2200
-Vakko|2199
-Network|2198
-Ramsey|2193
-Beymen|2192
-Twist|2190
-Avva|2186
+Gymshark|2623|гимшарк
+Hoka|2622|hoka one one;хока
+Lululemon|2621|лулулемон
+Mizuno|2618|мизуно
+Alo Yoga|2614|alo;ало
+Onitsuka Tiger|2611|оницука тайгер
+Salewa|2610|салева
+Superdry|2610|супердрай
+Saucony|2609|сакони
+Desigual|2608|дезигуаль
+Liu Jo|2606|лиу джо
+Pinko|2604|пинко
+Brooks|2602|брукс
+Gap|2602|гап;гэп
+Twinset|2597|твинсет
+Replay|2596|реплей
+Elisabetta Franchi|2595|элизабетта франки
+Patrizia Pepe|2593|патриция пепе
+G-Star Raw|2592|g-star;джи стар
+Pepe Jeans|2589|пепе джинс
+Hollister|2586|холлистер
+Banana Republic|2585|банана репаблик
+Jack Wills|2585
+Abercrombie & Fitch|2583|abercrombie;аберкромби
+American Eagle|2574|американ игл
+Karl Lagerfeld|2572|карл лагерфельд
+Armani Jeans|2571|армани джинс
+Trussardi|2565|труссарди
+Love Moschino|2564|лав москино
+Tod's|2564|тодс
+Jimmy Choo|2563|джимми чу
+Salvatore Ferragamo|2560|ferragamo;феррагамо
+Baldinini|2558|балдинини
+Christian Louboutin|2556|louboutin;лабутены;лубутен
+Pollini|2556|поллини
+Steve Madden|2554|стив мадден
+Hogan|2552|хоган
+Nine West|2547|найн вест
+Vagabond|2540|вагабонд
+Columbia Sportswear|2539
+Sorel|2538|сорел
+Rains|2537|рейнс
+Hunter|2536|хантер
+Woolrich|2536|вулрич
+Moose Knuckles|2535|мус наклз
+Bogner|2530|богнер
+Ermenegildo Zegna|2528|zegna;зегна
+Parajumpers|2528|параджамперс
+Brunello Cucinelli|2526|брунелло кучинелли
+Loro Piana|2524|лоро пиана
+Peuterey|2524|пьютерей
+Colmar|2522|колмар
+Tom Ford|2522|том форд
+Ganni|2515|ганни
+Maison Margiela|2514|margiela;mm6;марджела
+Jacquemus|2513|жакмюс
+Ami Paris|2511|ami;ами
+Rick Owens|2507|рик оуэнс
+Stella McCartney|2506|стелла маккартни
+Comme des Garçons|2505|cdg;play cdg;ком де гарсон
+Vivienne Westwood|2503|вивьен вествуд
+Fear of God|2499|fog
+Palm Angels|2495|палм энджелс
+Essentials|2492|fear of god essentials;эссеншиалс
+Lyle & Scott|2491|лайл скотт
+Paul & Shark|2489|пол энд шарк
+C.P. Company|2488|си пи компани
+Ben Sherman|2487|бен шерман
+Le Coq Sportif|2486|ле кок спортиф
+Kangol|2485|кангол
+Diadora|2483|диадора
+Sergio Tacchini|2479|серджио таккини
+Joma|2475|жома
+Head|2474|хед
+Errea|2473
+Lotto|2472|лотто
+Hummel|2471|хуммель
+O'Neill|2463|о нил
+Speedo|2463|спидо
+Quiksilver|2462|квиксильвер
+Wilson|2462
+Arena|2461|арена
+Babolat|2460
+Billabong|2460|биллабонг
+Roxy|2459|рокси
+Volcom|2456
+DC Shoes|2449|dc
+Etnies|2442
+Element|2440
+Thrasher|2438|трешер
+Obey|2436|обей
+Anti Social Social Club|2435|assc
+Huf|2434
+Ripndip|2432
+Amiri|2429|амири
+Kith|2428|кит
+Rhude|2426
+Corteiz|2425|crtz;кортез
+Trapstar|2423|трапстар
+Represent|2422|репрезент
+Chrome Hearts|2421|хром хартс
+Aimé Leon Dore|2415|ald
+Gallery Dept.|2414
+Denim Tears|2412
+Kapital|2412|капитал
+Human Made|2411
+Evisu|2409|эвису
+Visvim|2400
+Undercover|2399
+Neighborhood|2398
+GU|2397
+Sacai|2397
+WTAPS|2396
+Beams|2395
+Needles|2395
+Yohji Yamamoto|2393|y-3;йоджи ямамото
+Issey Miyake|2391|pleats please;homme plisse;иссей мияке
+Muji|2384|муджи
+Porter|2378|porter yoshida;yoshida
+Snow Peak|2376
+And Wander|2374
+Ader Error|2373
+Gramicci|2372
+Thisisneverthat|2371
+Montbell|2370
+Gentle Monster|2369
+Li-Ning|2369|ли нинг
+Andersson Bell|2362
+Anta|2362|анта
+Wooyoungmi|2361
+Mardi Mercredi|2360
+Xtep|2360
+Matin Kim|2358
+Bosideng|2352|босиденг
+Peak|2348
+361°|2346
+Urban Revivo|2344
+Gosha Rubchinskiy|2340|гоша рубчинский
+Walk of Shame|2338
+Alena Akhmadullina|2336|алена ахмадуллина
+Ulyana Sergeenko|2334|ульяна сергеенко
+Vika Gazinskaya|2332|вика газинская
+Yasya Minochkina|2330|яся миночкина
+Alexander Terekhov|2328|александр терехов
+A La Russe|2326
+Bosco|2325|боско
+Tegin|2324
+Charuel|2323|шаруэль
+Igor Gulyaev|2322|игорь гуляев
+Choux|2316|шу
+Respect|2316|респект
+Monochrome|2314
+Askent|2312|аскент
+Mascotte|2312|маскотт
+Eleganzza|2310|элеганза
+Paolo Conte|2308|паоло конте
+Sunlight|2305|санлайт
+Westfalika|2304|вестфалика
+Vilet|2299|вилет
+Elis|2298|элис
+Modis|2297|модис
+Emka|2296|эмка
+Снежная Королева|2295|snow queen
+Termit|2288|термит
+Glissade|2286|глиссад
+Torneo|2284|торнео
+Kalenji|2283|календжи
+Nordway|2282|нордвей
+Joss|2280|джосс
+Svitanak|2278|свитанак;світанак
+Domyos|2276|домиос
+Kipsta|2274|кипста
+Wedze|2272|ведзе
+Forclaz|2270|форклаз
+Kupalinka|2269|купалинка
+Elema|2266|элема
+Serge|2262|серж
+Bevza|2261|бевза
+Galanteya|2260|галантэя;галантея
+Kachorovska|2258|качоровская
+4F|2256|4ф
+Ksenia Schnaider|2255|ксения шнайдер
+Big Star|2254|биг стар
+Litkovskaya|2254|литковская
+Frolov|2252|фролов
+Medicine|2250|медисин
+Gunia Project|2248|gunia
+Diverse|2247|диверс
+Vistula|2244|вистула
+Top Secret|2243|топ сикрет
+Wólczanka|2241
+Ochnik|2237|охник
+CCC|2233
+Wittchen|2230|виттхен
+Gino Rossi|2226|джино росси
+Ipekyol|2225
+Answear|2224
+Vakko|2223
+Network|2222
+Ramsey|2217
+Beymen|2216
+Twist|2214
+Avva|2210
 A.P.C.|615
 Betty Barclay|615
 Bvlgari|615|bulgari
@@ -466,11 +454,9 @@ Maison Kitsuné|610|kitsune
 Morgan|610
 Mulberry|610
 Munich|610
-Name It|610
 Nautica|610
 New Look|610
 Office|610
-Okaïdi|610
 Old Navy|610
 Oltre|610
 OVS|610
@@ -578,7 +564,6 @@ Holzweiler|605
 Iceberg|605
 Isabel Marant|605
 Izod|605
-Jacadi|605
 JanSport|605
 Jean Paul Gaultier|605|gaultier;жан-поль готье
 Jigsaw|605
@@ -656,7 +641,6 @@ Schott NYC|605|schott
 Seasalt|605
 Seidensticker|605
 Seiko|605
-Sergent Major|605
 Sergio Rossi|605
 Sperry|605
 Strellson|605
@@ -700,7 +684,6 @@ Bergans|600
 Berghaus|600
 Blumarine|600
 Blundstone|600
-Bonpoint|600
 Boss Orange|600
 Brain Dead|600
 Broken Planet|600
@@ -1071,7 +1054,6 @@ Viktor & Rolf|52
 Brantano Footwear|51
 Castro Model|51
 Cia. Hering|51
-Abercrombie Kids|50
 Arthus Bertrand|50
 Baleno|50
 Bonmarché|50
@@ -1209,7 +1191,6 @@ Colloseum|45
 Constance|45
 Cotélac|45
 Cotton On Body|45
-Cotton On Kids|45
 Cresci e Perdi|45
 Crew Clothing|45
 Dangerfield|45
@@ -1266,7 +1247,6 @@ Jasmil|45
 John Fluevog Shoes|45
 Johnny Was|45
 Johnston & Murphy|45
-JoJo Maman Bébé|45
 Just Over the Top|45
 La Halle|45
 Lane Bryant|45
@@ -1299,9 +1279,11 @@ Mint Velvet|45
 Misako|45
 Moores|45
 Mr. Big & Tall|45
+NAME IT|45
 Nelson Schoenen|45
 niko and ...|45
 Nordstrom Rack|45
+Okaïdi|45
 Omoda|45
 ONLY & SONS|45
 Orchestra|45
@@ -1368,7 +1350,6 @@ TravisMathew|45
 Triola|45
 TSL|45
 UNTUCKit|45
-Urban Kids|45
 USC|45
 V.I.M.|45
 Van Graaf|45
@@ -1753,6 +1734,7 @@ Intertop|40
 Intrend|40
 J. McLaughlin|40
 J.Jill|40
+Jacadi|40
 Jacqui E|40
 JAM|40
 James Avery Jewelry|40
@@ -1791,7 +1773,6 @@ Kalyan Jewellers|40
 Kaporal|40
 KappAhl|40
 Kara|40
-Kari Kids|40
 Karl Marc John|40
 Kate Spade New York|40
 Katies|40
@@ -1801,7 +1782,6 @@ Kekäle|40
 Kendra Scott|40
 Kensol|40
 Khadim|40
-Kids Foot Locker|40
 KiK|40
 Klass|40
 Kleider Bauer|40
@@ -1946,7 +1926,6 @@ Orcanta|40
 Original Marines|40
 OROVIVO|40
 Outfit|40
-OVS Kids|40
 Pablo|40
 PacSun|40
 Palmers|40
@@ -2047,6 +2026,7 @@ Seaside|40
 Selfast|40
 Senqu|40
 Serge Blanco|40
+Sergent Major|40
 Sezon|40
 Shagovita|40
 Shane|40
@@ -2140,7 +2120,6 @@ Titan|40
 Todomoda|40
 Tøjeksperten|40
 Tokyo Shoes Retailing Center|40
-Tommy Hilfiger Kids|40
 TopSport|40
 Topten|40
 Totally Workwear|40
@@ -2266,7 +2245,6 @@ Viyella|35
 4Ocean|34
 About You|34
 Acushnet|34
-Baby, The Stars Shine Bright|34
 Blanc & Eclare|34
 Çalık|34|чалык холдинг
 Delvaux|34
@@ -2585,7 +2563,6 @@ Angelo Litrico|19
 Armada|19
 Armand Nicolet|19
 Babani|19
-Baby Phat|19
 Badgley Mischka|19
 Bearpaw|19
 Biotti card clothing Industry|19
@@ -2704,6 +2681,7 @@ Pineda Covalín|19
 Provogue|19
 Punto Blanco|19
 Rainha|19
+Reima|19
 Reyn Spooner|19
 Robe di Kappa|19
 Rock and Republic|19
@@ -3979,7 +3957,6 @@ Bluemarble|10
 BOHEMA|10
 Bombfell|10
 Bombini Tribe Apparel|10
-Bon Bebe|10
 Bonded Studio|10
 Bonesmen|10
 Bonne Suits|10
@@ -4397,7 +4374,6 @@ Joseph Love|10
 Josip Tumapa Design|10
 Juliette Courtisien|10
 Julius Marlow|10
-Junior Kids|10
 Jx|10
 KAAL|10
 Kaisu Heikkilä|10
@@ -4503,7 +4479,6 @@ LNDR|10
 Locette & Son|10
 Loft design by|10
 London High Class House|10
-Lonely Kids Club|10
 LONNEBYRON|10
 LookerOnline|10
 Lord John|10
@@ -4772,7 +4747,6 @@ PTOUTWEAR|10
 Puaz Wear|10
 Pukutehdas|10
 Pure Choice Apparel|10
-Purebaby|10
 Puritan Dress|10
 QISSEY|10
 QOTN|10

@@ -69,8 +69,21 @@ function Settings({ me }: { me: Me }) {
       </div>
       <ProfileSection me={me} />
       <SizesSection me={me} />
-      <BundleSection me={me} />
+      {me.isSeller && <BundleSection me={me} />}
       <EmailSection me={me} />
+      {/* The only place to sign out (it is not in the account menu). */}
+      <Section title="Выход">
+        <Button
+          variant="secondary"
+          className="self-start"
+          onClick={async () => {
+            await logout();
+            router.push("/");
+          }}
+        >
+          Выйти из аккаунта
+        </Button>
+      </Section>
       <DangerSection me={me} />
       <p className="text-sm text-ink-2">
         Как мы обращаемся с вашими данными — в{" "}
@@ -79,15 +92,6 @@ function Settings({ me }: { me: Me }) {
         </Link>
         .
       </p>
-      <button
-        className="self-start text-sm text-ink-2 underline underline-offset-4 hover:text-ink"
-        onClick={async () => {
-          await logout();
-          router.push("/");
-        }}
-      >
-        Выйти из аккаунта
-      </button>
     </div>
   );
 }

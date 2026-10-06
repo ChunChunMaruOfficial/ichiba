@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Gender, Meta } from "@/lib/types";
 import { useBrandSuggestions } from "./brand-picker";
@@ -20,7 +20,7 @@ const categoryHref = (c: string, sub?: string, g: Audience = "") => `/search?cat
 const brandHref = (b: string, c?: string, g: Audience = "") => `/search?brand=${encodeURIComponent(b)}${c ? `&category=${c}` : ""}${genderQuery(g)}`;
 const forAudience = (categories: Category[], g: Audience) => (g ? categories.filter((c) => !c.genders || c.genders.includes(g)) : categories);
 
-/** "Все · Женщинам · Мужчинам · Детям" switch on top of the menu. */
+/** "Все · Женщинам · Мужчинам" switch on top of the menu. */
 function AudienceTabs({ meta, value, onChange }: { meta: Meta; value: Audience; onChange: (g: Audience) => void }) {
   const tabs: Array<[Audience, string]> = [["", "Все"], ...meta.genders.map((g) => [g.value, g.menu] as [Audience, string])];
   return (
@@ -160,30 +160,6 @@ function Rail({ categories, active, audience, setActive, onNavigate }: { categor
   );
 }
 
-/** Delayed open/close so the menu doesn't flicker when the pointer crosses it on the way elsewhere. */
-function useHoverIntent() {
-  const [open, setOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const later = (v: boolean, ms: number) => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpen(v), ms);
-  };
-  useEffect(() => () => clearTimeout(timer.current), []);
-  return {
-    open,
-    show: (ms = 120) => later(true, ms),
-    hide: (ms = 180) => later(false, ms),
-    close: () => {
-      clearTimeout(timer.current);
-      setOpen(false);
-    },
-    toggle: () => {
-      clearTimeout(timer.current);
-      setOpen((v) => !v);
-    },
-  };
-}
-
 function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     if (!open) return;
@@ -205,8 +181,6 @@ function MegaPanel({
   audience,
   setAudience,
   onNavigate,
-  onEnter,
-  onLeave,
 }: {
   meta: Meta;
   active: string;
@@ -214,13 +188,9 @@ function MegaPanel({
   audience: Audience;
   setAudience: (g: Audience) => void;
   onNavigate: () => void;
-  onEnter?: () => void;
-  onLeave?: () => void;
 }) {
   return (
     <div
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
       className="fade-in absolute inset-x-0 top-full z-50 border-b border-line bg-surface shadow-[0_24px_48px_-24px_rgb(30_36_51/0.25)]"
     >
       <div className="mx-auto max-h-[min(72vh,600px)] max-w-[1440px] overflow-y-auto px-6 py-5">
@@ -236,83 +206,35 @@ function MegaPanel({
   );
 }
 
-/**
- * "Каталог" button in the sticky header row (desktop). The panel opens under the header,
- * so the catalogue stays reachable after the category bar has scrolled away.
- */
+/** "Каталог" button in the sticky header (desktop): the mega menu opens right under the header. */
 export function CatalogButton({ anchor }: { anchor: React.RefObject<HTMLElement | null> }) {
   const meta = useMeta();
-  const menu = useHoverIntent();
+  const [open, setOpen] = useState(false);
   const [active, setActive] = useState("");
   const [audience, setAudience] = useState<Audience>("");
-  useDismiss(menu.open, menu.close, anchor);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss(open, close, anchor);
   if (!meta) return <span className="hidden h-11 w-28 md:block" />;
   return (
     <>
       <button
         type="button"
-        aria-expanded={menu.open}
+        aria-expanded={open}
         aria-haspopup="true"
         onClick={() => {
           setActive((a) => a || meta.categories[0].slug);
-          menu.toggle();
+          setOpen((v) => !v);
         }}
         className={clsx(
           "hidden h-11 shrink-0 items-center gap-2 rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex",
-          menu.open ? "bg-ink text-white" : "bg-surface ring-1 ring-line-strong hover:ring-ink",
+          open ? "bg-ink text-white" : "bg-surface ring-1 ring-line-strong hover:ring-ink",
         )}
       >
-        {menu.open ? <IconX className="size-5" /> : <IconGrid />}
+        {open ? <IconX className="size-5" /> : <IconGrid />}
         Каталог
       </button>
-      {menu.open && <MegaPanel meta={meta} active={active || meta.categories[0].slug} setActive={setActive} audience={audience} setAudience={setAudience} onNavigate={menu.close} />}
+      {open && <MegaPanel meta={meta} active={active || meta.categories[0].slug} setActive={setActive} audience={audience} setAudience={setAudience} onNavigate={close} />}
     </>
-  );
-}
-
-/** Category links under the header (large screens): hovering one opens the mega menu on it. */
-export function CategoryBar() {
-  const meta = useMeta();
-  const pathname = usePathname();
-  const menu = useHoverIntent();
-  const [active, setActive] = useState("");
-  const [audience, setAudience] = useState<Audience>("");
-  const box = useRef<HTMLElement>(null);
-  useDismiss(menu.open, menu.close, box);
-  if (!meta || hiddenOn(pathname)) return null;
-  const item = (key: string, label: string, href: string, g: Audience = "") => (
-    <li key={`${g}:${key}`}>
-      <Link
-        href={href}
-        onClick={menu.close}
-        onMouseEnter={() => {
-          setAudience(g);
-          setActive(key);
-          menu.show(menu.open ? 0 : 160);
-        }}
-        onFocus={() => (setAudience(g), setActive(key))}
-        className={clsx(
-          "block whitespace-nowrap rounded-lg px-2.5 py-2 text-[14px]",
-          menu.open && active === key && audience === g ? "bg-surface text-ink" : "text-ink-2 hover:text-ink",
-          (key === BRANDS || g) && "font-medium",
-        )}
-      >
-        {label}
-      </Link>
-    </li>
-  );
-  return (
-    <nav ref={box} aria-label="Категории" className="relative z-[35] hidden border-b border-line bg-paper lg:block" onMouseLeave={() => menu.hide()}>
-      <ul className="no-scrollbar mx-auto flex max-w-[1440px] items-center gap-0.5 overflow-x-auto px-4 md:px-6">
-        {meta.genders.map((g) => item(forAudience(meta.categories, g.value)[0].slug, g.menu, `/search?gender=${g.value}`, g.value))}
-        <li className="mx-1.5 h-5 w-px shrink-0 bg-line-strong" aria-hidden />
-        {meta.categories.map((c) => item(c.slug, c.label, categoryHref(c.slug)))}
-        {item(BRANDS, "Бренды", "/search")}
-      </ul>
-      {menu.open && (
-        <MegaPanel meta={meta} active={active} setActive={setActive} audience={audience} setAudience={setAudience} onNavigate={menu.close} onEnter={() => menu.show(0)} onLeave={() => menu.hide()} />
-      )}
-    </nav>
   );
 }
 

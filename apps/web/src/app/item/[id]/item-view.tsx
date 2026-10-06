@@ -47,7 +47,11 @@ function ProductSkeleton() {
  * engines and the first paint; SWR then refetches with the viewer's session (♡, owner tools, fit hint).
  */
 export function ItemView({ id, initial }: { id: string; initial?: ListingResponse | null }) {
-  const { data, error, mutate } = useSWR<ListingResponse>(`/listings/${id}`, { fallbackData: initial ?? undefined, revalidateOnMount: true });
+  // The server copy is anonymous: it paints instantly, while this request (always sent, no fallbackData that
+  // SWR might treat as fresh) brings the viewer's own copy — owner tools, ♡, fit hint.
+  const live = useSWR<ListingResponse>(`/listings/${id}`);
+  const { error, mutate } = live;
+  const data = live.data ?? initial ?? undefined;
   const related = useSWR<{ similar: Card[]; fromSeller: Card[]; forYou: Card[] }>(data && !("unavailable" in data) ? `/listings/${id}/related` : null);
 
   if (error) {
@@ -78,7 +82,7 @@ export function ItemView({ id, initial }: { id: string; initial?: ListingRespons
 
   // The server-rendered copy is anonymous; when the viewer's own copy arrives, remount once so local state
   // (♡, cart, auction panel) starts from the personal data.
-  return <Product key={data === initial ? "ssr" : "live"} listing={data} related={related.data} refresh={() => mutate()} />;
+  return <Product key={live.data ? "live" : "ssr"} listing={data} related={related.data} refresh={() => mutate()} />;
 }
 
 function Product({ listing: l, related, refresh }: { listing: ListingDetail; related?: { similar: Card[]; fromSeller: Card[]; forYou: Card[] }; refresh: () => void }) {

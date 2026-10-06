@@ -827,12 +827,11 @@ export class ListingsService {
     if (q.style?.length) and.push({ styleTags: { hasSome: q.style } });
     if (q.gender?.length) {
       // A gender that wasn't chosen means "fits anyone": such items show up for women and for men,
-      // except skirts and dresses for men. Kids' items are only ever explicitly marked.
-      const g = q.gender.filter((x): x is 'MALE' | 'FEMALE' | 'KIDS' => ['MALE', 'FEMALE', 'KIDS'].includes(x));
-      const adults = g.filter((x) => x !== 'KIDS');
-      const womenOnly = adults.length === 1 && adults[0] === 'MALE' ? CATEGORIES.filter((c) => c.genders && !c.genders.includes('MALE')).map((c) => c.slug) : [];
+      // except skirts and dresses for men.
+      const g = q.gender.filter((x): x is 'MALE' | 'FEMALE' => x === 'MALE' || x === 'FEMALE');
+      const womenOnly = g.length === 1 && g[0] === 'MALE' ? CATEGORIES.filter((c) => c.genders && !c.genders.includes('MALE')).map((c) => c.slug) : [];
       const neutral = { OR: [{ gender: null }, { gender: 'UNISEX' as const }], ...(womenOnly.length ? { category: { notIn: womenOnly } } : {}) };
-      and.push({ OR: [{ gender: { in: g } }, ...(adults.length ? [neutral] : [])] });
+      if (g.length) and.push({ OR: [{ gender: { in: g } }, neutral] });
     }
     if (q.size?.length) and.push({ sizeValue: { in: q.size } });
     if (q.condition?.length) and.push({ condition: { in: q.condition as ('GOOD' | 'LIKE_NEW')[] } });

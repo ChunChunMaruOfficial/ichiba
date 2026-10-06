@@ -20,7 +20,7 @@ export class UsersService {
   /** Session payload: profile + header counters (frame 05: 🔔 unread, wardrobe badge for pending sales). */
   async me(userId: string) {
     const now = new Date();
-    const [user, unreadNotifications, pendingRequests, pendingOffers, cartCount, unreadMessages] = await Promise.all([
+    const [user, unreadNotifications, pendingRequests, pendingOffers, cartCount, unreadMessages, listings] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
         select: {
@@ -48,6 +48,7 @@ export class UsersService {
       }),
       this.prisma.cartItem.count({ where: { userId, listing: { status: { in: ['PUBLISHED', 'RESERVED'] } } } }),
       this.chat.unreadCount(userId),
+      this.prisma.listing.count({ where: { sellerId: userId, status: { not: 'DELETED' } } }),
     ]);
     const { emailVerifiedAt, emailPrefs, ...profile } = user;
     return {
@@ -60,6 +61,8 @@ export class UsersService {
       pendingOffers,
       cartCount,
       unreadMessages,
+      /** Has listed anything (drafts included): seller tools in the menu only make sense then. */
+      isSeller: listings > 0,
     };
   }
 }

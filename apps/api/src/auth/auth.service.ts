@@ -70,6 +70,28 @@ export class AuthService {
     private readonly codes: CodeSenderService,
   ) {}
 
+  /**
+   * Admin area sign-in: password only (no codes, no Google), and only for ADMIN accounts. Every failure
+   * looks the same, so the form doesn't reveal which logins exist or who is an admin.
+   */
+  async adminLogin(rawLogin: string, password: string) {
+    const fail = () => new UnauthorizedException({ message: 'Неверный логин или пароль' });
+    let login: ReturnType<typeof normalizeLogin>;
+    try {
+      login = normalizeLogin(rawLogin);
+    } catch {
+      throw fail();
+    }
+    const user = await this.prisma.user.findUnique({ where: login.kind === 'email' ? { email: login.value } : { phone: login.value } });
+    const ok = !!user?.passwordHash && (await bcrypt.compare(password, user.passwordHash));
+    if (!ok || user.role !== 'ADMIN' || user.blockedAt || user.deletedAt) throw fail();
+    return user;
+  }
+
+  signAdmin(userId: string) {
+    return this.jwt.signAsync({ sub: userId, purpose: 'admin' }, { expiresIn: '8h' });
+  }
+
   sign(user: Pick<User, 'id' | 'username' | 'role'>) {
     return this.jwt.signAsync({ sub: user.id, username: user.username, role: user.role });
   }

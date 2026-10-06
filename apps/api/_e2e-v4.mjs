@@ -161,13 +161,6 @@ created.push(auctionDraft.data.id);
 const auctionPub = await alex(`/listings/${auctionDraft.data.id}/publish`, { method: 'POST' });
 ok(auctionPub.status === 400 && auctionPub.data.fields?.extraSizes, 'multi-size auction rejected');
 
-// ---------- kids ----------
-const kids = await alex('/listings', { body: { ...base, photos: [{ id: (await uploadPhoto(0)).id, isDefect: false }], gender: 'KIDS', sizeSystem: 'KIDS', sizeValue: '110' } });
-created.push(kids.data.id);
-ok(kids.status === 201 && kids.data.gender === 'KIDS' && kids.data.sizeSystem === 'KIDS' && kids.data.size === '110', 'kids item with a height size saved');
-const parsed = await igor('/ai/search-parse', { body: { q: 'детская куртка' } });
-ok(parsed.data?.filters?.gender?.[0] === 'KIDS' || parsed.data?.filters?.gender === 'KIDS', `«детская куртка» → gender KIDS (${JSON.stringify(parsed.data?.filters?.gender)})`);
-
 // ---------- scheduled publication ----------
 const sched = await alex('/listings', { body: { ...base, photos: [{ id: (await uploadPhoto(0)).id, isDefect: false }], gender: null } });
 created.push(sched.data.id);

@@ -192,8 +192,8 @@ function SellerGroup({ group: g, me, onRemove, onSent }: { group: CartGroup; me:
             </div>
           </fieldset>
           {chosen === "DELIVERY" && (
-            <Field label="Город и пункт выдачи или адрес" htmlFor={`point-${g.seller.id}`} required error={fields.deliveryPoint}>
-              <Input id={`point-${g.seller.id}`} name="deliveryPoint" autoComplete="street-address" value={point} onChange={(e) => setPoint(e.target.value)} error={fields.deliveryPoint} placeholder="Минск, постамат на ул. Притыцкого, 29…" />
+            <Field label="Город и адрес доставки" htmlFor={`point-${g.seller.id}`} required error={fields.deliveryPoint}>
+              <Input id={`point-${g.seller.id}`} name="deliveryPoint" autoComplete="street-address" value={point} onChange={(e) => setPoint(e.target.value)} error={fields.deliveryPoint} placeholder="Минск, ул. Притыцкого, 29, кв. 12" />
             </Field>
           )}
           <Field label="Телефон для связи" htmlFor={`phone-${g.seller.id}`} hint="Покажем продавцу только после подтверждения">

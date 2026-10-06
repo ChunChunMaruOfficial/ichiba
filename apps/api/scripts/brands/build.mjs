@@ -29,7 +29,7 @@ const DENY = new Set(
     'fashion', 'clothing', 'footwear', 'sportswear', 'textile', 'apparel', 'retail', 'puig', 'aeffe', 'arcadia', 'mulliez',
     'melon fashion group', 'sportmaster', 'спортмастер', 'humana', 'мегахенд', 'смешные цены', 'московская ярмарка', 'планета',
     'second hand', 'секонд хенд', 'восток-сервис', 'familia', 'lamoda', 'wildberries', 'ozon', 'megasport', 'sneakerbox',
-    'street beat', 'brandshop', 'kix', 'hmv', 'asos plc', 'zalando', 'farfetch', 'yoox', 'net-a-porter', 'mytheresa', 'ssense',
+    'street beat', 'purebaby', 'brandshop', 'kix', 'hmv', 'asos plc', 'zalando', 'farfetch', 'yoox', 'net-a-porter', 'mytheresa', 'ssense',
   ].map(key),
 );
 
@@ -42,8 +42,11 @@ function clean(raw) {
   for (let i = 0; i < 3; i++) n = n.replace(LEGAL, '').trim();
   return n;
 }
+// ichiba has no children's section: children's lines and kids' shops are left out.
+const KIDS = /(^|[^\p{L}])(kids?|kid's|baby|babies|bebe|bébé|junior|infant|toddler|enfant|bambini|niños|kinder|детск\p{L}*|малыш\p{L}*)($|[^\p{L}])/iu;
 function acceptable(n) {
   const k = key(n);
+  if (KIDS.test(n)) return false;
   return k.length >= 2 && n.length <= 40 && !/^Q\d+$/.test(n) && !NOT_A_BRAND.test(n) && !DENY.has(k) && !/^\d+$/.test(k);
 }
 function add(name, score, rank, aliases = []) {

@@ -36,7 +36,7 @@ export interface SearchInterpretation {
 }
 
 const ALL_SIZES = [...SIZES.ALPHA, ...SIZES.SHOE_EU, ...SIZES.JEANS_W];
-const GENDERS = ['MALE', 'FEMALE', 'KIDS'];
+const GENDERS = ['MALE', 'FEMALE'];
 
 const Vote_ = z.object({
   keywords: z.string().catch(''),
@@ -61,7 +61,7 @@ ${CATEGORIES.map((c) => `${c.slug} (${c.label}): ${c.subcategories.map((s) => `$
 Размеры: ${ALL_SIZES.join(', ')}
 Состояние: ${CONDITIONS.map((c) => `${c.value}=${c.label}`).join(', ')}
 Стили (style_tags): ${STYLE_TAGS.join(', ')} — повод переводи в стиль: свадьба/выпускной/театр → Classic, офис → Business, спорт/зал → Sport, поход → Outdoor.
-Пол (gender): MALE, FEMALE, KIDS (детское) — только если прямо назван в запросе. Города: ${CITIES.join(', ')}.
+Пол (gender): MALE, FEMALE — только если пол прямо назван в запросе. Города: ${CITIES.join(', ')}.
 Цены в BYN: «до 50» → price_max 50, «от 20» → price_min 20.
 keywords — только слова, которые стоит искать в названии и не покрыты фильтрами (например «оверсайз», «кожаная», модель «air max»). Повод, сезон, «недорого», «хочу», «ищу» в keywords не включай. Если всё покрыто фильтрами — пустая строка.
 Если чего-то в запросе нет — null или пустой список.`;
@@ -186,7 +186,6 @@ export class SearchParser {
 
     if (take(/\sмужск\S*/)) vote.gender = 'MALE';
     else if (take(/\sженск\S*/)) vote.gender = 'FEMALE';
-    else if (take(/\s(?:детск|для\s+(?:ребен|мальчик|девочк|дет))\S*/)) vote.gender = 'KIDS';
 
     for (const city of CITIES) {
       const s = city.toLowerCase().replace(/ё/g, 'е').slice(0, Math.max(4, city.length - 2));

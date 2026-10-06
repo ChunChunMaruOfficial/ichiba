@@ -3,8 +3,8 @@
 
 export type WardrobeSection = 'top' | 'bottom' | 'shoes' | 'accessories';
 export type ChipGroup = 'clothing' | 'shoes' | 'accessories' | 'bags';
-type SizeSystemKey = 'ALPHA' | 'SHOE_EU' | 'JEANS_W' | 'KIDS' | 'OTHER';
-export type GenderKey = 'FEMALE' | 'MALE' | 'KIDS';
+type SizeSystemKey = 'ALPHA' | 'SHOE_EU' | 'JEANS_W' | 'OTHER';
+export type GenderKey = 'FEMALE' | 'MALE';
 
 export interface Category {
   slug: string;
@@ -49,11 +49,11 @@ export const CATEGORIES: Category[] = [
     subcategories: sub([['shorts', 'Шорты'], ['denim-shorts', 'Джинсовые шорты'], ['sport-shorts', 'Спортивные шорты'], ['bermuda', 'Бермуды']]),
   },
   {
-    slug: 'skirts', label: 'Юбки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE', 'KIDS'],
+    slug: 'skirts', label: 'Юбки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE'],
     subcategories: sub([['mini', 'Мини'], ['midi', 'Миди'], ['maxi', 'Макси'], ['pleated', 'Плиссе'], ['pencil', 'Карандаш'], ['denim-skirt', 'Джинсовая юбка']]),
   },
   {
-    slug: 'dresses', label: 'Платья', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE', 'KIDS'],
+    slug: 'dresses', label: 'Платья', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE'],
     subcategories: sub([['dress', 'Платье'], ['evening-dress', 'Вечернее платье'], ['shirt-dress', 'Платье-рубашка'], ['knit-dress', 'Трикотажное платье'], ['sundress', 'Сарафан'], ['jumpsuit', 'Комбинезон']]),
   },
   {
@@ -90,17 +90,12 @@ export const SIZES = {
   ALPHA: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
   SHOE_EU: Array.from({ length: 12 }, (_, i) => String(35 + i)),
   JEANS_W: Array.from({ length: 13 }, (_, i) => `W${26 + i}`),
-  /** Children's clothing: height in cm. */
-  KIDS: ['50', '56', '62', '68', '74', '80', '86', '92', '98', '104', '110', '116', '122', '128', '134', '140', '146', '152', '158', '164'],
-  /** Children's shoes, EU (stored with the SHOE_EU system). */
-  KIDS_SHOE: Array.from({ length: 20 }, (_, i) => String(16 + i)),
 };
 
 /** "Для кого": not chosen means the item fits anyone. */
 export const GENDERS: Array<{ value: GenderKey; label: string; menu: string }> = [
   { value: 'FEMALE', label: 'Женское', menu: 'Женщинам' },
   { value: 'MALE', label: 'Мужское', menu: 'Мужчинам' },
-  { value: 'KIDS', label: 'Детское', menu: 'Детям' },
 ];
 
 export const CONDITIONS = [

@@ -37,7 +37,7 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
           )}
         />
       ) : (
-        <div className="absolute inset-0 grid place-items-center text-xs text-muted">Нет фото</div>
+        <div className="absolute inset-0 grid place-items-center text-xs text-ink-2">Нет фото</div>
       )}
     </div>
   );

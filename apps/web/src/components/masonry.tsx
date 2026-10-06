@@ -67,7 +67,7 @@ const SKELETON_RATIOS = [1.33, 1, 1.25, 1.4, 1.1, 1.33, 1.25, 1, 1.4, 1.2, 1.33,
 export function MasonrySkeleton({ count = 12, breakpoints = DEFAULT_BREAKPOINTS }: { count?: number; breakpoints?: [number, number][] }) {
   const { ref, cols } = useColumns(breakpoints);
   return (
-    <div ref={ref} className="flex items-start gap-4" aria-busy aria-label="Загружаем вещи">
+    <div ref={ref} role="status" className="flex items-start gap-4" aria-busy aria-label="Загружаем вещи">
       {Array.from({ length: cols }, (_, c) => (
         <div key={c} className="flex flex-1 flex-col gap-4">
           {SKELETON_RATIOS.slice(0, count)

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { ZodPipe } from '../common/zod.js';
 import type { User } from '../generated/prisma/client.js';
 import { UsersService } from '../users/users.service.js';
-import { AUTH_COOKIE, AuthUser, CurrentUser, Public } from './auth.guard.js';
+import { ADMIN_COOKIE, ADMIN_SESSION_MS, AUTH_COOKIE, AuthUser, CurrentUser, Public } from './auth.guard.js';
 import { AuthService, DEV_ANY_CODE, USERNAME_RE } from './auth.service.js';
 
 const SESSION_DAYS = 30;
@@ -123,6 +123,32 @@ export class AuthController {
   @HttpCode(200)
   logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie(AUTH_COOKIE, { path: '/' });
+    res.clearCookie(ADMIN_COOKIE, { path: '/' });
+    return { ok: true };
+  }
+
+  /** Admin area sign-in by password: starts the site session and a separate 8-hour admin session. */
+  @Public()
+  @Post('admin-login')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
+  async adminLogin(@Body(new ZodPipe(LoginDto)) dto: z.infer<typeof LoginDto>, @Res({ passthrough: true }) res: Response) {
+    const user = await this.auth.adminLogin(dto.login, dto.password);
+    const session = await this.startSession(res, { user, isNew: false });
+    res.cookie(ADMIN_COOKIE, await this.auth.signAdmin(user.id), {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: ADMIN_SESSION_MS,
+      path: '/',
+    });
+    return session;
+  }
+
+  @Post('admin-logout')
+  @HttpCode(200)
+  adminLogout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie(ADMIN_COOKIE, { path: '/' });
     return { ok: true };
   }
 

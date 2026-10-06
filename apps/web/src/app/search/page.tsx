@@ -32,7 +32,6 @@ const SORTS = [
 const GENDERS = [
   ["FEMALE", "Женское"],
   ["MALE", "Мужское"],
-  ["KIDS", "Детское"],
 ] as const;
 
 function readFilters(sp: URLSearchParams): Filters {
@@ -131,13 +130,14 @@ function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: 
       </Group>
       <Group title="Состояние">{pills("condition", meta.conditions.map((c) => [c.value, c.label] as const))}</Group>
       <Group title="Цвет">
-        <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
+        {/* Auto-fill columns wide enough for the longest label ("Разноцветный"), so names never overlap. */}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-2 gap-y-4">
           {meta.colors.map((c) => {
             const active = value.color.includes(c.value);
             return (
-              <button key={c.value} type="button" aria-pressed={active} onClick={() => onChange({ ...value, color: toggle(value.color, c.value) })} className="flex flex-col items-center gap-1.5 text-xs">
+              <button key={c.value} type="button" aria-pressed={active} onClick={() => onChange({ ...value, color: toggle(value.color, c.value) })} className="flex min-w-0 flex-col items-center gap-1.5 text-xs">
                 <span className={clsx("size-8 rounded-full border", active ? "ring-2 ring-ink ring-offset-2" : "border-line-strong")} style={{ background: c.hex }} />
-                <span className={active ? "font-semibold" : "text-ink-2"}>{c.label}</span>
+                <span className={clsx("w-full text-center leading-tight [overflow-wrap:anywhere]", active ? "font-semibold" : "text-ink-2")}>{c.label}</span>
               </button>
             );
           })}

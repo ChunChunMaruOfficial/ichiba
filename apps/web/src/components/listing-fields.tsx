@@ -27,7 +27,7 @@ const aiFrame = (ai: AiState, field: AiField) => {
   return a.confidence < 0.8 ? "!border-[#d9a100] bg-warn-soft/40" : "!border-ai/50";
 };
 
-const SIZE_SYSTEM_LABEL: Record<SizeSystem, string> = { ALPHA: "Одежда", SHOE_EU: "Обувь EU", JEANS_W: "Джинсы W", KIDS: "Рост, см", OTHER: "Другой" };
+const SIZE_SYSTEM_LABEL: Record<SizeSystem, string> = { ALPHA: "Одежда", SHOE_EU: "Обувь EU", JEANS_W: "Джинсы W", OTHER: "Другой" };
 
 export interface FieldsProps {
   values: ListingValues;
@@ -49,11 +49,9 @@ export interface FieldsProps {
 /** The core listing fields (frame 10 STEP 3 — HUMAN CONFIRMATION). */
 export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPhotos, locked, multiSize }: FieldsProps) {
   const category = meta.categories.find((c) => c.slug === values.category);
-  const kids = values.gender === "KIDS";
-  // Children's clothing is sized by height; children's shoes use the EU scale from 16.
-  const systems: SizeSystem[] = kids && category?.group === "clothing" ? ["KIDS"] : (category?.sizeSystems ?? []);
+  const systems = category?.sizeSystems ?? [];
   const activeSystem = values.sizeSystem && systems.includes(values.sizeSystem) ? values.sizeSystem : systems[0];
-  const sizeList = (s: Exclude<SizeSystem, "OTHER">) => (s === "SHOE_EU" && kids ? meta.sizes.KIDS_SHOE : meta.sizes[s]);
+  const sizeList = (s: Exclude<SizeSystem, "OTHER">) => meta.sizes[s];
   const [otherSize, setOtherSize] = useState(values.sizeSystem === "OTHER");
   const [showExtra, setShowExtra] = useState(values.extraSizes.length > 0);
   const lockedHint = locked ? "Идёт сделка — поле нельзя изменить" : undefined;
@@ -110,12 +108,7 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
               key={g.value}
               disabled={locked}
               active={values.gender === g.value}
-              onClick={() => {
-                const gender = values.gender === g.value ? null : g.value;
-                // Switching to or from children's sizes invalidates the chosen size.
-                const resetSize = (gender === "KIDS") !== kids;
-                set({ gender, ...(resetSize ? { sizeSystem: null, sizeValue: null, extraSizes: [] } : {}) });
-              }}
+              onClick={() => set({ gender: values.gender === g.value ? null : g.value })}
             >
               {g.label}
             </Chip>

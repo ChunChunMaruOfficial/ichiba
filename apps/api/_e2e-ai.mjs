@@ -8,8 +8,9 @@ const ok = (c, m) => (console.log(`${c ? 'PASS' : 'FAIL'} ${m}`), c || failures+
 const show = (label, x) => console.log(`  ${label}:`, JSON.stringify(x).slice(0, 700));
 
 async function session(login) {
-  const r = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login, password: 'password123' }) });
-  const cookie = r.headers.get('set-cookie')?.split(';')[0];
+  // The admin area needs its own password sign-in (admin-login sets the site and admin cookies).
+  const r = await fetch(`${API}/auth/${login.startsWith('admin@') ? 'admin-login' : 'login'}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login, password: 'password123' }) });
+  const cookie = r.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
   const call = async (path, { method, body } = {}) => {
     const res = await fetch(`${API}${path}`, { method: method ?? (body ? 'POST' : 'GET'), headers: { cookie, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
     const t = await res.text();

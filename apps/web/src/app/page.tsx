@@ -26,10 +26,7 @@ const CHIPS = [
   ["new", "Новое"],
   ["popular", "Популярное"],
   ["auctions", "Аукционы"],
-  ["clothing", "Одежда"],
-  ["shoes", "Обувь"],
-  ["accessories", "Аксессуары"],
-  ["bags", "Сумки"],
+  // Categories live in «Каталог» in the header; the feed keeps only ways to sort the stream.
   ["under_50", "До 50 BYN"],
 ] as const;
 

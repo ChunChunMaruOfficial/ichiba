@@ -12,6 +12,9 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { Request } from 'express';
 
 export const AUTH_COOKIE = 'ichiba_token';
+/** Separate short admin session: the admin area asks for a password even when the admin is signed in on the site. */
+export const ADMIN_COOKIE = 'ichiba_admin';
+export const ADMIN_SESSION_MS = 8 * 3600 * 1000;
 
 export interface AuthUser {
   id: string;

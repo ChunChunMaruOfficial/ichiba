@@ -111,7 +111,7 @@ export class RequestsService {
       throw new BadRequestException({ message: 'Продавец не предлагает этот способ получения', fields: { deliveryMethod: 'Выберите другой способ' } });
     }
     if (input.deliveryMethod === 'DELIVERY' && !input.deliveryPoint?.trim()) {
-      throw new BadRequestException({ message: 'Укажите пункт или адрес доставки', fields: { deliveryPoint: 'Укажите пункт или адрес' } });
+      throw new BadRequestException({ message: 'Укажите адрес доставки', fields: { deliveryPoint: 'Укажите город и адрес' } });
     }
   }
 

@@ -1,11 +1,11 @@
 {
   "mcpServers": {
     "semgrep": {
-      "command": "${USERPROFILE}\.mcp-tools\semgrep\Scripts\semgrep-mcp.exe",
+      "command": "${USERPROFILE}/.mcp-tools/semgrep/Scripts/semgrep-mcp.exe",
       "args": []
     },
     "trivy": {
-      "command": "${USERPROFILE}\.mcp-tools\trivy\trivy.exe",
+      "command": "${USERPROFILE}/.mcp-tools/trivy/trivy.exe",
       "args": ["mcp", "--transport", "stdio"]
     },
     "eslint": {
@@ -15,6 +15,15 @@
     "knip": {
       "command": "node",
       "args": ["node_modules/@knip/mcp/src/cli.js"]
+    },
+    "lighthouse": {
+      "command": "node",
+      "args": ["${USERPROFILE}/.mcp-tools/ux/node_modules/@danielsogl/lighthouse-mcp/dist/index.js"],
+      "env": { "CHROME_PATH": "${LOCALAPPDATA}/ms-playwright/chromium-1243/chrome-win64/chrome.exe" }
+    },
+    "axecap": {
+      "command": "node",
+      "args": ["${USERPROFILE}/.mcp-tools/ux/node_modules/@icjia/axecap/src/cli.js"]
     }
   }
 }

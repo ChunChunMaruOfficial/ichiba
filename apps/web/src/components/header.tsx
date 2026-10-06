@@ -11,7 +11,7 @@ import { notificationHref, notificationText, type NotificationRow } from "@/lib/
 import { getRecent, pushRecent, removeRecent } from "@/lib/recent-searches";
 import { CatalogButton, MobileCatalog } from "./catalog-nav";
 import { useMeta, useSession } from "./session";
-import { IconBag, IconBell, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconSearch, IconX } from "./ui";
+import { IconBag, IconBell, IconChart, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconReceipt, IconSearch, IconSettings, IconUsers, IconX } from "./ui";
 
 function Logo({ className }: { className?: string }) {
   return (
@@ -153,7 +153,9 @@ function NotificationsMenu({ unread }: { unread: number }) {
   }, [open, unread, refresh]);
 
   return (
-    <div ref={box} className="relative">
+    // Not positioned on phones: the panel then anchors to the header and spans its width instead of
+    // hanging off the bell and running past the left edge of the screen.
+    <div ref={box} className="md:relative">
       <button
         aria-label={unread ? `Уведомления, непрочитанных: ${unread}` : "Уведомления"}
         aria-expanded={open}
@@ -171,7 +173,7 @@ function NotificationsMenu({ unread }: { unread: number }) {
         )}
       </button>
       {open && (
-        <div className="fade-in absolute right-0 top-[calc(100%+8px)] z-50 w-[min(92vw,380px)] rounded-2xl border border-line bg-surface p-2 shadow-xl">
+        <div className="fade-in absolute inset-x-3 top-[calc(100%+8px)] z-50 rounded-2xl border border-line bg-surface p-2 shadow-xl md:inset-x-auto md:right-0 md:w-[380px]">
           <p className="px-3 pb-1 pt-2 text-sm font-semibold">Уведомления</p>
           {!data ? (
             <p className="px-3 py-6 text-sm text-muted">Загружаем…</p>
@@ -199,28 +201,25 @@ function NotificationsMenu({ unread }: { unread: number }) {
 }
 
 function AccountMenu() {
-  const { me, logout } = useSession();
+  const { me } = useSession();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const router = useRouter();
   useEffect(() => {
     const onDoc = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
   if (!me) return null;
-  const links: Array<[string, string, number?]> = [
-    ["/wardrobe", "Мой гардероб"],
-    ["/purchases", "Мои покупки"],
-    ["/sales", "Мои продажи", me.pendingSales + me.pendingOffers],
-    ["/sales/stats", "Статистика"],
-    ["/messages", "Сообщения", me.unreadMessages],
-    ["/following", "Подписки"],
-    ["/favorites", "Избранное"],
-    ["/settings", "Настройки"],
-    ...(me.role === "ADMIN" ? ([["/admin", "Админка"]] as Array<[string, string]>) : []),
+  // Only what the header doesn't already show (♡, messages, notifications and cart are icons next to it).
+  // Seller tools appear once something is listed; the admin area is reached by URL only; sign-out is in settings.
+  const links: Array<[string, string, typeof IconHome, number?]> = [
+    ["/wardrobe", "Мой гардероб", IconHanger],
+    ["/purchases", "Мои покупки", IconReceipt],
+    ...(me.isSeller ? ([["/sales", "Продажи и статистика", IconChart, me.pendingSales + me.pendingOffers]] as Array<[string, string, typeof IconHome, number]>) : []),
+    ["/following", "Подписки", IconUsers],
+    ["/settings", "Настройки", IconSettings],
   ];
-  const attention = me.pendingSales + me.pendingOffers + me.unreadMessages;
+  const attention = me.pendingSales + me.pendingOffers;
   return (
     <div ref={box} className="relative">
       <button
@@ -235,22 +234,13 @@ function AccountMenu() {
       {open && (
         <div className="fade-in absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-line bg-surface p-2 shadow-xl">
           <p className="px-3 pb-2 pt-1.5 text-sm text-muted">@{me.username}</p>
-          {links.map(([href, label, badge]) => (
-            <Link key={href} href={href} onClick={() => setOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2 text-sm hover:bg-paper">
-              {label}
+          {links.map(([href, label, Icon, badge]) => (
+            <Link key={href} href={href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-paper">
+              <Icon className="size-[18px] shrink-0 text-ink-2" />
+              <span className="flex-1">{label}</span>
               {!!badge && <span className="rounded-full bg-danger px-1.5 text-xs font-semibold text-white">{badge}</span>}
             </Link>
           ))}
-          <button
-            className="w-full rounded-xl px-3 py-2 text-left text-sm text-ink-2 hover:bg-paper"
-            onClick={async () => {
-              setOpen(false);
-              await logout();
-              router.push("/");
-            }}
-          >
-            Выйти
-          </button>
         </div>
       )}
     </div>
@@ -276,7 +266,7 @@ export function Header() {
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           <button
             onClick={() => requireAuth(() => router.push("/sell"), { reason: "чтобы выставить вещь" })}
-            className="mr-2 hidden h-11 items-center gap-1.5 rounded-xl bg-accent px-4 text-[15px] font-semibold text-accent-ink hover:bg-accent-hover md:inline-flex"
+            className="mr-2 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-accent px-4 text-[15px] font-semibold text-accent-ink hover:bg-accent-hover md:inline-flex"
           >
             <IconPlus className="size-4.5" /> Добавить вещь
           </button>

@@ -13,11 +13,13 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import { AuthUser, CurrentUser, forgetSessionStatus } from '../auth/auth.guard.js';
+import { ADMIN_COOKIE, AuthUser, CurrentUser, forgetSessionStatus } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import type { Prisma, ReportStatus } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
@@ -83,9 +85,15 @@ export class ReportsController {
 
 @Injectable()
 export class AdminGuard implements CanActivate {
-  canActivate(ctx: ExecutionContext) {
-    const user = ctx.switchToHttp().getRequest<{ user?: AuthUser }>().user;
-    if (user?.role !== 'ADMIN') throw new ForbiddenException({ message: 'Только для администраторов' });
+  constructor(private readonly jwt: JwtService) {}
+
+  /** ADMIN role on the site session plus a valid admin session (password entered at /admin) for the same user. */
+  async canActivate(ctx: ExecutionContext) {
+    const req = ctx.switchToHttp().getRequest<{ user?: AuthUser; cookies?: Record<string, string> }>();
+    if (req.user?.role !== 'ADMIN') throw new ForbiddenException({ message: 'Только для администраторов' });
+    const token = req.cookies?.[ADMIN_COOKIE];
+    const payload = token ? await this.jwt.verifyAsync<{ sub: string; purpose: string }>(token).catch(() => null) : null;
+    if (payload?.purpose !== 'admin' || payload.sub !== req.user.id) throw new UnauthorizedException({ message: 'Войдите в админку', code: 'ADMIN_LOGIN' });
     return true;
   }
 }
@@ -105,6 +113,12 @@ export class AdminController {
     private readonly notifications: NotificationsService,
     private readonly listings: ListingsService,
   ) {}
+
+  /** The admin layout asks this to decide between the panel and the sign-in form. */
+  @Get('session')
+  session() {
+    return { ok: true };
+  }
 
   @Get('stats')
   async stats() {

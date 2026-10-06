@@ -344,7 +344,7 @@ async function main() {
         sellerId: l.sellerId,
         priceTotal: l.price,
         deliveryMethod: method,
-        deliveryPoint: method === 'DELIVERY' ? 'Минск, постамат на ул. Притыцкого, 29' : null,
+        deliveryPoint: method === 'DELIVERY' ? 'Минск, ул. Притыцкого, 29, кв. 12' : null,
         trackingNumber: d.status === 'IN_TRANSIT' ? 'BY123456789' : null,
         buyerComment: rnd() < 0.5 ? 'Могу забрать сегодня после 18:00' : null,
         status: d.status,

@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geologica } from "next/font/google";
-import { CategoryBar } from "@/components/catalog-nav";
 import { CookieNotice } from "@/components/cookie-notice";
 import { BottomNav, Header } from "@/components/header";
 import { Providers } from "@/components/providers";
@@ -34,7 +33,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <Providers>
           <Header />
-          <CategoryBar />
           <main id="main" tabIndex={-1} className="pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
           <BottomNav />
           <CookieNotice />

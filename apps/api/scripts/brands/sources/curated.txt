@@ -196,12 +196,6 @@ Outventure | аутвенчер
 Quechua | кечуа
 Decathlon | декатлон
 Kiabi | киаби
-Acoola | акула
-Crockid | крокид
-Reima | рейма
-Kerry | керри
-Huppa | хуппа
-Lassie | ласси
 Gymshark | гимшарк
 Lululemon | лулулемон
 Alo Yoga | alo, ало
@@ -377,12 +371,6 @@ Domyos | домиос
 Kipsta | кипста
 Wedze | ведзе
 Forclaz | форклаз
-Choupette | шупетт
-Button Blue | баттон блю
-Playtoday | плейтудей, play today
-Futurino | футурино
-Mothercare | мазеркеа
-Premont | премонт
 Svitanak | свитанак, світанак
 Elema | элема
 Kupalinka | купалинка
@@ -435,7 +423,6 @@ Vila
 Object
 Noisy May
 JDY | jacqueline de yong
-Name It
 Didriksons
 Haglöfs | haglofs
 Peak Performance
@@ -567,11 +554,7 @@ Etam
 Undiz
 Aigle
 Petit Bateau
-Bonpoint
-Jacadi
 Cyrillus
-Okaïdi | okaidi
-Sergent Major
 Longchamp | лонгшамп
 Lancel
 Goyard

@@ -3,9 +3,9 @@ import type { PhotoUrls } from "./api";
 export type ListingStatus = "DRAFT" | "PUBLISHED" | "RESERVED" | "SOLD" | "HIDDEN" | "BLOCKED" | "DELETED";
 export type Condition = "NEW_WITH_TAGS" | "LIKE_NEW" | "GOOD" | "VISIBLE_WEAR";
 export type DeliveryMethod = "IN_PERSON" | "PICKUP" | "DELIVERY";
-export type SizeSystem = "ALPHA" | "SHOE_EU" | "JEANS_W" | "KIDS" | "OTHER";
+export type SizeSystem = "ALPHA" | "SHOE_EU" | "JEANS_W" | "OTHER";
 /** "Для кого"; null (or a legacy UNISEX) means the item fits anyone. */
-export type Gender = "FEMALE" | "MALE" | "KIDS";
+export type Gender = "FEMALE" | "MALE";
 export type MeasurementKey = "shoulders" | "chest" | "waist" | "hips" | "length" | "sleeve" | "inseam" | "foot_length";
 
 export interface VideoView {
@@ -52,6 +52,8 @@ export interface Me {
   pendingOffers: number;
   cartCount: number;
   unreadMessages: number;
+  /** Has listed anything: seller tools are shown only then. */
+  isSeller: boolean;
 }
 
 export interface PreferredSizes {
@@ -325,7 +327,7 @@ interface Category {
 export interface Meta {
   categories: Category[];
   genders: Array<{ value: Gender; label: string; menu: string }>;
-  sizes: { ALPHA: string[]; SHOE_EU: string[]; JEANS_W: string[]; KIDS: string[]; KIDS_SHOE: string[] };
+  sizes: { ALPHA: string[]; SHOE_EU: string[]; JEANS_W: string[] };
   conditions: Array<{ value: Condition; label: string; hint: string }>;
   colors: Array<{ value: string; label: string; hex: string }>;
   materials: string[];

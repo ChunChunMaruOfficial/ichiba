@@ -16,7 +16,7 @@ export const ListingInput = z.object({
   title: z.string().trim().max(80, 'До 80 символов').optional(),
   category: z.enum(CATEGORY_SLUGS as [string, ...string[]]).nullish(),
   subcategory: z.string().max(40).nullish(),
-  sizeSystem: z.enum(['ALPHA', 'SHOE_EU', 'JEANS_W', 'KIDS', 'OTHER']).nullish(),
+  sizeSystem: z.enum(['ALPHA', 'SHOE_EU', 'JEANS_W', 'OTHER']).nullish(),
   sizeValue: z.string().trim().max(20).nullish(),
   condition: z.enum(['NEW_WITH_TAGS', 'LIKE_NEW', 'GOOD', 'VISIBLE_WEAR']).nullish(),
   price: z.number().int('Целое число').min(1, 'Укажите цену').max(100_000).nullish(),
@@ -40,7 +40,7 @@ export const ListingInput = z.object({
   minOfferPrice: z.number().int().min(1).nullish(),
   autoAcceptPrice: z.number().int().min(1).max(100_000).nullish(),
   originalPrice: z.number().int().min(1).max(1_000_000).nullish(),
-  gender: z.enum(['MALE', 'FEMALE', 'UNISEX', 'KIDS']).nullish(),
+  gender: z.enum(['MALE', 'FEMALE', 'UNISEX']).nullish(),
   /** Other sizes of the same item, listed as separate copies on publish. */
   extraSizes: z.array(z.string().trim().min(1).max(20)).max(10).optional(),
   videoId: z.uuid().nullish(),

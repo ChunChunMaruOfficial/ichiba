@@ -177,18 +177,33 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   const setSection = (s: string) => setQuery({ section: s });
   const setSort = (s: string) => setQuery({ sort: s });
   // Server-rendered first page (default section and sort) makes the wardrobe indexable and paints instantly.
-  const { data, error, mutate } = useSWR<WardrobeData>(`/wardrobes/${username}?section=${section}&sort=${sort}`, {
-    fallbackData: section === "all" && sort === "new" ? (initial ?? undefined) : undefined,
-  });
+  // The server copy is anonymous (no owner tools), so the session request is always sent and replaces it.
+  const live = useSWR<WardrobeData>(`/wardrobes/${username}?section=${section}&sort=${sort}`);
+  const { error, mutate } = live;
+  const data = live.data ?? (section === "all" && sort === "new" ? (initial ?? undefined) : undefined);
 
   if (error) {
-    return (error as { status?: number }).status === 404 ? (
-      <EmptyState title="Такого гардероба нет">
-        <ButtonLink href="/">На главную</ButtonLink>
-      </EmptyState>
-    ) : (
-      <ErrorState message="Не удалось открыть гардероб" onRetry={() => mutate()} />
-    );
+    if ((error as { status?: number }).status === 404) {
+      return (
+        <EmptyState title="Такого гардероба нет">
+          <ButtonLink href="/">На главную</ButtonLink>
+        </EmptyState>
+      );
+    }
+    // Your own wardrobe never greets you with an error screen: the main action stays one tap away.
+    if (me?.username === username) {
+      return (
+        <EmptyState title="Мой гардероб" hint="Выставьте первую вещь — это займёт около минуты">
+          <ButtonLink href="/sell">
+            <IconPlus className="size-4" /> Добавить вещь
+          </ButtonLink>
+          <button type="button" onClick={() => mutate()} className="text-sm text-muted underline underline-offset-4 hover:text-ink">
+            Не загрузились вещи — обновить
+          </button>
+        </EmptyState>
+      );
+    }
+    return <ErrorState message="Не удалось открыть гардероб" onRetry={() => mutate()} />;
   }
 
   const s = data?.seller;
@@ -240,12 +255,16 @@ export function WardrobeView({ username, initial }: { username: string; initial?
           <div className="flex flex-wrap gap-2">
             {owner ? (
               <>
-                <ButtonLink href="/sell">
-                  <IconPlus className="size-4" /> Добавить вещь
-                </ButtonLink>
-                <ButtonLink href="/sales/stats" variant="secondary">
-                  Статистика
-                </ButtonLink>
+                {!empty && (
+                  <>
+                    <ButtonLink href="/sell">
+                      <IconPlus className="size-4" /> Добавить вещь
+                    </ButtonLink>
+                    <ButtonLink href="/sales" variant="secondary">
+                      Продажи и статистика
+                    </ButtonLink>
+                  </>
+                )}
                 <ButtonLink href="/settings" variant="secondary">
                   Редактировать профиль
                 </ButtonLink>
@@ -268,7 +287,8 @@ export function WardrobeView({ username, initial }: { username: string; initial?
       {s && <ReportModal open={reporting} onClose={() => setReporting(false)} targetType="USER" targetId={s.username} title={`@${s.username}`} />}
       {s && <PeopleModal username={s.username} list={people} onClose={() => setPeople(null)} />}
 
-      {owner && data && (
+      {/* Seller counters only once there is something to count. */}
+      {owner && data && !empty && (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             ["Активные вещи", data.counts.selling, () => setSection("selling")],

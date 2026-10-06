@@ -176,7 +176,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
                   <input type="radio" name="delivery" className="mt-1 accent-[var(--accent)]" checked={chosen === d} onChange={() => setMethod(d)} />
                   <span>
                     <span className="font-medium">
-                      {d === "DELIVERY" ? "Доставка в постамат / курьер" : DELIVERY_LABEL[d]}
+                      {DELIVERY_LABEL[d]}
                       {d !== "DELIVERY" && l.city && <span className="font-normal text-ink-2"> · {l.city}</span>}
                     </span>
                     <span className="mt-0.5 block text-sm text-muted">{DELIVERY_HINT[d]}</span>
@@ -186,8 +186,8 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
             </div>
             {chosen === "DELIVERY" && (
               <div className="mt-4">
-                <Field label="Город и пункт выдачи или адрес" htmlFor="point" required error={fields.deliveryPoint}>
-                  <Input id="point" value={point} onChange={(e) => setPoint(e.target.value)} placeholder="Минск, постамат на ул. Притыцкого, 29" error={fields.deliveryPoint} />
+                <Field label="Город и адрес доставки" htmlFor="point" required error={fields.deliveryPoint}>
+                  <Input id="point" value={point} onChange={(e) => setPoint(e.target.value)} placeholder="Минск, ул. Притыцкого, 29, кв. 12" error={fields.deliveryPoint} />
                 </Field>
               </div>
             )}

@@ -24,9 +24,16 @@ interface SalesData {
 }
 
 export default function SalesPage() {
-  return <RequireAuth reason="чтобы увидеть свои продажи">{() => (
+  return <RequireAuth reason="чтобы увидеть свои продажи">{(me) => (
         <Suspense>
-          <Sales />
+          {me.isSeller ? (
+            <Sales />
+          ) : (
+            // Nothing listed yet: no point in empty counters, offer the first step instead.
+            <EmptyState title="Здесь будут ваши продажи и статистика" hint="Выставьте первую вещь — запросы покупателей, сделки и статистика появятся здесь">
+              <ButtonLink href="/sell">Выставить вещь</ButtonLink>
+            </EmptyState>
+          )}
         </Suspense>
       )}</RequireAuth>;
 }
@@ -42,7 +49,7 @@ function Sales() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Мои продажи</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Продажи</h1>
         <ButtonLink href="/sales/stats" variant="secondary" size="sm">
           Статистика
         </ButtonLink>

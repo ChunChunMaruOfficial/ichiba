@@ -17,8 +17,9 @@ const waitMail = async (pred, ms = 6000) => {
 };
 
 async function session(login, password = 'password123') {
-  const r = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login, password }) });
-  const cookie = r.headers.get('set-cookie')?.split(';')[0];
+  // The admin area needs its own password sign-in (admin-login sets the site and admin cookies).
+  const r = await fetch(`${API}/auth/${login.startsWith('admin@') ? 'admin-login' : 'login'}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login, password }) });
+  const cookie = r.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
   return async (path, { method, body } = {}) => {
     const res = await fetch(`${API}${path}`, { method: method ?? (body ? 'POST' : 'GET'), headers: { cookie, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
     const t = await res.text();

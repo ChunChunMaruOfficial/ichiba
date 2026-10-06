@@ -10,7 +10,7 @@
   --surface: #ffffff;
   --ink: #1e2433;
   --ink-2: #474d5c;
-  --muted: #7a7f8c;
+  --muted: #666b78; /* 4.6:1 on --paper, WCAG AA for small text */
   --line: #dfe1e3;
   --line-strong: #c6c9ce;
   --accent: #1e2433;
@@ -79,9 +79,12 @@ h1, h2, h3 {
   text-wrap: balance;
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* In the base layer so a component's own focus style (outline-none + ring) wins over this default. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
 .tabular {
