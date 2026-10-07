@@ -8,7 +8,7 @@ import useSWR from "swr";
 import { LocationBubble, LocationPicker, LocationViewer } from "@/components/chat-location";
 import { RequireAuth } from "@/components/require-auth";
 import { ThreadList } from "@/components/thread-list";
-import { LIVE_MESSAGE_EVENT, LIVE_RISK_EVENT, type LiveMessage, type LiveRisk, useSession } from "@/components/session";
+import { LIVE_MESSAGE_EVENT, LIVE_READ_EVENT, LIVE_RISK_EVENT, LIVE_TYPING_EVENT, type LiveMessage, type LiveRisk, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { DealBadge, EmptyState, ErrorState, IconChevronLeft, IconPin, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -30,8 +30,13 @@ function dayLabel(iso: string) {
 }
 
 function Thread({ id }: { id: string }) {
-  const { data, error, mutate } = useSWR<{ thread: ThreadSummary; messages: ChatMessage[]; hasMore: boolean }>(`/threads/${id}`);
-  const { refresh } = useSession();
+  const { refresh, realtime } = useSession();
+  // Without a live channel (e.g. no Pusher keys on Vercel) the open thread polls every 5 s.
+  const { data, error, mutate } = useSWR<{ thread: ThreadSummary; messages: ChatMessage[]; hasMore: boolean }>(`/threads/${id}`, {
+    refreshInterval: realtime === "live" ? 0 : 5000,
+  });
+  const [typingUntil, setTypingUntil] = useState(0);
+  const lastTypingSent = useRef(0);
   const toast = useToast();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -45,11 +50,12 @@ function Thread({ id }: { id: string }) {
     if (data) void refresh();
   }, [data?.thread.id, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live messages from the SSE stream.
+  // Live messages, antifraud verdicts, read receipts and "печатает…" from the WebSocket.
   useEffect(() => {
     const onMessage = (e: Event) => {
       const m = (e as CustomEvent<LiveMessage>).detail;
       if (m.threadId !== id) return;
+      setTypingUntil(0);
       void mutate((d) => d && { ...d, messages: d.messages.some((x) => x.id === m.message.id) ? d.messages : [...d.messages, { id: m.message.id, body: m.message.body, mine: false, createdAt: m.message.createdAt, risk: m.message.risk ?? null, location: m.message.location ?? null }] }, { revalidate: false });
       void api(`/threads/${id}/read`, { method: "POST" }).then(() => refresh());
     };
@@ -59,13 +65,38 @@ function Thread({ id }: { id: string }) {
       if (r.threadId !== id) return;
       void mutate((d) => d && { ...d, messages: d.messages.map((x) => (x.id === r.messageId ? { ...x, risk: r.risk } : x)) }, { revalidate: false });
     };
+    const onRead = (e: Event) => {
+      const r = (e as CustomEvent<{ threadId: string; at: string }>).detail;
+      if (r.threadId !== id) return;
+      void mutate((d) => d && { ...d, thread: { ...d.thread, counterpartReadAt: r.at } }, { revalidate: false });
+    };
+    const onTyping = (e: Event) => {
+      if ((e as CustomEvent<{ threadId: string }>).detail.threadId === id) setTypingUntil(Date.now() + 5000);
+    };
     window.addEventListener(LIVE_MESSAGE_EVENT, onMessage);
     window.addEventListener(LIVE_RISK_EVENT, onRisk);
+    window.addEventListener(LIVE_READ_EVENT, onRead);
+    window.addEventListener(LIVE_TYPING_EVENT, onTyping);
     return () => {
       window.removeEventListener(LIVE_MESSAGE_EVENT, onMessage);
       window.removeEventListener(LIVE_RISK_EVENT, onRisk);
+      window.removeEventListener(LIVE_READ_EVENT, onRead);
+      window.removeEventListener(LIVE_TYPING_EVENT, onTyping);
     };
   }, [id, mutate, refresh]);
+
+  // Hide "печатает…" when the other side stops.
+  useEffect(() => {
+    if (!typingUntil) return;
+    const t = setTimeout(() => setTypingUntil(0), Math.max(0, typingUntil - Date.now()));
+    return () => clearTimeout(t);
+  }, [typingUntil]);
+
+  const notifyTyping = () => {
+    if (realtime !== "live" || Date.now() - lastTypingSent.current < 3000) return;
+    lastTypingSent.current = Date.now();
+    void api(`/threads/${id}/typing`, { method: "POST" }).catch(() => undefined);
+  };
 
   // Keep the newest message in view.
   useEffect(() => {
@@ -123,6 +154,9 @@ function Thread({ id }: { id: string }) {
 
   const t = data.thread;
   const days = data.messages.map((m) => dayLabel(m.createdAt));
+  const readAt = t.counterpartReadAt ? new Date(t.counterpartReadAt).getTime() : 0;
+  const lastMine = [...data.messages].reverse().find((m) => m.mine && !m.pending);
+  const seen = !!lastMine && readAt >= new Date(lastMine.createdAt).getTime();
 
   return (
     <div className="mx-auto grid h-[calc(100dvh-56px)] max-w-[1280px] md:h-[calc(100dvh-64px)] lg:grid-cols-[360px_1fr] lg:gap-6 lg:px-6 lg:py-4">
@@ -204,6 +238,8 @@ function Thread({ id }: { id: string }) {
             );
           })}
         </ol>
+        {seen && data.messages[data.messages.length - 1]?.id === lastMine?.id && <p className="mt-1 text-right text-xs text-muted">Прочитано</p>}
+        {typingUntil > 0 && <p className="mt-2 text-sm text-muted">@{t.counterpart.username} печатает…</p>}
       </div>
 
       <form
@@ -231,7 +267,10 @@ function Thread({ id }: { id: string }) {
           rows={1}
           value={draft}
           maxLength={2000}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (e.target.value.trim()) notifyTyping();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

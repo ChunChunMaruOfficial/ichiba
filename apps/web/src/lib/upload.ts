@@ -11,10 +11,12 @@ type Ticket = { provider: "local" } | { provider: "cloudinary"; uploadUrl: strin
 
 /** Cloudinary's free plan takes images up to 10 MB: bigger JPG/PNG/WebP are shrunk in the browser first. */
 const CLOUD_MAX_BYTES = 9.5 * 1024 * 1024;
+/** Uploads through the API: serverless hosts cap request bodies (Vercel: 4.5 MB). */
+const API_MAX_BYTES = 4 * 1024 * 1024;
 const SHRINK_TO = 2560;
 
-async function shrink(file: File): Promise<Blob> {
-  if (file.size <= CLOUD_MAX_BYTES || !/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+async function shrink(file: File, maxBytes = CLOUD_MAX_BYTES): Promise<Blob> {
+  if (file.size <= maxBytes || !/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
   try {
     // createImageBitmap applies the EXIF orientation, so the photo stays the right way up.
     const bitmap = await createImageBitmap(file);
@@ -60,7 +62,8 @@ export async function uploadPhoto(file: File, onProgress?: (share: number) => vo
 
   if (ticket.provider === "local") {
     const form = new FormData();
-    form.append("file", file);
+    const blob = await shrink(file, API_MAX_BYTES);
+    form.append("file", blob, blob === file ? file.name : file.name.replace(/\.[^.]+$/, "") + ".jpg");
     const res = await send("/api/media/photos", form, onProgress, signal);
     if (res.status >= 400 || !res.body) {
       const b = res.body ?? {};

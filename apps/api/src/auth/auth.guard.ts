@@ -62,8 +62,9 @@ export class AuthGuard implements CanActivate {
     const token = req.cookies?.[AUTH_COOKIE] ?? req.headers.authorization?.replace(/^Bearer /, '');
     if (token) {
       try {
-        const payload = await this.jwt.verifyAsync<{ sub: string; username: string; role: AuthUser['role'] }>(token);
-        if (await this.active(payload.sub)) req.user = { id: payload.sub, username: payload.username, role: payload.role };
+        const payload = await this.jwt.verifyAsync<{ sub: string; username: string; role: AuthUser['role']; typ?: string; purpose?: string }>(token);
+        // Only session tokens open a session: WebSocket tickets and admin/unsubscribe tokens are signed with the same key.
+        if (!payload.typ && !payload.purpose && payload.username && (await this.active(payload.sub))) req.user = { id: payload.sub, username: payload.username, role: payload.role };
       } catch {
         // Expired or forged token: treat as a guest.
       }

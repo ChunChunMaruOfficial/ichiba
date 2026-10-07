@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -20,6 +20,8 @@ import { CartController } from './cart/cart.js';
 import { ChatController, ChatService } from './chat/chat.js';
 import { CollectionsController } from './collections/collections.js';
 import { EventsModule } from './events/events.js';
+import { inProcessSchedulerEnabled, LazyMaintenanceMiddleware, lazyMaintenanceEnabled, MaintenanceController, MaintenanceService } from './maintenance/maintenance.js';
+import { RedisModule, RedisService, RedisThrottlerStorage } from './redis/redis.js';
 import { MailModule } from './mail/mail.module.js';
 import { FollowingController } from './follows/following.js';
 import { AdminController, AdminGuard, ReportsController } from './moderation/moderation.js';
@@ -48,11 +50,20 @@ import { UsersController, UsersService } from './users/users.service.js';
 @Module({
   imports: [
     PrismaModule,
+    RedisModule,
     EventsModule,
     MailModule,
     NotificationsModule,
-    ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
+    // Serverless hosts have no timers: the same jobs run from /cron/tick instead (see maintenance.ts).
+    ...(inProcessSchedulerEnabled() ? [ScheduleModule.forRoot()] : []),
+    ThrottlerModule.forRootAsync({
+      inject: [RedisService],
+      useFactory: (redis: RedisService) => ({
+        throttlers: [{ ttl: 60_000, limit: 300 }],
+        // Shared counters across instances when Redis is configured; in-memory otherwise.
+        storage: redis.client ? new RedisThrottlerStorage(redis.client) : undefined,
+      }),
+    }),
     JwtModule.register({ global: true, secret: process.env.JWT_SECRET, signOptions: { expiresIn: '30d' } }),
   ],
   controllers: [
@@ -77,6 +88,7 @@ import { UsersController, UsersService } from './users/users.service.js';
     ReviewsController,
     StatsController,
     PrivacyController,
+    MaintenanceController,
   ],
   providers: [
     AuthService,
@@ -102,8 +114,13 @@ import { UsersController, UsersService } from './users/users.service.js';
     AuctionsService,
     ChatService,
     AdminGuard,
+    MaintenanceService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    if (lazyMaintenanceEnabled()) consumer.apply(LazyMaintenanceMiddleware).exclude('cron/tick', 'health').forRoutes('*path');
+  }
+}

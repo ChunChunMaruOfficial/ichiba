@@ -6,11 +6,12 @@
   ],
   "scripts": {
     "db": "npm run db -w apps/api",
-    "setup": "npm install && npm run prisma:generate -w apps/api && npm run db:migrate -w apps/api && npm run seed -w apps/api",
+    "setup": "npm install && npm run db:migrate -w apps/api",
     "dev": "concurrently -n db,api,web -c gray,blue,magenta \"npm run db -w apps/api\" \"node scripts/wait-port.mjs 51214 180 && npm run db:migrate -w apps/api && npm run dev -w apps/api\" \"node scripts/wait-port.mjs 4000 300 && npm run dev -w apps/web\"",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
-    "build": "npm run build -w apps/api && npm run build -w apps/web"
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "seed:demo": "npm run seed:demo -w apps/api"
   },
   "devDependencies": {
     "@eslint/mcp": "^0.3.13",

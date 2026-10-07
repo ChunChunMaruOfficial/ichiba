@@ -393,6 +393,8 @@ export interface ThreadSummary {
   lastMessage: { body: string; mine: boolean; createdAt: string } | null;
   lastMessageAt: string;
   unread: boolean;
+  /** When the other side last read the thread ("Прочитано" under my messages). */
+  counterpartReadAt: string | null;
 }
 
 export interface ChatMessage {

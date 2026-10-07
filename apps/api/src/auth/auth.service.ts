@@ -84,8 +84,20 @@ export class AuthService {
     }
     const user = await this.prisma.user.findUnique({ where: login.kind === 'email' ? { email: login.value } : { phone: login.value } });
     const ok = !!user?.passwordHash && (await bcrypt.compare(password, user.passwordHash));
-    if (!ok || user.role !== 'ADMIN' || user.blockedAt || user.deletedAt) throw fail();
-    return user;
+    if (!ok) throw fail();
+    const checked = await this.ensureAdmin(user);
+    if (checked.role !== 'ADMIN' || checked.blockedAt || checked.deletedAt) throw fail();
+    return checked;
+  }
+
+  /**
+   * Accounts whose verified email is listed in ADMIN_EMAILS (comma-separated) become admins on sign-in:
+   * the way to get the first moderator on a fresh production database.
+   */
+  async ensureAdmin(user: User): Promise<User> {
+    const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    if (user.role === 'ADMIN' || !user.email || !user.emailVerifiedAt || !admins.includes(user.email.toLowerCase())) return user;
+    return this.prisma.user.update({ where: { id: user.id }, data: { role: 'ADMIN' } });
   }
 
   signAdmin(userId: string) {

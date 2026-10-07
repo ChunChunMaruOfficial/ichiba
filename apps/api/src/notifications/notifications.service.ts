@@ -1,6 +1,7 @@
 import { Controller, Get, HttpCode, Injectable, Logger, Module, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { background } from '../common/background.js';
 import { EventsService } from '../events/events.js';
 import { DealEmails } from '../mail/mail.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -54,12 +55,12 @@ export class NotificationsService {
 
   private email(userIds: string[], type: NotificationType, payload: Prisma.InputJsonValue) {
     // Never block or fail the action because of email.
-    void this.emails.maybeSend(userIds, type, payload as Record<string, unknown>).catch((e) => this.logger.warn(`email for ${type} failed: ${(e as Error).message}`));
+    background(this.emails.maybeSend(userIds, type, payload as Record<string, unknown>).catch((e) => this.logger.warn(`email for ${type} failed: ${(e as Error).message}`)));
   }
 
   async notify(userId: string, type: NotificationType, payload: Prisma.InputJsonValue) {
     const n = await this.prisma.notification.create({ data: { userId, type, payload } });
-    this.events.emit(userId, { type: 'notification', data: n });
+    await this.events.emit(userId, { type: 'notification', data: n });
     this.email([userId], type, payload);
     return n;
   }
@@ -67,8 +68,8 @@ export class NotificationsService {
   async notifyMany(userIds: string[], type: NotificationType, payload: Prisma.InputJsonValue) {
     const unique = [...new Set(userIds)];
     if (!unique.length) return;
-    await this.prisma.notification.createMany({ data: unique.map((userId) => ({ userId, type, payload })) });
-    for (const userId of unique) this.events.emit(userId, { type: 'notification', data: { type, payload } });
+    const rows = await this.prisma.notification.createManyAndReturn({ data: unique.map((userId) => ({ userId, type, payload })) });
+    await Promise.all(rows.map((n) => this.events.emit(n.userId, { type: 'notification', data: n })));
     this.email(unique, type, payload);
   }
 

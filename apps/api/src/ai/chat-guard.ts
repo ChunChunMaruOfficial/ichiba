@@ -123,7 +123,7 @@ export class ChatGuard {
 
     if (JSON.stringify(risk) === JSON.stringify(args.immediate)) return;
     await this.prisma.message.update({ where: { id: args.messageId }, data: { risk: risk ? (risk as unknown as Prisma.InputJsonValue) : Prisma.DbNull } });
-    this.events.emit(args.recipientId, { type: 'message_risk', data: { threadId: args.threadId, messageId: args.messageId, risk } });
+    await this.events.emit(args.recipientId, { type: 'message_risk', data: { threadId: args.threadId, messageId: args.messageId, risk } });
     if (risk?.level === 'high') await this.escalate(args.senderId, args.messageId);
   }
 

@@ -164,7 +164,8 @@ export class AuthController {
     return { google: process.env.GOOGLE_CLIENT_ID || null, apple: process.env.APPLE_CLIENT_ID || null, devAnyCode: DEV_ANY_CODE };
   }
 
-  private async startSession(res: Response, { user, isNew }: { user: User; isNew: boolean }) {
+  private async startSession(res: Response, { user: signedIn, isNew }: { user: User; isNew: boolean }) {
+    const user = await this.auth.ensureAdmin(signedIn);
     if (user.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
     res.cookie(AUTH_COOKIE, await this.auth.sign(user), {
       httpOnly: true,

@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import useSWR, { useSWRConfig } from "swr";
 import { api } from "@/lib/api";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
+import { connectRealtime, type RealtimeStatus } from "@/lib/realtime";
 import type { ChatLocation, Me, MessageRisk, Meta } from "@/lib/types";
 import { AuthModal } from "./auth-modal";
 import { useToast } from "./toast";
@@ -22,6 +23,8 @@ interface SessionValue {
   /** Runs `action` now if signed in; otherwise opens the auth modal and runs it after sign-in (frame 18). */
   requireAuth: (action: (me: Me) => void | Promise<void>, ctx?: AuthContext) => void;
   openAuth: (ctx?: AuthContext) => void;
+  /** "live" when the socket is up; otherwise pages poll for fresh data. */
+  realtime: RealtimeStatus;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -47,9 +50,14 @@ export interface LiveRisk {
 export const LIVE_MESSAGE_EVENT = "ichiba:message";
 /** Antifraud verdict for a message that arrived earlier. */
 export const LIVE_RISK_EVENT = "ichiba:message-risk";
+/** The other side read the thread / is typing. */
+export const LIVE_READ_EVENT = "ichiba:thread-read";
+export const LIVE_TYPING_EVENT = "ichiba:typing";
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const { data, isLoading, mutate } = useSWR<{ user: Me | null }>("/auth/me", { revalidateOnFocus: true });
+  const [realtime, setRealtime] = useState<RealtimeStatus>("connecting");
+  // Without a live channel the header counters are refreshed by polling.
+  const { data, isLoading, mutate } = useSWR<{ user: Me | null }>("/auth/me", { revalidateOnFocus: true, refreshInterval: (d) => (d?.user && realtime !== "live" ? 30_000 : 0) });
   const { mutate: globalMutate } = useSWRConfig();
   const toast = useToast();
   const router = useRouter();
@@ -76,34 +84,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [user, openAuth],
   );
 
-  // Real-time: notifications and chat messages over SSE (frame 30). Counters refresh on every event.
+  // Real-time: notifications and chat over WebSocket / Pusher (frame 30). Counters refresh on every event.
   useEffect(() => {
     if (!userId) return;
-    const es = new EventSource("/api/events");
-    es.addEventListener("notification", (e) => {
-      void mutate();
-      const n = JSON.parse((e as MessageEvent).data) as NotificationRow;
-      if (n.type) toast(notificationText(n), { action: { label: "Открыть", onClick: () => router.push(notificationHref(n)) } });
-      // Deals, offers and lists may have changed.
-      void globalMutate((key) => typeof key === "string" && /^\/(sales|purchases|offers|requests|notifications|listings|cart)/.test(key));
-    });
-    es.addEventListener("message", (e) => {
-      void mutate();
-      const m = JSON.parse((e as MessageEvent).data) as LiveMessage;
-      window.dispatchEvent(new CustomEvent(LIVE_MESSAGE_EVENT, { detail: m }));
-      void globalMutate("/threads");
-      if (!window.location.pathname.startsWith(`/messages/${m.threadId}`)) {
-        toast(`@${m.message.from}: ${m.message.body.slice(0, 60)}`, { action: { label: "Ответить", onClick: () => router.push(`/messages/${m.threadId}`) } });
-      }
-    });
-    es.addEventListener("message_risk", (e) => {
-      const r = JSON.parse((e as MessageEvent).data) as LiveRisk;
-      window.dispatchEvent(new CustomEvent(LIVE_RISK_EVENT, { detail: r }));
-      if (r.risk?.level === "high" && !window.location.pathname.startsWith(`/messages/${r.threadId}`)) {
-        toast("Подозрительное сообщение в чате — будьте осторожны", { tone: "error", action: { label: "Открыть", onClick: () => router.push(`/messages/${r.threadId}`) } });
-      }
-    });
-    return () => es.close();
+    return connectRealtime(
+      userId,
+      (type, data) => {
+        if (type === "notification") {
+          void mutate();
+          const n = data as NotificationRow;
+          if (n.type) toast(notificationText(n), { action: { label: "Открыть", onClick: () => router.push(notificationHref(n)) } });
+          // Deals, offers and lists may have changed.
+          void globalMutate((key) => typeof key === "string" && /^\/(sales|purchases|offers|requests|notifications|listings|cart|auctions)/.test(key));
+        } else if (type === "message") {
+          void mutate();
+          const m = data as LiveMessage;
+          window.dispatchEvent(new CustomEvent(LIVE_MESSAGE_EVENT, { detail: m }));
+          void globalMutate("/threads");
+          if (!window.location.pathname.startsWith(`/messages/${m.threadId}`)) {
+            toast(`@${m.message.from}: ${m.message.body.slice(0, 60)}`, { action: { label: "Ответить", onClick: () => router.push(`/messages/${m.threadId}`) } });
+          }
+        } else if (type === "message_risk") {
+          const r = data as LiveRisk;
+          window.dispatchEvent(new CustomEvent(LIVE_RISK_EVENT, { detail: r }));
+          if (r.risk?.level === "high" && !window.location.pathname.startsWith(`/messages/${r.threadId}`)) {
+            toast("Подозрительное сообщение в чате — будьте осторожны", { tone: "error", action: { label: "Открыть", onClick: () => router.push(`/messages/${r.threadId}`) } });
+          }
+        } else if (type === "thread_read") {
+          window.dispatchEvent(new CustomEvent(LIVE_READ_EVENT, { detail: data }));
+        } else if (type === "typing") {
+          window.dispatchEvent(new CustomEvent(LIVE_TYPING_EVENT, { detail: data }));
+        }
+      },
+      setRealtime,
+    );
   }, [userId, mutate, globalMutate, toast, router]);
 
   const onSignedIn = useCallback(
@@ -132,7 +146,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [mutate, globalMutate]);
 
   return (
-    <SessionContext.Provider value={{ me: user, loading: isLoading, refresh: () => mutate(), logout, requireAuth, openAuth }}>
+    <SessionContext.Provider value={{ me: user, loading: isLoading, refresh: () => mutate(), logout, requireAuth, openAuth, realtime }}>
       {children}
       <AuthModal
         open={authOpen}

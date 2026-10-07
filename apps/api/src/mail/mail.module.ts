@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { Response } from 'express';
 import { Public } from '../auth/auth.guard.js';
+import { background } from '../common/background.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MailerService } from './mailer.js';
 import { appUrl, codeEmail, DEAL_EMAIL_TYPES, dealEmail, esc } from './templates.js';
@@ -33,7 +34,7 @@ export class EmailOutbox {
   async enqueue(mail: { to: string; subject: string; html: string; text: string; kind: string; userId?: string | null }) {
     const row = await this.prisma.emailOutbox.create({ data: { ...mail, userId: mail.userId ?? null } });
     // Try right away; the cron picks it up again if this attempt fails.
-    void this.deliver(row.id).catch(() => undefined);
+    background(this.deliver(row.id));
   }
 
   private async deliver(id: string) {

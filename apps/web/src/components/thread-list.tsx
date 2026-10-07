@@ -5,11 +5,14 @@ import Link from "next/link";
 import useSWR from "swr";
 import { timeAgo } from "@/lib/labels";
 import type { ThreadSummary } from "@/lib/types";
+import { useSession } from "./session";
 import { DealBadge, EmptyState, ErrorState, Skeleton } from "./ui";
 
 /** Conversations (frame 15): one per item, newest first, unread in bold. `activeId` highlights the open one. */
 export function ThreadList({ activeId, compact }: { activeId?: string; compact?: boolean }) {
-  const { data, error, mutate } = useSWR<{ items: ThreadSummary[] }>("/threads");
+  const { realtime } = useSession();
+  // Without a live channel the list polls for new messages.
+  const { data, error, mutate } = useSWR<{ items: ThreadSummary[] }>("/threads", { refreshInterval: realtime === "live" ? 0 : 15_000 });
   if (error) return <ErrorState message="Не удалось загрузить сообщения" onRetry={() => mutate()} />;
   if (!data)
     return (

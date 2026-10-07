@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+const API_URL = (process.env.API_URL ?? (process.env.VERCEL ? "" : "http://localhost:4000")).replace(/\/$/, "");
+if (!API_URL) throw new Error("API_URL is not set: address of the deployed API, e.g. https://ichiba-api.vercel.app");
 
 const production = process.env.NODE_ENV === "production";
 
