@@ -1,7 +1,7 @@
 # Email / SMTP — ichiba
 
 > Стек: NestJS + Nodemailer. Письма: коды подтверждения и сброса пароля, события по сделкам.
-> Всё включается переменными в `apps/api/.env` — код менять не нужно.
+> Всё включается переменными в `server/.env` — код менять не нужно.
 
 ## 1. Как это устроено
 
@@ -11,11 +11,11 @@
 
 | Файл | Роль |
 |------|------|
-| `apps/api/src/mail/mailer.ts` | Транспорт Nodemailer: читает `SMTP_*` из `.env`, при старте проверяет соединение и пишет результат в лог |
-| `apps/api/src/mail/templates.ts` | HTML- и текстовые шаблоны: код подтверждения, события сделок |
-| `apps/api/src/mail/mail.module.ts` | Очередь писем (таблица `EmailOutbox`) с повторами, отписка, отправка кодов |
-| `apps/api/src/auth/code-sender.service.ts` | Коды подтверждения и сброса пароля |
-| `apps/api/src/notifications/notifications.service.ts` | Уведомления о сделках дублируются письмом |
+| `server/src/mail/mailer.ts` | Транспорт Nodemailer: читает `SMTP_*` из `.env`, при старте проверяет соединение и пишет результат в лог |
+| `server/src/mail/templates.ts` | HTML- и текстовые шаблоны: код подтверждения, события сделок |
+| `server/src/mail/mail.module.ts` | Очередь писем (таблица `EmailOutbox`) с повторами, отписка, отправка кодов |
+| `server/src/auth/code-sender.service.ts` | Коды подтверждения и сброса пароля |
+| `server/src/notifications/notifications.service.ts` | Уведомления о сделках дублируются письмом |
 
 **Какие письма уходят**
 - Сразу, синхронно (пользователь ждёт на экране): код подтверждения почты, код сброса пароля. Две попытки, при неудаче пользователь видит «Не получилось отправить письмо с кодом».
@@ -31,7 +31,7 @@
 
 ## 2. Вариант A: внешний SMTP (reg.ru, Яндекс 360, SendGrid, Mailgun…)
 
-`apps/api/.env`:
+`server/.env`:
 ```env
 SMTP_HOST=mail.hosting.reg.ru
 SMTP_PORT=465
@@ -67,7 +67,7 @@ echo 'smtp_tls_security_level = may' | sudo tee -a /etc/postfix/main.cf
 sudo systemctl reload postfix
 ```
 
-`apps/api/.env`:
+`server/.env`:
 ```env
 SMTP_HOST=localhost
 SMTP_PORT=25
@@ -103,7 +103,7 @@ SMTP_PASS=,f_Ab$cd'Ef
 
 Проверить, что пароль прочитался целиком:
 ```bash
-cd apps/api && node -e "require('dotenv').config(); console.log('SMTP_PASS length:', process.env.SMTP_PASS?.length)"
+cd server && node -e "require('dotenv').config(); console.log('SMTP_PASS length:', process.env.SMTP_PASS?.length)"
 ```
 
 ## 5. Порты и блокировки хостинга
@@ -143,7 +143,7 @@ SELECT "to", subject, attempts, "lastError" FROM "EmailOutbox" WHERE status <> '
 ## 7. Локальная проверка без настоящей почты
 
 ```bash
-cd apps/api
+cd server
 node _smtp-capture.mjs          # SMTP-приёмник на 127.0.0.1:2525, письма пишутся в _mails.jsonl
 SMTP_HOST=127.0.0.1 SMTP_PORT=2525 SMTP_SECURE=false node dist/main.js
 node _e2e-v3.mjs email           # регистрация → письмо с кодом

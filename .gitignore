@@ -3,9 +3,9 @@ dist
 .next
 .env
 .env.local
-apps/api/src/generated
+server/src/generated
 *.log
-apps/api/storage
-apps/api/_mails.jsonl
+server/storage
+server/_mails.jsonl
 *.tsbuildinfo
 dump.rdb

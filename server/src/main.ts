@@ -14,9 +14,9 @@ async function bootstrap() {
   checkEnv();
   const production = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  // Behind a proxy (nginx, Vercel, the Next.js rewrite): take the client IP from X-Forwarded-For,
-  // otherwise rate limits see one IP for everyone. Vercel always sits behind its edge proxy.
-  const trustProxy = process.env.TRUST_PROXY || (process.env.VERCEL ? 'true' : '');
+  // Behind a proxy (nginx, Railway/Vercel edge, the Next.js rewrite): take the client IP from X-Forwarded-For,
+  // otherwise rate limits see one IP for everyone. Railway and Vercel always sit behind their edge proxy.
+  const trustProxy = process.env.TRUST_PROXY || (process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL ? 'true' : '');
   if (trustProxy) app.set('trust proxy', trustProxy === 'true' ? true : Number(trustProxy) || trustProxy);
   // Security headers; photos are loaded by the site from another origin, hence cross-origin resource policy.
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, hsts: production }));

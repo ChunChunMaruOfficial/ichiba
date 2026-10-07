@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { isPlaceholder, LEGAL } from "@/lib/legal";
+import { LEGAL, operatorLine } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Политика конфиденциальности",
   description: "Какие персональные данные собирает ichiba, зачем, кому передаёт, сколько хранит и как ими управлять.",
   alternates: { canonical: "/privacy" },
 };
-
-/** Operator detail; a not-yet-filled value is highlighted so it can't slip into production unnoticed. */
-function V({ children }: { children: string }) {
-  return isPlaceholder(children) ? <mark className="rounded bg-warn-soft px-1 text-warn">{children}</mark> : <>{children}</>;
-}
 
 const SECTIONS = [
   ["general", "Общие положения"],
@@ -85,7 +80,11 @@ export default function PrivacyPage() {
         <article className="flex max-w-3xl flex-col gap-10">
           <Section id="general" n={1} title="Общие положения">
             <p>
-              Оператор персональных данных — <b><V>{LEGAL.operator}</V></b>, УНП <V>{LEGAL.unp}</V>, адрес: <V>{LEGAL.address}</V> (далее — «мы», «оператор»).
+              Оператор персональных данных — <b>{operatorLine()}</b> (далее — «мы», «оператор»). По всем вопросам о персональных данных пишите на{" "}
+              <a href={`mailto:${LEGAL.email}`} className="font-semibold text-ink underline">
+                {LEGAL.email}
+              </a>
+              .
             </p>
             <p>Политика действует для сайта ichiba и всех его сервисов: объявлений, сделок, чата, аукционов, уведомлений и писем. Пользоваться ichiba можно с 16 лет.</p>
             <p>Персональные данные — любая информация, которая относится к вам и позволяет вас определить: ник, телефон, почта, переписка, фото, если на них есть вы.</p>
@@ -141,7 +140,7 @@ export default function PrivacyPage() {
                 <b>Другим пользователям.</b> Всем видны ваш ник, гардероб, объявления, отзывы и рейтинг. Телефон и адрес доставки видит только вторая сторона сделки после её подтверждения.
               </li>
               <li>
-                <b>Обработчикам</b>, которые помогают нам работать по договору и только в нужном объёме: хостинг — <V>{LEGAL.hosting}</V>; почтовый сервис для писем; SMSC.ru — отправка SMS с кодами; Google — вход через Google и модели Gemini; Mistral AI и Z.ai — модели ИИ.
+                <b>Обработчикам</b>, которые помогают нам работать по договору и только в нужном объёме: Vercel — размещение сайта; Railway — сервер приложения; Supabase — база данных; Cloudinary — хранение и показ фото вещей; почтовый сервис — отправка писем с кодами и о сделках; SMSC.ru — отправка SMS с кодами; Google — вход через Google и модели Gemini; Mistral AI и Z.ai — модели ИИ.
               </li>
               <li>
                 <b>Государственным органам</b> — только по законному запросу.
@@ -153,7 +152,7 @@ export default function PrivacyPage() {
             <p>Некоторые обработчики находятся за пределами Беларуси, поэтому данные могут передаваться в:</p>
             <Table
               rows={[
-                ["США", "Google LLC — вход через Google, модели Gemini."],
+                ["США", "Vercel Inc. — сайт; Railway Corporation — сервер приложения; Supabase Inc. — база данных со всеми данными аккаунтов, объявлений, сделок и чатов; Cloudinary Ltd. — фото вещей; Google LLC — вход через Google, модели Gemini."],
                 ["Франция (ЕС)", "Mistral AI — модели ИИ."],
                 ["Сингапур, КНР", "Z.ai (Zhipu AI) — модели GLM."],
                 ["Россия", "SMSC.ru — отправка SMS с кодами (номер телефона и текст кода)."],
@@ -184,6 +183,7 @@ export default function PrivacyPage() {
             <Table
               rows={[
                 ["ichiba_token", "Cookie входа в аккаунт: недоступна скриптам (httpOnly), хранится 30 дней или до выхода."],
+                ["ichiba_admin", "Только у модераторов: cookie входа в раздел модерации, хранится 8 часов."],
                 ["ichiba:recent-searches", "Хранилище браузера: последние поисковые запросы — только на вашем устройстве."],
                 ["ichiba:guest-skips", "Хранилище браузера: какие вещи вы пролистали в свайпе без входа — чтобы не показывать их снова."],
                 ["ichiba:cookie-notice", "Хранилище браузера: что вы уже видели уведомление о cookie."],
@@ -201,7 +201,7 @@ export default function PrivacyPage() {
               <li>обжаловать наши действия в Национальный центр защиты персональных данных Республики Беларусь или в суд.</li>
             </ul>
             <p>
-              Чтобы воспользоваться правом, напишите на <b><V>{LEGAL.email}</V></b> с адреса или номера, привязанного к аккаунту, или подайте заявление по адресу оператора. Отзыв согласия не влияет на законность обработки до его отзыва; без согласия мы не сможем дальше оказывать услугу, поэтому аккаунт будет удалён.
+              Чтобы воспользоваться правом, напишите на <b>{LEGAL.email}</b> с адреса или номера, привязанного к аккаунту, {LEGAL.address ? " или подайте заявление по адресу оператора" : ""}. Отзыв согласия не влияет на законность обработки до его отзыва; без согласия мы не сможем дальше оказывать услугу, поэтому аккаунт будет удалён.
             </p>
           </Section>
 
@@ -223,13 +223,24 @@ export default function PrivacyPage() {
 
           <Section id="contacts" n={12} title="Контакты">
             <p>
-              <b><V>{LEGAL.operator}</V></b>
+              <b>{LEGAL.operator ?? "ichiba"}</b>
+              {LEGAL.unp && (
+                <>
+                  <br />
+                  УНП {LEGAL.unp}
+                </>
+              )}
+              {LEGAL.address && (
+                <>
+                  <br />
+                  {LEGAL.address}
+                </>
+              )}
               <br />
-              УНП <V>{LEGAL.unp}</V>
-              <br />
-              <V>{LEGAL.address}</V>
-              <br />
-              Обращения по персональным данным: <V>{LEGAL.email}</V>
+              Обращения по персональным данным:{" "}
+              <a href={`mailto:${LEGAL.email}`} className="underline">
+                {LEGAL.email}
+              </a>
             </p>
           </Section>
         </article>

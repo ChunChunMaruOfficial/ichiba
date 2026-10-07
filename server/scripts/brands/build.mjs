@@ -2,7 +2,7 @@
 //   sources/curated.txt  hand-picked brands with Cyrillic aliases and ranking tiers;
 //   sources/wikidata.tsv fashion houses, fashion labels and clothing/footwear companies from Wikidata (CC0);
 //   sources/nsi.tsv      clothes/shoes/bag/jewelry/sports shop brands from OpenStreetMap's name-suggestion-index (BSD-3).
-// Run: node scripts/brands/build.mjs (from apps/api). The output is committed, the API never reads the sources.
+// Run: node scripts/brands/build.mjs (from server). The output is committed, the API never reads the sources.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,7 +96,7 @@ const tsv = (f) => {
 const wikidataSeen = new Set();
 for (const r of tsv('nsi.tsv')) {
   const name = clean(r.name);
-  if (!acceptable(name) || /[^\u0000-ɏЀ-ӿ0-9°]/.test(name)) continue;
+  if (!acceptable(name) || /[^\u0000-ɏЀ-ӿ0-9°]/.test(name)) continue; // eslint-disable-line no-control-regex
   add(name, 40, 1, r.ru && r.ru !== name ? [r.ru] : []);
   if (r.wikidata) wikidataSeen.add(r.wikidata);
 }
@@ -107,7 +107,7 @@ for (const r of tsv('wikidata.tsv')) {
   const name = clean(r.en || r.ru || '');
   // Lower-case English labels are concepts ("cobbler", "fashion"), not brands.
   if (/^[a-z]/.test(name)) continue;
-  if (!acceptable(name) || /[^\u0000-ɏЀ-ӿ0-9°]/.test(name)) continue;
+  if (!acceptable(name) || /[^\u0000-ɏЀ-ӿ0-9°]/.test(name)) continue; // eslint-disable-line no-control-regex
   const ru = clean(r.ru || '');
   const bonus = wikidataSeen.has(r.id) ? 20 : 0;
   add(name, Math.min(Number(r.sitelinks) || 0, 80) * 3 + 10 + bonus, 2, ruOk(ru) && ru !== name ? [ru] : []);

@@ -3,12 +3,12 @@
   "ignoreDependencies": ["@eslint/mcp", "@knip/mcp"],
   "workspaces": {
     ".": {},
-    "apps/api": {
+    "server": {
       "entry": ["src/main.ts", "prisma/seed-auctions.ts", "_*.mjs"],
       "project": ["src/**/*.ts", "prisma/**/*.ts"],
       "ignoreDependencies": ["@prisma/client"]
     },
-    "apps/web": {
+    "client": {
       "project": ["src/**/*.{ts,tsx}"],
       "ignoreDependencies": ["tailwindcss"]
     }

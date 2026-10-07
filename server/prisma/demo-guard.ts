@@ -2,7 +2,7 @@
  * Demo (mock) data is switched off: the seed scripts are kept for local development but only run
  * with SEED_DEMO=true, and never against a production deploy.
  *
- *   SEED_DEMO=true npm run seed -w apps/api
+ *   SEED_DEMO=true npm --prefix server run seed
  */
 export function assertDemoSeedAllowed() {
   if (process.env.SEED_DEMO !== 'true') {

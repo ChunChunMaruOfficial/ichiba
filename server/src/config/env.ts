@@ -11,7 +11,7 @@ export function checkEnv() {
   const errors: string[] = [];
 
   if (!env.DATABASE_URL) errors.push('DATABASE_URL is not set (Supabase: Project → Connect → Session pooler)');
-  if (!env.JWT_SECRET) errors.push('JWT_SECRET is not set — copy apps/api/.env.example to .env');
+  if (!env.JWT_SECRET) errors.push('JWT_SECRET is not set — copy server/.env.example to .env');
   // Sessions are signed with this secret: a short or default one makes them forgeable.
   else if (prod && (env.JWT_SECRET.length < 32 || env.JWT_SECRET.startsWith('change-me'))) errors.push('JWT_SECRET must be a random string of at least 32 characters in production');
 

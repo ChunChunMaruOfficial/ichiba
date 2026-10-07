@@ -23,18 +23,25 @@ type Envelope = { userId: string; event: RealtimeEvent };
  * Real-time transport (frame 30), chosen by REALTIME_DRIVER:
  * - `pusher` — Pusher Channels (or a Pusher-compatible server such as Soketi/Ably). The browser holds the
  *   WebSocket to Pusher; the API only publishes. This is the driver for Vercel, whose functions cannot keep sockets.
- * - `ws` — the API itself serves WebSockets at /ws (long-running Node host: local dev, VPS, Docker, Railway…).
+ * - `ws` — the API itself serves WebSockets at /ws (long-running Node host: Railway, VPS, Docker, local dev).
  *   With REDIS_URL, events published on any instance reach sockets connected to every instance.
  * - `none` — no live channel; the web app falls back to polling.
  * Default: `pusher` when PUSHER_APP_ID is set, `none` on Vercel, otherwise `ws`.
  */
 export type RealtimeDriver = 'pusher' | 'ws' | 'none';
 
-export function realtimeDriver(): RealtimeDriver {
+function realtimeDriver(): RealtimeDriver {
   const explicit = process.env.REALTIME_DRIVER;
   if (explicit === 'pusher' || explicit === 'ws' || explicit === 'none') return explicit;
   if (process.env.PUSHER_APP_ID) return 'pusher';
   return process.env.VERCEL ? 'none' : 'ws';
+}
+
+/** Where browsers open the socket: PUBLIC_WS_URL, else the Railway public domain, else localhost in dev. */
+function publicWsUrl() {
+  if (process.env.PUBLIC_WS_URL) return process.env.PUBLIC_WS_URL;
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return `wss://${process.env.RAILWAY_PUBLIC_DOMAIN}/ws`;
+  return process.env.NODE_ENV === 'production' ? null : `ws://localhost:${process.env.PORT ?? 4000}/ws`;
 }
 
 const userChannel = (userId: string) => `private-user-${userId}`;
@@ -106,7 +113,7 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
 const PusherAuthDto = z.object({ socket_id: z.string().regex(/^\d+\.\d+$/), channel_name: z.string().max(200) });
 
 @Controller('realtime')
-export class RealtimeController {
+class RealtimeController {
   constructor(
     private readonly events: EventsService,
     private readonly jwt: JwtService,
@@ -130,7 +137,7 @@ export class RealtimeController {
             }
           : null,
       // Null means "same host as the page, path /ws" (reverse proxy in front of web and API).
-      wsUrl: driver === 'ws' ? process.env.PUBLIC_WS_URL || (process.env.NODE_ENV === 'production' ? null : `ws://localhost:${process.env.PORT ?? 4000}/ws`) : null,
+      wsUrl: driver === 'ws' ? publicWsUrl() : null,
     };
   }
 

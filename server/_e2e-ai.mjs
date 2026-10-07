@@ -1,4 +1,4 @@
-// AI features e2e against the live ensemble. Run from apps/api (needs sharp): node _e2e-ai.mjs [section]
+// AI features e2e against the live ensemble. Run from server (needs sharp): node _e2e-ai.mjs [section]
 import sharp from 'sharp';
 import { readdirSync } from 'fs';
 const API = 'http://127.0.0.1:4000';

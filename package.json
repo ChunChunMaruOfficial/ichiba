@@ -1,17 +1,15 @@
 {
   "name": "ichiba",
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
-    "db": "npm run db -w apps/api",
-    "setup": "npm install && npm run db:migrate -w apps/api",
-    "dev": "concurrently -n db,api,web -c gray,blue,magenta \"npm run db -w apps/api\" \"node scripts/wait-port.mjs 51214 180 && npm run db:migrate -w apps/api && npm run dev -w apps/api\" \"node scripts/wait-port.mjs 4000 300 && npm run dev -w apps/web\"",
-    "dev:api": "npm run dev -w apps/api",
-    "dev:web": "npm run dev -w apps/web",
-    "build": "npm run build -w apps/api && npm run build -w apps/web",
-    "seed:demo": "npm run seed:demo -w apps/api"
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "setup": "npm run install:all && npm --prefix server run db:migrate",
+    "db": "npm --prefix server run db",
+    "dev": "concurrently -n db,server,client -c gray,blue,magenta \"npm --prefix server run db\" \"node scripts/wait-port.mjs 51214 180 && npm --prefix server run db:migrate && npm --prefix server run dev\" \"node scripts/wait-port.mjs 4000 300 && npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "seed:demo": "npm --prefix server run seed:demo"
   },
   "devDependencies": {
     "@eslint/mcp": "^0.3.13",
