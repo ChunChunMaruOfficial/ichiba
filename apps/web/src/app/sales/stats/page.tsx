@@ -1,5 +1,6 @@
 "use client";
 
+import { Daruma } from "@/components/shop/daruma";
 import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
@@ -31,12 +32,12 @@ function Stats() {
   if (error) return <ErrorState message="Не удалось загрузить статистику" onRetry={() => mutate()} />;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <Link href="/sales" className="text-sm text-ink-2 hover:text-ink">
         ← Мои продажи
       </Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-3xl font-semibold tracking-tight">Статистика</h1>
+        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Статистика</h1>
         <div className="flex gap-2" role="group" aria-label="Период">
           {([7, 30] as const).map((d) => (
             <Chip key={d} active={days === d} onClick={() => setDays(d)}>
@@ -52,7 +53,7 @@ function Stats() {
           <Skeleton className="h-56 rounded-3xl" />
         </div>
       ) : !data.listings.length ? (
-        <EmptyState title="Пока нечего считать" hint="Статистика появится, когда вы выставите первую вещь">
+        <EmptyState art={<Daruma eyes={1} className="mb-2 h-36" />} title="Пока нечего считать" hint="Статистика появится, когда вы выставите первую вещь">
           <ButtonLink href="/sell">Выставить вещь</ButtonLink>
         </EmptyState>
       ) : (
@@ -107,7 +108,7 @@ function Stats() {
                           {share != null && <span className="ml-2 text-xs font-normal text-muted">{share < 1 && share > 0 ? share.toFixed(1) : Math.round(share)}% просмотров</span>}
                         </span>
                       </div>
-                      <div className="mt-1 h-2 rounded-full bg-black/5">
+                      <div className="mt-1 h-2 rounded-full bg-ink/5">
                         <div className="h-full rounded-full bg-ink/80" style={{ width: `${Math.max(f.value ? 2 : 0, (f.value / top) * 100)}%` }} />
                       </div>
                     </li>

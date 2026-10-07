@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta, useSession } from "@/components/session";
+import { Noren } from "@/components/shop/noren";
 import { SwipeDeck } from "@/components/swipe-deck";
 import { Button, Chip, Field, inputClass } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -40,7 +41,7 @@ function Welcome({ me }: { me: Me }) {
   const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <div className="mb-6 flex items-center justify-between">
         <span className="tabular text-sm text-muted">{step === "swipe" ? `${Math.min(count, DECK)} / ${DECK}` : "Почти готово"}</span>
         <button className="text-sm font-medium text-ink-2 hover:text-ink" onClick={() => finish(false)}>
@@ -48,56 +49,61 @@ function Welcome({ me }: { me: Me }) {
         </button>
       </div>
 
-      {step === "swipe" ? (
-        <>
-          <h1 className="mb-1 text-3xl font-semibold tracking-tight">Что вам нравится?</h1>
-          <p className="mb-6 text-ink-2">Вправо — нравится, влево — не моё. По этим свайпам соберём ленту «Для вас».</p>
-          <SwipeDeck context="onboarding" limit={DECK} onSwipe={setCount} onDone={() => setStep("profile")} />
-          {count >= MIN_TO_FINISH && (
-            <Button block size="lg" className="mt-6" onClick={() => setStep("profile")}>
-              Готово
-            </Button>
+      <div className="grid items-start gap-8 lg:grid-cols-[1fr_460px] lg:gap-16">
+        {/* left: what this step is about, under the shop's noren */}
+        <div className="rise lg:sticky lg:top-24">
+          <Noren className="mb-6 hidden w-72 lg:block" />
+          <h1 className="text-3xl font-bold tracking-tight md:text-5xl">{step === "swipe" ? "Что вам нравится?" : "Ваш размер и город"}</h1>
+          <p className="mt-3 max-w-md text-lg text-ink-2">{step === "swipe" ? "Вправо — нравится, влево — не моё. Соберём ленту «Для вас»." : "Необязательно — поможет показывать подходящие вещи рядом."}</p>
+        </div>
+
+        <div className="rise" style={{ animationDelay: "100ms" }}>
+          {step === "swipe" ? (
+            <>
+              <SwipeDeck context="onboarding" limit={DECK} onSwipe={setCount} onDone={() => setStep("profile")} />
+              {count >= MIN_TO_FINISH && (
+                <Button block size="lg" className="pop mt-6" onClick={() => setStep("profile")}>
+                  Готово
+                </Button>
+              )}
+            </>
+          ) : (
+            meta && (
+              <div className="flex flex-col gap-7">
+                <Field label="Одежда">
+                  <div className="flex flex-wrap gap-2">
+                    {meta.sizes.ALPHA.map((s) => (
+                      <Chip key={s} active={clothing.includes(s)} onClick={() => setClothing((l) => toggle(l, s))} className="min-w-12 justify-center">
+                        {s}
+                      </Chip>
+                    ))}
+                  </div>
+                </Field>
+                <Field label="Обувь">
+                  <div className="flex flex-wrap gap-2">
+                    {meta.sizes.SHOE_EU.map((s) => (
+                      <Chip key={s} active={shoes.includes(s)} onClick={() => setShoes((l) => toggle(l, s))} className="min-w-12 justify-center">
+                        {s}
+                      </Chip>
+                    ))}
+                  </div>
+                </Field>
+                <Field label="Город" htmlFor="welcome-city">
+                  <select id="welcome-city" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass()}>
+                    <option value="">Не указан</option>
+                    {meta.cities.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Button size="lg" block loading={busy} onClick={() => finish(true)}>
+                  Готово
+                </Button>
+              </div>
+            )
           )}
-        </>
-      ) : (
-        <>
-          <h1 className="mb-1 text-3xl font-semibold tracking-tight">Ваш размер и город</h1>
-          <p className="mb-8 text-ink-2">Необязательно — поможет показывать подходящие вещи рядом.</p>
-          {meta && (
-            <div className="flex flex-col gap-7">
-              <Field label="Одежда">
-                <div className="flex flex-wrap gap-2">
-                  {meta.sizes.ALPHA.map((s) => (
-                    <Chip key={s} active={clothing.includes(s)} onClick={() => setClothing((l) => toggle(l, s))} className="min-w-12 justify-center">
-                      {s}
-                    </Chip>
-                  ))}
-                </div>
-              </Field>
-              <Field label="Обувь">
-                <div className="flex flex-wrap gap-2">
-                  {meta.sizes.SHOE_EU.map((s) => (
-                    <Chip key={s} active={shoes.includes(s)} onClick={() => setShoes((l) => toggle(l, s))} className="min-w-12 justify-center">
-                      {s}
-                    </Chip>
-                  ))}
-                </div>
-              </Field>
-              <Field label="Город" htmlFor="welcome-city">
-                <select id="welcome-city" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass()}>
-                  <option value="">Не указан</option>
-                  {meta.cities.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </Field>
-              <Button size="lg" block loading={busy} onClick={() => finish(true)}>
-                Готово
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

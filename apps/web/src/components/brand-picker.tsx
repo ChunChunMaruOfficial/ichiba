@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { useEffect, useId, useRef, useState } from "react";
 import useSWR from "swr";
+import { usePresence } from "@/lib/presence";
 import { inputClass } from "./ui";
 
 function useDebounced<T>(value: T, ms: number) {
@@ -39,10 +40,11 @@ export function BrandPicker({
   error?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const [active, setActive] = useState(-1);
   const box = useRef<HTMLDivElement>(null);
   const listId = useId();
-  const { items } = useBrandSuggestions(value, open);
+  const { items } = useBrandSuggestions(value, pop.mounted);
   const typed = value.trim();
   const exact = items.some((b) => b.toLowerCase() === typed.toLowerCase());
   const options = typed && !exact ? [...items, `__custom__`] : items;
@@ -94,8 +96,9 @@ export function BrandPicker({
           }
         }}
       />
-      {open && options.length > 0 && (
+      {pop.mounted && options.length > 0 && (
         <ul
+          data-closing={pop.closing || undefined}
           id={listId}
           role="listbox"
           className="fade-in absolute inset-x-0 top-[calc(100%+6px)] z-30 max-h-72 overflow-y-auto rounded-2xl border border-line bg-surface p-1.5 shadow-xl"

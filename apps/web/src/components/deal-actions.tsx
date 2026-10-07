@@ -194,7 +194,7 @@ export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) =
   const item = deal.items[0];
   const left = deal.status === "PENDING_SELLER" ? hoursLeft(deal.expiresAt) : null;
   return (
-    <article className={`flex gap-4 rounded-2xl bg-surface p-4 ${deal.needsMyAction ? "border-l-4 border-l-[#d9a100]" : ""}`}>
+    <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5 ${deal.needsMyAction ? "border-l-4 border-l-amber" : ""}`}>
       <Link href={`/deals/${deal.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {item?.cover && (
           // eslint-disable-next-line @next/next/no-img-element

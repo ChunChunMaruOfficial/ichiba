@@ -4,17 +4,17 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { CoreFields, MoreFields, PriceFields } from "@/components/listing-fields";
+import { FormSection } from "@/components/form-section";
+import { DetailFields, HandoverFields, ItemFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
 import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
-import { VideoField } from "@/components/video-field";
-import { issuesById, PhotoAdvice, PriceHint, usePhotoCheck } from "@/components/ai-hints";
+import { usePriceSuggestion } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { type AiState, type ListingValues, type PhotoDraft, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
+import { type AiState, type ListingValues, type PhotoDraft, photosFromListing, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
 import { useListingActions } from "@/lib/listing-actions";
 import type { ListingDetail, ListingResponse } from "@/lib/types";
 
@@ -35,17 +35,22 @@ function Loader({ id }: { id: string }) {
       </EmptyState>
     );
   }
+  if (data.status === "DRAFT") return <DraftRedirect id={data.id} />;
   return <Editor listing={data} onSaved={() => mutate()} />;
 }
 
-const photosFrom = (l: ListingDetail): PhotoDraft[] =>
-  l.photos.map((p) => ({ key: p.id, id: p.id, preview: p.urls.m, status: "done", isDefect: p.isDefect, width: p.width, height: p.height }));
+/** Drafts are finished in /sell, the same flow they were started in. */
+function DraftRedirect({ id }: { id: string }) {
+  const router = useRouter();
+  useEffect(() => router.replace(`/sell?draft=${id}`), [id, router]);
+  return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
+}
 
 function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => void }) {
   const meta = useMeta()!;
   const router = useRouter();
   const toast = useToast();
-  const initial = useMemo(() => ({ values: valuesFromListing(listing), photos: photosFrom(listing) }), [listing]);
+  const initial = useMemo(() => ({ values: valuesFromListing(listing), photos: photosFromListing(listing) }), [listing]);
   const [values, setValues] = useState<ListingValues>(initial.values);
   const [photos, setPhotos] = useState<PhotoDraft[]>(initial.photos);
   const [ai, setAi] = useState<AiState>((listing.owner?.aiAttributes ?? {}) as AiState);
@@ -86,7 +91,11 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
       router.push(`/item/${listing.id}`);
     } catch (err) {
       if (err instanceof ApiError && Object.keys(err.fields).length) setErrors(err.fields);
-      toast(err instanceof ApiError ? err.message : "Не удалось сохранить · Повторите", { tone: "error" });
+      const existing = err instanceof ApiError && err.code === "DUPLICATE" && typeof err.data.duplicateOf === "string" ? err.data.duplicateOf : null;
+      toast(err instanceof ApiError ? err.message : "Не удалось сохранить · Повторите", {
+        tone: "error",
+        ...(existing ? { action: { label: "Открыть", onClick: () => router.push(`/item/${existing}`) } } : {}),
+      });
     } finally {
       setSaving(false);
     }
@@ -131,74 +140,68 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
     setScheduledAt(null);
     onSaved();
   };
-  const photoCheck = usePhotoCheck(photos, values.category);
-  const makeCover = (photoId: string) =>
-    setPhotos((prev) => {
-      const i = prev.findIndex((p) => p.id === photoId);
-      return i > 0 ? [prev[i], ...prev.slice(0, i), ...prev.slice(i + 1)] : prev;
-    });
-  const fieldProps = { values, set, ai, setAi: setAi, errors, meta, photos, setPhotos, locked, mode: "edit" as const, multiSize: draft };
+  const market = usePriceSuggestion(values, photos, listing.id, !locked && listing.auction?.status !== "ACTIVE");
+  const fieldProps = { values, set, ai, setAi: setAi, errors, meta, photos, setPhotos, locked, mode: "edit" as const };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-32 pt-4 md:pb-16 md:pt-8">
+    <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-8">
       <Link href={`/item/${listing.id}`} className="text-sm text-ink-2 hover:text-ink">
         ← К вещи
       </Link>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">{draft ? "Черновик" : "Редактировать вещь"}</h1>
-      {locked && <p className="mt-4 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Идёт сделка — цену, размер, состояние и дефекты менять нельзя.</p>}
+      <h1 className="rise mt-3 text-3xl font-bold tracking-tight md:text-4xl">{draft ? "Черновик" : "Редактировать вещь"}</h1>
+      {locked && <p className="rise mt-4 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Идёт сделка — цену, размер, состояние и дефекты менять нельзя.</p>}
       {draft && scheduledAt && (
-        <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
-          Опубликуется {scheduleLabel(scheduledAt)}. Изменения сохраняются автоматически.
+        <p className="rise mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
+          Опубликуется {scheduleLabel(scheduledAt)}.
           <button type="button" onClick={unschedule} className="font-medium underline underline-offset-4">
             Отменить
           </button>
         </p>
       )}
 
-      <div className="mt-8 grid gap-10 md:grid-cols-[260px_1fr]">
-        <div className="md:sticky md:top-24 md:self-start">
-          <p className="mb-3 text-sm font-medium">Фото</p>
-          <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} issues={issuesById(photoCheck.check)} />
-          <p className="mt-2 text-xs text-muted">Первое фото — обложка. Перетащите, чтобы поменять порядок.</p>
-          <div className="mt-4">
-            <PhotoAdvice check={photoCheck.check} loading={photoCheck.loading} photos={photos} onMakeCover={makeCover} />
+      <div className="mt-8 flex flex-col gap-10">
+        <FormSection kanji="写" title="Фото и видео" index={0}>
+          <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} big video={values.video} onVideo={(video) => set({ video })} />
+        </FormSection>
+        <FormSection kanji="品" title="Что за вещь" index={1}>
+          <ItemFields {...fieldProps} />
+        </FormSection>
+        <FormSection kanji="寸" title="Размер и состояние" index={2}>
+          <SizeConditionFields {...fieldProps} />
+        </FormSection>
+        <FormSection kanji="値" title="Цена" index={3}>
+          <PriceFields values={values} set={set} errors={errors} locked={locked} auctionLocked={listing.auction?.status === "ACTIVE"} market={market} />
+        </FormSection>
+        <FormSection kanji="詳" title="Детали" index={4}>
+          <DetailFields {...fieldProps} />
+        </FormSection>
+        <FormSection kanji="渡" title="Передача" index={5}>
+          <HandoverFields {...fieldProps} />
+        </FormSection>
+        {!draft && (
+          <div className="flex flex-wrap gap-3 pt-2">
+            {listing.status === "PUBLISHED" && (
+              <Button variant="secondary" onClick={() => actions.hide(listing.id)}>
+                Снять с продажи
+              </Button>
+            )}
+            {listing.status === "HIDDEN" && (
+              <Button variant="secondary" onClick={() => actions.unhide(listing.id)}>
+                Вернуть в продажу
+              </Button>
+            )}
+            {!locked && listing.status !== "SOLD" && (
+              <Button variant="secondary" onClick={() => actions.markSold(listing.id)}>
+                Пометить как проданное
+              </Button>
+            )}
+            {!locked && (
+              <button className="ml-auto text-sm text-danger hover:underline" onClick={async () => (await actions.remove(listing.id)) && router.push("/wardrobe")}>
+                Удалить
+              </button>
+            )}
           </div>
-          <div className="mt-4">
-            <VideoField value={values.video} onChange={(video) => set({ video })} />
-          </div>
-        </div>
-        <div className="flex flex-col gap-10">
-          <CoreFields {...fieldProps} />
-          <div className="flex flex-col gap-4">
-            {!locked && listing.auction?.status !== "ACTIVE" && <PriceHint values={values} photos={photos} listingId={listing.id} set={set} />}
-            <PriceFields values={values} set={set} errors={errors} locked={locked} auctionLocked={listing.auction?.status === "ACTIVE"} />
-          </div>
-          <MoreFields {...fieldProps} />
-          {!draft && (
-            <div className="flex flex-wrap gap-3 border-t border-line pt-6">
-              {listing.status === "PUBLISHED" && (
-                <Button variant="secondary" onClick={() => actions.hide(listing.id)}>
-                  Снять с продажи
-                </Button>
-              )}
-              {listing.status === "HIDDEN" && (
-                <Button variant="secondary" onClick={() => actions.unhide(listing.id)}>
-                  Вернуть в продажу
-                </Button>
-              )}
-              {!locked && listing.status !== "SOLD" && (
-                <Button variant="secondary" onClick={() => actions.markSold(listing.id)}>
-                  Пометить как проданное
-                </Button>
-              )}
-              {!locked && (
-                <button className="ml-auto text-sm text-danger hover:underline" onClick={async () => (await actions.remove(listing.id)) && router.push("/wardrobe")}>
-                  Удалить
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:sticky md:bottom-4 md:mt-10 md:justify-end md:rounded-2xl md:border md:shadow-lg">

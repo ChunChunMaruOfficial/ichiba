@@ -7,25 +7,11 @@ import { type AiField, type AiState, type ListingValues, markEdited, type PhotoD
 import type { Meta, SizeSystem } from "@/lib/types";
 import { BrandPicker } from "./brand-picker";
 import { MeasureFields, measureKind } from "./measure-guide";
-import { Button, Chip, Field, IconChevronDown, IconSparkle, Input, inputClass, Textarea } from "./ui";
+import { Nefuda } from "./shop/nefuda";
+import { Button, Chip, Field, IconSparkle, Input, inputClass, Textarea } from "./ui";
 
-/** "AI" badge, or a yellow "check this" hint for 0.5–0.8 confidence (frame 22 UNCERTAINTY). */
-function AiMark({ ai, field }: { ai: AiState; field: AiField }) {
-  const a = ai[field];
-  if (!a || a.edited_by_user) return null;
-  if (a.confidence < 0.8) return <span className="ml-2 inline-flex items-center rounded-md bg-warn-soft px-1.5 py-0.5 text-xs font-medium text-warn">⚠ Не уверен — проверьте</span>;
-  return (
-    <span className="ml-2 inline-flex items-center gap-0.5 rounded-md bg-ai-soft px-1.5 py-0.5 text-xs font-semibold text-ai">
-      <IconSparkle className="size-3" filled /> AI
-    </span>
-  );
-}
-
-const aiFrame = (ai: AiState, field: AiField) => {
-  const a = ai[field];
-  if (!a || a.edited_by_user) return "";
-  return a.confidence < 0.8 ? "!border-[#d9a100] bg-warn-soft/40" : "!border-ai/50";
-};
+/** Condition as the rank stamp of a Japanese second-hand shop: 新 new, 美 as new, 良 good, 並 ordinary wear. */
+const CONDITION_GRADE = { NEW_WITH_TAGS: "新", LIKE_NEW: "美", GOOD: "良", VISIBLE_WEAR: "並" } as const;
 
 const SIZE_SYSTEM_LABEL: Record<SizeSystem, string> = { ALPHA: "Одежда", SHOE_EU: "Обувь EU", JEANS_W: "Джинсы W", OTHER: "Другой" };
 
@@ -40,84 +26,96 @@ export interface FieldsProps {
   setPhotos: (update: (prev: PhotoDraft[]) => PhotoDraft[]) => void;
   /** Fields frozen during a deal (frame 10 EDIT ITEM). */
   locked?: boolean;
-  /** Edit page shows everything expanded and no AI marks. */
   mode: "create" | "edit";
-  /** "Есть и в других размерах" is offered only before publication. */
-  multiSize?: boolean;
 }
 
-/** The core listing fields (frame 10 STEP 3 — HUMAN CONFIRMATION). */
-export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPhotos, locked, multiSize }: FieldsProps) {
+const lockedHint = (locked?: boolean) => (locked ? "Идёт сделка — поле нельзя изменить" : undefined);
+
+/** Fields AI may have filled: editing one marks it as the seller's own (the AI value stays for analytics). */
+function useAiSetter({ set, ai, setAi }: Pick<FieldsProps, "set" | "ai" | "setAi">) {
+  return (field: AiField, patch: Partial<ListingValues>, value: unknown) => {
+    set(patch);
+    setAi(markEdited(ai, field, value));
+  };
+}
+
+/** What the thing is: category, who it's for, title, brand. */
+export function ItemFields(props: FieldsProps) {
+  const { values, set, errors, meta, locked } = props;
+  const setAiValue = useAiSetter(props);
+  const category = meta.categories.find((c) => c.slug === values.category);
+  return (
+    <>
+      <div className="grid gap-7 lg:grid-cols-2">
+        <Field label="Категория" required error={errors.category}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <select
+              aria-label="Категория"
+              value={values.category ?? ""}
+              onChange={(e) => {
+                const c = e.target.value || null;
+                setAiValue("category", { category: c, subcategory: null, sizeValue: null, sizeSystem: null }, c);
+              }}
+              className={inputClass(errors.category)}
+            >
+              <option value="">Выберите</option>
+              {meta.categories.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Подкатегория"
+              value={values.subcategory ?? ""}
+              disabled={!category}
+              onChange={(e) => setAiValue("subcategory", { subcategory: e.target.value || null }, e.target.value || null)}
+              className={clsx(inputClass(), "disabled:opacity-50")}
+            >
+              <option value="">Подкатегория</option>
+              {category?.subcategories.map((s) => (
+                <option key={s.slug} value={s.slug}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </Field>
+        <Field label="Для кого">
+          <div className="flex flex-wrap gap-2">
+            {meta.genders.map((g) => (
+              <Chip key={g.value} disabled={locked} active={values.gender === g.value} onClick={() => set({ gender: values.gender === g.value ? null : g.value })}>
+                {g.label}
+              </Chip>
+            ))}
+          </div>
+        </Field>
+      </div>
+      <div className="grid gap-7 lg:grid-cols-2">
+        <Field label="Название" required error={errors.title} hint={`${values.title.length}/80`}>
+          <Input maxLength={80} value={values.title} onChange={(e) => setAiValue("title", { title: e.target.value }, e.target.value)} error={errors.title} placeholder="Чёрная кожаная куртка Zara" />
+        </Field>
+        <Field label="Бренд">
+          <BrandPicker value={values.brand} onChange={(brand) => setAiValue("brand", { brand }, brand)} />
+          {!values.brand.trim() && <BrandFromTitle title={values.title} onPick={(brand) => setAiValue("brand", { brand }, brand)} />}
+        </Field>
+      </div>
+    </>
+  );
+}
+
+/** Size, condition and defects. */
+export function SizeConditionFields({ values, set, errors, meta, photos, setPhotos, locked }: FieldsProps) {
   const category = meta.categories.find((c) => c.slug === values.category);
   const systems = category?.sizeSystems ?? [];
   const activeSystem = values.sizeSystem && systems.includes(values.sizeSystem) ? values.sizeSystem : systems[0];
   const sizeList = (s: Exclude<SizeSystem, "OTHER">) => meta.sizes[s];
   const [otherSize, setOtherSize] = useState(values.sizeSystem === "OTHER");
-  const [showExtra, setShowExtra] = useState(values.extraSizes.length > 0);
-  const lockedHint = locked ? "Идёт сделка — поле нельзя изменить" : undefined;
-
-  const setAiValue = (field: AiField, patch: Partial<ListingValues>, value: unknown) => {
-    set(patch);
-    setAi(markEdited(ai, field, value));
-  };
 
   return (
-    <div className="flex flex-col gap-7">
-      <Field label="Категория" required error={errors.category}>
-        <span className="-mt-1">
-          <AiMark ai={ai} field="category" />
-        </span>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <select
-            aria-label="Категория"
-            value={values.category ?? ""}
-            onChange={(e) => {
-              const c = e.target.value || null;
-              setAiValue("category", { category: c, subcategory: null, sizeValue: null, sizeSystem: null }, c);
-            }}
-            className={clsx(inputClass(errors.category), aiFrame(ai, "category"))}
-          >
-            <option value="">Выберите</option>
-            {meta.categories.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Подкатегория"
-            value={values.subcategory ?? ""}
-            disabled={!category}
-            onChange={(e) => setAiValue("subcategory", { subcategory: e.target.value || null }, e.target.value || null)}
-            className={clsx(inputClass(), aiFrame(ai, "subcategory"), "disabled:opacity-50")}
-          >
-            <option value="">Подкатегория</option>
-            {category?.subcategories.map((s) => (
-              <option key={s.slug} value={s.slug}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </Field>
-
-      <Field label="Для кого" hint={values.gender ? undefined : "Не выбрано — вещь подходит всем"}>
-        <div className="flex flex-wrap gap-2">
-          {meta.genders.map((g) => (
-            <Chip
-              key={g.value}
-              disabled={locked}
-              active={values.gender === g.value}
-              onClick={() => set({ gender: values.gender === g.value ? null : g.value })}
-            >
-              {g.label}
-            </Chip>
-          ))}
-        </div>
-      </Field>
-
-      {systems.length > 0 && (
-        <Field label="Размер" required error={errors.size} hint={lockedHint ?? "Посмотрите на этикетку"}>
+    <>
+      {systems.length > 0 ? (
+        <Field label="Размер" required error={errors.size} hint={lockedHint(locked)}>
           {systems.length > 1 && (
             <div className="flex gap-4 text-sm">
               {systems.map((s) => (
@@ -128,7 +126,8 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
             </div>
           )}
           <div className="flex flex-wrap gap-2">
-            {activeSystem && activeSystem !== "OTHER" &&
+            {activeSystem &&
+              activeSystem !== "OTHER" &&
               sizeList(activeSystem).map((s) => (
                 <Chip key={s} disabled={locked} active={!otherSize && values.sizeValue === s} onClick={() => (setOtherSize(false), set({ sizeSystem: activeSystem, sizeValue: s, extraSizes: values.extraSizes.filter((x) => x !== s) }))} className="min-w-12 justify-center">
                   {s}
@@ -139,59 +138,39 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
             </Chip>
           </div>
           {otherSize && <Input aria-label="Свой размер" placeholder="Например, 44 RU или One size" disabled={locked} value={values.sizeValue ?? ""} onChange={(e) => set({ sizeSystem: "OTHER", sizeValue: e.target.value || null })} className="max-w-xs" />}
-          {multiSize && activeSystem && activeSystem !== "OTHER" && !otherSize && values.sizeValue && (
-            <div className="mt-3 rounded-xl bg-surface p-3.5">
-              <label className="flex items-center gap-3 text-[15px]">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-[var(--accent)]"
-                  checked={showExtra}
-                  onChange={(e) => {
-                    setShowExtra(e.target.checked);
-                    if (!e.target.checked) set({ extraSizes: [] });
-                  }}
-                />
-                Есть и в других размерах
-              </label>
-              {showExtra && (
-                <>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {sizeList(activeSystem)
-                      .filter((s) => s !== values.sizeValue)
-                      .map((s) => (
-                        <Chip key={s} active={values.extraSizes.includes(s)} onClick={() => set({ extraSizes: values.extraSizes.includes(s) ? values.extraSizes.filter((x) => x !== s) : [...values.extraSizes, s].slice(0, 10) })} className="min-w-12 justify-center">
-                          {s}
-                        </Chip>
-                      ))}
-                  </div>
-                  <p className="mt-2 text-sm text-muted">
-                    {values.extraSizes.length
-                      ? `Опубликуем ${values.extraSizes.length + 1} объявления — по одному на размер, с этими фото и описанием. Покупатель выберет свой размер на странице вещи.`
-                      : "Отметьте размеры, которые у вас тоже есть. Только при фиксированной цене."}
-                  </p>
-                  {errors.extraSizes && <p className="mt-1 text-sm text-danger">{errors.extraSizes}</p>}
-                </>
-              )}
-            </div>
-          )}
         </Field>
+      ) : (
+        <p className="text-sm text-muted">Сначала выберите категорию — появятся размеры</p>
       )}
 
-      <Field label="Состояние" required error={errors.condition} hint={lockedHint}>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {meta.conditions.map((c) => (
-            <label key={c.value} className={clsx("flex cursor-pointer gap-3 rounded-xl border bg-surface p-3.5", values.condition === c.value ? "border-ink" : "border-line", locked && "cursor-not-allowed opacity-60")}>
-              <input type="radio" name="condition" disabled={locked} className="mt-1 accent-[var(--accent)]" checked={values.condition === c.value} onChange={() => set({ condition: c.value })} />
-              <span>
-                <span className="block font-medium">{c.label}</span>
-                <span className="text-sm text-muted">{c.hint}</span>
-              </span>
-            </label>
-          ))}
+      <Field label="Состояние" required error={errors.condition} hint={lockedHint(locked)}>
+        <div role="radiogroup" aria-label="Состояние" className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+          {meta.conditions.map((c, i) => {
+            const on = values.condition === c.value;
+            const grade = CONDITION_GRADE[c.value as keyof typeof CONDITION_GRADE];
+            return (
+              <label key={c.value} className={clsx("cond-card", on && "is-on", locked && "cursor-not-allowed opacity-60")}>
+                <input type="radio" name="condition" disabled={locked} className="sr-only" checked={on} onChange={() => set({ condition: c.value })} />
+                <span className="flex items-start justify-between gap-3">
+                  <span key={on ? "on" : "off"} aria-hidden className={clsx("cond-seal", on && "stamp")}>
+                    {grade ?? "品"}
+                  </span>
+                  {/* wear scale: how much of the life is used, new → worn */}
+                  <span aria-hidden className="mt-1 flex gap-1">
+                    {[0, 1, 2, 3].map((d) => (
+                      <span key={d} className={clsx("h-1.5 w-3 rounded-full", d <= i ? "bg-current opacity-70" : "bg-current opacity-15")} />
+                    ))}
+                  </span>
+                </span>
+                <span className="mt-3 block font-semibold leading-snug">{c.label}</span>
+                <span className="mt-0.5 block text-sm leading-snug opacity-70">{c.hint}</span>
+              </label>
+            );
+          })}
         </div>
       </Field>
 
-      <Field label="Дефекты" required error={errors.defects} hint={lockedHint}>
+      <Field label="Дефекты" required error={errors.defects} hint={lockedHint(locked)}>
         <div className="flex gap-2">
           <Chip disabled={locked} active={values.defectsPresent === false} onClick={() => set({ defectsPresent: false })}>
             Нет
@@ -201,7 +180,7 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
           </Chip>
         </div>
         {values.defectsPresent && (
-          <div className="mt-2 flex flex-col gap-3">
+          <div className="rise mt-2 flex flex-col gap-3">
             <Textarea aria-label="Опишите дефекты" placeholder="Например: небольшая затяжка на левом рукаве" disabled={locked} value={values.defectsDescription} onChange={(e) => set({ defectsDescription: e.target.value })} error={errors.defectsDescription} className="min-h-20" />
             {errors.defectsDescription && <p className="text-sm text-danger">{errors.defectsDescription}</p>}
             {photos.filter((p) => p.status === "done").length > 1 && (
@@ -215,7 +194,7 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
                         type="button"
                         aria-pressed={p.isDefect}
                         onClick={() => setPhotos((prev) => prev.map((x) => (x.key === p.key ? { ...x, isDefect: !x.isDefect } : x)))}
-                        className={clsx("relative h-16 w-13 overflow-hidden rounded-lg border-2", p.isDefect ? "border-[#d9a100]" : "border-transparent opacity-70")}
+                        className={clsx("relative h-16 w-13 overflow-hidden rounded-lg border-2", p.isDefect ? "border-amber" : "border-transparent opacity-70")}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-cover" />
@@ -228,22 +207,7 @@ export function CoreFields({ values, set, ai, setAi, errors, meta, photos, setPh
           </div>
         )}
       </Field>
-
-      <Field label="Название" required error={errors.title} hint={`${values.title.length}/80`}>
-        <span className="-mt-1">
-          <AiMark ai={ai} field="title" />
-        </span>
-        <Input maxLength={80} value={values.title} onChange={(e) => setAiValue("title", { title: e.target.value }, e.target.value)} error={errors.title} className={aiFrame(ai, "title")} placeholder="Чёрная кожаная куртка Zara" />
-      </Field>
-
-      <Field label="Бренд" hint={ai.brand && !ai.brand.edited_by_user ? "Определён по логотипу или бирке" : "Выберите из каталога или впишите свой"}>
-        <span className="-mt-1">
-          <AiMark ai={ai} field="brand" />
-        </span>
-        <BrandPicker value={values.brand} onChange={(brand) => setAiValue("brand", { brand }, brand)} className={aiFrame(ai, "brand")} />
-        {!values.brand.trim() && <BrandFromTitle title={values.title} onPick={(brand) => setAiValue("brand", { brand }, brand)} />}
-      </Field>
-    </div>
+    </>
   );
 }
 
@@ -266,35 +230,23 @@ function BrandFromTitle({ title, onPick }: { title: string; onPick: (brand: stri
   }, [title]);
   if (!found?.brand || found.title !== title.trim()) return null;
   return (
-    <button type="button" onClick={() => onPick(found.brand!)} className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-sm text-accent hover:brightness-95">
+    <button type="button" onClick={() => onPick(found.brand!)} className="pop mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-sm text-accent hover:brightness-95">
       В названии бренд <span className="font-semibold">{found.brand}</span> — указать
     </button>
   );
 }
 
-export function MoreFields(props: FieldsProps) {
-  const { values, set, ai, setAi, errors, meta, mode } = props;
-  const [open, setOpen] = useState(mode === "edit");
+/** Colour, material, measurements and the description. */
+export function DetailFields(props: FieldsProps) {
+  const { values, set, ai, setAi, errors, meta } = props;
+  const setAiValue = useAiSetter(props);
   const [regenerating, setRegenerating] = useState(false);
-  const setAiValue = (field: AiField, patch: Partial<ListingValues>, value: unknown) => {
-    set(patch);
-    setAi(markEdited(ai, field, value));
-  };
 
   const regenerate = async () => {
     setRegenerating(true);
     const defects = values.defectsPresent ? values.defectsDescription : null;
     const r = await api<{ description: string | null }>("/ai/describe", {
-      body: {
-        title: values.title || "Вещь",
-        category: values.category,
-        brand: values.brand || null,
-        color: values.color,
-        size: values.sizeValue,
-        condition: values.condition,
-        defects,
-        material: values.material,
-      },
+      body: { title: values.title || "Вещь", category: values.category, brand: values.brand || null, color: values.color, size: values.sizeValue, condition: values.condition, defects, material: values.material },
     }).catch(() => ({ description: null }));
     setRegenerating(false);
     if (r.description) {
@@ -303,9 +255,25 @@ export function MoreFields(props: FieldsProps) {
     }
   };
 
-  const body = (
-    <div className="flex flex-col gap-7">
-      <div className="grid gap-7 sm:grid-cols-2">
+  return (
+    <>
+      <div className="grid gap-7 lg:grid-cols-[1fr_280px]">
+        <Field label="Цвет">
+          <div className="flex flex-wrap gap-2">
+            {meta.colors.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                aria-pressed={values.color === c.value}
+                onClick={() => setAiValue("color", { color: values.color === c.value ? null : c.value }, c.value)}
+                className={clsx("flex items-center gap-2 rounded-full border bg-surface py-1 pl-1 pr-3 text-sm transition-transform duration-200 hover:-translate-y-0.5", values.color === c.value ? "border-ink" : "border-line")}
+              >
+                <span className="size-6 rounded-full border border-black/10" style={{ background: c.hex }} />
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </Field>
         <Field label="Материал">
           <select value={values.material ?? ""} onChange={(e) => set({ material: e.target.value || null })} className={inputClass()}>
             <option value="">Не указан</option>
@@ -316,144 +284,135 @@ export function MoreFields(props: FieldsProps) {
         </Field>
       </div>
 
-      <Field label="Цвет">
-        <span className="-mt-1">
-          <AiMark ai={ai} field="color" />
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {meta.colors.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              aria-pressed={values.color === c.value}
-              onClick={() => setAiValue("color", { color: values.color === c.value ? null : c.value }, c.value)}
-              className={clsx("flex items-center gap-2 rounded-full border bg-surface py-1 pl-1 pr-3 text-sm", values.color === c.value ? "border-ink" : "border-line")}
-            >
-              <span className="size-6 rounded-full border border-black/10" style={{ background: c.hex }} />
-              {c.label}
-            </button>
-          ))}
-        </div>
-      </Field>
-
       {measureKind(values.category) && (
-        <Field label="Замеры, см" hint="По замерам покупатели видят, подойдёт ли вещь. Измеряйте в разложенном виде">
+        <Field label="Замеры, см">
           <MeasureFields values={values} set={set} />
         </Field>
       )}
 
       <Field label="Описание" error={errors.description} hint={`${values.description.length}/2000`}>
-        <span className="-mt-1">
-          <AiMark ai={ai} field="description" />
-        </span>
-        <Textarea maxLength={2000} value={values.description} onChange={(e) => setAiValue("description", { description: e.target.value }, e.target.value)} className={aiFrame(ai, "description")} placeholder="Фасон, посадка, детали…" />
+        <Textarea maxLength={2000} value={values.description} onChange={(e) => setAiValue("description", { description: e.target.value }, e.target.value)} className="min-h-32" placeholder="Фасон, посадка, детали…" />
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="secondary" loading={regenerating} onClick={regenerate} disabled={!values.title}>
-            <IconSparkle className="size-4" /> {values.description ? "Перегенерировать" : "Составить с AI"}
+            <IconSparkle className="size-4" /> {values.description ? "Переписать" : "Написать за меня"}
           </Button>
         </div>
       </Field>
-
-      <div className="grid gap-7 sm:grid-cols-2">
-        <Field label="Город">
-          <select value={values.city ?? ""} onChange={(e) => set({ city: e.target.value || null })} className={inputClass()}>
-            <option value="">Не указан</option>
-            {meta.cities.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Способ передачи" required error={errors.deliveryOptions}>
-          <div className="flex flex-col gap-2">
-            {(
-              [
-                ["IN_PERSON", "Передача лично"],
-                ["PICKUP", "Самовывоз"],
-                ["DELIVERY", "Доставка (отправляете сами, вводите трек)"],
-              ] as const
-            ).map(([v, label]) => (
-              <label key={v} className="flex items-center gap-3 text-[15px]">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-[var(--accent)]"
-                  checked={values.deliveryOptions.includes(v)}
-                  onChange={(e) => set({ deliveryOptions: e.target.checked ? [...values.deliveryOptions, v] : values.deliveryOptions.filter((x) => x !== v) })}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </Field>
-      </div>
-    </div>
+    </>
   );
+}
 
-  if (mode === "edit") return body;
+/** Where the seller is and how the thing changes hands. */
+export function HandoverFields({ values, set, errors, meta }: FieldsProps) {
   return (
-    <div className="rounded-2xl border border-line">
-      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between px-4 py-3.5 text-left font-medium">
-        Ещё детали
-        <span className="flex items-center gap-2 text-sm font-normal text-muted">
-          цвет, замеры, описание, передача
-          <IconChevronDown className={clsx("size-4 transition-transform", open && "rotate-180")} />
-        </span>
-      </button>
-      {open && <div className="border-t border-line p-4">{body}</div>}
+    <div className="grid gap-7 lg:grid-cols-2">
+      <Field label="Город">
+        <select value={values.city ?? ""} onChange={(e) => set({ city: e.target.value || null })} className={inputClass()}>
+          <option value="">Не указан</option>
+          {meta.cities.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Способ передачи" required error={errors.deliveryOptions}>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["IN_PERSON", "Передача лично"],
+              ["PICKUP", "Самовывоз"],
+              ["DELIVERY", "Доставка"],
+            ] as const
+          ).map(([v, label]) => (
+            <Chip key={v} active={values.deliveryOptions.includes(v)} onClick={() => set({ deliveryOptions: values.deliveryOptions.includes(v) ? values.deliveryOptions.filter((x) => x !== v) : [...values.deliveryOptions, v] })}>
+              {label}
+            </Chip>
+          ))}
+        </div>
+      </Field>
     </div>
   );
 }
 
-export function PriceFields({ values, set, errors, locked, auctionLocked }: Pick<FieldsProps, "values" | "set" | "errors" | "locked"> & { auctionLocked?: boolean }) {
+export function PriceFields({
+  values,
+  set,
+  errors,
+  locked,
+  auctionLocked,
+  market,
+}: Pick<FieldsProps, "values" | "set" | "errors" | "locked"> & { auctionLocked?: boolean; market?: { recommended: number; low: number; high: number } | null }) {
   const auction = values.saleType === "AUCTION";
   const price = Number(values.price) || 0;
   const autoStep = price ? Math.max(1, Math.round(price * 0.05)) : null;
-  const original = Number(values.originalPrice) || 0;
-  const discount = price && original > price ? Math.round((1 - price / original) * 100) : 0;
   return (
     <div className="flex flex-col gap-7">
-      <fieldset disabled={auctionLocked}>
-        <legend className="mb-2 text-sm font-medium">Как продаём?</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
+      {/* The price is written on the shop's paper tag itself; how it's sold is chosen beside it. */}
+      <div className="grid items-start gap-8 md:grid-cols-2">
+        <div className="flex flex-col gap-3" data-error={errors.price ? "" : undefined}>
+          <label className={clsx("block pl-8 text-[56px] font-bold md:text-[64px]", (locked || auctionLocked) && "opacity-60")}>
+            <Nefuda className={clsx("tabular w-full [&>span:last-child]:flex-1", errors.price && "[&>span:last-child]:shadow-[inset_0_0_0_2px_var(--danger)]")}>
+              <span className="flex w-full flex-col gap-1.5 py-[0.28em]">
+                <span className="text-[13px] font-semibold uppercase tracking-[0.18em] opacity-60">
+                  {auction ? "Стартовая цена" : "Цена"}
+                  <span className="text-danger"> ★</span>
+                </span>
+                <span className="flex items-baseline gap-2">
+                  <input
+                    inputMode="numeric"
+                    disabled={locked || auctionLocked}
+                    value={values.price}
+                    onChange={(e) => set({ price: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                    placeholder="0"
+                    aria-label={auction ? "Стартовая цена, BYN" : "Цена, BYN"}
+                    aria-invalid={!!errors.price}
+                    style={{ width: `${Math.max(values.price.length, 1) + 0.4}ch` }}
+                    className="min-w-0 bg-transparent text-inherit outline-none placeholder:text-kraft-ink/30"
+                  />
+                  <span className="text-[0.45em] opacity-70">BYN</span>
+                </span>
+              </span>
+            </Nefuda>
+          </label>
+          {errors.price ? (
+            <p className="pl-8 text-sm text-danger">{errors.price}</p>
+          ) : locked ? (
+            <p className="pl-8 text-sm text-muted">Идёт сделка — цену нельзя изменить</p>
+          ) : (
+            market &&
+            !auctionLocked && (
+              <p className="pop pl-8 text-sm text-muted">
+                Рыночная цена:{" "}
+                <button type="button" onClick={() => set({ price: String(market.recommended) })} className="tabular font-semibold text-ink underline decoration-dotted underline-offset-4 hover:text-indigo" title="Поставить эту цену">
+                  {market.recommended} BYN
+                </button>
+                <span className="tabular"> · обычно {market.low}–{market.high} BYN</span>
+              </p>
+            )
+          )}
+        </div>
+
+        <fieldset disabled={auctionLocked} className="flex flex-col gap-2">
+          <legend className="sr-only">Как продаём?</legend>
           {(
             [
-              ["FIXED", "Фиксированная цена", "Покупатель жмёт «Купить» или предлагает свою цену"],
-              ["AUCTION", "Аукцион", "Ставки по времени — вещь уйдёт тому, кто предложит больше"],
+              ["FIXED", "Фиксированная цена", "«Купить» или предложение цены"],
+              ["AUCTION", "Аукцион", "Ставки, вещь уйдёт тому, кто больше"],
             ] as const
           ).map(([v, label, hint]) => (
-            <label key={v} className={clsx("flex cursor-pointer gap-3 rounded-xl border bg-surface p-3.5", values.saleType === v ? "border-ink" : "border-line", auctionLocked && "cursor-not-allowed opacity-60")}>
-              <input type="radio" name="saleType" className="mt-1 accent-[var(--accent)]" checked={values.saleType === v} onChange={() => set({ saleType: v })} />
+            <label key={v} className={clsx("flex cursor-pointer gap-3 rounded-xl border bg-surface p-4 transition-[border-color,transform] duration-200 hover:-translate-y-0.5", values.saleType === v ? "border-indigo shadow-[inset_0_0_0_1px_var(--indigo)]" : "border-line", auctionLocked && "cursor-not-allowed opacity-60")}>
+              <input type="radio" name="saleType" className="mt-1 accent-[var(--indigo)]" checked={values.saleType === v} onChange={() => set({ saleType: v })} />
               <span>
                 <span className="block font-medium">{label}</span>
                 <span className="text-sm text-muted">{hint}</span>
               </span>
             </label>
           ))}
-        </div>
-        {auctionLocked && <p className="mt-2 text-sm text-muted">Идёт аукцион — условия торгов менять нельзя.</p>}
-      </fieldset>
-
-      <Field label={auction ? "Стартовая цена, BYN" : "Цена, BYN"} required error={errors.price} hint={locked ? "Идёт сделка — цену нельзя изменить" : auction ? "С неё начнутся ставки" : undefined}>
-        <div className="relative max-w-xs">
-          <Input
-            inputMode="numeric"
-            disabled={locked || auctionLocked}
-            value={values.price}
-            onChange={(e) => set({ price: e.target.value.replace(/\D/g, "").slice(0, 6) })}
-            error={errors.price}
-            className="tabular h-16 pr-16 text-3xl font-semibold"
-            placeholder="0"
-            aria-label={auction ? "Стартовая цена, BYN" : "Цена, BYN"}
-          />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg text-muted">BYN</span>
-        </div>
-      </Field>
-
-      <Field label="Цена в магазине, BYN" error={errors.originalPrice} hint={discount ? `Покупатели увидят «−${discount}% от цены в магазине»` : "Сколько вещь стоила новой — покупателям проще оценить выгоду"}>
-        <Input inputMode="numeric" value={values.originalPrice} onChange={(e) => set({ originalPrice: e.target.value.replace(/\D/g, "").slice(0, 7) })} error={errors.originalPrice} className="max-w-xs" placeholder="Необязательно" />
-      </Field>
+          {auctionLocked && <p className="mt-1 text-sm text-muted">Идёт аукцион — условия торгов менять нельзя.</p>}
+        </fieldset>
+      </div>
 
       {auction ? (
-        <div className="flex flex-col gap-6 rounded-2xl bg-surface p-4">
+        <div className="rise flex flex-col gap-6 rounded-2xl bg-surface p-4 md:p-5">
           <Field label="Длительность">
             <div className="flex flex-wrap gap-2">
               {(
@@ -469,35 +428,33 @@ export function PriceFields({ values, set, errors, locked, auctionLocked }: Pick
               ))}
             </div>
           </Field>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <Field label="Шаг ставки, BYN" error={errors.auctionStep} hint={autoStep ? `Если не указать — ${autoStep} BYN (5% от старта)` : "По умолчанию 5% от старта"}>
+          <div className="grid gap-6 sm:grid-cols-3">
+            <Field label="Шаг ставки, BYN" error={errors.auctionStep} hint={autoStep ? `По умолчанию ${autoStep} BYN` : undefined}>
               <Input inputMode="numeric" disabled={auctionLocked} value={values.auctionStep} onChange={(e) => set({ auctionStep: e.target.value.replace(/\D/g, "") })} error={errors.auctionStep} placeholder={autoStep ? String(autoStep) : ""} />
             </Field>
-            <Field label="Резервная цена (не видна покупателям)" error={errors.auctionReserve} hint="Ниже неё вещь не продаётся — останется в продаже по стартовой цене">
+            <Field label="Резервная цена" error={errors.auctionReserve} hint="Не видна покупателям">
               <Input inputMode="numeric" disabled={auctionLocked} value={values.auctionReserve} onChange={(e) => set({ auctionReserve: e.target.value.replace(/\D/g, "") })} error={errors.auctionReserve} placeholder="Необязательно" />
             </Field>
-            <Field label="Цена «Купить сейчас», BYN" error={errors.auctionBuyNow} hint="Покупатель может сразу выкупить вещь, пока ставки ниже 75% этой цены">
+            <Field label="Цена «Купить сейчас», BYN" error={errors.auctionBuyNow}>
               <Input inputMode="numeric" disabled={auctionLocked} value={values.auctionBuyNow} onChange={(e) => set({ auctionBuyNow: e.target.value.replace(/\D/g, "") })} error={errors.auctionBuyNow} placeholder="Необязательно" />
             </Field>
           </div>
-          <p className="text-sm text-muted">Ставка в последние 5 минут продлевает аукцион. Победитель выбирает способ получения в течение 48 часов, иначе вещь предложим следующему участнику. Отменить аукцион можно до первой ставки.</p>
         </div>
       ) : (
-        <div className="rounded-2xl bg-surface p-4">
+        <div className="rounded-2xl bg-surface p-4 md:p-5">
           <label className="flex items-center justify-between gap-4">
             <span>
               <span className="block font-medium">Готовы торговаться?</span>
-              <span className="text-sm text-muted">Покупатели смогут предложить свою цену</span>
-            </span>
+                          </span>
             <input type="checkbox" className="size-5 accent-[var(--accent)]" checked={values.acceptsOffers} onChange={(e) => set({ acceptsOffers: e.target.checked })} />
           </label>
           {values.acceptsOffers && (
-            <div className="mt-4">
+            <div className="rise mt-4">
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Автоотказ ниже, BYN" error={errors.minOfferPrice} hint="Предложения ниже отклоним сразу. Покупатели порог не видят">
+                <Field label="Автоотказ ниже, BYN" error={errors.minOfferPrice}>
                   <Input inputMode="numeric" value={values.minOfferPrice} onChange={(e) => set({ minOfferPrice: e.target.value.replace(/\D/g, "") })} error={errors.minOfferPrice} placeholder="Необязательно" />
                 </Field>
-                <Field label="Автопринятие от, BYN" error={errors.autoAcceptPrice} hint="Предложение от этой суммы примем за вас — сразу откроется сделка">
+                <Field label="Автопринятие от, BYN" error={errors.autoAcceptPrice}>
                   <Input inputMode="numeric" value={values.autoAcceptPrice} onChange={(e) => set({ autoAcceptPrice: e.target.value.replace(/\D/g, "") })} error={errors.autoAcceptPrice} placeholder="Необязательно" />
                 </Field>
               </div>

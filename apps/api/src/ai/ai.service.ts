@@ -60,7 +60,7 @@ ${subcategoryList}
 - brand — только если на фото читается логотип или бирка с брендом. Иначе пустая строка и brand_confidence 0.
 - style_tags — от 0 до 3 из: ${STYLE_TAGS.join(', ')}.
 - title — по-русски, по шаблону «{Цвет} {вещь} {бренд}», до 80 символов, например «Чёрная кожаная куртка Zara».
-- description — 1–3 коротких предложения по-русски только о том, что видно на фото (фасон, детали, фактура). Не пиши о размере, состоянии, материале, дефектах и подлинности — их подтверждает продавец.
+- description — 1–3 коротких предложения по-русски только о том, что видно на фото (фасон, детали, фактура). Не пиши о размере, состоянии, материале, дефектах и подлинности — их подтверждает продавец. Не повторяй бренд и цвет — они показаны отдельными полями.
 - *_confidence — от 0 до 1, насколько ты уверен.
 - not_clothing — на фото нет одежды, обуви, сумки или аксессуара. prohibited — похоже на запрещённый товар. inappropriate — неприемлемое изображение.`;
 
@@ -185,13 +185,14 @@ export class AiService {
       fields.material && `Материал: ${fields.material}`,
       fields.defects ? `Дефекты: ${fields.defects}` : 'Дефектов нет',
     ].filter(Boolean);
-    const fallback = this.templateDescription(fields.title, fields.size, condition, fields.defects);
+    const fallback = this.templateDescription(fields.title, fields.defects);
     if (!this.ensemble.available) return fallback;
 
     const { votes } = await this.ensemble.run({
       feature: 'listing_describe',
       system:
-        'Напиши описание вещи для объявления на маркетплейсе одежды: 2–4 простых предложения по-русски, без эмодзи, без преувеличений и без контактов. Используй только факты из списка — ничего не добавляй.',
+        'Напиши описание вещи для объявления на маркетплейсе одежды: 2–3 простых предложения по-русски, без эмодзи, без преувеличений и без контактов. ' +
+        'Бренд, размер, цвет, состояние и материал покупатель уже видит в отдельных полях — не повторяй их. Опиши фасон и детали из названия, стиль, с чем носить и для какого случая; дефекты, если есть, — своими словами. Не выдумывай фактов, которых нет в списке.',
       prompt: facts.join('\n'),
       schema: z.object({ description: z.string() }),
       tier: 'fast',
@@ -206,9 +207,8 @@ export class AiService {
     return best ? best.slice(0, 2000) : fallback;
   }
 
-  private templateDescription(title: string, size?: string | null, condition?: string, defects?: string | null) {
-    return [`${title}${size ? `, размер ${size}` : ''}.`, condition && `Состояние: ${condition.toLowerCase()}.`, defects ? `Дефекты: ${defects}.` : 'Дефектов нет.']
-      .filter(Boolean)
-      .join(' ');
+  /** Size, brand and condition are separate fields, so the fallback doesn't repeat them. */
+  private templateDescription(title: string, defects?: string | null) {
+    return defects ? `${title}. Есть нюанс: ${defects}.` : `${title}. Без дефектов, готова к носке.`;
   }
 }

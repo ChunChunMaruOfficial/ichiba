@@ -2,9 +2,12 @@
 
 import clsx from "clsx";
 import { useRef, useState } from "react";
-import { ApiError, uploadPhoto } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { uploadPhoto } from "@/lib/upload";
 import type { PhotoDraft } from "@/lib/listing-form";
-import type { PhotoIssue } from "@/lib/types";
+import type { VideoView } from "@/lib/types";
+import { uploadVideo, VIDEO_ACCEPT } from "@/lib/video";
+import { Furoshiki } from "./shop/furoshiki";
 import { IconCamera, IconChevronLeft, IconChevronRight, IconPlus, IconX, Spinner } from "./ui";
 
 const MAX_PHOTOS = 10;
@@ -13,29 +16,48 @@ const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
 let seq = 0;
 
-/** Upload zone + thumbnails with progress, remove and reorder; first photo is the cover (frame 10 STEP 1). */
+/**
+ * Upload zone + thumbnails with progress, remove and reorder; first photo is the cover (frame 10 STEP 1).
+ * With `onVideo`, the same «+» tile also takes the listing's one short video, shown as the last tile.
+ */
 export function PhotoManager({
   photos,
   onChange,
   big,
   error,
-  issues,
+  video,
+  onVideo,
 }: {
   photos: PhotoDraft[];
   onChange: (update: (prev: PhotoDraft[]) => PhotoDraft[]) => void;
   big?: boolean;
   error?: string;
-  /** AI photo check results by photo id: a marker on the thumbnail. */
-  issues?: Record<string, PhotoIssue[]>;
+  video?: VideoView | null;
+  onVideo?: (v: VideoView | null) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [dragKey, setDragKey] = useState<string | null>(null);
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const takesVideo = !!onVideo && !video && !videoBusy;
+
+  const addVideo = (file: File) => {
+    setVideoError(null);
+    setVideoBusy(true);
+    uploadVideo(file)
+      .then((v) => onVideo?.(v))
+      .catch((e) => setVideoError(e instanceof Error ? e.message : "Не удалось загрузить видео"))
+      .finally(() => setVideoBusy(false));
+  };
 
   const add = (files: FileList | File[]) => {
+    const all = Array.from(files);
+    const clip = all.find((f) => f.type.startsWith("video/"));
+    if (clip && takesVideo) addVideo(clip);
     const room = MAX_PHOTOS - photos.length;
-    const list = Array.from(files).slice(0, Math.max(0, room));
+    const list = all.filter((f) => !f.type.startsWith("video/")).slice(0, Math.max(0, room));
     for (const file of list) {
       const key = `p${++seq}`;
       const preview = URL.createObjectURL(file);
@@ -44,8 +66,8 @@ export function PhotoManager({
         continue;
       }
       onChange((prev) => [...prev, { key, preview, status: "uploading", isDefect: false }]);
-      uploadPhoto(file)
-        .then((r) => onChange((prev) => prev.map((p) => (p.key === key ? { ...p, id: r.id, status: "done", width: r.width, height: r.height } : p))))
+      uploadPhoto(file, (progress) => onChange((prev) => prev.map((p) => (p.key === key && p.status === "uploading" ? { ...p, progress } : p))))
+        .then((r) => onChange((prev) => prev.map((p) => (p.key === key ? { ...p, id: r.id, status: "done", progress: undefined, width: r.width, height: r.height } : p))))
         .catch((e) =>
           onChange((prev) =>
             prev.map((p) => (p.key === key ? { ...p, status: "error", error: e instanceof ApiError ? (e.code === "TOO_SMALL" ? "Фото слишком маленькое" : e.message) : "Не загрузилось" } : p)),
@@ -77,7 +99,7 @@ export function PhotoManager({
 
   const pickers = (
     <>
-      <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => (e.target.files && add(e.target.files), (e.target.value = ""))} />
+      <input ref={input} type="file" accept={takesVideo ? `${ACCEPT},${VIDEO_ACCEPT}` : ACCEPT} multiple hidden onChange={(e) => (e.target.files && add(e.target.files), (e.target.value = ""))} />
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => (e.target.files && add(e.target.files), (e.target.value = ""))} />
     </>
   );
@@ -95,22 +117,19 @@ export function PhotoManager({
             add(e.dataTransfer.files);
           }}
           className={clsx(
-            "flex min-h-[55vh] flex-col items-center justify-center gap-5 rounded-3xl border-2 border-dashed p-8 text-center transition-colors",
-            dragOver ? "border-accent bg-accent-soft" : error ? "border-danger" : "border-line-strong bg-surface",
+            "rise pattern-asanoha flex min-h-[52vh] flex-col items-center justify-center gap-6 rounded-[28px] border-2 border-dashed p-8 text-center transition-[border-color,background-color,transform] duration-300",
+            dragOver ? "scale-[1.01] border-indigo bg-indigo-soft" : error ? "border-danger" : "border-line-strong bg-surface",
           )}
         >
-          <span className="grid size-16 place-items-center rounded-full bg-paper">
-            <IconCamera className="size-8 text-ink-2" />
-          </span>
+          <Furoshiki className={clsx("h-36 transition-transform duration-500", dragOver ? "-translate-y-2 rotate-[-4deg]" : "sway")} />
           <div className="flex flex-wrap justify-center gap-3">
-            <button type="button" onClick={() => input.current?.click()} className="inline-flex h-12 items-center gap-2 rounded-xl bg-accent px-6 font-semibold text-accent-ink hover:bg-accent-hover">
+            <button type="button" onClick={() => input.current?.click()} className="btn-wa btn-wa-ink inline-flex h-12 items-center gap-2 px-7 font-semibold">
               <IconPlus className="size-5" /> Добавить фото
             </button>
-            <button type="button" onClick={() => camera.current?.click()} className="inline-flex h-12 items-center gap-2 rounded-xl border border-line-strong bg-surface px-6 font-semibold md:hidden">
+            <button type="button" onClick={() => camera.current?.click()} className="btn-wa btn-wa-paper inline-flex h-12 items-center gap-2 px-7 font-semibold md:hidden">
               <IconCamera className="size-5" /> Сделать фото
             </button>
           </div>
-          <p className="max-w-sm text-sm text-muted">До 10 фото. Первое станет обложкой. Лучше при дневном свете, вещь целиком. Можно перетащить файлы сюда.</p>
           {error && <p className="text-sm text-danger">{error}</p>}
         </div>
       </div>
@@ -132,30 +151,23 @@ export function PhotoManager({
               if (dragKey) moveTo(dragKey, p.key);
               setDragKey(null);
             }}
-            className={clsx("group relative h-[120px] w-24 overflow-hidden rounded-xl bg-skeleton", p.status === "error" && "ring-2 ring-danger", dragKey === p.key && "opacity-50")}
+            className={clsx("pop group relative overflow-hidden rounded-2xl bg-skeleton shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-1", big ? "h-[200px] w-40" : "h-[150px] w-[120px]", p.status === "error" && "ring-2 ring-danger", dragKey === p.key && "opacity-50")}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-cover" />
             {p.status === "uploading" && (
-              <span className="absolute inset-0 grid place-items-center bg-white/60" aria-label="Загружается">
+              <span className="absolute inset-0 grid place-items-center bg-surface/60" aria-label="Загружается">
                 <Spinner className="size-6 text-ink" />
-              </span>
-            )}
-            {p.status === "error" && <span className="absolute inset-x-0 bottom-0 bg-danger px-1 py-0.5 text-center text-[10px] font-medium text-white">{p.error}</span>}
-            {i === 0 && p.status !== "error" && <span className="absolute left-1 top-1 rounded bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-white">Обложка</span>}
-            {p.isDefect && i !== 0 && <span className="absolute left-1 top-1 rounded bg-warn-soft px-1.5 py-0.5 text-[10px] font-semibold text-warn">Дефект</span>}
-            {p.id && issues?.[p.id]?.some((x) => x.severity !== "info") && (
-              <span
-                title={issues[p.id].map((x) => x.text).join(". ")}
-                aria-label={issues[p.id].map((x) => x.text).join(". ")}
-                className={clsx(
-                  "absolute bottom-1 left-1 grid size-5 place-items-center rounded-full text-[11px] font-bold text-white shadow group-hover:opacity-0",
-                  issues[p.id].some((x) => x.severity === "error") ? "bg-danger" : "bg-[#d9a100]",
+                {p.progress != null && (
+                  <span className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-full bg-ink/10">
+                    <span className="block h-full rounded-full bg-accent transition-[width]" style={{ width: `${Math.round(p.progress * 100)}%` }} />
+                  </span>
                 )}
-              >
-                !
               </span>
             )}
+            {p.status === "error" && <span className="absolute inset-x-0 bottom-0 bg-danger px-1 py-0.5 text-center text-[10px] font-medium text-on-danger">{p.error}</span>}
+            {i === 0 && p.status !== "error" && <span className="absolute left-1.5 top-1.5 rounded-md bg-shu px-1.5 py-0.5 text-[10px] font-semibold text-on-shu">Обложка</span>}
+            {p.isDefect && i !== 0 && <span className="absolute left-1 top-1 rounded bg-warn-soft px-1.5 py-0.5 text-[10px] font-semibold text-warn">Дефект</span>}
             <button type="button" aria-label="Удалить фото" onClick={() => onChange((prev) => prev.filter((x) => x.key !== p.key))} className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white">
               <IconX className="size-3.5" />
             </button>
@@ -169,16 +181,32 @@ export function PhotoManager({
             </div>
           </li>
         ))}
-        {photos.length < MAX_PHOTOS && (
+        {video && (
+          <li className={clsx("pop group relative overflow-hidden rounded-2xl bg-black shadow-[var(--shadow-paper)]", big ? "h-[200px] w-40" : "h-[150px] w-[120px]")}>
+            <video src={video.url} poster={video.poster} muted playsInline preload="metadata" className="size-full object-cover" onMouseEnter={(e) => void e.currentTarget.play().catch(() => {})} onMouseLeave={(e) => e.currentTarget.pause()} />
+            <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">▶ {Math.round(video.durationMs / 1000)} с</span>
+            <button type="button" aria-label="Убрать видео" onClick={() => onVideo?.(null)} className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white">
+              <IconX className="size-3.5" />
+            </button>
+          </li>
+        )}
+        {videoBusy && (
+          <li className={clsx("pop grid place-items-center rounded-2xl bg-skeleton text-xs text-ink-2", big ? "h-[200px] w-40" : "h-[150px] w-[120px]")} aria-label="Загружаем видео">
+            <span className="flex flex-col items-center gap-2">
+              <Spinner className="size-6" /> видео…
+            </span>
+          </li>
+        )}
+        {(photos.length < MAX_PHOTOS || takesVideo) && (
           <li>
-            <button type="button" onClick={() => input.current?.click()} className="flex h-[120px] w-24 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line-strong text-sm text-ink-2 hover:border-ink">
-              <IconPlus /> Фото
+            <button type="button" onClick={() => input.current?.click()} className={clsx("flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line-strong text-sm text-ink-2 transition-colors hover:border-indigo hover:text-indigo", big ? "h-[200px] w-40" : "h-[150px] w-[120px]")}>
+              <IconPlus /> {takesVideo ? "Фото, видео" : "Фото"}
             </button>
           </li>
         )}
       </ul>
-      <p className="mt-3 text-sm text-muted">Вещь целиком · Этикетка с размером · Дефекты крупно (если есть)</p>
       {error && <p className="mt-1 text-sm text-danger">{error}</p>}
+      {videoError && <p className="mt-1 text-sm text-danger">{videoError}</p>}
     </div>
   );
 }

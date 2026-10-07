@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geologica } from "next/font/google";
+import { Spectral, Yuji_Syuku } from "next/font/google";
 import { CookieNotice } from "@/components/cookie-notice";
+import { Footer } from "@/components/footer";
 import { BottomNav, Header } from "@/components/header";
 import { Providers } from "@/components/providers";
+import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
-const geologica = Geologica({ variable: "--font-geologica", subsets: ["latin", "cyrillic"] });
+// Brand type (design/brand): Spectral serif for everything — titles, text, buttons, prices; Yuji Syuku brush for
+// kanji on seals only (loaded on demand: its Japanese glyphs come in unicode-range chunks).
+const spectral = Spectral({ variable: "--font-spectral", subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700", "800"], display: "swap" });
+const yuji = Yuji_Syuku({ variable: "--font-yuji", subsets: ["latin"], weight: "400", display: "swap", preload: false });
+
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -20,20 +26,26 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#eeefec",
+  themeColor: "#f4efe6",
   viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru" className={geologica.variable}>
+    <html lang="ru" className={`${spectral.variable} ${yuji.variable}`} suppressHydrationWarning>
+      {THEME_SCRIPT && (
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        </head>
+      )}
       <body className="min-h-dvh">
-        <a href="#main" className="sr-only z-[90] rounded-lg bg-ink px-4 py-2 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
+        <a href="#main" className="sr-only z-[90] rounded-lg bg-ink px-4 py-2 text-accent-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
           Перейти к содержимому
         </a>
         <Providers>
           <Header />
-          <main id="main" tabIndex={-1} className="pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+          <main id="main" tabIndex={-1} className="pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+          <Footer />
           <BottomNav />
           <CookieNotice />
         </Providers>

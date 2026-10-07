@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePresence } from "@/lib/presence";
 import type { Photo, VideoView } from "@/lib/types";
 import { IconChevronLeft, IconChevronRight, IconExpand, IconX } from "./ui";
 
@@ -26,6 +27,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
   const strip = useRef<HTMLDivElement>(null);
   const count = photos.length + (video ? 1 : 0);
   const onVideo = !!video && index === photos.length;
+  const viewer = usePresence(fullscreen && !onVideo);
   const go = useCallback((i: number) => onIndex((i + count) % count), [onIndex, count]);
 
   // Keep the mobile carousel in sync when the index changes from outside (e.g. "Смотреть на фото" for defects).
@@ -134,12 +136,12 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
         )}
       </div>
 
-      {fullscreen && !onVideo && <Fullscreen photos={photos} index={Math.min(index, photos.length - 1)} onIndex={(i) => onIndex((i + photos.length) % photos.length)} onClose={() => setFullscreen(false)} />}
+      {viewer.mounted && <Fullscreen photos={photos} index={Math.min(index, photos.length - 1)} onIndex={(i) => onIndex((i + photos.length) % photos.length)} onClose={() => setFullscreen(false)} closing={viewer.closing} />}
     </div>
   );
 }
 
-function Fullscreen({ photos, index, onIndex, onClose }: { photos: Photo[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
+function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Photo[]; index: number; onIndex: (i: number) => void; onClose: () => void; closing: boolean }) {
   const [zoom, setZoom] = useState(1);
   const [zoomFor, setZoomFor] = useState(index);
   if (zoomFor !== index) {
@@ -167,7 +169,8 @@ function Fullscreen({ photos, index, onIndex, onClose }: { photos: Photo[]; inde
       role="dialog"
       aria-modal="true"
       aria-label="Просмотр фото"
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black"
+      data-closing={closing || undefined}
+      className="fade-in fixed inset-0 z-[80] flex items-center justify-center bg-black"
       onWheel={(e) => setZoom((z) => Math.min(3, Math.max(1, z - e.deltaY * 0.002)))}
       onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
       onTouchEnd={(e) => {

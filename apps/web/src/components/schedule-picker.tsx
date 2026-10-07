@@ -1,6 +1,8 @@
 "use client";
 
+import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
+import { usePresence } from "@/lib/presence";
 import { Button, Input } from "./ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -33,8 +35,9 @@ function presets() {
 }
 
 /** "Опубликовать позже" (eBay scheduled listings): pick a time up to 30 days ahead. */
-export function SchedulePicker({ onSchedule, disabled }: { onSchedule: (at: Date) => void; disabled?: boolean }) {
+export function SchedulePicker({ onSchedule, disabled, className, buttonClassName }: { onSchedule: (at: Date) => void; disabled?: boolean; className?: string; buttonClassName?: string }) {
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const [value, setValue] = useState("");
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -50,12 +53,12 @@ export function SchedulePicker({ onSchedule, disabled }: { onSchedule: (at: Date
   const valid = !!chosen && value >= bounds.min && value <= bounds.max;
 
   return (
-    <div ref={box} className="relative">
-      <Button type="button" variant="secondary" disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        Позже…
+    <div ref={box} className={clsx("relative", className)}>
+      <Button type="button" variant="secondary" size="lg" disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open} className={buttonClassName}>
+        Запланировать
       </Button>
-      {open && (
-        <div className="fade-in absolute bottom-[calc(100%+8px)] left-0 z-50 w-[min(88vw,320px)] rounded-2xl border border-line bg-surface p-4 shadow-xl md:left-auto md:right-0">
+      {pop.mounted && (
+        <div data-closing={pop.closing || undefined} className="fade-in absolute bottom-[calc(100%+8px)] left-0 z-50 w-[min(88vw,320px)] rounded-2xl border border-line bg-surface p-4 shadow-xl md:left-auto md:right-0">
           <p className="font-semibold">Опубликовать позже</p>
           <p className="mt-1 text-sm text-muted">Проверим объявление сейчас, а в каталоге оно появится в выбранное время.</p>
           <div className="mt-3 flex flex-wrap gap-2">

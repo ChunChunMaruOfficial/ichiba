@@ -55,7 +55,7 @@ function Table({ rows }: { rows: Array<[string, string]> }) {
 
 export default function PrivacyPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 md:py-12">
+    <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-6 md:py-12">
       <header className="max-w-3xl">
         <p className="text-sm text-muted">Редакция от {LEGAL.updated}</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">Политика конфиденциальности</h1>
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
         </ul>
       </aside>
 
-      <div className="mt-10 grid gap-10 md:grid-cols-[minmax(0,1fr)_14rem]">
+      <div className="mt-10 grid gap-10 md:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
         <article className="flex max-w-3xl flex-col gap-10">
           <Section id="general" n={1} title="Общие положения">
             <p>

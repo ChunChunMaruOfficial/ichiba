@@ -405,6 +405,15 @@ export interface ChatMessage {
   risk?: MessageRisk | null;
   /** Shown to the sender, e.g. "card number hidden". */
   notice?: string | null;
+  /** A shared point on the map (location message). */
+  location?: ChatLocation | null;
+}
+
+export interface ChatLocation {
+  lat: number;
+  lng: number;
+  /** Metres, when the point is the sender's device fix rather than a spot picked on the map. */
+  accuracy?: number | null;
 }
 
 export interface CollectionSummary {

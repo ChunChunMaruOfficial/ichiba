@@ -242,14 +242,26 @@ model Listing {
   @@index([category, status])
 }
 
+/// Where a photo's file lives. LOCAL = MEDIA_DRIVER storage (dev disk or S3), CLOUDINARY = uploaded by the browser.
+enum PhotoProvider {
+  LOCAL
+  CLOUDINARY
+}
+
 model Photo {
   id        String   @id @default(uuid())
   ownerId   String
   owner     User     @relation(fields: [ownerId], references: [id])
   listingId String?
   listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
-  /// Storage key prefix; variants live at `${key}_{320,640,1280}.webp`.
+  provider  PhotoProvider @default(LOCAL)
+  /// LOCAL: storage key prefix, variants at `${key}_{320,640,1280}.webp`. CLOUDINARY: the asset's public_id.
   key       String
+  /// CLOUDINARY: delivery URL of the stored original (secure_url), its version, format and size in bytes.
+  url       String?
+  version   Int?
+  format    String?
+  bytes     Int?
   width     Int
   height    Int
   order     Int      @default(0)
@@ -257,9 +269,12 @@ model Photo {
   isDefect  Boolean  @default(false)
   /// Technical quality measured at upload: { brightness, contrast, sharpness }.
   quality   Json?
+  /// 64-bit difference hash (hex) of the image: near-identical photos differ in a few bits.
+  dhash     String?
   createdAt DateTime @default(now())
 
   @@index([listingId, order])
+  @@index([key])
 }
 
 /// Short video of a listing (up to 30 s). The file is `${key}.${ext}`, the poster frame `${key}_{320,640}.webp`.
@@ -468,13 +483,24 @@ model Thread {
   @@index([sellerId, lastMessageAt])
 }
 
+enum MessageKind {
+  TEXT
+  LOCATION
+}
+
 model Message {
   id        String   @id @default(uuid())
   threadId  String
   thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   senderId  String
   sender    User     @relation(fields: [senderId], references: [id])
+  /// Text, or the preview line for non-text messages ("📍 Местоположение").
   body      String
+  kind      MessageKind @default(TEXT)
+  /// LOCATION: the shared point (WGS84) and, for a device fix, its accuracy in metres. Wiped on account deletion.
+  lat       Float?
+  lng       Float?
+  accuracy  Float?
   /// Antifraud verdict: { level: warn|high, categories, source: rules|ai }.
   risk      Json?
   createdAt DateTime @default(now())

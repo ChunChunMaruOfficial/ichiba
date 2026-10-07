@@ -9,6 +9,7 @@ import { Gallery } from "@/components/gallery";
 import { LikersOfferButton } from "@/components/likers-offer";
 import { MEASURE_LABEL } from "@/components/measure-guide";
 import { CardRow, FollowButton, SectionHeader } from "@/components/sections";
+import { Nefuda } from "@/components/shop/nefuda";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { AuctionPanel, AuctionTimer } from "@/components/auction";
@@ -168,7 +169,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           <span className="inline-flex flex-wrap gap-1.5 align-middle">
             {l.sizes.map((s) =>
               s.current ? (
-                <b key={s.id} className="rounded-lg bg-ink px-2.5 py-0.5 text-white">{s.size}</b>
+                <b key={s.id} className="rounded-lg bg-ink px-2.5 py-0.5 text-accent-ink">{s.size}</b>
               ) : (
                 <Link key={s.id} href={`/item/${s.id}`} className={clsx("rounded-lg border px-2.5 py-0.5", s.available ? "border-line-strong hover:border-ink" : "border-line text-muted line-through")}>
                   {s.size}
@@ -198,7 +199,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
     <div className="flex flex-col gap-3">
       {showAuction && auction && <AuctionPanel auction={auction} listingId={l.id} title={l.title} isOwner onChange={(a) => (setAuction(a), a.status === "CANCELLED" && refresh())} />}
       {l.status === "DRAFT" ? (
-        <ButtonLink href={`/item/${l.id}/edit`} size="lg" block>
+        <ButtonLink href={`/sell?draft=${l.id}`} size="lg" block>
           Продолжить публикацию
         </ButtonLink>
       ) : (
@@ -319,15 +320,9 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           )}
         </>
       )}
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" onClick={toggle} aria-pressed={isFavorite}>
-          <IconHeart className={clsx("size-5", isFavorite && "text-heart")} filled={isFavorite} />
-          {isFavorite ? "В избранном" : "В избранное"}
-        </Button>
-        <Button variant="secondary" onClick={ask}>
-          <IconMessage className="size-5" /> Задать вопрос
-        </Button>
-      </div>
+      <Button variant="secondary" onClick={ask}>
+        <IconMessage className="size-5" /> Задать вопрос
+      </Button>
       {isFavorite && (
         <button className="self-start text-sm text-ink-2 underline underline-offset-4 hover:text-ink" onClick={() => setCollectionOpen(true)}>
           Добавить в коллекцию
@@ -365,7 +360,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                 </span>
               )}
               {!l.isOwner && (
-                <button aria-label={isFavorite ? "Убрать из избранного" : "В избранное"} onClick={toggle} className="absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-white/90 shadow md:hidden">
+                <button aria-label={isFavorite ? "Убрать из избранного" : "В избранное"} onClick={toggle} className="absolute right-3 top-3 grid size-11 place-items-center on-photo rounded-full md:hidden">
                   <IconHeart className={clsx("size-5", isFavorite && "text-heart")} filled={isFavorite} />
                 </button>
               )}
@@ -374,18 +369,29 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         />
 
         <div className="md:sticky md:top-24 md:self-start">
-          <div className="flex items-start justify-between gap-4">
+          {/* Share and ♡ hang in the corner without stretching the title row, so the price follows the title closely. */}
+          <div className="relative pr-12">
             <h1 className="text-2xl font-semibold leading-tight tracking-tight">
             {auctionRunning && <Badge tone="warn" className="mb-2 block w-fit">Аукцион</Badge>}
             {l.title}
           </h1>
-            <button aria-label="Поделиться" onClick={share} className="-mr-2 grid size-10 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-black/5">
-              <IconShare />
-            </button>
+            <div className="absolute -right-2 -top-1.5 flex flex-col">
+              <button aria-label="Поделиться" onClick={share} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
+                <IconShare />
+              </button>
+              {!l.isOwner && (
+                <button aria-label={isFavorite ? "Убрать из избранного" : "В избранное"} aria-pressed={isFavorite} onClick={toggle} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
+                  <IconHeart className={clsx("size-5", isFavorite && "text-heart")} filled={isFavorite} />
+                </button>
+              )}
+            </div>
           </div>
-          <p className={clsx("tabular mt-2 text-3xl font-semibold", sold && "text-muted", auctionRunning && "hidden")}>
-            {formatPrice(l.price)}
-            {l.previousPrice && l.price && l.previousPrice > l.price && <s className="ml-3 text-lg font-normal text-muted">{formatPrice(l.previousPrice)}</s>}
+          {/* The price on a paper tag tied with a cinnabar thread (値札). */}
+          <p className={clsx("mt-4 flex items-center gap-3 pl-5", auctionRunning && "hidden")}>
+            <Nefuda className={clsx("tabular text-[28px] font-bold leading-tight", sold && "opacity-60")}>
+              <span className={clsx(l.previousPrice && l.price && l.previousPrice > l.price && "text-shu")}>{formatPrice(l.price)}</span>
+            </Nefuda>
+            {l.previousPrice && l.price && l.previousPrice > l.price && <s className="text-lg text-muted">{formatPrice(l.previousPrice)}</s>}
           </p>
           {discount > 0 && !auctionRunning && (
             <p className="mt-1 text-sm text-ink-2">
@@ -403,6 +409,22 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                   <dd>{v}</dd>
                 </div>
               ))}
+            <dt className="text-muted">Дефекты</dt>
+            <dd className="flex items-start gap-2">
+              <span className={clsx("mt-[0.45em] size-2 shrink-0 rounded-full", l.defectsPresent ? "bg-amber" : "bg-ok")} aria-hidden />
+              {l.defectsPresent ? (
+                <span>
+                  {l.defectsDescription || "Есть"}
+                  {defectPhoto >= 0 && (
+                    <button className="ml-2 text-ink-2 underline underline-offset-4" onClick={() => setPhoto(defectPhoto)}>
+                      Смотреть на фото
+                    </button>
+                  )}
+                </span>
+              ) : (
+                "Нет"
+              )}
+            </dd>
           </dl>
           {showMeasurements && (
             <p className="mt-2 rounded-xl bg-surface px-4 py-3 text-sm text-ink-2">
@@ -412,21 +434,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           )}
           {!l.isOwner && !sold && <FitHintBox fit={l.fit} hasProfile={l.fitProfile} signedIn={!!me} hasSize={!!l.size} />}
 
-          <p className="mt-4 flex items-start gap-2 text-[15px]">
-            <span className={clsx("mt-2 size-2 shrink-0 rounded-full", l.defectsPresent ? "bg-[#d97a00]" : "bg-ok")} aria-hidden />
-            {l.defectsPresent ? (
-              <span>
-                Есть дефекты: {l.defectsDescription}
-                {defectPhoto >= 0 && (
-                  <button className="ml-2 text-ink-2 underline underline-offset-4" onClick={() => setPhoto(defectPhoto)}>
-                    Смотреть на фото
-                  </button>
-                )}
-              </span>
-            ) : (
-              "Нет дефектов"
-            )}
-          </p>
 
           <div className="mt-6">{l.isOwner ? ownerPanel : buyerPanel}</div>
 
@@ -478,7 +485,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         </div>
         {related && related.fromSeller.length > 0 && (
           <div className="min-w-0">
-            <p className="mb-3 text-sm font-medium text-ink-2">Ещё из этого гардероба</p>
             <CardRow items={related.fromSeller.slice(0, 6)} variant="feed" />
           </div>
         )}
@@ -486,7 +492,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
 
       {related && related.similar.length > 0 && (
         <section className="mt-16">
-          <SectionHeader title="Похожие вещи" href={`/search?category=${l.category ?? ""}`} />
+          <SectionHeader title="Похожие вещи" href={`/item/${l.id}/similar`} />
           <CardRow items={related.similar} />
         </section>
       )}

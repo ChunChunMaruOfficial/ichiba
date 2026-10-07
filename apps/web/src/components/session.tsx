@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import useSWR, { useSWRConfig } from "swr";
 import { api } from "@/lib/api";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
-import type { Me, MessageRisk, Meta } from "@/lib/types";
+import type { ChatLocation, Me, MessageRisk, Meta } from "@/lib/types";
 import { AuthModal } from "./auth-modal";
 import { useToast } from "./toast";
 
@@ -34,7 +34,7 @@ export function useSession() {
 
 export interface LiveMessage {
   threadId: string;
-  message: { id: string; body: string; mine: boolean; createdAt: string; from: string; title: string; risk?: MessageRisk | null };
+  message: { id: string; body: string; mine: boolean; createdAt: string; from: string; title: string; risk?: MessageRisk | null; location?: ChatLocation | null };
 }
 
 export interface LiveRisk {

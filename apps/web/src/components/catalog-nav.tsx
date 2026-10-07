@@ -5,9 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePresence } from "@/lib/presence";
 import type { Gender, Meta } from "@/lib/types";
 import { useBrandSuggestions } from "./brand-picker";
 import { useMeta } from "./session";
+import { Kamon } from "./shop/kamon";
 import { IconChevronDown, IconChevronRight, IconSearch, IconX } from "./ui";
 
 type Category = Meta["categories"][number];
@@ -181,6 +183,7 @@ function MegaPanel({
   audience,
   setAudience,
   onNavigate,
+  closing,
 }: {
   meta: Meta;
   active: string;
@@ -188,12 +191,16 @@ function MegaPanel({
   audience: Audience;
   setAudience: (g: Audience) => void;
   onNavigate: () => void;
+  closing: boolean;
 }) {
   return (
     <div
-      className="fade-in absolute inset-x-0 top-full z-50 border-b border-line bg-surface shadow-[0_24px_48px_-24px_rgb(30_36_51/0.25)]"
+      data-closing={closing || undefined}
+      // The catalogue on aizome cloth (indigo with seigaiha waves); the shop's crest as a watermark in the corner.
+      className="aizome fade-in absolute inset-x-4 top-[calc(100%+8px)] z-50 mx-auto max-w-[1440px] rounded-[28px] shadow-[var(--shadow-float)]"
     >
-      <div className="mx-auto max-h-[min(72vh,600px)] max-w-[1440px] overflow-y-auto px-6 py-5">
+      <Kamon className="pointer-events-none absolute -bottom-16 -right-10 size-80 text-ink opacity-[0.07]" />
+      <div className="relative max-h-[min(72vh,600px)] overflow-y-auto px-6 py-6">
         <div className="mb-4 w-fit">
           <AudienceTabs meta={meta} value={audience} onChange={setAudience} />
         </div>
@@ -213,6 +220,7 @@ export function CatalogButton({ anchor }: { anchor: React.RefObject<HTMLElement 
   const [active, setActive] = useState("");
   const [audience, setAudience] = useState<Audience>("");
   const close = useCallback(() => setOpen(false), []);
+  const pop = usePresence(open);
   useDismiss(open, close, anchor);
   if (!meta) return <span className="hidden h-11 w-28 md:block" />;
   return (
@@ -226,14 +234,14 @@ export function CatalogButton({ anchor }: { anchor: React.RefObject<HTMLElement 
           setOpen((v) => !v);
         }}
         className={clsx(
-          "hidden h-11 shrink-0 items-center gap-2 rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex",
-          open ? "bg-ink text-white" : "bg-surface ring-1 ring-line-strong hover:ring-ink",
+          "hidden h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] font-semibold transition-colors md:inline-flex",
+          open ? "bg-[#1f3354] text-[#f4efe6]" : "bg-surface shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]",
         )}
       >
         {open ? <IconX className="size-5" /> : <IconGrid />}
         Каталог
       </button>
-      {open && <MegaPanel meta={meta} active={active || meta.categories[0].slug} setActive={setActive} audience={audience} setAudience={setAudience} onNavigate={close} />}
+      {pop.mounted && <MegaPanel meta={meta} active={active || meta.categories[0].slug} setActive={setActive} audience={audience} setAudience={setAudience} onNavigate={close} closing={pop.closing} />}
     </>
   );
 }
@@ -242,6 +250,7 @@ export function CatalogButton({ anchor }: { anchor: React.RefObject<HTMLElement 
 export function MobileCatalog() {
   const meta = useMeta();
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [audience, setAudience] = useState<Audience>("");
   const pathname = usePathname();
@@ -271,19 +280,19 @@ export function MobileCatalog() {
         aria-label="Каталог"
         aria-expanded={open}
         onClick={() => setOpen(true)}
-        className="-ml-2 grid size-11 place-items-center rounded-full hover:bg-black/5 md:hidden"
+        className="-ml-2 grid size-11 place-items-center rounded-full hover:bg-ink/5 md:hidden"
       >
         <IconGrid className="size-6" />
       </button>
       {/* Portal: the header's backdrop-filter would otherwise trap position:fixed inside the header box. */}
-      {open &&
+      {pop.mounted &&
         createPortal(
-          <div className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label="Каталог">
-            <button type="button" aria-label="Закрыть каталог" className="fade-in absolute inset-0 bg-black/30" onClick={close} />
-            <div className="slide-in-left absolute inset-y-0 left-0 flex w-[min(88vw,380px)] flex-col bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl">
+          <div data-closing={pop.closing || undefined} className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label="Каталог">
+            <button type="button" aria-label="Закрыть каталог" className="fade-in absolute inset-0 bg-[var(--scrim)]" onClick={close} />
+            <div className="aizome slide-in-left absolute inset-y-0 left-0 flex w-[min(88vw,380px)] flex-col pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-float)]">
               <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-4">
-                <p className="text-lg font-semibold">Каталог</p>
-                <button type="button" aria-label="Закрыть" onClick={close} className="-mr-2 grid size-11 place-items-center rounded-full hover:bg-black/5">
+                <p className="font-display text-xl font-bold">Каталог</p>
+                <button type="button" aria-label="Закрыть" onClick={close} className="-mr-2 grid size-11 place-items-center rounded-full hover:bg-ink/5">
                   <IconX />
                 </button>
               </div>

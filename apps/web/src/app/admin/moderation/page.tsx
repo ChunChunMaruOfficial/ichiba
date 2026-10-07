@@ -117,7 +117,7 @@ function ReportItem({ r, onDone }: { r: ReportRow; onDone: () => void }) {
         {r.details?.excerpts?.length ? (
           <ul className="mt-2 flex flex-col gap-1">
             {r.details.excerpts.slice(0, 3).map((x, i) => (
-              <li key={i} className="rounded-lg bg-black/5 px-3 py-1.5 text-sm text-ink-2">
+              <li key={i} className="rounded-lg bg-ink/5 px-3 py-1.5 text-sm text-ink-2">
                 «{x.body}»
               </li>
             ))}

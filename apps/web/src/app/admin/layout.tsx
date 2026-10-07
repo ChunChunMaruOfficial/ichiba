@@ -82,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <nav aria-label="Админка" className="mb-8 flex items-center gap-1 border-b border-line">
         {NAV.map(([href, label]) => (
           <Link key={href} href={href} className={clsx("-mb-px border-b-2 px-4 py-2.5 text-sm font-medium", pathname === href ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")}>

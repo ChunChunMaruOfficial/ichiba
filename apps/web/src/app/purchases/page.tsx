@@ -1,5 +1,6 @@
 "use client";
 
+import { Furoshiki } from "@/components/shop/furoshiki";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import useSWR from "swr";
@@ -39,21 +40,21 @@ function Purchases() {
   const bids = useSWR<{ items: Array<{ listing: Card; auction: AuctionView }> }>(tab === "bids" ? "/auctions/mine" : null);
   const offers = useSWR<{ items: Offer[] }>("/offers?role=buyer");
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">Мои покупки</h1>
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
+      <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Мои покупки</h1>
       <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="tablist">
         {TABS.map(([key, label]) => (
           <Chip key={key} role="tab" aria-selected={tab === key} active={tab === key} onClick={() => setTab(key)}>
             {label}
             {key === "offers"
-              ? offers.data && <span className={tab === key ? "text-white/70" : "text-muted"}>{offers.data.items.length}</span>
+              ? offers.data && <span className={tab === key ? "text-accent-ink/70" : "text-muted"}>{offers.data.items.length}</span>
               : key === "bids"
                 ? null
-                : data && <span className={tab === key ? "text-white/70" : "text-muted"}>{data.counts[key]}</span>}
+                : data && <span className={tab === key ? "text-accent-ink/70" : "text-muted"}>{data.counts[key]}</span>}
           </Chip>
         ))}
       </div>
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2 lg:[&>*:only-child]:col-span-2">
         {tab === "bids" ? (
           !bids.data ? (
             [0, 1].map((i) => <Skeleton key={i} className="h-28 rounded-2xl" />)
@@ -77,7 +78,7 @@ function Purchases() {
         ) : !data ? (
           [0, 1, 2].map((i) => <Skeleton key={i} className="h-32 rounded-2xl" />)
         ) : data.items.length === 0 ? (
-          <EmptyState title={tab === "active" ? "Здесь появятся ваши покупки" : "Пока пусто"}>
+          <EmptyState art={<Furoshiki className="mb-2 h-36" />} title={tab === "active" ? "Здесь появятся ваши покупки" : "Пока пусто"}>
             <ButtonLink href="/">Смотреть вещи</ButtonLink>
           </EmptyState>
         ) : (
@@ -99,7 +100,7 @@ function BidRow({ listing, auction: a }: { listing: Card; auction: AuctionView }
         ? { tone: "ok" as const, text: "Вы выиграли" }
         : { tone: "muted" as const, text: a.status === "NO_SALE" ? "Без продажи" : "Аукцион завершён" };
   return (
-    <article className={`flex gap-4 rounded-2xl bg-surface p-4 ${a.status === "ACTIVE" && !a.leaderIsMe ? "border-l-4 border-l-[#d9a100]" : ""}`}>
+    <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] md:p-5 ${a.status === "ACTIVE" && !a.leaderIsMe ? "border-l-4 border-l-amber" : ""}`}>
       <Link href={`/item/${listing.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {listing.cover && <img src={listing.cover.urls.s} alt="" width={80} height={100} className="size-full object-cover" />}

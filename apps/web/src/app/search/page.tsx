@@ -13,6 +13,7 @@ import { Button, Chip, EmptyState, ErrorState, IconChevronDown, IconFilter, Icon
 import { api, qs } from "@/lib/api";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { CONDITION_LABEL, items as itemsLabel } from "@/lib/labels";
+import { usePresence } from "@/lib/presence";
 import { pushRecent } from "@/lib/recent-searches";
 import type { Card, Meta, SearchInterpretation } from "@/lib/types";
 
@@ -184,12 +185,13 @@ interface DrawerProps {
   meta: Meta;
 }
 
-/** Mounted only while open, so the draft always starts from the current filters. */
+/** Mounted only while open (plus its exit animation), so the draft always starts from the current filters. */
 function FilterDrawer(props: DrawerProps) {
-  return props.open ? <FilterDrawerPanel {...props} /> : null;
+  const { mounted, closing } = usePresence(props.open);
+  return mounted ? <FilterDrawerPanel {...props} closing={closing} /> : null;
 }
 
-function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta }: DrawerProps) {
+function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta, closing }: DrawerProps & { closing: boolean }) {
   const [draft, setDraft] = useState(initial);
   const [count, setCount] = useState<number | null>(null);
   // Live "Показать N вещей" with 300 ms debounce (frame 07).
@@ -213,13 +215,12 @@ function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta }: DrawerP
       document.body.style.overflow = "";
     };
   }, [open, onClose]);
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-end bg-black/40 md:items-stretch md:justify-end" onMouseDown={onClose}>
+    <div data-closing={closing || undefined} className="fade-in fixed inset-0 z-[60] flex items-end bg-black/40 md:items-stretch md:justify-end" onMouseDown={onClose}>
       <div role="dialog" aria-modal="true" aria-label="Фильтры" onMouseDown={(e) => e.stopPropagation()} className="sheet-up flex h-[90vh] w-full flex-col rounded-t-3xl bg-surface md:h-full md:w-[420px] md:rounded-none">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-lg font-semibold">Фильтры</h2>
-          <button aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 hover:bg-black/5">
+          <button aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 hover:bg-ink/5">
             <IconX />
           </button>
         </div>
@@ -335,7 +336,7 @@ function SearchView() {
   const relax = results.pages[0]?.relax;
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 md:px-6">
+    <div className="mx-auto max-w-[1280px] px-4 md:px-6">
       {/* Mobile search field (desktop uses the header search) */}
       <form
         role="search"
@@ -353,7 +354,7 @@ function SearchView() {
         </label>
       </form>
 
-      <div className="sticky top-14 z-30 -mx-4 bg-paper/90 px-4 py-3 backdrop-blur-md md:top-16 md:-mx-6 md:px-6">
+      <div className="sticky top-[var(--header-offset,57px)] z-30 transition-[top] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none -mx-4 bg-paper px-4 py-3 md:-mx-6 md:px-6">
         <div className="flex items-center gap-2">
           <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
             <Chip onClick={() => setDrawer(true)}>
@@ -380,7 +381,7 @@ function SearchView() {
         {chips.length > 0 && (
           <div className="no-scrollbar mt-3 flex items-center gap-2 overflow-x-auto">
             {chips.map((c) => (
-              <button key={c.key} onClick={() => navigate(c.remove(filters))} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-ink px-3 text-sm text-white">
+              <button key={c.key} onClick={() => navigate(c.remove(filters))} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-ink px-3 text-sm text-accent-ink">
                 {c.label} <IconX className="size-3.5" />
                 <span className="sr-only">убрать фильтр</span>
               </button>

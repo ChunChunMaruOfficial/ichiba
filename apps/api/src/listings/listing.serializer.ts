@@ -1,5 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import { photoUrls } from '../media/media.service.js';
+import { photoUrls, type StoredPhoto } from '../media/media.service.js';
 
 export const cardInclude = {
   photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 },
@@ -16,14 +16,14 @@ export type CardListing = Prisma.ListingGetPayload<{ include: typeof cardInclude
 
 const sizeLabel = (l: { sizeValue: string | null }) => l.sizeValue ?? null;
 
-export const serializePhoto = (p: { id: string; key: string; width: number; height: number; isCover: boolean; isDefect: boolean; order: number }) => ({
+export const serializePhoto = (p: StoredPhoto & { id: string; width: number; height: number; isCover: boolean; isDefect: boolean; order: number }) => ({
   id: p.id,
   width: p.width,
   height: p.height,
   isCover: p.isCover,
   isDefect: p.isDefect,
   order: p.order,
-  urls: photoUrls(p.key),
+  urls: photoUrls(p),
 });
 
 /** Item card used by every list (frame 05: photo, price, size; title/condition on hover). */
@@ -43,7 +43,7 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     brand: l.brand,
     category: l.category,
     status: l.status,
-    cover: cover ? { width: cover.width, height: cover.height, urls: photoUrls(cover.key) } : null,
+    cover: cover ? { width: cover.width, height: cover.height, urls: photoUrls(cover) } : null,
     seller: { id: l.seller.id, username: l.seller.username },
     isFavorite: favoriteIds ? favoriteIds.has(l.id) : false,
     publishedAt: l.publishedAt,

@@ -59,7 +59,7 @@ export function LikersOfferButton({ listingId, price }: { listingId: string; pri
               type="button"
               onClick={() => (setPercent(p), setCustom(""))}
               aria-pressed={!custom && percent === p}
-              className={!custom && percent === p ? "rounded-full bg-ink px-4 py-2 text-sm font-medium text-white" : "rounded-full border border-line-strong px-4 py-2 text-sm hover:border-ink"}
+              className={!custom && percent === p ? "rounded-full bg-ink px-4 py-2 text-sm font-medium text-accent-ink" : "rounded-full border border-line-strong px-4 py-2 text-sm hover:border-ink"}
             >
               −{p}%
             </button>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice, hoursLeft } from "@/lib/labels";
+import { usePresence } from "@/lib/presence";
 import type { Offer } from "@/lib/types";
 import { NegotiationHint, OpeningHint } from "./ai-hints";
 import { useSession } from "./session";
@@ -111,6 +112,12 @@ export function OfferSheet({
       </form>
     </Modal>
   );
+}
+
+/** Mounts the counter dialog while `value` is set (plus its exit animation); each opening starts from `value`. */
+function CounterDialogHost({ value, ...rest }: { offer: Offer; value: string | null; onClose: () => void; onDone: (o: Offer) => void }) {
+  const { mounted } = usePresence(value !== null);
+  return mounted ? <CounterDialog {...rest} open={value !== null} initial={value ?? ""} /> : null;
 }
 
 /** Counter-offer dialog: price must sit strictly between the last two offers. */
@@ -264,13 +271,13 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
             <NegotiationHint offer={offer} onAccept={() => run("accept")} onDecline={() => run("decline")} onCounter={(v) => setCounter(String(v))} compact />
           </div>
         )}
-        {counter !== null && <CounterDialog offer={offer} open initial={counter} onClose={() => setCounter(null)} onDone={(o) => onChange(o)} />}
+        <CounterDialogHost offer={offer} value={counter} onClose={() => setCounter(null)} onDone={(o) => onChange(o)} />
       </div>
     );
   }
   const text = offer.status === "DECLINED" ? "Продавец отклонил предложение" : offer.status === "EXPIRED" ? "Предложение истекло" : "Предложение отменено";
   return (
-    <div className="flex items-center justify-between gap-2 rounded-xl bg-black/5 px-4 py-3 text-sm text-ink-2">
+    <div className="flex items-center justify-between gap-2 rounded-xl bg-ink/5 px-4 py-3 text-sm text-ink-2">
       {text} ({formatPrice(offer.amount)})
       {offer.status !== "DECLINED" && (
         <button className="font-medium text-ink underline underline-offset-4" onClick={onNewOffer}>
@@ -289,7 +296,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
   const discount = offer.listPrice ? Math.round((1 - offer.amount / offer.listPrice) * 100) : 0;
   const cover = offer.listing.cover?.urls.s;
   return (
-    <article className={`flex gap-4 rounded-2xl bg-surface p-4 ${offer.myTurn ? "border-l-4 border-l-[#d9a100]" : ""}`}>
+    <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5 ${offer.myTurn ? "border-l-4 border-l-amber" : ""}`}>
       <Link href={`/item/${offer.listing.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {cover && <img src={cover} alt="" width={80} height={100} className="size-full object-cover" />}
@@ -340,7 +347,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
           </Link>
         )}
       </div>
-      {counter !== null && <CounterDialog offer={offer} open initial={counter} onClose={() => setCounter(null)} onDone={() => onChange()} />}
+      <CounterDialogHost offer={offer} value={counter} onClose={() => setCounter(null)} onDone={() => onChange()} />
     </article>
   );
 }

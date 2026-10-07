@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { EXIT_MS } from "@/lib/presence";
 import { Button } from "./ui";
 
 /**
@@ -34,22 +35,28 @@ function subscribe(cb: () => void) {
 export function CookieNotice() {
   // Server render and hydration: hidden; the real value is read on the client, so markup never mismatches.
   const seen = useSyncExternalStore(subscribe, read, () => true);
+  const [leaving, setLeaving] = useState(false);
   if (seen) return null;
 
+  // Fade out first, then remember the choice (which unmounts the notice).
   const dismiss = () => {
-    try {
-      localStorage.setItem(KEY, VERSION);
-    } catch {
-      /* storage blocked — the notice just closes for this page view */
-    }
-    listeners.forEach((l) => l());
+    setLeaving(true);
+    setTimeout(() => {
+      try {
+        localStorage.setItem(KEY, VERSION);
+      } catch {
+        /* storage blocked — the notice just closes for this page view */
+      }
+      listeners.forEach((l) => l());
+    }, EXIT_MS);
   };
 
   return (
     <section
       role="region"
       aria-label="Уведомление о cookie"
-      className="fixed inset-x-3 bottom-[calc(84px+env(safe-area-inset-bottom))] z-50 rounded-2xl border border-line bg-surface p-4 shadow-xl md:inset-x-auto md:bottom-5 md:left-5 md:max-w-sm"
+      data-closing={leaving || undefined}
+      className="panel fade-in fixed inset-x-3 bottom-[calc(84px+env(safe-area-inset-bottom))] z-50 rounded-3xl p-4 md:inset-x-auto md:bottom-5 md:left-5 md:max-w-sm"
     >
       <p className="text-sm leading-relaxed text-ink-2">
         <b className="font-semibold text-ink">Мы используем только необходимые cookie</b> — чтобы вы оставались в аккаунте, — и не подключаем рекламные трекеры. Подробнее — в{" "}

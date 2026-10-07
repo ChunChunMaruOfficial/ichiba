@@ -1,5 +1,6 @@
 "use client";
 
+import { Omamori } from "@/components/shop/omamori";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import useSWR from "swr";
@@ -8,6 +9,7 @@ import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { RequireAuth } from "@/components/require-auth";
 import { WardrobeCards } from "@/components/sections";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconPlus, Skeleton } from "@/components/ui";
+import { plural } from "@/lib/labels";
 import type { Card, CollectionSummary, Cover, SellerSummary } from "@/lib/types";
 
 const SORTS = [
@@ -45,7 +47,7 @@ function Favorites() {
   const { data } = useSWR<{ total: number }>("/favorites?sort=recent");
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <h1 className="text-3xl font-semibold tracking-tight">
         Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
       </h1>
@@ -57,6 +59,54 @@ function Favorites() {
         ))}
       </div>
       <div className="mt-6">{tab === "items" ? <SavedItems /> : tab === "collections" ? <Collections /> : <FollowingFeed />}</div>
+    </div>
+  );
+}
+
+/** Round seal with a brush label on top and the count in the middle, stamped slightly askew. */
+function CountSeal({ kanji, n, ink }: { kanji: string; n: number; ink?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`grid size-[74px] shrink-0 -rotate-[8deg] place-items-center rounded-full border-[2.5px] ${ink ? "border-ink text-ink" : "border-shu text-shu"}`}
+    >
+      <span className={`grid size-[62px] place-content-center rounded-full border ${ink ? "border-ink/40" : "border-shu/40"} text-center`}>
+        <span className="font-brush text-[13px] leading-none tracking-[0.1em]">{kanji}</span>
+        <span className="tabular font-display text-[26px] font-extrabold leading-none">{n > 99 ? "99+" : n}</span>
+      </span>
+    </span>
+  );
+}
+
+/**
+ * News from the shop: what changed in favourites since the last visit, on a kraft slip with shippo circles and
+ * seals — 値下 (price cut) in cinnabar, 予約 (reserved) in ink.
+ */
+function ShopNews({ priceDropped, reserved }: { priceDropped: number; reserved: number }) {
+  return (
+    <div className="pattern-shippo pattern-fade-r mt-5 flex flex-wrap items-center gap-x-10 gap-y-5 overflow-hidden rounded-[24px] bg-kraft/70 px-5 py-5 text-kraft-ink md:px-7">
+      {priceDropped > 0 && (
+        <div className="flex items-center gap-4">
+          <CountSeal kanji="値下" n={priceDropped} />
+          <div>
+            <p className="font-display text-xl font-bold leading-tight">Цена снижена</p>
+            <p className="text-[15px] opacity-80">
+              у {priceDropped} {plural(priceDropped, "вещи", "вещей", "вещей")} из избранного
+            </p>
+          </div>
+        </div>
+      )}
+      {reserved > 0 && (
+        <div className="flex items-center gap-4">
+          <CountSeal kanji="予約" n={reserved} ink />
+          <div>
+            <p className="font-display text-xl font-bold leading-tight">{plural(reserved, "Забронирована", "Забронированы", "Забронированы")}</p>
+            <p className="text-[15px] opacity-80">
+              {reserved} {plural(reserved, "вещь", "вещи", "вещей")} — если сделка сорвётся, мы напишем
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -79,18 +129,14 @@ function SavedItems() {
           ))}
         </select>
       </div>
-      {data && (data.reserved > 0 || data.priceDropped > 0) && (
-        <p className="mt-4 rounded-2xl bg-warn-soft px-4 py-3 text-sm text-warn">
-          {[data.reserved && `${data.reserved} вещи из избранного зарезервированы`, data.priceDropped && `цена снижена на ${data.priceDropped}`].filter(Boolean).join(" · ")}
-        </p>
-      )}
+      {data && (data.reserved > 0 || data.priceDropped > 0) && <ShopNews priceDropped={data.priceDropped} reserved={data.reserved} />}
       <div className="mt-6">
         {error ? (
           <ErrorState message="Не удалось загрузить избранное" onRetry={() => mutate()} />
         ) : !data ? (
           <MasonrySkeleton />
         ) : data.items.length === 0 ? (
-          <EmptyState title="Здесь появятся вещи, которые вы сохраните" hint="Нажмите ♡ или свайпните вправо — мы сообщим, если вещь подешевеет или её зарезервируют">
+          <EmptyState art={<Omamori className="mb-2 h-44" />} title="Здесь появятся вещи, которые вы сохраните" hint="Нажмите ♡ или свайпните вправо — мы сообщим, если вещь подешевеет или её зарезервируют">
             <ButtonLink href="/">Смотреть вещи</ButtonLink>
             <ButtonLink href="/?mode=swipe" variant="secondary">
               Режим «Свайп»

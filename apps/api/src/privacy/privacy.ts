@@ -50,6 +50,8 @@ export class PrivacyService {
       this.prisma.emailOutbox.deleteMany({ where: { userId } }),
       this.prisma.photo.deleteMany({ where: { ownerId: userId, listingId: null } }),
       this.prisma.verificationCode.deleteMany({ where: { target: { in: [user.email, user.phone].filter((x): x is string => !!x) } } }),
+      // A shared location is personal data: the message stays for the other side, the point does not.
+      this.prisma.message.updateMany({ where: { senderId: userId, kind: 'LOCATION' }, data: { lat: null, lng: null, accuracy: null } }),
       // Contacts left in past deals are personal data too.
       this.prisma.buyRequest.updateMany({ where: { buyerId: userId }, data: { contactPhone: null, deliveryPoint: null, buyerComment: null } }),
       this.prisma.user.update({

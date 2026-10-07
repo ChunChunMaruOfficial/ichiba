@@ -1,5 +1,6 @@
 "use client";
 
+import { UmeBranch } from "./shop/ume-branch";
 import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
@@ -180,7 +181,7 @@ export function ReviewsSection({ username }: { username: string }) {
   if (isLoading && !first) return <Skeleton className="h-48 rounded-2xl" />;
   if (!first) return null;
   const s = first.summary;
-  if (!s.count) return <EmptyState title="Пока нет отзывов" hint="Отзывы оставляют покупатели после завершённой сделки" />;
+  if (!s.count) return <EmptyState art={<UmeBranch className="mb-2 w-56" />} title="Пока нет отзывов" hint="Отзывы оставляют покупатели после завершённой сделки" />;
   const items = data!.flatMap((p) => p.items);
 
   return (
@@ -197,8 +198,8 @@ export function ReviewsSection({ username }: { username: string }) {
               <li key={d.stars}>
                 <button className={clsx("grid w-full grid-cols-[1.5rem_1fr_2rem] items-center gap-2 text-sm", rating === d.stars && "font-semibold")} onClick={() => setRating((r) => (r === d.stars ? null : d.stars))} aria-pressed={rating === d.stars}>
                   <span>{d.stars}★</span>
-                  <span className="h-2 overflow-hidden rounded-full bg-black/5">
-                    <span className="block h-full rounded-full bg-[#d9a100]" style={{ width: `${s.count ? (d.count / s.count) * 100 : 0}%` }} />
+                  <span className="h-2 overflow-hidden rounded-full bg-ink/5">
+                    <span className="block h-full rounded-full bg-amber" style={{ width: `${s.count ? (d.count / s.count) * 100 : 0}%` }} />
                   </span>
                   <span className="tabular text-right text-muted">{d.count}</span>
                 </button>

@@ -58,7 +58,7 @@ function Tracker({ deal }: { deal: Deal }) {
             <span
               className={clsx(
                 "z-10 grid size-6 shrink-0 place-items-center rounded-full border-2 text-xs",
-                isFailure ? "border-danger bg-danger text-white" : done ? "border-accent bg-accent text-white" : current ? "border-accent bg-surface" : "border-line-strong bg-surface",
+                isFailure ? "border-danger bg-danger text-accent-ink" : done ? "border-accent bg-accent text-accent-ink" : current ? "border-accent bg-surface" : "border-line-strong bg-surface",
               )}
               aria-hidden
             >
@@ -135,7 +135,7 @@ function DealView({ id }: { id: string }) {
   }
   if (!deal) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-6">
         <Skeleton className="h-28 w-full rounded-2xl" />
         <Skeleton className="mt-6 h-64 w-full rounded-2xl" />
       </div>
@@ -145,13 +145,15 @@ function DealView({ id }: { id: string }) {
   const negotiated = deal.priceTotal < deal.listPriceTotal;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <Link href={deal.role === "buyer" ? "/purchases" : "/sales"} className="text-sm text-ink-2 hover:text-ink">
         ← {deal.role === "buyer" ? "Мои покупки" : "Мои продажи"}
       </Link>
 
-      <div className="mt-4 flex gap-4 rounded-3xl bg-surface p-4 md:p-6">
-        <Link href={`/item/${item.id}`} className="w-24 shrink-0 overflow-hidden rounded-xl bg-skeleton md:w-28" style={{ aspectRatio: "4 / 5" }}>
+      <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-8">
+      <div className="flex min-w-0 flex-col gap-8">
+      <div className="rise flex gap-5">
+        <Link href={`/item/${item.id}`} className="w-24 shrink-0 overflow-hidden rounded-2xl bg-skeleton md:w-36" style={{ aspectRatio: "4 / 5" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {item.cover && <img src={item.cover.urls.s} alt="" className="size-full object-cover" />}
         </Link>
@@ -160,7 +162,7 @@ function DealView({ id }: { id: string }) {
             <DealBadge status={deal.status} role={deal.role} />
             <span className="text-xs text-muted">№ {deal.number}</span>
           </div>
-          <Link href={`/item/${item.id}`} className="mt-2 block font-medium hover:underline">
+          <Link href={`/item/${item.id}`} className="mt-2 block text-lg font-semibold hover:underline">
             {item.title}
           </Link>
           {deal.items.length > 1 && <p className="text-sm text-ink-2">и ещё {deal.items.length - 1} — комплект из {deal.items.length} вещей</p>}
@@ -183,7 +185,7 @@ function DealView({ id }: { id: string }) {
       </div>
 
       {deal.items.length > 1 && (
-        <ul className="mt-3 flex flex-col divide-y divide-line rounded-2xl bg-surface px-4">
+        <ul className="rise flex flex-col divide-y divide-line border-y border-line">
           {deal.items.map((it) => (
             <li key={it.id} className="flex items-center gap-3 py-2.5 text-sm">
               <Link href={`/item/${it.id}`} className="w-10 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
@@ -202,12 +204,16 @@ function DealView({ id }: { id: string }) {
         </ul>
       )}
 
-      <div className="mt-6 grid gap-6 md:grid-cols-[1fr_1fr]">
-        <section className="rounded-3xl bg-surface p-5 md:p-6">
-          <h2 className="mb-5 font-semibold">Статус</h2>
-          <Tracker deal={deal} />
-        </section>
-        <section className="flex flex-col gap-4 rounded-3xl bg-surface p-5 md:p-6">
+      <section className="rise border-t border-line pt-6" style={{ animationDelay: "80ms" }}>
+        <h2 className="mb-5 font-semibold">Статус</h2>
+        <Tracker deal={deal} />
+      </section>
+
+      {(deal.canReview || deal.review) && <DealReview deal={deal} onChange={() => mutate()} />}
+      </div>
+
+      <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+        <section className="rise flex flex-col gap-4 rounded-[28px] bg-surface p-5 shadow-[var(--shadow-paper)] md:p-6" style={{ animationDelay: "120ms" }}>
           <h2 className="font-semibold">Что дальше</h2>
           <WhatNext deal={deal} />
           {deal.buyerComment && (
@@ -223,19 +229,13 @@ function DealView({ id }: { id: string }) {
           )}
           {deal.status === "DECLINED" && deal.role === "buyer" && <ButtonLink href={`/search?category=${item.category ?? ""}`}>Похожие вещи</ButtonLink>}
         </section>
+        {["WAITING_HANDOVER", "HANDED_OVER", "IN_TRANSIT"].includes(deal.status) && (
+          <button className="self-start px-1 text-sm text-ink-2 underline underline-offset-4 hover:text-ink" onClick={() => setDispute(true)}>
+            Проблема со сделкой?
+          </button>
+        )}
       </div>
-
-      {(deal.canReview || deal.review) && (
-        <div className="mt-6">
-          <DealReview deal={deal} onChange={() => mutate()} />
-        </div>
-      )}
-
-      {["WAITING_HANDOVER", "HANDED_OVER", "IN_TRANSIT"].includes(deal.status) && (
-        <button className="mt-8 text-sm text-ink-2 underline underline-offset-4 hover:text-ink" onClick={() => setDispute(true)}>
-          Проблема со сделкой?
-        </button>
-      )}
+      </div>
 
       <Modal open={dispute} onClose={() => setDispute(false)} title="Проблема со сделкой">
         <p className="mb-4 text-sm text-ink-2">Опишите, что случилось. Поддержка свяжется с обеими сторонами.</p>

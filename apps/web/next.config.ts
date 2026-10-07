@@ -11,7 +11,8 @@ const securityHeaders = [
   // The site is never embedded in frames (clickjacking).
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  // Geolocation only for our own pages: sharing a location in chat.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self), payment=()" },
   ...(production ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }] : []),
 ];
 

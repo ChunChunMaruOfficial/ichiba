@@ -1,5 +1,5 @@
 // Waits until a TCP port accepts connections: `node scripts/wait-port.mjs 51214 [timeoutSeconds]`.
-// Used by `npm run dev` so the API starts only after the local Postgres (prisma dev) is up.
+// Used by `npm run dev`: the API waits for the local Postgres (prisma dev), the web app waits for the API.
 import net from 'node:net';
 
 const port = Number(process.argv[2]);
@@ -15,10 +15,10 @@ const tryOnce = () =>
 let announced = false;
 while (!(await tryOnce())) {
   if (Date.now() > deadline) {
-    console.error(`Port ${port} did not open in time — is the database running?`);
+    console.error(`Port ${port} did not open in time — is the service behind it running?`);
     process.exit(1);
   }
-  if (!announced) console.log(`Waiting for the database on port ${port}…`);
+  if (!announced) console.log(`Waiting for port ${port}…`);
   announced = true;
   await new Promise((r) => setTimeout(r, 500));
 }

@@ -4,8 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
-import { CardRow, CategoryTiles, SectionHeader, WardrobeCards } from "@/components/sections";
+import { CardRow, CategoryTiles, SectionHeader, SellBand, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
+import { Noren } from "@/components/shop/noren";
 import { SwipeDeck } from "@/components/swipe-deck";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
@@ -58,9 +59,9 @@ function HomeFeed() {
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       {/* Discovery bar */}
-      <div className="sticky top-[113px] z-30 -mx-4 bg-paper/90 px-4 py-3 backdrop-blur-md md:top-16 md:-mx-6 md:px-6">
+      <div className="sticky top-[var(--header-offset,113px)] z-30 transition-[top] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none -mx-4 bg-washi px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         <div className="flex items-center gap-3">
-          <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full border border-line-strong bg-surface p-0.5 text-sm">
+          <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
             {(
               [
                 ["feed", "Лента"],
@@ -72,14 +73,14 @@ function HomeFeed() {
                 role="radio"
                 aria-checked={(m === "swipe") === swipeMode}
                 onClick={() => setMode(m)}
-                className={`h-8 rounded-full px-3.5 font-medium transition-colors ${(m === "swipe") === swipeMode ? "bg-ink text-white" : "text-ink-2 hover:text-ink"}`}
+                className={`h-8 rounded-full px-3.5 font-medium transition-colors ${(m === "swipe") === swipeMode ? "bg-ink text-accent-ink" : "text-ink-2 hover:text-ink"}`}
               >
                 {label}
               </button>
             ))}
           </div>
           {!swipeMode && (
-            <div className="no-scrollbar flex gap-2 overflow-x-auto">
+            <div className="no-scrollbar -my-2 flex gap-2 overflow-x-auto py-2">
               {chips.map(([key, label]) => (
                 <Chip key={key} active={chip === key} onClick={() => setChip(key)}>
                   {label}
@@ -105,8 +106,8 @@ function HomeFeed() {
         </div>
       ) : feed.items.length === 0 ? (
         smallCatalog ? (
-          <EmptyState title="Вещей пока мало" hint="Загляните скоро или выставьте свою — это займёт около минуты">
-            <ButtonLink href="/sell">+ Добавить вещь</ButtonLink>
+          <EmptyState art={<Noren className="mb-2 w-64" />} title="Вещей пока мало" hint="Загляните скоро или выставьте свою — это займёт около минуты">
+            <ButtonLink href="/sell" variant="shu">Продать вещь</ButtonLink>
           </EmptyState>
         ) : (
           <EmptyState title="В этой категории пока ничего нет" hint="Посмотрите другие разделы">
@@ -127,22 +128,23 @@ function HomeFeed() {
           </div>
 
           {isDefaultChip && home.data && !smallCatalog && (
-            <div className="flex flex-col gap-16 py-16 md:gap-24 md:py-24">
+            <div className="flex flex-col gap-16 py-12 md:gap-24 md:py-16">
               {home.data.fresh.length > 0 && chip !== "new" && (
                 <section>
-                  <SectionHeader title="Новинки" count={home.data.newToday ? `опубликовано сегодня: ${home.data.newToday}` : undefined} href="/?chip=new" />
+                  <SectionHeader kanji="新着" title="Новинки" count={home.data.newToday ? `опубликовано сегодня: ${home.data.newToday}` : undefined} href="/?chip=new" />
                   <CardRow items={home.data.fresh} />
                 </section>
               )}
               {home.data.popular.length > 0 && (
                 <section>
-                  <SectionHeader title="Популярное" href="/search?sort=popular" />
+                  <SectionHeader kanji="人気" title="Популярное" href="/search?sort=popular" />
                   <CardRow items={home.data.popular} />
                 </section>
               )}
+              {!me?.isSeller && <SellBand />}
               {home.data.wardrobes.length > 0 && (
                 <section>
-                  <SectionHeader title="Гардеробы" />
+                  <SectionHeader kanji="箪笥" title="Гардеробы" />
                   <WardrobeCards
                     wardrobes={home.data.wardrobes}
                     onFollowChange={(username, v) =>
@@ -153,7 +155,7 @@ function HomeFeed() {
               )}
               {home.data.categories.length > 0 && (
                 <section>
-                  <SectionHeader title="Категории" />
+                  <SectionHeader kanji="市場" title="Категории" />
                   <CategoryTiles categories={home.data.categories} />
                 </section>
               )}

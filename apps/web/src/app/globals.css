@@ -1,61 +1,137 @@
 @import "tailwindcss";
 
 /*
- * "Open wardrobe" palette: a cool gallery-wall background so warm photos of clothes carry the colour,
- * indigo ink borrowed from printed garment labels for text and primary actions, and kraft paper
- * for hang tags — the one decorative motif. Status colours follow frame 05.
+ * ichiba brand (design/brand, «ichiba Design System»): wabi-sabi paper. Washi paper ground, sumi ink text and
+ * buttons, cinnabar 朱 only as the seal (logo dots, likes, sale price, «sold» stamp), indigo 藍 for links and
+ * selected filters, wisteria 藤 for everything AI does. Two themes: «Васи» (light) and «Ёру» (dark, warm ink).
+ * Every text/ground pair is WCAG AA in both themes. The dark theme is finished but hidden for now: it applies only
+ * with data-theme="dark", which the site sets only when DARK_THEME_ENABLED (lib/theme.ts) is on.
  */
 :root {
-  --paper: #eeefec;
-  --surface: #ffffff;
-  --ink: #1e2433;
-  --ink-2: #474d5c;
-  --muted: #666b78; /* 4.6:1 on --paper, WCAG AA for small text */
-  --line: #dfe1e3;
-  --line-strong: #c6c9ce;
-  --accent: #1e2433;
-  --accent-hover: #323b52;
-  --accent-ink: #ffffff;
-  --accent-soft: #e2e5ed;
+  --paper: #f4efe6;
+  --surface: #fbf8f2;
+  --surface-sunk: #ece5d8;
+  --ink: #1c1a17;
+  --ink-2: #48433b;
+  --muted: #6b6459; /* 5.1:1 on paper */
+  --line: #e2dacb;
+  --line-strong: #cfc5b3;
+  --line-control: #8a7f6e; /* 3.7:1: field and control borders */
+  --accent: #1c1a17;
+  --accent-hover: #34302a;
+  --accent-ink: #f4efe6;
+  --accent-soft: #e9e2d5;
+  --shu: #c8102e;
+  --shu-soft: #f7deda;
+  --on-shu: #fbf8f2;
+  --indigo: #23395b;
+  --indigo-soft: #dfe5ee;
   --kraft: #e6d6b3;
   --kraft-ink: #4a3b1f;
-  --heart: #d23b2e;
-  --danger: #b3261e;
-  --danger-soft: #fbe9e7;
-  --warn: #8a5a00;
-  --warn-soft: #fbf0d4;
-  --ok: #2e6b3a;
-  --ok-soft: #e3f1e5;
-  --ai: #5b3fb5;
-  --ai-soft: #efe9fb;
-  --skeleton: #e2e4e3;
+  --heart: var(--shu);
+  --danger: #a31621;
+  --danger-soft: #f7e1de;
+  --on-danger: #fbf8f2;
+  --warn: #855400;
+  --warn-soft: #f4e8cb;
+  --amber: #c98a00; /* marks and stars, never text */
+  --ok: #3d6631;
+  --ok-soft: #e2ead6;
+  --ai: #5e4c8f;
+  --ai-soft: #e9e4f1;
+  --skeleton: #e7e0d2;
+  --skeleton-hi: #f1ebe0;
+  --shadow-paper: 0 1px 2px rgb(28 26 23 / 0.06), 0 8px 24px rgb(28 26 23 / 0.06);
+  --shadow-float: 0 24px 80px rgb(28 26 23 / 0.22);
+  --scrim: rgb(20 18 15 / 0.4);
+  --waves: url("/brand/seigaiha-washi.svg");
+  --cloth-ai: url("/brand/cloth-ai.svg");
+  --cloth-shu: url("/brand/cloth-shu.svg");
+  --cloth-kinari: url("/brand/cloth-kinari.svg");
+  color-scheme: light;
+}
+
+/* «Ёру» 夜: warm night ink, not cold grey. Hidden for now (see the note at the top). */
+:root[data-theme="dark"] {
+  --paper: #14120f;
+  --surface: #1e1b17;
+  --surface-sunk: #0f0e0b;
+  --ink: #eee7da;
+  --ink-2: #cfc6b6;
+  --muted: #9c9384;
+  --line: #2e2a24;
+  --line-strong: #423c33;
+  --line-control: #7a7062;
+  --accent: #eee7da;
+  --accent-hover: #ffffff;
+  --accent-ink: #14120f;
+  --accent-soft: #2a2621;
+  --shu: #ef5a5f;
+  --shu-soft: #3b1c1c;
+  --on-shu: #14120f;
+  --indigo: #9db1d6;
+  --indigo-soft: #1e293b;
+  --kraft: #4a3e28;
+  --kraft-ink: #ead9b4;
+  --danger: #f27377;
+  --danger-soft: #3b1c1c;
+  --on-danger: #14120f;
+  --warn: #e2b457;
+  --warn-soft: #33280f;
+  --amber: #e2b457;
+  --ok: #93bf80;
+  --ok-soft: #1c2a17;
+  --ai: #b9ace3;
+  --ai-soft: #2a2438;
+  --skeleton: #24211c;
+  --skeleton-hi: #2d2923;
+  --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+  --shadow-float: 0 24px 80px rgb(0 0 0 / 0.6);
+  --scrim: rgb(0 0 0 / 0.6);
+  --waves: url("/brand/seigaiha-yoru.svg");
+  --cloth-shu: url("/brand/cloth-shu-dark.svg");
+  --cloth-kinari: url("/brand/cloth-kinari-dark.svg");
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-line-control: var(--line-control);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-shu: var(--shu);
+  --color-shu-soft: var(--shu-soft);
+  --color-on-shu: var(--on-shu);
+  --color-indigo: var(--indigo);
+  --color-indigo-soft: var(--indigo-soft);
   --color-kraft: var(--kraft);
   --color-kraft-ink: var(--kraft-ink);
   --color-heart: var(--heart);
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --color-on-danger: var(--on-danger);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-amber: var(--amber);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-ai: var(--ai);
   --color-ai-soft: var(--ai-soft);
   --color-skeleton: var(--skeleton);
-  --font-sans: var(--font-geologica), ui-sans-serif, system-ui, sans-serif;
+  /* One family for the whole site: Spectral. `font-sans` is kept as the utility name everything already uses. */
+  --font-sans: var(--font-spectral), "Noto Serif", Georgia, serif;
+  --font-display: var(--font-spectral), "Noto Serif", Georgia, serif;
+  --font-brush: var(--font-yuji), serif;
+  --ease-ma: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 html {
@@ -63,11 +139,17 @@ html {
 }
 
 body {
-  background: var(--paper);
+  /* Washi: paper fibres over the ground colour (9 % ink, tiles seamlessly). */
+  background: url("/brand/washi-texture.svg") 0 0 / 320px, var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-feature-settings: "tnum" 0;
+  font-variant-numeric: lining-nums;
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--shu-soft);
+  color: var(--ink);
 }
 
 a, button, label, select, summary {
@@ -79,16 +161,43 @@ h1, h2, h3 {
   text-wrap: balance;
 }
 
+/* Titles get a touch of tightening; the family is the same Spectral as the text. */
+h1, h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.005em;
+}
+
+/* Tailwind v4 resets buttons to the default arrow: everything clickable gets the hand, disabled things say so. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="radio"],
+  [role="tab"],
+  [role="switch"],
+  summary,
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 /* In the base layer so a component's own focus style (outline-none + ring) wins over this default. */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--indigo);
     outline-offset: 2px;
   }
 }
 
 .tabular {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .no-scrollbar {
@@ -103,7 +212,7 @@ h1, h2, h3 {
   100% { background-position: 400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, var(--skeleton) 0, #eceeed 50%, var(--skeleton) 100%);
+  background: linear-gradient(90deg, var(--skeleton) 0, var(--skeleton-hi) 50%, var(--skeleton) 100%);
   background-size: 800px 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -132,6 +241,31 @@ h1, h2, h3 {
   animation: slide-in-left 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* Card captions: a thin frosted paper layer, invisible on the plain page, legible over illustrations behind it. */
+.card-info {
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* Exit: an overlay kept mounted by usePresence() gets data-closing and plays its entrance backwards. */
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes sheet-down {
+  from { transform: none; opacity: 1; }
+  to { transform: translateY(24px); opacity: 0; }
+}
+@keyframes slide-out-left {
+  from { transform: none; }
+  to { transform: translateX(-100%); }
+}
+[data-closing] { pointer-events: none; }
+[data-closing].fade-in, [data-closing] .fade-in { animation: fade-out 180ms ease-in both; }
+[data-closing].sheet-up, [data-closing] .sheet-up { animation: sheet-down 180ms ease-in both; }
+[data-closing].slide-in-left, [data-closing] .slide-in-left { animation: slide-out-left 180ms cubic-bezier(0.4, 0, 1, 1) both; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -152,7 +286,7 @@ h1, h2, h3 {
   font-variant-numeric: tabular-nums;
   border-radius: 3px 6px 6px 3px;
   clip-path: polygon(0.5rem 0, 100% 0, 100% 100%, 0.5rem 100%, 0 50%);
-  box-shadow: 0 1px 2px rgb(30 36 51 / 0.18);
+  box-shadow: 0 1px 2px rgb(28 26 23 / 0.18);
   transform: rotate(-3deg);
   transform-origin: left center;
 }
@@ -165,5 +299,415 @@ h1, h2, h3 {
   height: 0.3rem;
   margin-top: -0.15rem;
   border-radius: 999px;
-  background: rgb(30 36 51 / 0.55);
+  background: color-mix(in srgb, var(--kraft-ink) 55%, transparent);
+}
+
+/* Menus, dropdowns, popovers: a solid sheet of paper lifted off the page. */
+.panel {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-float);
+}
+
+/* Small solid pills over photos: price tag, «Нравится», video and discount marks, category labels. */
+.on-photo {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 0 0 1px rgb(28 26 23 / 0.06), 0 2px 8px rgb(28 26 23 / 0.12);
+}
+
+/*
+ * Traditional patterns, barely there (5–7 % ink), each with its meaning:
+ *   青海波 seigaiha waves — the tide of things coming and going (empty states, dividers, 404);
+ *   麻の葉 asanoha hemp leaf — growth and protection (a wardrobe's header, the photo drop zone, sign-in);
+ *   七宝 shippo seven treasures, interlocking circles — harmony, things that go together (bundle discounts).
+ * Never under running text or photos. Fades (pattern-fade-*) let a band melt into the paper instead of ending.
+ */
+/* Positioning in a layer, so a utility like `absolute` on the same element still wins. */
+@layer components {
+  .waves,
+  .pattern-asanoha,
+  .pattern-shippo {
+    position: relative;
+    isolation: isolate;
+  }
+}
+.waves::before,
+.pattern-asanoha::before,
+.pattern-shippo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--waves) 0 0 / 96px 48px;
+  opacity: 0.06;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.pattern-asanoha::before {
+  background: url("/brand/asanoha.svg") 0 0 / 28px 48.5px;
+  opacity: 0.07;
+}
+.pattern-shippo::before {
+  background: url("/brand/shippo.svg") 0 0 / 36px 36px;
+  opacity: 0.08;
+}
+.pattern-fade-b::before {
+  -webkit-mask-image: linear-gradient(to bottom, #000 10%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 10%, transparent 100%);
+}
+.pattern-fade-r::before {
+  -webkit-mask-image: linear-gradient(to left, #000 0%, transparent 70%);
+  mask-image: linear-gradient(to left, #000 0%, transparent 70%);
+}
+
+/* Hanko 判子: a seal stamped on a photo (sold, sale, new, reserved). Kanji by brush + the Russian word. */
+.hanko {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 6px 4px;
+  border: 2px solid var(--shu);
+  border-radius: 4px;
+  color: var(--shu);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  transform: rotate(-6deg);
+  line-height: 1;
+}
+.hanko-kanji {
+  font-family: var(--font-brush);
+  font-size: 18px;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.04em;
+}
+.hanko-ru {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.hanko-ink {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.hanko-round {
+  border-radius: 999px;
+  padding: 7px;
+}
+
+/* «Нравится» lands like a stamp. */
+/* A field's hint unfolds only while the field is in use (components/ui Field). */
+.field-hint {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -6px;
+  opacity: 0;
+  transition: grid-template-rows 300ms ease-out, opacity 300ms ease-out, margin-top 300ms ease-out;
+}
+.field:focus-within .field-hint {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+  opacity: 1;
+}
+
+/* Blocks rise into place one after another (set animation-delay per block). */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  /* backwards, not both: once finished it lets go, so a risen block is no stacking layer over dropdowns below/above */
+  animation: rise 460ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+/* A new photo pops onto the table. */
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.82) rotate(-2deg); }
+  70% { opacity: 1; transform: scale(1.03) rotate(0.5deg); }
+  100% { opacity: 1; transform: none; }
+}
+.pop {
+  animation: pop 380ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+/* A hanko comes down on the paper: from above, slightly too big, then settles askew. */
+@keyframes stamp-down {
+  0% { opacity: 0; transform: scale(2.4) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(0.92) rotate(-5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+.stamp-down {
+  animation: stamp-down 520ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+@keyframes stamp {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.82); }
+  100% { transform: scale(1); }
+}
+.stamp {
+  animation: stamp 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* The brand dot: active tab, unread marker. Echo of the logo's seals. */
+.seal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--shu);
+}
+
+/* ---------- Wa 和 buttons: flat, traditional ----------
+ * Rounded like the rest of the site (chips, search) with a double hairline frame inside, like the border of a seal.
+ * No depth, no motion beyond a colour change. Ink for the main action, paper for the second, cinnabar for «Продать». */
+/*
+ * Buttons as pieces of dyed cloth (noren): seigaiha waves woven into the fabric, a sashiko running stitch just
+ * inside the edge, and on hover the waves drift. Each colour is its own tile (public/brand/cloth-*.svg).
+ */
+.btn-wa {
+  position: relative;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+  background-size: 40px 20px;
+  background-position: 0 0;
+  outline: 1px dashed transparent;
+  outline-offset: -5px;
+  transition: color 160ms, box-shadow 200ms, transform 120ms, filter 160ms;
+}
+.btn-wa:hover:not(:disabled) {
+  animation: cloth-drift 2.4s linear infinite;
+  filter: brightness(1.06);
+}
+.btn-wa:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  filter: brightness(0.94);
+}
+@keyframes cloth-drift {
+  to { background-position: 40px 0; }
+}
+.btn-wa-ink {
+  background-image: var(--cloth-ai);
+  background-color: #1f3354;
+  color: #f4efe6;
+  outline-color: rgb(244 239 230 / 0.42);
+  box-shadow: 0 1px 0 rgb(15 26 46 / 0.5), 0 4px 12px -4px rgb(31 51 84 / 0.55);
+}
+.btn-wa-ink:hover:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(15 26 46 / 0.5), 0 8px 18px -6px rgb(31 51 84 / 0.7);
+}
+.btn-wa-paper {
+  background-image: var(--cloth-kinari);
+  background-color: var(--surface);
+  color: var(--indigo);
+  outline-color: color-mix(in srgb, var(--indigo) 38%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--indigo) 70%, transparent), 0 2px 8px -4px rgb(31 51 84 / 0.3);
+}
+.btn-wa-shu {
+  background-image: var(--cloth-shu);
+  background-color: var(--shu);
+  color: var(--on-shu);
+  outline-color: rgb(251 248 242 / 0.5);
+  box-shadow: 0 1px 0 rgb(90 6 20 / 0.45), 0 4px 12px -4px rgb(200 16 46 / 0.55);
+}
+.btn-wa-shu:hover:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(90 6 20 / 0.45), 0 8px 18px -6px rgb(200 16 46 / 0.7);
+}
+.btn-wa-danger {
+  background-color: var(--danger);
+  color: var(--on-danger);
+  outline-color: rgb(251 248 242 / 0.45);
+}
+.btn-wa-danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--danger) 88%, #000);
+}
+/*
+ * Chips as flat swatches of cloth: a squarer cut than the buttons, undyed cotton with small waves at rest; picked,
+ * the swatch is dyed indigo, stitched, and a tiny cinnabar seal is pressed in its corner.
+ */
+.chip {
+  position: relative;
+  border-radius: 10px;
+  background: var(--cloth-kinari) 0 0 / 24px 12px, var(--surface);
+  color: var(--ink);
+  outline: 1px dashed transparent;
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  transition: box-shadow 200ms, color 200ms, outline-color 200ms, background-position 600ms ease-out;
+}
+.chip:hover:not(:disabled) {
+  background-position: 12px 0, 0 0;
+  box-shadow: inset 0 0 0 1px var(--line-control);
+}
+.chip[aria-pressed="true"] {
+  background: var(--cloth-ai) 0 0 / 24px 12px, #1f3354;
+  color: #f4efe6;
+  outline-color: rgb(244 239 230 / 0.4);
+  box-shadow: none;
+}
+.chip[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--shu);
+  box-shadow: 0 0 0 2px var(--paper);
+  transform: rotate(-8deg);
+  animation: chip-seal 360ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+@keyframes chip-seal {
+  from { opacity: 0; transform: scale(2.2) rotate(-25deg); }
+  to { opacity: 1; transform: scale(1) rotate(-8deg); }
+}
+.chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Condition cards: a rank seal, a wear scale and the words; picked, the card is dyed like a chosen chip. */
+.cond-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  padding: 14px 16px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  outline: 1px dashed transparent;
+  outline-offset: -5px;
+  transition: box-shadow 200ms, color 200ms, background-color 200ms, outline-color 200ms;
+}
+.cond-card:hover {
+  box-shadow: inset 0 0 0 1px var(--line-control);
+}
+.cond-card:focus-within {
+  box-shadow: inset 0 0 0 2px var(--indigo);
+}
+.cond-card.is-on {
+  background: var(--cloth-ai) 0 0 / 24px 12px, #1f3354;
+  color: #f4efe6;
+  outline-color: rgb(244 239 230 / 0.35);
+  box-shadow: none;
+}
+.cond-seal {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  font-family: var(--font-brush);
+  font-size: 22px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  transform: rotate(-4deg);
+}
+.cond-card.is-on .cond-seal {
+  color: #f4efe6;
+  background: var(--shu);
+  border-color: var(--shu);
+  box-shadow: 0 0 0 2px rgb(244 239 230 / 0.25);
+}
+
+/* On indigo cloth (footer, catalogue) the primary button is undyed cotton instead. */
+.aizome .btn-wa-ink {
+  background-image: var(--cloth-kinari);
+  background-color: #fbf8f2;
+  color: #1f3354;
+  outline-color: rgb(31 51 84 / 0.35);
+  box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-wa:hover:not(:disabled) { animation: none; }
+}
+
+/* Washi paper with its fibres: the page ground, also for bars that sit on it (no seam between header and page). */
+.bg-washi {
+  background: url("/brand/washi-texture.svg") 0 0 / 320px, var(--paper);
+}
+
+/*
+ * Aizome 藍染: indigo-dyed cloth with lighter seigaiha waves — the footer, a wardrobe's cover, the sellers' band on
+ * the home page. Inside it the brand tokens are re-set for the dark cloth, so any component placed there (buttons,
+ * rating, links) recolours itself: washi text, paper-coloured main buttons, cinnabar stays cinnabar.
+ */
+.aizome {
+  --paper: #1f3354;
+  --surface: #2a4169;
+  --ink: #f4efe6;
+  --ink-2: #d2d8e4;
+  --muted: #aab6cc;
+  --line: rgb(244 239 230 / 0.16);
+  --line-strong: rgb(244 239 230 / 0.28);
+  --line-control: rgb(244 239 230 / 0.55);
+  --accent: #f4efe6;
+  --accent-hover: #ffffff;
+  --accent-ink: #1f3354;
+  --accent-soft: rgb(244 239 230 / 0.12);
+  --indigo: #c3d0ea;
+  --indigo-soft: rgb(195 208 234 / 0.16);
+  --shu: #e0353f;
+  --on-shu: #fbf8f2;
+  --amber: #e9bd5c;
+  --skeleton: #2a4169;
+  background-color: #1f3354;
+  color: var(--ink);
+}
+@layer components {
+  .aizome {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+}
+.aizome::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url("/brand/seigaiha-yoru.svg") 0 0 / 96px 48px;
+  opacity: 0.12;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.aizome-fade-in::before {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
+}
+.aizome-fade-r::before {
+  -webkit-mask-image: linear-gradient(to left, #000 0%, transparent 75%);
+  mask-image: linear-gradient(to left, #000 0%, transparent 75%);
+}
+
+/* ---------- Shop illustrations (components/shop): gentle life, never for reduced motion ---------- */
+@keyframes sway {
+  0%, 100% { transform: rotate(-2.2deg); }
+  50% { transform: rotate(2.2deg); }
+}
+.sway {
+  transform-origin: 50% 0;
+  animation: sway 5.5s ease-in-out infinite;
+}
+@keyframes noren {
+  0%, 100% { transform: skewX(0deg); }
+  50% { transform: skewX(-1.6deg); }
+}
+.noren-panel {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: noren 6s ease-in-out infinite;
+}
+@keyframes beckon {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  78% { transform: rotate(-14deg); }
+  86% { transform: rotate(4deg); }
+  92% { transform: rotate(-8deg); }
+}
+.maneki-paw {
+  transform-box: fill-box;
+  transform-origin: 30% 100%;
+  animation: beckon 4.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sway, .noren-panel, .maneki-paw { animation: none; }
 }

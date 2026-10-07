@@ -5,22 +5,23 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { CoreFields, MoreFields, PriceFields } from "@/components/listing-fields";
+import { FormSection } from "@/components/form-section";
+import { DetailFields, HandoverFields, ItemFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
 import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
-import { VideoField } from "@/components/video-field";
-import { issuesById, PhotoAdvice, PriceHint, usePhotoCheck } from "@/components/ai-hints";
+import { usePriceSuggestion } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
 import { useToast } from "@/components/toast";
-import { Button, ButtonLink, IconCheck, IconSparkle, IconX, Spinner } from "@/components/ui";
+import { Daruma } from "@/components/shop/daruma";
+import { Button, ButtonLink, Hanko, IconCheck, IconSparkle, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice } from "@/lib/labels";
-import { type AiState, applySuggestion, emptyValues, type ListingValues, type PhotoDraft, similarValues, toPayload, validate } from "@/lib/listing-form";
-import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me, Meta } from "@/lib/types";
+import { type AiState, applySuggestion, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, similarValues, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
+import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me } from "@/lib/types";
 
-type Step = 1 | 2 | 3 | 4;
-const STEPS = ["Фото", "Описание", "Цена", "Превью"];
+type Step = 1 | 2 | 3;
+/** Numbered steps after the photo screen (step 1 is the upload itself and has no number). */
+const STEPS = ["Информация", "Цена"];
 const AI_MANUAL_AFTER_MS = 10_000;
 
 export default function SellPage() {
@@ -36,14 +37,19 @@ export default function SellPage() {
 }
 
 /** "/sell?similar=<id>": starts from one of the seller's listings ("Выставить похожую", eBay "Sell similar"). */
+/** "?draft=<id>" continues an unfinished listing in this same flow, with everything filled in so far. */
 function SimilarLoader({ me }: { me: Me }) {
   const params = useSearchParams();
   const similar = params.get("similar");
-  const { data, error } = useSWR<ListingResponse>(similar ? `/listings/${similar}` : null, { revalidateOnFocus: false });
-  if (similar && !data && !error) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
-  const source = data && !("unavailable" in data) && data.isOwner ? data : null;
+  const draftParam = params.get("draft");
+  const ref = draftParam ?? similar;
+  const { data, error } = useSWR<ListingResponse>(ref ? `/listings/${ref}` : null, { revalidateOnFocus: false });
+  if (ref && !data && !error) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
+  const own = data && !("unavailable" in data) && data.isOwner ? data : null;
+  const draft = draftParam && own?.status === "DRAFT" ? own : null;
+  const source = !draftParam ? own : null;
   // "?new=…" remounts the form for "Добавить ещё" without a full reload.
-  return <Sell key={source?.id ?? params.get("new") ?? "new"} me={me} source={source} />;
+  return <Sell key={draft?.id ?? source?.id ?? params.get("new") ?? "new"} me={me} source={source} draft={draft} />;
 }
 
 /** Shown on an empty /sell when an unfinished draft exists, so work isn't lost or duplicated. */
@@ -52,7 +58,7 @@ function DraftReminder({ me }: { me: Me }) {
   const draft = data?.drafts.find((d) => !d.scheduledAt);
   if (!draft) return null;
   return (
-    <Link href={`/item/${draft.id}/edit`} className="mb-6 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-ink">
+    <Link href={`/sell?draft=${draft.id}`} className="mb-6 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-ink">
       <span className="size-14 shrink-0 overflow-hidden rounded-xl bg-skeleton">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {draft.cover && <img src={draft.cover.urls.s} alt="" className="size-full object-cover" />}
@@ -66,18 +72,34 @@ function DraftReminder({ me }: { me: Me }) {
   );
 }
 
+const STEP_KANJI = ["一", "二"];
+
+/** Steps as round seals with brush numerals; the current one is stamped in cinnabar, done ones carry a tick. */
 function StepIndicator({ step, onStep }: { step: Step; onStep: (s: Step) => void }) {
   return (
-    <ol className="flex items-center gap-1.5 text-sm" aria-label="Шаги">
+    <ol className="flex items-center gap-2 text-sm" aria-label="Шаги">
       {STEPS.map((label, i) => {
-        const n = (i + 1) as Step;
+        const n = (i + 2) as Step;
         const done = n < step;
+        const current = n === step;
         return (
-          <li key={label} className="flex items-center gap-1.5">
-            {i > 0 && <span className="h-px w-3 bg-line-strong sm:w-6" aria-hidden />}
-            <button type="button" disabled={!done} onClick={() => onStep(n)} aria-current={n === step ? "step" : undefined} className={clsx("flex items-center gap-1.5", n === step ? "font-semibold text-ink" : done ? "text-ink-2 hover:text-ink" : "text-muted")}>
-              <span className={clsx("grid size-6 place-items-center rounded-full text-xs", n === step ? "bg-ink text-white" : done ? "bg-accent-soft text-accent" : "bg-black/5")}>{done ? <IconCheck className="size-3.5" /> : n}</span>
-              <span className="hidden sm:inline">{label}</span>
+          <li key={label} className="flex items-center gap-2">
+            {i > 0 && (
+              <span className="relative h-0.5 w-5 overflow-hidden rounded-full bg-line-strong sm:w-10" aria-hidden>
+                <span className={clsx("absolute inset-y-0 left-0 bg-shu transition-[width] duration-500 ease-out", n <= step ? "w-full" : "w-0")} />
+              </span>
+            )}
+            <button type="button" disabled={!done} onClick={() => onStep(n)} aria-current={current ? "step" : undefined} className={clsx("flex items-center gap-2", current ? "font-semibold text-ink" : done ? "text-ink-2 hover:text-ink" : "text-muted")}>
+              <span
+                key={current ? `on-${n}` : n}
+                className={clsx(
+                  "grid size-8 place-items-center rounded-full font-brush text-[15px] leading-none transition-colors",
+                  current ? "stamp bg-shu text-on-shu shadow-[0_0_0_3px_var(--paper),0_0_0_4px_var(--shu)]" : done ? "bg-indigo text-[#f4efe6]" : "border border-line-strong text-muted",
+                )}
+              >
+                {done ? <IconCheck className="size-4" /> : STEP_KANJI[i]}
+              </span>
+              <span className="hidden md:inline">{label}</span>
             </button>
           </li>
         );
@@ -86,10 +108,10 @@ function StepIndicator({ step, onStep }: { step: Step; onStep: (s: Step) => void
   );
 }
 
-function AiScanning({ cover, lines, slow, onManual }: { cover?: string; lines: string[]; slow: boolean; onManual: () => void }) {
+function AiScanning({ cover, slow, onManual }: { cover?: string; slow: boolean; onManual: () => void }) {
   return (
-    <div className="flex flex-col items-center py-10 text-center">
-      <div className="relative w-48 overflow-hidden rounded-2xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+    <div className="rise flex flex-col items-center py-16 text-center">
+      <div className="relative w-56 overflow-hidden rounded-3xl bg-skeleton shadow-[var(--shadow-float)]" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {cover && <img src={cover} alt="" className="size-full object-cover" />}
         <span className="absolute inset-x-0 h-12 animate-[scan_1.5s_ease-in-out_infinite] bg-gradient-to-b from-transparent via-ai/30 to-transparent" aria-hidden />
@@ -97,11 +119,6 @@ function AiScanning({ cover, lines, slow, onManual }: { cover?: string; lines: s
       <p className="mt-6 flex items-center gap-2 text-lg font-semibold" role="status">
         <IconSparkle className="size-5 text-ai" filled /> Определяем вещь…
       </p>
-      <ul className="mt-3 flex flex-col gap-1 text-sm text-ink-2">
-        {lines.map((l) => (
-          <li key={l}>{l}</li>
-        ))}
-      </ul>
       {slow && (
         <Button variant="secondary" className="mt-6" onClick={onManual}>
           Заполнить вручную
@@ -112,104 +129,31 @@ function AiScanning({ cover, lines, slow, onManual }: { cover?: string; lines: s
   );
 }
 
-function EditLink({ step, onEdit }: { step: Step; onEdit: (s: Step) => void }) {
-  return (
-    <button type="button" onClick={() => onEdit(step)} className="text-sm text-ink-2 underline underline-offset-4 hover:text-ink">
-      Изменить
-    </button>
-  );
-}
-
-function Preview({ values, photos, meta, onEdit }: { values: ListingValues; photos: PhotoDraft[]; meta: Meta; onEdit: (s: Step) => void }) {
-  const category = meta.categories.find((c) => c.slug === values.category);
-  const color = meta.colors.find((c) => c.value === values.color);
-  const cover = photos.find((p) => p.status === "done");
-  return (
-    <div className="grid gap-8 md:grid-cols-[2fr_3fr]">
-      <div>
-        <div className="overflow-hidden rounded-3xl bg-skeleton" style={{ aspectRatio: cover?.width ? `${cover.width} / ${cover.height}` : "4 / 5" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {cover && <img src={cover.preview} alt="" className="size-full object-cover" />}
-        </div>
-        <div className="mt-2 flex items-center justify-between text-sm text-muted">
-          {photos.filter((p) => p.status === "done").length} фото <EditLink step={1} onEdit={onEdit} />
-        </div>
-      </div>
-      <div className="flex flex-col gap-5">
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-semibold">{values.title}</h2>
-          <EditLink step={2} onEdit={onEdit} />
-        </div>
-        <div className="flex items-center justify-between">
-          <p className="tabular text-3xl font-semibold">
-            {values.saleType === "AUCTION" && <span className="mr-2 text-base font-normal text-muted">Аукцион · старт</span>}
-            {formatPrice(Number(values.price))}
-            {values.saleType === "AUCTION" && <span className="ml-2 text-base font-normal text-muted">· {values.auctionHours === 24 ? "1 день" : values.auctionHours === 72 ? "3 дня" : "7 дней"}</span>}
-          </p>
-          <EditLink step={3} onEdit={onEdit} />
-        </div>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[15px]">
-          {(
-            [
-              ["Размер", values.sizeValue && (values.extraSizes.length ? [values.sizeValue, ...values.extraSizes].join(", ") : values.sizeValue)],
-              ["Для кого", meta.genders.find((g) => g.value === values.gender)?.label ?? "Подходит всем"],
-              ["Бренд", values.brand],
-              ["Цена в магазине", values.originalPrice && formatPrice(Number(values.originalPrice))],
-              ["Видео", values.video && `${Math.round(values.video.durationMs / 1000)} с`],
-              ["Состояние", values.condition && CONDITION_LABEL[values.condition]],
-              ["Цвет", color?.label],
-              ["Материал", values.material],
-              ["Категория", category?.subcategories.find((s) => s.slug === values.subcategory)?.label ?? category?.label],
-            ] as const
-          )
-            .filter(([, v]) => v)
-            .map(([k, v]) => (
-              <div key={k} className="contents">
-                <dt className="text-muted">{k}</dt>
-                <dd>{v}</dd>
-              </div>
-            ))}
-        </dl>
-        <p className="flex items-start gap-2">
-          <span className={clsx("mt-2 size-2 shrink-0 rounded-full", values.defectsPresent ? "bg-[#d97a00]" : "bg-ok")} />
-          {values.defectsPresent ? `Есть дефекты: ${values.defectsDescription}` : "Нет дефектов"}
-        </p>
-        {values.description && <p className="whitespace-pre-line text-[15px] leading-relaxed text-ink-2">{values.description}</p>}
-        <p className="text-sm text-muted">{[values.city, values.deliveryOptions.map((d) => DELIVERY_LABEL[d]).join(", ")].filter(Boolean).join(" · ")}</p>
-      </div>
-    </div>
-  );
-}
-
-function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
+function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; draft: ListingDetail | null }) {
   const meta = useMeta();
   const router = useRouter();
   const toast = useToast();
-  const [step, setStep] = useState<Step>(1);
-  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
-  const [values, setValues] = useState<ListingValues>(() => (source ? similarValues(source) : emptyValues(me.city)));
-  const [ai, setAi] = useState<AiState>({});
+  // A continued draft starts on the description step with its photos and fields in place.
+  const [step, setStep] = useState<Step>(draft ? 2 : 1);
+  const [photos, setPhotos] = useState<PhotoDraft[]>(() => (draft ? photosFromListing(draft) : []));
+  const [values, setValues] = useState<ListingValues>(() => (draft ? valuesFromListing(draft) : source ? similarValues(source) : emptyValues(me.city)));
+  const [ai, setAi] = useState<AiState>(() => ((draft?.owner?.aiAttributes ?? {}) as AiState));
   const [aiModel, setAiModel] = useState<string>();
   // A "similar" listing already has its description: AI autofill would overwrite it.
-  const [aiPhase, setAiPhase] = useState<"idle" | "running" | "done" | "failed" | "disabled">(source ? "disabled" : "idle");
+  const [aiPhase, setAiPhase] = useState<"idle" | "running" | "done" | "failed" | "disabled">(source || draft ? "disabled" : "idle");
   const [aiSlow, setAiSlow] = useState(false);
   const [aiFlags, setAiFlags] = useState<AiSuggestion["flags"] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(draft?.id ?? null);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState<ListingDetail | null>(null);
   const [scheduled, setScheduled] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
-  const autoAdvanced = useRef(false);
+  const autoAdvanced = useRef(!!draft);
   const aiRun = useRef(0);
 
   const set = useCallback((patch: Partial<ListingValues>) => setValues((v) => ({ ...v, ...patch })), []);
-  const photoCheck = usePhotoCheck(step >= 2 ? photos : [], values.category);
-  const makeCover = (photoId: string) =>
-    setPhotos((prev) => {
-      const i = prev.findIndex((p) => p.id === photoId);
-      return i > 0 ? [prev[i], ...prev.slice(0, i), ...prev.slice(i + 1)] : prev;
-    });
+  const market = usePriceSuggestion(values, photos, draftId, step >= 3);
   const uploaded = photos.filter((p) => p.status === "done");
   const uploading = photos.some((p) => p.status === "uploading");
 
@@ -266,18 +210,15 @@ function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
     }
   }, [photos, values]);
 
-  // First photo uploaded → create draft; auto-advance to step 2 after 1 s if the user is idle.
+  // The first uploaded photo starts everything at once: the draft is created and AI analyses the photo while the
+  // form opens (other photos keep uploading in the background).
   useEffect(() => {
     if (step !== 1 || !uploaded.length || autoAdvanced.current) return;
-    const t = setTimeout(() => {
-      if (!draftId && !creating.current) void saveDraft({ quiet: true });
-      if (uploading) return;
-      autoAdvanced.current = true;
-      setStep(2);
-      void runAi();
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [step, uploaded.length, uploading, draftId, saveDraft, runAi]);
+    autoAdvanced.current = true;
+    if (!draftId && !creating.current) void saveDraft({ quiet: true });
+    setStep(2);
+    void runAi();
+  }, [step, uploaded.length, draftId, saveDraft, runAi]);
 
   // Leaving with unsaved progress.
   useEffect(() => {
@@ -305,14 +246,6 @@ function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
   });
 
   const next = async () => {
-    if (step === 1) {
-      if (!uploaded.length) return setErrors({ photos: "Добавьте хотя бы одно фото" });
-      autoAdvanced.current = true;
-      setStep(2);
-      if (aiPhase === "idle") void runAi();
-      void saveDraft({ quiet: true });
-      return;
-    }
     if (step === 2) {
       const e = validate(values, meta, photos, "describe");
       setErrors(e);
@@ -320,13 +253,6 @@ function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
       setStep(3);
       void saveDraft({ quiet: true });
       return;
-    }
-    if (step === 3) {
-      const e = validate(values, meta, photos, "price");
-      setErrors(e);
-      if (Object.keys(e).length) return scrollToError();
-      setStep(4);
-      void saveDraft({ quiet: true });
     }
   };
 
@@ -350,6 +276,11 @@ function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
         setStep(err.fields.price ? 3 : 2);
         // Automatic moderation explains what to fix next to the field itself.
         if (err.code === "MODERATION") toast(`${err.message}: исправьте отмеченные поля`, { tone: "error" });
+        // One item = one listing: point the seller to the listing they already have.
+        if (err.code === "DUPLICATE" && typeof err.data.duplicateOf === "string") {
+          const existing = err.data.duplicateOf;
+          toast(err.message, { tone: "error", action: { label: "Открыть", onClick: () => router.push(`/item/${existing}`) } });
+        }
         scrollToError();
       } else toast("Не удалось опубликовать. Черновик сохранён", { tone: "error", action: { label: "Повторить", onClick: () => void publish() } });
     } finally {
@@ -419,9 +350,15 @@ function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
     const cover = published.photos[0];
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-4 py-16 text-center">
-        <div className="sheet-up w-40 overflow-hidden rounded-2xl shadow-xl" style={{ aspectRatio: cover ? `${cover.width} / ${cover.height}` : "4 / 5" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {cover && <img src={cover.urls.m} alt="" className="size-full object-cover" />}
+        <div className="relative">
+          <div className="rise w-48 overflow-hidden rounded-3xl shadow-[var(--shadow-float)]" style={{ aspectRatio: cover ? `${cover.width} / ${cover.height}` : "4 / 5" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {cover && <img src={cover.urls.m} alt="" className="size-full object-cover" />}
+          </div>
+          <span className="stamp-down absolute -right-6 -top-4 block" style={{ animationDelay: "350ms" }}>
+            <Hanko kind="listed" className="scale-125" />
+          </span>
+          <Daruma eyes={1} className="rise absolute -bottom-6 -left-12 h-24" />
         </div>
         <h1 className="mt-8 text-2xl font-semibold">{published.sizes ? `Опубликовано в ${published.sizes.length} размерах` : "Вещь опубликована"}</h1>
         <p className="mt-2 text-ink-2">Она уже в каталоге, в вашем гардеробе и в «Новинках».</p>
@@ -443,40 +380,33 @@ function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
     );
   }
 
-  const fieldProps = { values, set, ai, setAi, errors, meta, photos, setPhotos, mode: "create" as const, multiSize: true };
+  const fieldProps = { values, set, ai, setAi, errors, meta, photos, setPhotos, mode: "create" as const };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-32 pt-4 md:pb-16 md:pt-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <button onClick={exit} aria-label="Выйти" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-black/5">
+    <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-8">
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <button onClick={exit} aria-label="Выйти" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-ink/5">
           <IconX />
         </button>
         <StepIndicator step={step} onStep={setStep} />
         <span className="w-10 text-right text-xs text-muted" aria-live="polite" title={savedAt ? `Черновик сохранён в ${savedAt.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}` : undefined}>
-          {savedAt && <IconCheck className="ml-auto size-4" aria-label="Черновик сохранён" />}
+          {savedAt && <IconCheck key={savedAt.getTime()} className="pop ml-auto size-4 text-ok" aria-label="Черновик сохранён" />}
         </span>
       </div>
 
       {step === 1 && (
-        <section>
-          <h1 className="mb-6 text-3xl font-semibold tracking-tight">{source ? "Похожая вещь: добавьте фото" : "Что продаём?"}</h1>
-          {source ? (
-            <p className="mb-6 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
-              Описание, бренд, цена и категория взяты из «{source.title}». Добавьте фото этой вещи, затем укажите размер и состояние.
-            </p>
-          ) : (
-            !photos.length && <DraftReminder me={me} />
-          )}
+        <section key="s1">
+          <h1 className="rise mb-6 text-3xl font-bold tracking-tight md:text-4xl">{source ? "Похожая вещь: добавьте фото" : "Что продаём?"}</h1>
+          {!source && !photos.length && <DraftReminder me={me} />}
           <PhotoManager photos={photos} onChange={setPhotos} big error={errors.photos} />
         </section>
       )}
 
       {step === 2 && (
-        <section>
+        <div key="s2">
           {aiPhase === "running" ? (
             <AiScanning
               cover={uploaded[0]?.preview}
-              lines={["Категория…", "Цвет…", "Бренд…"]}
               slow={aiSlow}
               onManual={() => {
                 aiRun.current++;
@@ -484,61 +414,57 @@ function Sell({ me, source }: { me: Me; source: ListingDetail | null }) {
               }}
             />
           ) : (
-            <div className="grid gap-8 md:grid-cols-[200px_1fr]">
-              <div className="flex flex-col gap-4 md:sticky md:top-24 md:self-start">
-                <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} issues={issuesById(photoCheck.check)} />
-                <PhotoAdvice check={photoCheck.check} loading={photoCheck.loading} photos={photos} onMakeCover={makeCover} />
-                <VideoField value={values.video} onChange={(video) => set({ video })} />
-              </div>
-              <div className="flex flex-col gap-7">
-                <h1 className="text-2xl font-semibold tracking-tight">Проверьте описание</h1>
-                {aiPhase === "done" && (
-                  <p className="flex items-start gap-2 rounded-xl bg-ai-soft px-4 py-3 text-sm text-ai">
-                    <IconSparkle className="mt-0.5 size-4 shrink-0" filled />
-                    AI заполнил часть полей по фото. Размер, состояние и дефекты укажите сами — их по фото не определить.
-                  </p>
-                )}
-                {aiPhase === "failed" && <p className="rounded-xl bg-black/5 px-4 py-3 text-sm text-ink-2">Не получилось определить вещь автоматически. Заполните поля сами — это займёт минуту.</p>}
-                {aiFlags?.not_clothing && <p className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">На фото не видно вещи. Можно заменить фото или продолжить вручную.</p>}
-                <CoreFields {...fieldProps} />
-                <MoreFields {...fieldProps} />
-              </div>
+            <div className="flex flex-col gap-10">
+              <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Расскажите о вещи</h1>
+              {aiFlags?.not_clothing && <p className="rise rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">На фото не видно вещи — можно заменить фото или продолжить вручную.</p>}
+              <FormSection kanji="写" title="Фото и видео" index={0}>
+                <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} big video={values.video} onVideo={(video) => set({ video })} />
+              </FormSection>
+              <FormSection kanji="品" title="Что за вещь" index={1}>
+                <ItemFields {...fieldProps} />
+              </FormSection>
+              <FormSection kanji="寸" title="Размер и состояние" index={2}>
+                <SizeConditionFields {...fieldProps} />
+              </FormSection>
+              <FormSection kanji="詳" title="Детали" index={3}>
+                <DetailFields {...fieldProps} />
+              </FormSection>
+              <FormSection kanji="渡" title="Передача" index={4}>
+                <HandoverFields {...fieldProps} />
+              </FormSection>
             </div>
           )}
-        </section>
+        </div>
       )}
 
       {step === 3 && (
-        <section>
-          <h1 className="mb-6 text-2xl font-semibold tracking-tight">Цена и формат продажи</h1>
-          <PriceHint values={values} photos={photos} listingId={draftId} set={set} className="mb-6" />
-          <PriceFields values={values} set={set} errors={errors} />
-        </section>
+        <div key="s3" className="flex flex-col gap-10">
+          <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Цена</h1>
+          <FormSection kanji="値" title="Цена и формат продажи" index={0}>
+            <PriceFields values={values} set={set} errors={errors} market={market} />
+          </FormSection>
+        </div>
       )}
 
-      {step === 4 && (
-        <section>
-          <h1 className="mb-6 text-2xl font-semibold tracking-tight">Так покупатели увидят вещь</h1>
-          <Preview values={values} photos={photos} meta={meta} onEdit={setStep} />
-        </section>
-      )}
 
-      {!(step === 2 && aiPhase === "running") && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mt-10 md:justify-end md:border-0 md:bg-transparent md:p-0">
-          {step > 1 && (
-            <Button variant="secondary" onClick={() => setStep((s) => (s - 1) as Step)}>
+      {/* No bar on the photo screen (the first photo moves on by itself) or while AI is reading the photo. */}
+      {step !== 1 && !(step === 2 && aiPhase === "running") && (
+        <div className="sheet-up fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mt-10 md:justify-end md:border-0 md:bg-transparent md:p-0">
+          {/* All the bar's buttons are one size: equal shares on a phone, the same fixed width on desktop. */}
+          {step > 2 && (
+            <Button variant="secondary" size="lg" className="flex-1 md:w-48 md:flex-none" onClick={() => setStep((s) => (s - 1) as Step)}>
               Назад
             </Button>
           )}
-          {step === 4 ? (
+          {step === 3 ? (
             <>
-              <SchedulePicker disabled={publishing} onSchedule={schedule} />
-              <Button size="lg" className="flex-1 md:flex-none md:px-10" loading={publishing} onClick={publish}>
+              <SchedulePicker disabled={publishing} onSchedule={schedule} className="flex-1 md:w-48 md:flex-none" buttonClassName="w-full" />
+              <Button size="lg" className="flex-1 md:w-48 md:flex-none" loading={publishing} onClick={publish}>
                 {publishing ? "Публикуем…" : "Опубликовать"}
               </Button>
             </>
           ) : (
-            <Button size="lg" className="flex-1 md:flex-none md:px-10" disabled={step === 1 && (!uploaded.length || uploading)} onClick={next}>
+            <Button size="lg" className="flex-1 md:w-48 md:flex-none" onClick={next}>
               Далее
             </Button>
           )}

@@ -42,7 +42,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={t.id}
             role="status"
             className={`sheet-up pointer-events-auto flex max-w-md items-center gap-4 rounded-xl px-4 py-3 text-sm shadow-lg ${
-              t.tone === "error" ? "bg-danger text-white" : "bg-ink text-white"
+              t.tone === "error" ? "bg-danger text-accent-ink" : "bg-ink text-accent-ink"
             }`}
           >
             <span>{t.message}</span>

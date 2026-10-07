@@ -1,5 +1,6 @@
 "use client";
 
+import { UmeBranch } from "./shop/ume-branch";
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -145,7 +146,7 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
   if (!top) {
     return (
       <div ref={frame}>
-        <EmptyState title={cards.length ? "Вы посмотрели все вещи" : "Пока нечего показать"} hint="Новые вещи появляются каждый день">
+        <EmptyState art={<UmeBranch className="mb-2 w-56" />} title={cards.length ? "Вы посмотрели все вещи" : "Пока нечего показать"} hint="Новые вещи появляются каждый день">
           <Button
             variant="secondary"
             onClick={() => {
@@ -191,7 +192,7 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
                 aria-hidden={!isTop}
                 aria-label={isTop ? `${card.title}, ${formatPrice(card.price)}` : undefined}
                 className={clsx(
-                  "absolute inset-0 mx-auto flex flex-col overflow-hidden rounded-[28px] bg-surface shadow-[0_18px_40px_-18px_rgb(30_36_51/0.45)] will-change-transform",
+                  "absolute inset-0 mx-auto flex flex-col overflow-hidden rounded-[28px] bg-surface shadow-[0_18px_40px_-18px_rgb(28_26_23/0.45)] will-change-transform",
                   isTop ? "z-20 cursor-grab touch-none select-none active:cursor-grabbing" : depth === 1 ? "z-10" : "z-0",
                   (!isTop || !dragging) && "transition-transform ease-out",
                 )}
@@ -254,13 +255,13 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
                       {/* Tint + stamp show what letting go will do. */}
                       <div className={clsx("pointer-events-none absolute inset-0 transition-colors", intent === "right" ? "bg-heart" : intent === "left" ? "bg-ink" : "bg-transparent")} style={{ opacity: intent ? progress * 0.18 : 0 }} />
                       <span
-                        className="pointer-events-none absolute left-5 top-5 -rotate-12 rounded-xl border-[3px] border-heart bg-white/80 px-3 py-1 text-lg font-bold text-heart backdrop-blur-sm"
+                        className="pointer-events-none absolute left-5 top-5 -rotate-12 rounded-xl border-[3px] border-heart bg-surface/85 px-3 py-1 text-lg font-bold text-heart"
                         style={{ opacity: intent === "right" ? progress : 0 }}
                       >
                         ♡ Нравится
                       </span>
                       <span
-                        className="pointer-events-none absolute right-5 top-5 rotate-12 rounded-xl border-[3px] border-ink bg-white/80 px-3 py-1 text-lg font-bold text-ink backdrop-blur-sm"
+                        className="pointer-events-none absolute right-5 top-5 rotate-12 rounded-xl border-[3px] border-ink bg-surface/85 px-3 py-1 text-lg font-bold text-ink"
                         style={{ opacity: intent === "left" ? progress : 0 }}
                       >
                         Не моё
@@ -286,10 +287,10 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
         <button aria-label="Вернуть предыдущую" title="Вернуть (Backspace)" disabled={!history.length} onClick={() => void undo()} className="grid size-11 place-items-center rounded-full bg-surface text-xl text-ink-2 shadow-sm transition hover:scale-105 disabled:opacity-30 disabled:hover:scale-100">
           ↶
         </button>
-        <button aria-label="Не моё" title="Не моё (←)" onClick={() => commit("left")} className={clsx("grid size-16 place-items-center rounded-full bg-surface shadow-md transition hover:scale-105", intent === "left" && "scale-110 bg-ink text-white")}>
+        <button aria-label="Не моё" title="Не моё (←)" onClick={() => commit("left")} className={clsx("grid size-16 place-items-center rounded-full bg-surface shadow-md transition hover:scale-105", intent === "left" && "scale-110 bg-ink text-accent-ink")}>
           <IconX className="size-7" />
         </button>
-        <button aria-label="Нравится" title="Нравится (→)" onClick={() => commit("right")} className={clsx("grid size-16 place-items-center rounded-full bg-surface text-heart shadow-md transition hover:scale-105", intent === "right" && "scale-110 bg-heart text-white")}>
+        <button aria-label="Нравится" title="Нравится (→)" onClick={() => commit("right")} className={clsx("grid size-16 place-items-center rounded-full bg-surface text-heart shadow-md transition hover:scale-105", intent === "right" && "scale-110 bg-heart text-on-danger")}>
           <IconHeart className="size-7" filled />
         </button>
 {context === "swipe_mode" && top.status === "PUBLISHED" && me?.id !== top.seller.id && (

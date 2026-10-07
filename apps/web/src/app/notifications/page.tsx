@@ -1,5 +1,6 @@
 "use client";
 
+import { Chochin } from "@/components/shop/chochin";
 import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
@@ -37,9 +38,9 @@ function Notifications() {
   const unread = (data ?? []).flatMap((p) => p.items).some((n) => !n.readAt);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h1 className="text-3xl font-semibold tracking-tight">Уведомления</h1>
+        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Уведомления</h1>
         {unread && (
           <Button
             variant="ghost"
@@ -54,18 +55,19 @@ function Notifications() {
           </Button>
         )}
       </div>
-      <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[240px_1fr] lg:gap-10">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto lg:sticky lg:top-24 lg:flex-col lg:self-start lg:overflow-visible">
         {GROUPS.map(([key, label]) => (
-          <Chip key={key} active={group === key} onClick={() => setGroup(key)}>
+          <Chip key={key} active={group === key} onClick={() => setGroup(key)} className="lg:justify-start">
             {label}
           </Chip>
         ))}
-        <Chip active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)} className="ml-auto">
+        <Chip active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)} className="ml-auto lg:ml-0 lg:mt-3 lg:justify-start">
           Непрочитанные
         </Chip>
       </div>
 
-      <div className="mt-6">
+      <div className="min-w-0">
         {error ? (
           <ErrorState message="Не удалось загрузить уведомления" onRetry={() => mutate()} />
         ) : !data ? (
@@ -75,15 +77,15 @@ function Notifications() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <EmptyState title="Здесь появятся ответы продавцов, новые запросы, предложения цены и снижение цен" />
+          <EmptyState art={<Chochin className="mb-2 h-40" />} title="Здесь появятся ответы продавцов, новые запросы, предложения цены и снижение цен" />
         ) : (
-          <ul className="flex flex-col divide-y divide-line">
+          <ul className="rise flex flex-col divide-y divide-line">
             {items.map((n) => (
               <li key={n.id}>
                 <Link
                   href={notificationHref(n)}
                   onClick={() => !n.readAt && void api(`/notifications/${n.id}/read`, { method: "POST" }).then(() => refresh())}
-                  className="flex items-start gap-3 rounded-xl px-2 py-3.5 hover:bg-surface"
+                  className="flex items-start gap-3 rounded-2xl px-3 py-3.5 transition-colors hover:bg-surface"
                 >
                   <span className={clsx("mt-2 size-2 shrink-0 rounded-full", n.readAt ? "bg-transparent" : "bg-danger")} aria-label={n.readAt ? undefined : "Новое"} />
                   <span className="min-w-0 flex-1">
@@ -102,6 +104,7 @@ function Notifications() {
             </Button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

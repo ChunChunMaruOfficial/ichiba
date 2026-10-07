@@ -1,10 +1,18 @@
-import { BadRequestException, Body, Controller, Post, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpCode, Post, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
+import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { ZodPipe } from '../common/zod.js';
 import { MAX_UPLOAD_BYTES, MediaService } from './media.service.js';
 import { MAX_VIDEO_BYTES } from './video.js';
+
+const CloudinaryPhotoDto = z.object({
+  publicId: z.string().min(1).max(300),
+  version: z.coerce.number().int().positive(),
+  signature: z.string().regex(/^[0-9a-fA-F]{40}$/),
+});
 
 @Controller('media')
 export class MediaController {
@@ -16,6 +24,21 @@ export class MediaController {
   upload(@CurrentUser() user: AuthUser, @UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException({ message: 'Файл не получен' });
     return this.media.upload(user.id, file);
+  }
+
+  /** Direct-to-Cloudinary upload, step 1: a signed ticket (or `local` when Cloudinary is off). */
+  @Post('photos/ticket')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  ticket(@CurrentUser() user: AuthUser) {
+    return this.media.photoTicket(user.id);
+  }
+
+  /** Step 2: register the photo Cloudinary stored. Same response as a server upload. */
+  @Post('photos/cloudinary')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  registerCloudinary(@CurrentUser() user: AuthUser, @Body(new ZodPipe(CloudinaryPhotoDto)) dto: z.infer<typeof CloudinaryPhotoDto>) {
+    return this.media.registerCloudinary(user.id, dto);
   }
 
   @Post('videos')

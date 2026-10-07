@@ -23,7 +23,7 @@ export function Stars({ value, size = "md", className }: { value: number; size?:
           <svg key={i} width={px} height={px} viewBox="0 0 24 24" aria-hidden>
             <defs>
               <linearGradient id={`star-${i}-${Math.round(fill * 100)}`}>
-                <stop offset={`${fill * 100}%`} stopColor="#d9a100" />
+                <stop offset={`${fill * 100}%`} stopColor="var(--amber)" />
                 <stop offset={`${fill * 100}%`} stopColor="currentColor" stopOpacity="0.18" />
               </linearGradient>
             </defs>
@@ -35,9 +35,9 @@ export function Stars({ value, size = "md", className }: { value: number; size?:
   );
 }
 
-/** "4.8 ★ · 23 отзыва" linking to the seller's reviews. */
+/** "4.8 ★ · 23 отзыва" linking to the seller's reviews; nothing at all while there are no reviews. */
 export function RatingInline({ rating, username, className }: { rating: { avg: number; count: number } | null; username: string; className?: string }) {
-  if (!rating) return <span className={clsx("text-sm text-muted", className)}>Пока без отзывов</span>;
+  if (!rating) return null;
   return (
     <Link href={`/u/${username}?tab=reviews`} className={clsx("inline-flex items-center gap-1.5 text-sm hover:underline", className)}>
       <Stars value={rating.avg} size="sm" />
@@ -69,7 +69,7 @@ export function StarInput({ value, onChange }: { value: number; onChange: (v: nu
             className="p-0.5 text-ink transition-transform active:scale-90"
           >
             <svg width={34} height={34} viewBox="0 0 24 24" aria-hidden>
-              <path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z" fill={v <= shown ? "#d9a100" : "currentColor"} fillOpacity={v <= shown ? 1 : 0.15} />
+              <path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z" fill={v <= shown ? "var(--amber)" : "currentColor"} fillOpacity={v <= shown ? 1 : 0.15} />
             </svg>
           </button>
         ))}
@@ -123,8 +123,8 @@ export const tiersText = (tiers: BundleTier[]) => tiers.map((t) => `от ${t.min
 export function BundleNote({ tiers, username, className }: { tiers: BundleTier[]; username: string; className?: string }) {
   if (!tiers.length) return null;
   return (
-    <div className={clsx("flex items-start gap-3 rounded-xl bg-kraft/60 px-4 py-3 text-sm", className)}>
-      <span aria-hidden className="text-lg leading-none">%</span>
+    <div className={clsx("pattern-shippo pattern-fade-r flex items-start gap-3 overflow-hidden rounded-2xl bg-kraft/60 px-4 py-3 text-sm text-kraft-ink", className)}>
+      <span aria-hidden className="font-display text-xl font-bold leading-none">%</span>
       <p>
         <b className="font-semibold">Скидка за комплект:</b> {tiersText(tiers)}.{" "}
         <Link href={`/u/${username}`} className="underline underline-offset-4">

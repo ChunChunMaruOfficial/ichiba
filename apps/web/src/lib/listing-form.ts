@@ -5,6 +5,8 @@ export interface PhotoDraft {
   id?: string;
   preview: string;
   status: "uploading" | "done" | "error";
+  /** Upload progress 0…1 while uploading. */
+  progress?: number;
   error?: string;
   isDefect: boolean;
   width?: number;
@@ -66,7 +68,7 @@ export const emptyValues = (city: string | null): ListingValues => ({
   city,
   deliveryOptions: ["IN_PERSON"],
   price: "",
-  acceptsOffers: true,
+  acceptsOffers: false,
   minOfferPrice: "",
   styleTags: [],
   saleType: "FIXED",
@@ -80,6 +82,10 @@ export const emptyValues = (city: string | null): ListingValues => ({
   extraSizes: [],
   video: null,
 });
+
+/** A saved listing's photos as form photos (already uploaded). */
+export const photosFromListing = (l: ListingDetail): PhotoDraft[] =>
+  l.photos.map((p) => ({ key: p.id, id: p.id, preview: p.urls.m, status: "done", isDefect: p.isDefect, width: p.width, height: p.height }));
 
 export function valuesFromListing(l: ListingDetail): ListingValues {
   return {

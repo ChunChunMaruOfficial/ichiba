@@ -43,7 +43,8 @@ function fakeMp4(seconds) {
 
 const alex = await session('alex@ichiba.test');
 // Real seed photos of outerwear, so AI moderation sees the item the title names.
-const wardrobe = (await alex('/wardrobes/alex')).data.groups.flatMap((g) => g.items);
+// Another seller's photos: re-uploading alex's own photos would (rightly) be caught as a duplicate.
+const wardrobe = (await alex('/wardrobes/kate')).data.groups.flatMap((g) => g.items);
 const sources = [];
 for (const c of wardrobe.filter((c) => c.category === 'outerwear').slice(0, 6)) sources.push((await alex(`/listings/${c.id}`)).data);
 const fileOf = (l) => `storage/media/${l.photos[0].urls.l.split('/media/')[1]}`;
@@ -162,7 +163,9 @@ const auctionPub = await alex(`/listings/${auctionDraft.data.id}/publish`, { met
 ok(auctionPub.status === 400 && auctionPub.data.fields?.extraSizes, 'multi-size auction rejected');
 
 // ---------- scheduled publication ----------
-const sched = await alex('/listings', { body: { ...base, photos: [{ id: (await uploadPhoto(0)).id, isDefect: false }], gender: null } });
+// A different item (photo and title), or the duplicate check would rightly stop it.
+const schedSrc = sources[2 % sources.length];
+const sched = await alex('/listings', { body: { ...base, photos: [{ id: (await uploadPhoto(2)).id, isDefect: false }], title: schedSrc.title, subcategory: schedSrc.subcategory, sizeValue: 'XL', gender: null } });
 created.push(sched.data.id);
 const soon = await alex(`/listings/${sched.data.id}/schedule`, { body: { at: new Date(Date.now() + 60_000).toISOString() } });
 ok(soon.status === 400, 'scheduling less than 5 minutes ahead rejected');
@@ -181,7 +184,26 @@ for (let i = 0; i < 40 && live?.status !== 'PUBLISHED'; i++) {
   live = (await alex(`/listings/${sched.data.id}`)).data;
 }
 ok(live?.status === 'PUBLISHED' && !live.owner.scheduledAt, 'cron published the scheduled draft');
-ok((await alex('/notifications?limit=5')).data.items.some((n) => n.type === 'listing_scheduled_published'), 'seller told it went live');
+// The notification is written right after the status flips: give it a moment.
+let told = false;
+for (let i = 0; i < 5 && !told; i++, await sleep(1000)) told = (await alex('/notifications?limit=20')).data.items.some((n) => n.type === 'listing_scheduled_published');
+ok(told, 'seller told it went live');
+
+// ---------- duplicates ----------
+const dupPhoto = await alex('/listings', { body: { ...base, photos: [{ id: (await uploadPhoto(0)).id, isDefect: false }], title: 'Совсем другое название', sizeValue: 'XS' } });
+created.push(dupPhoto.data.id);
+const dupPhotoPub = await alex(`/listings/${dupPhoto.data.id}/publish`, { method: 'POST' });
+ok(dupPhotoPub.status === 400 && dupPhotoPub.data.code === 'DUPLICATE' && dupPhotoPub.data.fields?.photos, `same photo again → duplicate (${dupPhotoPub.data.message} ${JSON.stringify(dupPhotoPub.data.fields)})`);
+const dupText = await alex('/listings', { body: { ...base, photos: [{ id: (await uploadPhoto(1)).id, isDefect: false }] } });
+created.push(dupText.data.id);
+const dupTextPub = await alex(`/listings/${dupText.data.id}/publish`, { method: 'POST' });
+ok(dupTextPub.status === 400 && dupTextPub.data.code === 'DUPLICATE' && dupTextPub.data.duplicateOf, 'same title, category and size → duplicate');
+
+// ---------- similar ----------
+const sim = await guest(`/listings/${src.id}/similar?limit=12`);
+ok(sim.items?.length > 0 && !sim.items.some((c) => c.id === src.id) && sim.items.every((c) => c.category === src.category), `similar: ${sim.items?.length} of ${sim.total}, same category, without the item itself`);
+const page2 = await guest(`/listings/${src.id}/similar?offset=12&limit=12`);
+ok(!page2.items?.some((c) => sim.items.some((x) => x.id === c.id)), 'similar pages do not overlap');
 
 // ---------- cleanup ----------
 for (const id of created) {

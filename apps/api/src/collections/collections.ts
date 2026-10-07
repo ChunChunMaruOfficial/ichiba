@@ -42,7 +42,7 @@ export class CollectionsController {
         id: c.id,
         name: c.name,
         count: c._count.items,
-        covers: c.items.map((i) => (i.listing.photos[0] ? photoUrls(i.listing.photos[0].key).s : null)),
+        covers: c.items.map((i) => (i.listing.photos[0] ? photoUrls(i.listing.photos[0]).s : null)),
         hasItem: containing ? containing.has(c.id) : undefined,
       })),
     };

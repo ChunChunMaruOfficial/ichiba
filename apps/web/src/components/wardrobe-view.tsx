@@ -1,13 +1,15 @@
 "use client";
 
-import clsx from "clsx";
 
+import { Noren } from "@/components/shop/noren";
+import { Daruma } from "@/components/shop/daruma";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
-import { items as itemsLabel, plural } from "@/lib/labels";
+import { plural } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
+import { usePresence } from "@/lib/presence";
 import type { Card, Deal, Offer, SellerSummary } from "@/lib/types";
 import { DealCard } from "./deal-actions";
 import { ReportModal } from "./report-modal";
@@ -18,7 +20,7 @@ import { ItemCard } from "./item-card";
 import { FollowButton } from "./sections";
 import { useSession } from "./session";
 import { useToast } from "./toast";
-import { Button, ButtonLink, Chip, EmptyState, ErrorState, IconMore, IconPlus, IconShare, Modal, Skeleton, Spinner } from "./ui";
+import { ButtonLink, Chip, EmptyState, ErrorState, IconMore, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
 
 export interface WardrobeData {
   seller: SellerSummary;
@@ -35,7 +37,6 @@ const sinceLabel = (iso: string) => {
   return `${d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }).split(" ")[1]} ${d.getFullYear()}`;
 };
 
-const SECTION_LABEL = { top: "Верх", bottom: "Низ", shoes: "Обувь", accessories: "Аксессуары" } as const;
 const FILTERS = [
   ["all", "Все"],
   ["top", "Верх"],
@@ -55,6 +56,7 @@ const SORTS = [
 
 function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const router = useRouter();
   const actions = useListingActions(onDone);
   const reserved = card.status === "RESERVED";
@@ -73,14 +75,14 @@ function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
   );
   return (
     <div className="relative">
-      <button aria-label="Действия с вещью" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="grid size-9 place-items-center rounded-full bg-white/90 shadow-sm">
+      <button aria-label="Действия с вещью" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="grid size-9 place-items-center on-photo rounded-full text-ink">
         <IconMore />
       </button>
-      {open && (
+      {pop.mounted && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="fade-in absolute right-0 top-11 z-20 w-52 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
-            {item(card.status === "DRAFT" ? "Продолжить" : "Редактировать", () => router.push(`/item/${card.id}/edit`))}
+          {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />}
+          <div data-closing={pop.closing || undefined} className="fade-in absolute right-0 top-11 z-20 w-52 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+            {item(card.status === "DRAFT" ? "Продолжить" : "Редактировать", () => router.push(card.status === "DRAFT" ? `/sell?draft=${card.id}` : `/item/${card.id}/edit`))}
             {card.status !== "DRAFT" && item("Выставить похожую", () => router.push(`/sell?similar=${card.id}`))}
             {card.status === "PUBLISHED" && item("Снять с продажи", () => actions.hide(card.id))}
             {card.status === "HIDDEN" && item("Вернуть в продажу", () => actions.unhide(card.id))}
@@ -193,7 +195,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
     // Your own wardrobe never greets you with an error screen: the main action stays one tap away.
     if (me?.username === username) {
       return (
-        <EmptyState title="Мой гардероб" hint="Выставьте первую вещь — это займёт около минуты">
+        <EmptyState art={<Noren className="mb-2 w-64" />} title="Мой гардероб" hint="Выставьте первую вещь — это займёт около минуты">
           <ButtonLink href="/sell">
             <IconPlus className="size-4" /> Добавить вещь
           </ButtonLink>
@@ -221,7 +223,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   const empty = data && data.counts.all === 0 && data.drafts.length === 0;
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       {/* Header */}
       {!s ? (
         <div className="flex flex-col gap-3">
@@ -229,57 +231,42 @@ export function WardrobeView({ username, initial }: { username: string; initial?
           <Skeleton className="h-5 w-80" />
         </div>
       ) : (
-        <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            {owner && <p className="text-sm text-muted">Мой гардероб</p>}
-            <h1 className="text-3xl font-semibold tracking-tight">{s.username}</h1>
-            <p className="mt-1 text-sm text-muted">
-              {[s.city, `на платформе с ${sinceLabel(s.createdAt)}`].filter(Boolean).join(" · ")}
-            </p>
-            {!owner && (
-              <p className="mt-3 text-[15px]">
-                <b>{s.activeCount}</b> {plural(s.activeCount, "вещь", "вещи", "вещей")} · <b>{s.soldCount}</b> продано ·{" "}
-                <button className="hover:underline" onClick={() => setPeople("followers")}>
-                  <b>{s.followers}</b> {plural(s.followers, "подписчик", "подписчика", "подписчиков")}
-                </button>{" "}
-                ·{" "}
-                <button className="hover:underline" onClick={() => setPeople("following")}>
-                  <b>{s.following}</b> {plural(s.following, "подписка", "подписки", "подписок")}
-                </button>
-              </p>
+        // The seller's cover: aizome cloth, the nickname large, a brush label 箪笥 («wardrobe») at the side.
+        <header className="aizome aizome-fade-r flex flex-col gap-6 rounded-[28px] px-5 py-8 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
+          <div className="absolute right-3 top-3 flex md:right-5 md:top-5">
+            {owner && (
+              <Link href="/settings" aria-label="Настройки" title="Настройки" className="grid size-10 place-items-center rounded-full text-ink-2 transition-[color,background-color,transform] duration-300 hover:rotate-45 hover:bg-ink/10 hover:text-ink">
+                <IconSettings className="size-5" />
+              </Link>
             )}
-            <RatingInline rating={s.rating} username={s.username} className="mt-2" />
-            {s.bio && <p className="mt-2 max-w-xl text-[15px] text-ink-2">{s.bio}</p>}
-            {!owner && s.completedDeals > 0 && <p className="mt-2 text-sm text-muted">{s.completedDeals} {plural(s.completedDeals, "завершённая сделка", "завершённые сделки", "завершённых сделок")}</p>}
+            <button onClick={share} aria-label="Поделиться гардеробом" title="Поделиться" className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/10 hover:text-ink">
+              <IconShare className="size-5" />
+            </button>
+          </div>
+          <div className="min-w-0 pr-20">
+            <h1 className="break-words text-5xl font-bold leading-[1.02] md:text-6xl">{s.username}</h1>
+            {/* One line of facts; the account's age is on hover. */}
+            <p className="mt-3 text-[15px] text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
+              {s.city && <>{s.city} · </>}
+              {s.activeCount} {plural(s.activeCount, "вещь", "вещи", "вещей")} · {s.soldCount} продано ·{" "}
+              <button className="hover:text-ink hover:underline" onClick={() => setPeople("followers")}>
+                {s.followers} {plural(s.followers, "подписчик", "подписчика", "подписчиков")}
+              </button>
+            </p>
+            <RatingInline rating={s.rating} username={s.username} className="mt-1.5" />
+            {s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             {owner ? (
               <>
                 {!empty && (
-                  <>
-                    <ButtonLink href="/sell">
-                      <IconPlus className="size-4" /> Добавить вещь
-                    </ButtonLink>
-                    <ButtonLink href="/sales" variant="secondary">
-                      Продажи и статистика
-                    </ButtonLink>
-                  </>
+                  <ButtonLink href="/sell" variant="shu">
+                    <IconPlus className="size-4" /> Добавить вещь
+                  </ButtonLink>
                 )}
-                <ButtonLink href="/settings" variant="secondary">
-                  Редактировать профиль
-                </ButtonLink>
               </>
             ) : (
               me?.username !== s.username && <FollowButton seller={s} onChange={(v) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false })} />
-            )}
-            <Button variant="secondary" onClick={share} aria-label="Поделиться гардеробом">
-              <IconShare className="size-4" />
-              <span className="hidden sm:inline">Поделиться</span>
-            </Button>
-            {!owner && me?.username !== s.username && (
-              <Button variant="ghost" onClick={() => requireAuth(() => setReporting(true), { reason: "чтобы отправить жалобу" })}>
-                Пожаловаться
-              </Button>
             )}
           </div>
         </header>
@@ -287,54 +274,20 @@ export function WardrobeView({ username, initial }: { username: string; initial?
       {s && <ReportModal open={reporting} onClose={() => setReporting(false)} targetType="USER" targetId={s.username} title={`@${s.username}`} />}
       {s && <PeopleModal username={s.username} list={people} onClose={() => setPeople(null)} />}
 
-      {/* Seller counters only once there is something to count. */}
-      {owner && data && !empty && (
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            ["Активные вещи", data.counts.selling, () => setSection("selling")],
-            ["Запросы", me?.pendingSales ?? 0, () => router.push("/sales")],
-            ["Продажи", data.counts.sold, () => setSection("sold")],
-            ["Подписчики", data.seller.followers, () => setPeople("followers")],
-          ].map(([label, n, onClick]) => (
-            <button
-              key={label as string}
-              disabled={!onClick}
-              onClick={onClick as (() => void) | undefined}
-              className="rounded-2xl bg-surface p-4 text-left transition-colors enabled:hover:bg-white disabled:cursor-default"
-            >
-              <p className="tabular text-2xl font-semibold">{n as number}</p>
-              <p className="text-sm text-muted">{label as string}</p>
-            </button>
-          ))}
-        </div>
-      )}
-
       {s && !owner && s.bundleDiscounts.length > 0 && <BundleNote tiers={s.bundleDiscounts} username={s.username} className="mt-6 max-w-2xl" />}
 
       <div className="mt-8">{owner && <ActionRequired onChange={() => mutate()} />}</div>
 
-      {s && (
-        <div role="tablist" aria-label="Разделы гардероба" className="mb-2 flex gap-6 border-b border-line">
-          {(
-            [
-              ["items", "Вещи"],
-              ["reviews", `Отзывы${s.rating ? ` · ${s.rating.count}` : ""}`],
-            ] as const
-          ).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setQuery({ tab: k === "items" ? undefined : k })} className={clsx("-mb-px border-b-2 pb-2.5 text-[15px] font-medium", tab === k ? "border-ink text-ink" : "border-transparent text-ink-2 hover:text-ink")}>
-              {l}
-            </button>
-          ))}
-        </div>
-      )}
-
       {tab === "reviews" ? (
-        <div className="mt-6">
+        <div className="mt-8">
+          <button onClick={() => setQuery({ tab: undefined })} className="mb-4 text-sm text-ink-2 hover:text-ink">
+            ← Вещи
+          </button>
           <ReviewsSection username={username} />
         </div>
       ) : empty ? (
         owner ? (
-          <EmptyState title="Гардероб пока пуст" hint="Выставление занимает около минуты">
+          <EmptyState art={<Daruma eyes={1} className="mb-2 h-40" />} title="Гардероб пока пуст" hint="Выложите первую вещь — у Дарумы уже нарисован один глаз, второй — в день первой продажи">
             <ButtonLink href="/sell">+ Добавить первую вещь</ButtonLink>
           </EmptyState>
         ) : (
@@ -342,19 +295,18 @@ export function WardrobeView({ username, initial }: { username: string; initial?
         )
       ) : (
         <>
-          <div className="sticky top-14 z-20 -mx-4 flex items-center gap-2 bg-paper/90 px-4 py-3 backdrop-blur-md md:top-16 md:-mx-6 md:px-6">
+          <div className="sticky top-[var(--header-offset,57px)] z-20 transition-[top] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none -mx-4 flex items-center gap-2 bg-paper px-4 py-3 md:-mx-6 md:px-6">
             <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
-              {FILTERS.map(([key, label]) => (
+              {FILTERS.filter(([key]) => key === "all" || key === section || !data || data.counts[key] > 0).map(([key, label]) => (
                 <Chip key={key} active={section === key} onClick={() => setSection(key)}>
                   {label}
-                  {data && <span className={section === key ? "text-white/70" : "text-muted"}>{data.counts[key]}</span>}
                 </Chip>
               ))}
             </div>
             <select aria-label="Сортировка" value={sort} onChange={(e) => setSort(e.target.value)} className="h-9 shrink-0 rounded-full border border-line-strong bg-surface px-3 text-sm">
               {SORTS.map(([v, l]) => (
                 <option key={v} value={v}>
-                  По дате: {l.toLowerCase()}
+                  {l}
                 </option>
               ))}
             </select>
@@ -367,19 +319,12 @@ export function WardrobeView({ username, initial }: { username: string; initial?
               ))}
             </div>
           ) : section === "all" ? (
-            <div className="mt-4 flex flex-col gap-12">
-              {data.groups.map((g) => (
-                <section key={g.section}>
-                  <h2 className="mb-4 text-lg font-semibold">
-                    {SECTION_LABEL[g.section]} <span className="font-normal text-muted">· {g.items.length}</span>
-                  </h2>
-                  <Grid items={g.items} owner={owner} onDone={() => mutate()} />
-                </section>
-              ))}
+            <div className="mt-4 flex flex-col gap-14">
+              <Grid items={data.groups.flatMap((g) => g.items)} owner={owner} onDone={() => mutate()} />
               {owner && data.drafts.length > 0 && (
-                <section className="rounded-3xl border-2 border-dashed border-line-strong p-4 md:p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    Черновики <span className="font-normal text-muted">· {data.drafts.length}</span>
+                <section>
+                  <h2 className="mb-4 text-xl font-bold">
+                    Черновики <span className="font-sans text-base font-normal text-muted">{data.drafts.length}</span>
                   </h2>
                   <Grid items={data.drafts} owner onDone={() => mutate()} />
                 </section>
@@ -392,7 +337,13 @@ export function WardrobeView({ username, initial }: { username: string; initial?
               <Grid items={data.groups.flatMap((g) => g.items)} owner={owner} onDone={() => mutate()} />
             </div>
           )}
-          {data && section === "all" && !owner && <p className="mt-10 text-center text-sm text-muted">{itemsLabel(data.counts.all)} в гардеробе</p>}
+          {s && !owner && me?.username !== s.username && (
+            <p className="mt-14 text-center">
+              <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => requireAuth(() => setReporting(true), { reason: "чтобы отправить жалобу" })}>
+                Пожаловаться на гардероб
+              </button>
+            </p>
+          )}
         </>
       )}
     </div>
@@ -401,9 +352,12 @@ export function WardrobeView({ username, initial }: { username: string; initial?
 
 /** Followers / following list (frame 16). */
 function PeopleModal({ username, list, onClose }: { username: string; list: "followers" | "following" | null; onClose: () => void }) {
-  const { data } = useSWR<{ items: SellerSummary[] }>(list ? `/users/${username}/${list}` : null);
+  // The last opened list stays on screen while the modal animates out.
+  const [shown, setShown] = useState(list);
+  if (list && list !== shown) setShown(list);
+  const { data } = useSWR<{ items: SellerSummary[] }>(shown ? `/users/${username}/${shown}` : null);
   return (
-    <Modal open={!!list} onClose={onClose} title={list === "followers" ? "Подписчики" : "Подписки"}>
+    <Modal open={!!list} onClose={onClose} title={shown === "followers" ? "Подписчики" : "Подписки"}>
       {!data ? (
         <div className="flex justify-center py-6 text-muted">
           <Spinner />

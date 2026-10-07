@@ -8,21 +8,46 @@ import useSWR from "swr";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/labels";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
+import { usePresence } from "@/lib/presence";
 import { getRecent, pushRecent, removeRecent } from "@/lib/recent-searches";
 import { CatalogButton, MobileCatalog } from "./catalog-nav";
+import { Wordmark } from "./logo";
 import { useMeta, useSession } from "./session";
 import { IconBag, IconBell, IconChart, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconReceipt, IconSearch, IconSettings, IconUsers, IconX } from "./ui";
 
 function Logo({ className }: { className?: string }) {
   return (
-    <Link href="/" className={clsx("flex items-center gap-2 font-semibold tracking-tight", className)} onClick={() => window.scrollTo({ top: 0 })}>
-      <svg aria-hidden viewBox="0 0 32 20" className="h-5 w-8 -rotate-6 text-kraft drop-shadow-[0_1px_1px_rgb(30_36_51/0.25)]">
-        <path d="M7 0h22a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H7L0 10Z" fill="currentColor" />
-        <circle cx="7.5" cy="10" r="2" fill="var(--ink)" opacity=".6" />
-      </svg>
-      <span className="text-lg font-semibold tracking-[-0.02em]">ichiba</span>
+    <Link href="/" aria-label="ichiba — на главную" className={clsx("flex shrink-0 items-center text-ink", className)} onClick={() => window.scrollTo({ top: 0 })}>
+      <Wordmark className="h-[26px] w-auto md:h-[30px]" />
     </Link>
   );
+}
+
+const SEARCH_EXAMPLES = ["Пуховик на зиму", "Levi's 501", "Кроссовки 42 размер", "Платье на выпускной", "Винтажная джинсовка", "Nike Air Force", "Свитер оверсайз"];
+
+/**
+ * Placeholder that types an example query, holds it, erases it and moves to the next one. Stops on the
+ * full current example while the field is focused or filled, and for people who prefer reduced motion.
+ */
+function useTypedPlaceholder(active: boolean) {
+  const [state, setState] = useState({ i: 0, len: SEARCH_EXAMPLES[0].length, deleting: false });
+  useEffect(() => {
+    if (!active || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const word = SEARCH_EXAMPLES[state.i];
+    const done = !state.deleting && state.len === word.length;
+    const empty = state.deleting && state.len === 0;
+    const delay = done ? 1800 : empty ? 350 : state.deleting ? 35 : 75 + Math.random() * 60;
+    const t = setTimeout(
+      () =>
+        setState((s) =>
+          done ? { ...s, deleting: true } : empty ? { i: (s.i + 1) % SEARCH_EXAMPLES.length, len: 0, deleting: false } : { ...s, len: s.len + (s.deleting ? -1 : 1) },
+        ),
+      delay,
+    );
+    return () => clearTimeout(t);
+  }, [active, state]);
+  const word = SEARCH_EXAMPLES[state.i];
+  return active && state.len < word.length ? word.slice(0, state.len) + "|" : word;
 }
 
 function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: boolean }) {
@@ -38,7 +63,10 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
     setQ(urlQ);
   }
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const [recent, setRecent] = useState<string[]>([]);
+  const [focused, setFocused] = useState(false);
+  const placeholder = useTypedPlaceholder(!focused && !q);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,18 +90,20 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
           if (q.trim()) go(q);
         }}
       >
-        <label className="flex h-11 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 focus-within:border-ink focus-within:ring-3 focus-within:ring-accent/15">
-          <IconSearch className="size-5 shrink-0 text-muted" />
+        <label className="flex h-11 items-center gap-2 rounded-full border border-line-control bg-surface px-4 transition-[border-color,box-shadow] focus-within:border-indigo focus-within:ring-3 focus-within:ring-indigo/20">
+          <IconSearch className="size-5 shrink-0 text-ink-2" />
           <span className="sr-only">Поиск</span>
           <input
             value={q}
             autoFocus={autoFocus}
             onChange={(e) => setQ(e.target.value)}
             onFocus={() => {
+              setFocused(true);
               setRecent(getRecent());
               setOpen(true);
             }}
-            placeholder="Что ищете?"
+            onBlur={() => setFocused(false)}
+            placeholder={placeholder}
             className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted"
             enterKeyHint="search"
           />
@@ -85,14 +115,14 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
         </label>
       </form>
 
-      {open && (recent.length > 0 || meta) && (
-        <div className="fade-in absolute inset-x-0 top-[calc(100%+8px)] z-50 rounded-2xl border border-line bg-surface p-4 shadow-xl">
+      {pop.mounted && (recent.length > 0 || meta) && (
+        <div data-closing={pop.closing || undefined} className="panel fade-in absolute inset-x-0 top-[calc(100%+10px)] z-50 rounded-3xl p-4">
           {recent.length > 0 && (
             <>
               <p className="mb-2 text-sm text-muted">Недавние запросы</p>
               <ul className="mb-4 flex flex-col">
                 {recent.map((r) => (
-                  <li key={r} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-paper">
+                  <li key={r} className="flex items-center justify-between rounded-xl px-2 py-1.5 hover:bg-ink/5">
                     <button className="flex-1 text-left text-sm" onClick={() => go(r)}>
                       {r}
                     </button>
@@ -120,7 +150,7 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
                     key={c.slug}
                     href={`/search?category=${c.slug}`}
                     onClick={() => setOpen(false)}
-                    className="rounded-full border border-line-strong px-3 py-1.5 text-sm hover:border-ink"
+                    className="rounded-full bg-surface/70 px-3 py-1.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]"
                   >
                     {c.label}
                   </Link>
@@ -136,8 +166,9 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
 
 function NotificationsMenu({ unread }: { unread: number }) {
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const { refresh } = useSession();
-  const { data, mutate } = useSWR<{ items: NotificationRow[] }>(open ? "/notifications?limit=8" : null);
+  const { data, mutate } = useSWR<{ items: NotificationRow[] }>(pop.mounted ? "/notifications?limit=8" : null);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -163,17 +194,17 @@ function NotificationsMenu({ unread }: { unread: number }) {
           setOpen((v) => !v);
           void mutate();
         }}
-        className="relative grid size-11 place-items-center rounded-full hover:bg-black/5"
+        className="relative grid size-11 place-items-center rounded-full hover:bg-ink/5"
       >
         <IconBell />
         {unread > 0 && (
-          <span className="absolute right-1.5 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-[18px] text-white">
+          <span className="absolute right-1.5 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-shu px-1 text-[11px] font-semibold leading-[18px] text-on-shu">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
-      {open && (
-        <div className="fade-in absolute inset-x-3 top-[calc(100%+8px)] z-50 rounded-2xl border border-line bg-surface p-2 shadow-xl md:inset-x-auto md:right-0 md:w-[380px]">
+      {pop.mounted && (
+        <div data-closing={pop.closing || undefined} className="panel fade-in absolute inset-x-0 top-[calc(100%+10px)] z-50 rounded-3xl p-2 md:inset-x-auto md:right-0 md:w-[380px]">
           <p className="px-3 pb-1 pt-2 text-sm font-semibold">Уведомления</p>
           {!data ? (
             <p className="px-3 py-6 text-sm text-muted">Загружаем…</p>
@@ -183,7 +214,7 @@ function NotificationsMenu({ unread }: { unread: number }) {
             <ul>
               {data.items.map((n) => (
                 <li key={n.id}>
-                  <Link href={notificationHref(n)} onClick={() => setOpen(false)} className="flex flex-col gap-0.5 rounded-xl px-3 py-2.5 hover:bg-paper">
+                  <Link href={notificationHref(n)} onClick={() => setOpen(false)} className="flex flex-col gap-0.5 rounded-xl px-3 py-2.5 hover:bg-ink/5">
                     <span className={clsx("text-sm", !n.readAt && "font-medium")}>{notificationText(n)}</span>
                     <span className="text-xs text-muted">{timeAgo(n.createdAt)}</span>
                   </Link>
@@ -191,7 +222,7 @@ function NotificationsMenu({ unread }: { unread: number }) {
               ))}
             </ul>
           )}
-          <Link href="/notifications" onClick={() => setOpen(false)} className="mt-1 block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-ink-2 hover:bg-paper hover:text-ink">
+          <Link href="/notifications" onClick={() => setOpen(false)} className="mt-1 block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-ink-2 hover:bg-ink/5 hover:text-ink">
             Все уведомления
           </Link>
         </div>
@@ -203,6 +234,7 @@ function NotificationsMenu({ unread }: { unread: number }) {
 function AccountMenu() {
   const { me } = useSession();
   const [open, setOpen] = useState(false);
+  const pop = usePresence(open);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
@@ -226,19 +258,19 @@ function AccountMenu() {
         aria-label="Меню гардероба"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="relative grid size-11 place-items-center rounded-full hover:bg-black/5"
+        className="relative grid size-11 place-items-center rounded-full hover:bg-ink/5"
       >
-        <span className="grid size-8 place-items-center rounded-full bg-accent-soft text-sm font-semibold uppercase text-accent">{me.username[0]}</span>
-        {attention > 0 && <span className="absolute right-1.5 top-1.5 size-2.5 rounded-full border-2 border-paper bg-danger" aria-hidden />}
+        <span className="grid size-8 place-items-center rounded-full bg-accent-soft font-display text-[15px] font-bold uppercase text-ink">{me.username[0]}</span>
+        {attention > 0 && <span className="absolute right-1.5 top-1.5 size-2.5 rounded-full border-2 border-surface bg-shu" aria-hidden />}
       </button>
-      {open && (
-        <div className="fade-in absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl border border-line bg-surface p-2 shadow-xl">
+      {pop.mounted && (
+        <div data-closing={pop.closing || undefined} className="panel fade-in absolute right-0 top-[calc(100%+10px)] z-50 w-64 rounded-3xl p-2">
           <p className="px-3 pb-2 pt-1.5 text-sm text-muted">@{me.username}</p>
           {links.map(([href, label, Icon, badge]) => (
-            <Link key={href} href={href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-paper">
+            <Link key={href} href={href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-ink/5">
               <Icon className="size-[18px] shrink-0 text-ink-2" />
               <span className="flex-1">{label}</span>
-              {!!badge && <span className="rounded-full bg-danger px-1.5 text-xs font-semibold text-white">{badge}</span>}
+              {!!badge && <span className="rounded-full bg-shu px-1.5 text-xs font-semibold text-on-shu">{badge}</span>}
             </Link>
           ))}
         </div>
@@ -253,10 +285,60 @@ export function Header() {
   const pathname = usePathname();
   const showMobileSearch = pathname === "/";
   const header = useRef<HTMLElement>(null);
+  const [hidden, setHidden] = useState(false);
+
+  // Sticky bars below (the feed's chip bar) sit right under the header, whatever its height.
+  useEffect(() => {
+    const el = header.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--header-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Tucks away while scrolling down, comes back on the first scroll up (or near the top). A small threshold keeps
+  // it from twitching on trackpad jitter; open menus inside keep it shown.
+  useEffect(() => {
+    let last = window.scrollY;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const el = header.current;
+        if (y < 80 || (el && el.contains(document.activeElement) && document.activeElement !== document.body)) setHidden(false);
+        else if (y > last + 8) setHidden(true);
+        else if (y < last - 8) setHidden(false);
+        if (Math.abs(y - last) > 8 || y < 80) last = y;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+  // Route change: show it again.
+  const [prevPath, setPrevPath] = useState(pathname);
+  if (pathname !== prevPath) {
+    setPrevPath(pathname);
+    setHidden(false);
+  }
+  useEffect(() => {
+    document.documentElement.style.setProperty("--header-offset", hidden ? "0px" : "var(--header-h)");
+  }, [hidden]);
 
   return (
-    <header ref={header} className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-4 px-4 md:h-16 md:px-6">
+    <header
+      ref={header}
+      className={clsx(
+        "bg-washi sticky top-0 z-40 border-b border-line transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+        hidden && "-translate-y-full",
+      )}
+    >
+      <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 md:h-16 md:gap-4 md:px-6">
         <MobileCatalog />
         <Logo />
         <CatalogButton anchor={header} />
@@ -266,32 +348,32 @@ export function Header() {
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           <button
             onClick={() => requireAuth(() => router.push("/sell"), { reason: "чтобы выставить вещь" })}
-            className="mr-2 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-accent px-4 text-[15px] font-semibold text-accent-ink hover:bg-accent-hover md:inline-flex"
+            className="btn-wa btn-wa-shu mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-5 text-[15px] font-semibold md:inline-flex"
           >
-            <IconPlus className="size-4.5" /> Добавить вещь
+            <IconPlus className="size-4.5" /> Продать вещь
           </button>
           {loading ? (
             <span className="h-11 w-24" />
           ) : me ? (
             <>
-              <Link href="/favorites" aria-label="Избранное" className="hidden size-11 place-items-center rounded-full hover:bg-black/5 md:grid">
+              <Link href="/favorites" aria-label="Избранное" className="hidden size-11 place-items-center rounded-full hover:bg-ink/5 md:grid">
                 <IconHeart />
               </Link>
-              <Link href="/messages" aria-label={me.unreadMessages ? `Сообщения, непрочитанных: ${me.unreadMessages}` : "Сообщения"} className="relative hidden size-11 place-items-center rounded-full hover:bg-black/5 md:grid">
+              <Link href="/messages" aria-label={me.unreadMessages ? `Сообщения, непрочитанных: ${me.unreadMessages}` : "Сообщения"} className="relative hidden size-11 place-items-center rounded-full hover:bg-ink/5 md:grid">
                 <IconMessage />
-                {me.unreadMessages > 0 && <span className="absolute right-1.5 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-[18px] text-white">{me.unreadMessages}</span>}
+                {me.unreadMessages > 0 && <span className="absolute right-1.5 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-shu px-1 text-[11px] font-semibold leading-[18px] text-on-shu">{me.unreadMessages}</span>}
               </Link>
               <NotificationsMenu unread={me.unreadNotifications} />
               <div className="hidden md:block">
                 <AccountMenu />
               </div>
-              <Link href="/cart" aria-label={me.cartCount ? `Корзина, вещей: ${me.cartCount}` : "Корзина"} className="relative grid size-11 place-items-center rounded-full hover:bg-black/5">
+              <Link href="/cart" aria-label={me.cartCount ? `Корзина, вещей: ${me.cartCount}` : "Корзина"} className="relative grid size-11 place-items-center rounded-full hover:bg-ink/5">
                 <IconBag />
-                {me.cartCount > 0 && <span className="absolute right-1 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-ink px-1 text-[11px] font-semibold leading-[18px] text-white">{me.cartCount}</span>}
+                {me.cartCount > 0 && <span className="absolute right-1 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-ink px-1 text-[11px] font-semibold leading-[18px] text-accent-ink">{me.cartCount}</span>}
               </Link>
             </>
           ) : (
-            <button onClick={() => openAuth()} className="h-11 rounded-xl px-4 text-[15px] font-semibold hover:bg-black/5">
+            <button onClick={() => openAuth()} className="h-11 rounded-full px-4 text-[15px] font-semibold hover:bg-ink/5">
               Войти
             </button>
           )}
@@ -329,12 +411,14 @@ export function BottomNav() {
       <>
         <span className="relative">
           <Icon className="size-6" filled={active && Icon === IconHeart} />
-          {!!opts.badge && <span className="absolute -right-2 -top-1 rounded-full bg-danger px-1 text-[10px] font-semibold leading-4 text-white">{opts.badge}</span>}
+          {!!opts.badge && <span className="absolute -right-2 -top-1 rounded-full bg-shu px-1 text-[10px] font-semibold leading-4 text-on-shu">{opts.badge}</span>}
         </span>
-        <span className="text-[11px]">{label}</span>
+        <span className={clsx("text-[11px]", active && "font-semibold")}>{label}</span>
+        {/* The active tab gets the logo's cinnabar seal. */}
+        <span className={clsx("seal-dot", !active && "invisible")} aria-hidden />
       </>
     );
-    const cls = clsx("flex flex-1 flex-col items-center gap-0.5 py-2", active ? "text-ink" : "text-muted");
+    const cls = clsx("flex flex-1 flex-col items-center gap-0.5 pb-1 pt-2", active ? "text-ink" : "text-ink-2");
     return opts.auth ? (
       <button key={href} className={cls} onClick={() => requireAuth(() => router.push(href))}>
         {content}
@@ -347,17 +431,17 @@ export function BottomNav() {
   };
 
   return (
-    <nav aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <nav aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
       {item("/", "Главная", IconHome)}
       {item("/search", "Поиск", IconSearch)}
       <button
-        className="flex flex-1 flex-col items-center gap-0.5 py-1.5 text-ink"
+        className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-ink"
         onClick={() => requireAuth(() => router.push("/sell"), { reason: "чтобы выставить вещь" })}
       >
-        <span className="grid size-9 place-items-center rounded-full bg-accent text-accent-ink">
+        <span className="grid h-9 w-12 place-items-center rounded-full bg-accent text-accent-ink">
           <IconPlus className="size-5" />
         </span>
-        <span className="text-[11px]">Добавить</span>
+        <span className="text-[11px]">Продать</span>
       </button>
       {item("/favorites", "Избранное", IconHeart, { auth: true })}
       {item("/wardrobe", "Гардероб", IconHanger, { auth: true, badge: me ? me.pendingSales + me.pendingOffers : 0 })}

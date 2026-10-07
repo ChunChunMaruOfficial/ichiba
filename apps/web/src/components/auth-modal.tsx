@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
+import { usePresence } from "@/lib/presence";
 import type { Me } from "@/lib/types";
 import { Button, Field, Input, Modal } from "./ui";
 
@@ -57,9 +58,10 @@ interface AuthModalProps {
   onSignedIn: (me: Me, isNew?: boolean) => void;
 }
 
-/** Mounted fresh on every open, so it always starts at the first step. */
+/** Mounted fresh on every open (and kept through the exit animation), so it always starts at the first step. */
 export function AuthModal(props: AuthModalProps) {
-  return props.open ? <AuthForm {...props} /> : null;
+  const { mounted } = usePresence(props.open);
+  return mounted ? <AuthForm {...props} /> : null;
 }
 
 function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
@@ -77,7 +79,7 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
   const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [usernameHint, setUsernameHint] = useState<{ ok: boolean; text: string; suggestion?: string } | null>(null);
-  const { data: providers } = useSWR<{ google: string | null; apple: string | null; devAnyCode?: boolean }>(open ? "/auth/providers" : null);
+  const { data: providers } = useSWR<{ google: string | null; apple: string | null; devAnyCode?: boolean }>("/auth/providers");
   const codeInput = useRef<HTMLInputElement>(null);
   const hint = step === "profile" && username.length >= 3 ? usernameHint : null;
   const byEmail = isEmail(target || login);
@@ -199,6 +201,7 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
 
   return (
     <Modal open={open} onClose={onClose} title={title}>
+      <div aria-hidden className="pattern-asanoha pattern-fade-b pointer-events-none absolute inset-x-0 top-0 h-32 rounded-t-[inherit]" />
       {reason && step === "start" && <p className="-mt-2 mb-5 text-sm text-muted">{reason}</p>}
 
       {step === "start" && providers?.google && (
@@ -230,7 +233,7 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
             label="Телефон или почта"
             htmlFor="auth-login"
             error={fields.login}
-            hint={step === "start" && login.trim() ? (isEmail(login) ? "Пришлём код на почту" : "Пришлём код в SMS") : step === "start" ? "Пароль придумывать не нужно — войдёте по коду" : undefined}
+            hint={step === "start" && login.trim() ? (isEmail(login) ? "Пришлём код на почту" : "Пришлём код в SMS") : undefined}
           >
             <Input
               id="auth-login"
@@ -283,9 +286,6 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
 
         {step === "profile" && signup && (
           <>
-            <p className="-mt-1 text-sm text-ink-2">
-              Создаём аккаунт для <b className="font-semibold text-ink">{isEmail(signup.contact) || signup.contact === "Google" ? signup.contact : prettyPhone(signup.contact)}</b>. Придумайте ник — так вас увидят в гардеробе и чатах.
-            </p>
             <Field label="Ник" htmlFor="auth-username" error={fields.username ?? (hint && !hint.ok ? hint.text : undefined)} hint={hint?.ok ? hint.text : "Латиница, цифры и _ — от 3 до 24 символов"}>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">@</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Omamori } from "@/components/shop/omamori";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -38,7 +39,7 @@ function Collection({ id }: { id: string }) {
   };
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-6 md:py-10">
+    <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <Link href="/favorites?tab=collections" className="text-sm text-ink-2 hover:text-ink">
         ← Коллекции
       </Link>
@@ -83,7 +84,7 @@ function Collection({ id }: { id: string }) {
         {!data ? (
           <MasonrySkeleton />
         ) : data.items.length === 0 ? (
-          <EmptyState title="В коллекции пока пусто" hint="Откройте вещь из избранного и нажмите «Добавить в коллекцию»">
+          <EmptyState art={<Omamori className="mb-2 h-36" />} title="В коллекции пока пусто" hint="Откройте вещь из избранного и нажмите «Добавить в коллекцию»">
             <ButtonLink href="/favorites">Избранное</ButtonLink>
           </EmptyState>
         ) : (
@@ -97,7 +98,7 @@ function Collection({ id }: { id: string }) {
                     await mutate((d) => d && { ...d, items: d.items.filter((x) => x.id !== i.id) }, { revalidate: false });
                     await api(`/collections/${id}/items/${i.id}`, { method: "DELETE" }).catch(() => mutate());
                   }}
-                  className="absolute left-2.5 top-2.5 grid size-9 place-items-center rounded-full bg-white/90 text-ink shadow-sm hover:scale-105"
+                  className="absolute left-2.5 top-2.5 grid size-9 place-items-center on-photo rounded-full text-ink hover:scale-105"
                 >
                   <IconX className="size-4" />
                 </button>

@@ -51,12 +51,6 @@ export function qs(params: Record<string, string | number | boolean | string[] |
   return s ? `?${s}` : "";
 }
 
-export const uploadPhoto = (file: File) => {
-  const form = new FormData();
-  form.append("file", file);
-  return api<{ id: string; width: number; height: number; urls: PhotoUrls }>("/media/photos", { body: form });
-};
-
 export interface PhotoUrls {
   s: string;
   m: string;

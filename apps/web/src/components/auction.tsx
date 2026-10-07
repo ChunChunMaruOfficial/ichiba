@@ -16,7 +16,7 @@ import { Badge, Button, ButtonLink, Chip, Input } from "./ui";
 export function AuctionTimer({ endsAt, className }: { endsAt: string; className?: string }) {
   const { label, urgent, over } = useCountdown(endsAt);
   return (
-    <span className={clsx("tabular inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold", over ? "bg-black/60 text-white" : urgent ? "bg-heart text-white" : "bg-ink/80 text-white", className)}>
+    <span className={clsx("tabular inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold", over ? "bg-black/60 text-accent-ink" : urgent ? "bg-heart text-accent-ink" : "bg-ink/80 text-accent-ink", className)}>
       <span aria-hidden>⏱</span>
       {over ? "Завершён" : label}
     </span>
@@ -173,7 +173,7 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
             }}
           >
             {!a.leaderIsMe && (
-              <div role="tablist" aria-label="Тип ставки" className="grid grid-cols-2 gap-1 rounded-xl bg-black/5 p-1 text-sm">
+              <div role="tablist" aria-label="Тип ставки" className="grid grid-cols-2 gap-1 rounded-xl bg-ink/5 p-1 text-sm">
                 {(
                   [
                     ["bid", "Ставка"],
@@ -277,8 +277,8 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
               <li key={`${b.at}-${i}`} className={clsx("flex items-center justify-between py-1.5", b.mine && "font-medium")}>
                 <span className="flex items-center gap-1.5">
                   {i === 0 && <span className="text-heart">●</span>}@{b.bidder}
-                  {b.auto && <span className="rounded bg-black/5 px-1.5 text-[11px] font-medium text-ink-2">авто</span>}
-                  {b.buyNow && <span className="rounded bg-ink px-1.5 text-[11px] font-medium text-white">выкуп</span>}
+                  {b.auto && <span className="rounded bg-ink/5 px-1.5 text-[11px] font-medium text-ink-2">авто</span>}
+                  {b.buyNow && <span className="rounded bg-ink px-1.5 text-[11px] font-medium text-accent-ink">выкуп</span>}
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="text-xs text-muted">{timeAgo(b.at)}</span>

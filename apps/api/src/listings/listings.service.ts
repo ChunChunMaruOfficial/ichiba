@@ -18,7 +18,7 @@ import { nextBumpAt, StatsService } from '../stats/stats.js';
 import { canonicalBrand } from '../catalog/brands.js';
 import { tiersOf } from './bundle.js';
 import { BodyMeasurements, fitHint, PreferredSizes } from './fit.js';
-import { serializeVideo } from '../media/media.service.js';
+import { hashDistance, MediaService, serializeVideo } from '../media/media.service.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
 import type { ListingInputT, SearchQueryT } from './listings.dto.js';
 
@@ -38,6 +38,7 @@ export class ListingsService {
     private readonly notifications: NotificationsService,
     private readonly moderator: ListingModerator,
     private readonly stats: StatsService,
+    private readonly media: MediaService,
   ) {}
 
   // ---------- helpers ----------
@@ -252,7 +253,7 @@ export class ListingsService {
       });
       // Storage files are shared: rows point at the same keys, nothing is copied.
       await this.prisma.photo.createMany({
-        data: photos.map((p) => ({ ownerId: p.ownerId, listingId: copy.id, key: p.key, width: p.width, height: p.height, order: p.order, isCover: p.isCover, isDefect: p.isDefect, quality: p.quality ?? undefined })),
+        data: photos.map((p) => ({ ownerId: p.ownerId, listingId: copy.id, provider: p.provider, key: p.key, url: p.url, version: p.version, format: p.format, bytes: p.bytes, width: p.width, height: p.height, order: p.order, isCover: p.isCover, isDefect: p.isDefect, quality: p.quality ?? undefined })),
       });
       if (video) {
         await this.prisma.video.create({ data: { ownerId: video.ownerId, listingId: copy.id, key: video.key, ext: video.ext, mime: video.mime, width: video.width, height: video.height, durationMs: video.durationMs } });
@@ -305,9 +306,51 @@ export class ListingsService {
     const photoCount = await this.prisma.photo.count({ where: { listingId: listing.id } });
     const fields = this.publishErrors(listing, photoCount);
     if (Object.keys(fields).length) throw new BadRequestException({ message: 'Заполните обязательные поля', fields });
+    const duplicate = await this.findDuplicate(listing);
+    if (duplicate) {
+      throw new BadRequestException({
+        message: 'У вас уже есть такое объявление',
+        code: 'DUPLICATE',
+        duplicateOf: duplicate.id,
+        fields: { [duplicate.by === 'photo' ? 'photos' : 'title']: `Похоже на вашу вещь «${duplicate.title}». Поднимите или отредактируйте её вместо нового объявления` },
+      });
+    }
     const verdict = await this.moderator.check(listing, keys);
     if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields });
     return verdict;
+  }
+
+  /**
+   * One item = one listing (as on Avito): a seller can't publish the same thing twice to take more space in
+   * feeds. A duplicate is one of their live or scheduled listings with a near-identical photo, or with the same
+   * title, category and size. Copies in other sizes (same groupId) are the same item on purpose.
+   */
+  private async findDuplicate(listing: Listing): Promise<{ id: string; title: string; by: 'photo' | 'text' } | null> {
+    const others = await this.prisma.listing.findMany({
+      where: {
+        sellerId: listing.sellerId,
+        id: { not: listing.id },
+        OR: [{ status: { in: ['PUBLISHED', 'RESERVED'] } }, { status: 'DRAFT', scheduledAt: { not: null } }],
+        ...(listing.groupId ? { NOT: { groupId: listing.groupId } } : {}),
+      },
+      select: { id: true, title: true, category: true, sizeValue: true, groupId: true, photos: { select: { id: true, key: true, dhash: true } } },
+    });
+    if (!others.length) return null;
+    const norm = (s: string) => s.toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
+    const text = others.find((o) => norm(o.title) === norm(listing.title) && o.category === listing.category && (o.sizeValue ?? '') === (listing.sizeValue ?? ''));
+    if (text) return { id: text.id, title: text.title, by: 'text' };
+
+    const mine = await this.prisma.photo.findMany({ where: { listingId: listing.id }, select: { id: true, key: true, dhash: true } });
+    const myHashes = (await Promise.all(mine.map((p) => this.media.dhash(p)))).filter((h): h is string => !!h);
+    if (!myHashes.length) return null;
+    for (const o of others) {
+      for (const p of o.photos) {
+        const h = await this.media.dhash(p);
+        // ≤ 6 of 64 bits: the same shot (re-saved, recompressed, slightly cropped), not just a similar item.
+        if (h && myHashes.some((m) => hashDistance(m, h) <= 6)) return { id: o.id, title: o.title, by: 'photo' };
+      }
+    }
+    return null;
   }
 
   /**
@@ -595,29 +638,70 @@ export class ListingsService {
     };
   }
 
+  /**
+   * "Похожие" (Wildberries-style): items of the same category ranked by how alike they are — subcategory,
+   * brand, colour, audience, size, price and how close the cover photos look (difference hash).
+   * Other sizes of the same item and the viewer's own items are left out.
+   */
+  private async rankSimilar(listing: Listing, viewerId?: string, pool = 300) {
+    const rows = await this.prisma.listing.findMany({
+      where: {
+        status: { in: VISIBLE_IN_FEED },
+        id: { not: listing.id },
+        category: listing.category,
+        ...(viewerId ? { sellerId: { not: viewerId } } : {}),
+        ...(listing.groupId ? { NOT: { groupId: listing.groupId } } : {}),
+      },
+      include: { ...cardInclude, photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 } },
+      orderBy: { liftedAt: 'desc' },
+      take: pool,
+    });
+    const coverOf = async (l: { id: string }) => {
+      const p = await this.prisma.photo.findFirst({ where: { listingId: l.id }, orderBy: [{ isCover: 'desc' }, { order: 'asc' }], select: { id: true, key: true, dhash: true } });
+      return p ? this.media.dhash(p) : null;
+    };
+    const mine = await coverOf(listing);
+    const price = listing.price ?? 0;
+    const scored = await Promise.all(
+      rows.map(async (l) => {
+        let s = 0;
+        if (listing.subcategory && l.subcategory === listing.subcategory) s += 3;
+        if (listing.brand && l.brand && l.brand.toLowerCase() === listing.brand.toLowerCase()) s += 2;
+        if (listing.color && l.color === listing.color) s += 1.5;
+        if (listing.gender && (l.gender === listing.gender || l.gender == null || l.gender === 'UNISEX')) s += 0.5;
+        if (listing.sizeValue && l.sizeValue === listing.sizeValue) s += 0.5;
+        if (price && l.price) s -= Math.min(2, Math.abs(l.price - price) / price) * 1.5;
+        const cover = l.photos[0];
+        const h = mine && cover ? await this.media.dhash(cover) : null;
+        // Photos within ~20 of 64 bits share composition and tones: a weak but useful visual signal.
+        if (mine && h) s += Math.max(0, (20 - hashDistance(mine, h)) / 20) * 2;
+        return { l, s };
+      }),
+    );
+    return scored.sort((a, b) => b.s - a.s).map((x) => x.l);
+  }
+
+  async similar(id: string, offset: number, limit: number, viewerId?: string) {
+    const listing = await this.prisma.listing.findUnique({ where: { id } });
+    if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
+    const ranked = await this.rankSimilar(listing, viewerId);
+    return {
+      source: { id: listing.id, title: listing.title },
+      items: await this.cards(ranked.slice(offset, offset + limit), viewerId),
+      total: ranked.length,
+    };
+  }
+
   async related(id: string, viewerId?: string) {
     const listing = await this.prisma.listing.findUnique({ where: { id } });
     if (!listing) throw new NotFoundException({ message: 'Такой вещи нет' });
     const base = { status: { in: VISIBLE_IN_FEED }, id: { not: id } };
 
-    const [similarRaw, fromSeller] = await Promise.all([
-      this.prisma.listing.findMany({
-        where: { ...base, category: listing.category, sellerId: viewerId ? { not: viewerId } : undefined },
-        include: cardInclude,
-        orderBy: { publishedAt: 'desc' },
-        take: 40,
-      }),
+    const [ranked, fromSeller] = await Promise.all([
+      this.rankSimilar(listing, viewerId, 120),
       this.prisma.listing.findMany({ where: { ...base, sellerId: listing.sellerId }, include: cardInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),
     ]);
-    // Closest price, then same color/size first.
-    const similar = similarRaw
-      .map((l) => ({
-        l,
-        d: Math.abs((l.price ?? 0) - (listing.price ?? 0)) / Math.max(1, listing.price ?? 1) - (l.color === listing.color ? 0.3 : 0) - (l.sizeValue === listing.sizeValue ? 0.3 : 0),
-      }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 8)
-      .map((x) => x.l);
+    const similar = ranked.slice(0, 8);
 
     let forYou: Awaited<ReturnType<ListingsService['cards']>> = [];
     if (viewerId && (await this.recs.hasProfile(viewerId))) {

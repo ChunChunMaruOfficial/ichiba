@@ -8,6 +8,7 @@ import { FeedQuery, ListingInput, ListingInputT, SearchQuery, SearchQueryT, Ward
 import { ListingsService } from './listings.service.js';
 
 const ScheduleDto = z.object({ at: z.coerce.date() });
+const PageQuery = z.object({ offset: z.coerce.number().int().min(0).default(0), limit: z.coerce.number().int().min(1).max(48).default(24) });
 
 @Controller()
 export class ListingsController {
@@ -49,6 +50,12 @@ export class ListingsController {
   get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: AuthUser, @Headers('x-ichiba-render') render?: string) {
     // Server-side renders (and crawlers hitting them) are not views; the browser's own request counts.
     return this.listings.get(id, user?.id, { trackView: render !== 'ssr' });
+  }
+
+  @Public()
+  @Get('listings/:id/similar')
+  similar(@Param('id', ParseUUIDPipe) id: string, @Query(new ZodPipe(PageQuery)) q: z.infer<typeof PageQuery>, @CurrentUser() user?: AuthUser) {
+    return this.listings.similar(id, q.offset, q.limit, user?.id);
   }
 
   @Public()

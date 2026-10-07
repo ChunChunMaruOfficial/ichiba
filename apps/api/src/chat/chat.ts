@@ -32,7 +32,7 @@ export class ChatService {
   /** Antifraud warnings are shown to the recipient only. */
   private message(m: Message, viewerId: string) {
     const mine = m.senderId === viewerId;
-    return { id: m.id, body: m.body, mine, createdAt: m.createdAt, risk: mine ? null : ((m.risk as MessageRisk | null) ?? null) };
+    return { id: m.id, body: m.body, mine, createdAt: m.createdAt, risk: mine ? null : ((m.risk as MessageRisk | null) ?? null), location: location(m) };
   }
 
   private serialize(t: ThreadRow, viewerId: string) {
@@ -154,6 +154,33 @@ export class ChatService {
     };
   }
 
+  /** Shares a point on the map, like a location message in Telegram. The body is the preview line for lists. */
+  async sendLocation(userId: string, id: string, point: { lat: number; lng: number; accuracy?: number }) {
+    const t = await this.load(id, userId);
+    const now = new Date();
+    // ~10 cm precision is plenty; the device's own noise is far larger.
+    const round = (n: number) => Math.round(n * 1e6) / 1e6;
+    const [m] = await this.prisma.$transaction([
+      this.prisma.message.create({
+        data: {
+          threadId: id,
+          senderId: userId,
+          body: LOCATION_BODY,
+          kind: 'LOCATION',
+          lat: round(point.lat),
+          lng: round(point.lng),
+          accuracy: point.accuracy != null ? Math.round(point.accuracy) : null,
+          createdAt: now,
+        },
+      }),
+      this.prisma.thread.update({ where: { id }, data: { lastMessageAt: now, ...(t.buyerId === userId ? { buyerReadAt: now } : { sellerReadAt: now }) } }),
+    ]);
+    const other = t.buyerId === userId ? t.sellerId : t.buyerId;
+    const me = t.buyerId === userId ? t.buyer : t.seller;
+    this.events.emit(other, { type: 'message', data: { threadId: id, message: { ...this.message(m, other), from: me.username, title: t.listing.title } } });
+    return { ...this.message(m, userId), notice: null };
+  }
+
   async read(userId: string, id: string) {
     const t = await this.load(id, userId);
     await this.markRead(t, userId);
@@ -173,6 +200,16 @@ export class ChatService {
     }).length;
   }
 }
+
+const LOCATION_BODY = '📍 Местоположение';
+
+const location = (m: Message) => (m.kind === 'LOCATION' && m.lat != null && m.lng != null ? { lat: m.lat, lng: m.lng, accuracy: m.accuracy } : null);
+
+const LocationDto = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(100_000).optional(),
+});
 
 const OpenDto = z.object({ listingId: z.uuid().optional(), requestId: z.uuid().optional() });
 const SendDto = z.object({ body: z.string().trim().min(1, 'Напишите сообщение').max(2000) });
@@ -200,6 +237,12 @@ export class ChatController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   send(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(SendDto)) dto: z.infer<typeof SendDto>) {
     return this.chat.send(user.id, id, dto.body);
+  }
+
+  @Post(':id/location')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  sendLocation(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(LocationDto)) dto: z.infer<typeof LocationDto>) {
+    return this.chat.sendLocation(user.id, id, dto);
   }
 
   @Post(':id/read')
