@@ -25,7 +25,6 @@
 Переменные окружения (минимум):
 
 ```
-NODE_ENV=production
 JWT_SECRET=<openssl rand -base64 48>
 WEB_ORIGIN=https://<web-проект>.vercel.app
 DATABASE_URL=<pooled url Postgres>        # Neon: хост с -pooler; Supabase: порт 6543
@@ -40,6 +39,8 @@ PUSHER_APP_ID=…  PUSHER_KEY=…  PUSHER_SECRET=…  PUSHER_CLUSTER=eu
 MAIL_PROVIDER=resend   RESEND_API_KEY=…   MAIL_FROM="ichiba <no-reply@ваш-домен>"
 CRON_SECRET=<случайная строка>
 ```
+
+`NODE_ENV` задавать не нужно: Vercel ставит его сам, а заданный вручную ломает сборку (не ставятся dev-зависимости).
 
 Сборка (`npm run vercel-build`) генерирует Prisma Client, **применяет миграции** к базе из `DIRECT_URL`/`DATABASE_URL` и собирает API. Если переменные Preview указывают на ту же базу, превью-деплои тоже будут её мигрировать — заведите для Preview отдельную базу (у Neon это ветка).
 Проверка после деплоя: `https://<api>.vercel.app/health` → `{"ok":true,"db":true,"redis":true}`.
