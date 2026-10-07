@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
+import { useSession } from "@/components/session";
 import { RequireAuth } from "@/components/require-auth";
 import { DealBadge, EmptyState, ErrorState, Skeleton } from "@/components/ui";
 import { timeAgo } from "@/lib/labels";
@@ -14,7 +15,8 @@ export default function MessagesPage() {
 
 /** Conversations list (frame 15): one per item, newest first, unread in bold. */
 function Threads() {
-  const { data, error, mutate } = useSWR<{ items: ThreadSummary[] }>("/threads");
+  const { realtime } = useSession();
+  const { data, error, mutate } = useSWR<{ items: ThreadSummary[] }>("/threads", { refreshInterval: realtime === "live" ? 0 : 15_000 });
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
       <h1 className="text-3xl font-semibold tracking-tight">Сообщения</h1>

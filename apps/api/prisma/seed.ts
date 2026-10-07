@@ -1,9 +1,9 @@
 /**
- * Dev seed (frame 31 SEED INVENTORY): 12 wardrobes, ~180 items with generated flat-lay photos, plus
+ * Dev seed (frame 31 SEED INVENTORY), disabled by default — see demo-guard.ts: 12 wardrobes, ~180 items with generated flat-lay photos, plus
  * deals in every status, offers, chats, collections, follows, reports and an admin.
  *
- *   npm run seed            — seeds an empty database
- *   npm run seed -- --reset — wipes all data and photos first
+ *   SEED_DEMO=true npm run seed            — seeds an empty database
+ *   SEED_DEMO=true npm run seed -- --reset — wipes all data and photos first
  *
  * All seed accounts use the password `password123` (local development only).
  */
@@ -17,6 +17,9 @@ import { PrismaClient, type Condition, type DeliveryMethod, type RequestStatus, 
 import { COLORS } from '../src/catalog/catalog.js';
 import { createStorage, MEDIA_DIR } from '../src/media/storage.js';
 import { type Pattern, photoSvg, type Scene, type Shape } from './seed-art.js';
+import { assertDemoSeedAllowed } from './demo-guard.js';
+
+assertDemoSeedAllowed();
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const storage = createStorage();

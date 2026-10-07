@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Injectable, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
@@ -38,6 +38,7 @@ export class ChatService {
       lastMessage: last ? { body: last.body, mine: last.senderId === viewerId, createdAt: last.createdAt } : null,
       lastMessageAt: t.lastMessageAt,
       unread: !!last && last.senderId !== viewerId && (!readAt || readAt < last.createdAt),
+      counterpartReadAt: role === 'buyer' ? t.sellerReadAt : t.buyerReadAt,
     };
   }
 
@@ -98,7 +99,7 @@ export class ChatService {
       orderBy: { createdAt: 'desc' },
       take: 51,
     });
-    await this.markRead(t, userId);
+    if (this.serialize(t, userId).unread) await this.markRead(t, userId);
     return {
       thread: this.serialize(t, userId),
       messages: messages
@@ -109,8 +110,11 @@ export class ChatService {
     };
   }
 
-  private markRead(t: { id: string; buyerId: string }, userId: string) {
-    return this.prisma.thread.update({ where: { id: t.id }, data: t.buyerId === userId ? { buyerReadAt: new Date() } : { sellerReadAt: new Date() } });
+  /** Moves my read mark; the other side sees "прочитано" live. */
+  private async markRead(t: { id: string; buyerId: string; sellerId: string }, userId: string) {
+    const at = new Date();
+    await this.prisma.thread.update({ where: { id: t.id }, data: t.buyerId === userId ? { buyerReadAt: at } : { sellerReadAt: at } });
+    await this.events.emit(t.buyerId === userId ? t.sellerId : t.buyerId, { type: 'thread_read', data: { threadId: t.id, at } });
   }
 
   async send(userId: string, id: string, body: string) {
@@ -122,13 +126,21 @@ export class ChatService {
     ]);
     const other = t.buyerId === userId ? t.sellerId : t.buyerId;
     const me = t.buyerId === userId ? t.buyer : t.seller;
-    this.events.emit(other, { type: 'message', data: { threadId: id, message: { id: m.id, body: m.body, mine: false, createdAt: m.createdAt, from: me.username, title: t.listing.title } } });
+    await this.events.emit(other, { type: 'message', data: { threadId: id, message: { id: m.id, body: m.body, mine: false, createdAt: m.createdAt, from: me.username, title: t.listing.title } } });
     return { id: m.id, body: m.body, mine: true, createdAt: m.createdAt };
+  }
+
+  /** "печатает…" for the other side; nothing is stored. */
+  async typing(userId: string, id: string) {
+    const t = await this.prisma.thread.findUnique({ where: { id }, select: { buyerId: true, sellerId: true } });
+    if (!t || (t.buyerId !== userId && t.sellerId !== userId)) throw new NotFoundException({ message: 'Диалог не найден' });
+    await this.events.emit(t.buyerId === userId ? t.sellerId : t.buyerId, { type: 'typing', data: { threadId: id } });
+    return { ok: true };
   }
 
   async read(userId: string, id: string) {
     const t = await this.load(id, userId);
-    await this.markRead(t, userId);
+    if (this.serialize(t, userId).unread) await this.markRead(t, userId);
     return { ok: true };
   }
 
@@ -174,7 +186,15 @@ export class ChatController {
     return this.chat.send(user.id, id, dto.body);
   }
 
+  @Post(':id/typing')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  typing(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.chat.typing(user.id, id);
+  }
+
   @Post(':id/read')
+  @HttpCode(200)
   read(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.chat.read(user.id, id);
   }

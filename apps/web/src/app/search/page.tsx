@@ -317,7 +317,7 @@ function SearchView() {
         }}
       >
         <label className="flex h-12 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 focus-within:border-ink">
-          <IconSearch className="text-muted" />
+          <IconSearch className="size-5 shrink-0 text-muted" />
           <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Что ищете?" className="h-full flex-1 bg-transparent outline-none" enterKeyHint="search" aria-label="Поиск" />
         </label>
       </form>

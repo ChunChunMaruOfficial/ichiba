@@ -1,45 +1,100 @@
 # ichiba — маркетплейс открытых гардеробов
 
-MVP по спецификации с Miro-доски «Wardrobe Marketplace». Монорепо на npm workspaces:
+Монорепо на npm workspaces:
 
-- `apps/api` — NestJS 12 (ESM) + Prisma 7 + PostgreSQL. Монолит REST API (фрейм 30).
+- `apps/api` — NestJS 12 (ESM) + Prisma 7 + PostgreSQL. REST API, WebSocket/Pusher для чата и уведомлений.
 - `apps/web` — Next.js 16 + Tailwind 4. Браузер ходит в API через `/api/*` (rewrite в `next.config.ts`), поэтому сессионная кука first-party.
 
-## Запуск (без Docker)
+## Инфраструктура в проде
 
-Нужен Node 22+.
+| Что | Зачем | Чем закрыть (любой вариант) |
+|---|---|---|
+| **БД 1 — PostgreSQL** | все данные: пользователи, вещи, сделки, чаты | Neon, Supabase, Vercel Postgres |
+| **БД 2 — Redis** | общие лимиты запросов между инстансами, раздача событий WebSocket между инстансами, блокировка cron | Upstash (есть в Vercel Marketplace), Redis Cloud |
+| Хранилище фото | у Vercel нет диска | Cloudflare R2, Supabase Storage, AWS S3 (любое S3-совместимое, публичное на чтение) |
+| Real-time | Vercel Functions не держат WebSocket | Pusher Channels (или Soketi / Ably в режиме Pusher) |
+| Почта | коды подтверждения и сброса пароля | Resend или SMTP (например, Gmail с паролем приложения) |
 
-```bash
-cp apps/api/.env.example apps/api/.env   # и задать JWT_SECRET
-npm run db        # локальный Postgres от Prisma (prisma dev), держать запущенным в отдельном терминале
-npm run setup     # зависимости, клиент Prisma, миграции, сид
-npm run dev       # API на :4000, web на :3000
+Все ключи — в переменных окружения, полный список с комментариями в `apps/api/.env.example` и `apps/web/.env.example`.
+
+## Деплой на Vercel
+
+Два проекта Vercel из одного репозитория.
+
+**1. API** — New Project → этот репозиторий → Root Directory `apps/api` (фреймворк NestJS определится сам).
+Переменные окружения (минимум):
+
+```
+NODE_ENV=production
+JWT_SECRET=<openssl rand -base64 48>
+WEB_ORIGIN=https://<web-проект>.vercel.app
+DATABASE_URL=<pooled url Postgres>        # Neon: хост с -pooler; Supabase: порт 6543
+DIRECT_URL=<прямой url Postgres>           # для миграций
+DATABASE_POOL_MAX=5
+REDIS_URL=rediss://default:<pass>@<host>.upstash.io:6379
+ADMIN_EMAILS=c4erkaoui@gmail.com
+MEDIA_DRIVER=s3
+S3_ENDPOINT=…  S3_REGION=…  S3_BUCKET=…  S3_ACCESS_KEY=…  S3_SECRET_KEY=…
+MEDIA_PUBLIC_URL=<публичный url бакета или CDN>
+PUSHER_APP_ID=…  PUSHER_KEY=…  PUSHER_SECRET=…  PUSHER_CLUSTER=eu
+MAIL_PROVIDER=resend   RESEND_API_KEY=…   MAIL_FROM="ichiba <no-reply@ваш-домен>"
+CRON_SECRET=<случайная строка>
 ```
 
-У всех сид-аккаунтов пароль `password123` (только для локальной разработки):
-- продавцы: `alex@ichiba.test`, `kate@…`, `mike@…`, `vintage_by@…`, `olga_mnsk@…`, `den@…`, `marina_k@…`, `stylist_anna@…`, `sneakerhead@…`, `lena_v@…`, `pavel@…`, `secondhand_hub@…`;
-- покупатели: `buyer@ichiba.test`, `nastya@…`, `igor@…`, `sveta@…`;
-- администратор: `admin@ichiba.test` (раздел `/admin`).
+Сборка (`npm run vercel-build`) генерирует Prisma Client, **применяет миграции** к базе из `DIRECT_URL`/`DATABASE_URL` и собирает API. Если переменные Preview указывают на ту же базу, превью-деплои тоже будут её мигрировать — заведите для Preview отдельную базу (у Neon это ветка).
+Проверка после деплоя: `https://<api>.vercel.app/health` → `{"ok":true,"db":true,"redis":true}`.
 
-Сид создаёт 180 вещей со сгенерированными «фото» (вещь на кровати, полу, вешалке), сделки во всех статусах, офферы, чаты, коллекции, подписки и жалобы. Рендер фото занимает около 20 минут. Пересоздать данные с нуля:
+**2. Web** — New Project → тот же репозиторий → Root Directory `apps/web`. Переменная одна:
 
-```bash
-npm run seed -w apps/api -- --reset
+```
+API_URL=https://<api-проект>.vercel.app
 ```
 
-`prisma dev` держит одно соединение, поэтому в `.env` стоит `DATABASE_POOL_MAX=1`; для обычного Postgres значение можно поднять. Новые миграции на `prisma dev` создаются через `prisma migrate diff` + `prisma migrate deploy`: `migrate dev` не может создать shadow-базу.
+После деплоя web впишите его адрес в `WEB_ORIGIN` у API и передеплойте API.
 
-Коды подтверждения (регистрация, сброс пароля) в dev печатаются в лог API (`MAIL_PROVIDER=log`, `SMS_PROVIDER=log`). Пока стоит `AUTH_DEV_ANY_CODE=true`, подходит любой код из 6 цифр (например `000000`), а форма показывает об этом подсказку. При `NODE_ENV=production` этот режим отключается.
+**Администратор.** Зарегистрируйтесь на сайте с email из `ADMIN_EMAILS` (сейчас `c4erkaoui@gmail.com`) и подтвердите код — аккаунт станет администратором, раздел `/admin`.
 
-Фото хранятся в `apps/api/storage/media` и раздаются API по `/media`. Для S3 или CDN — `MEDIA_DRIVER=s3` и переменные `S3_*`.
+**Фоновые правила** (закрытие аукционов, отмена сделок и офферов через 48 ч, автозавершение через 7 дней):
+- выполняются «лениво» на обычном трафике не чаще раза в минуту (`CRON_LAZY`, на Vercel включено по умолчанию);
+- Vercel Cron из `apps/api/vercel.json` дёргает `/cron/tick` раз в сутки (лимит тарифа Hobby). На Pro поменяйте расписание на `* * * * *`, либо поставьте внешний пингер (cron-job.org) на `GET /cron/tick` с заголовком `Authorization: Bearer $CRON_SECRET`.
 
-## Опциональные ключи (`apps/api/.env`)
+**Ограничения Vercel, которые уже учтены:** тело запроса до 4.5 МБ — фото сжимаются в браузере до 2560 px; диска нет — фото только в S3; WebSocket на стороне API невозможен — используется Pusher (без ключей Pusher чат и счётчики работают опросом раз в 5–30 секунд).
+
+## Без Vercel (VPS, Docker, Railway, локально)
+
+API — обычный долгоживущий Node-процесс: `npm run build -w apps/api && npm start -w apps/api`. WebSocket отдаётся самим API на `/ws` (`REALTIME_DRIVER=ws`), с `REDIS_URL` сообщения доходят до сокетов на любом инстансе. Таймеры правил работают внутри процесса. За обратным прокси задайте `PUBLIC_WS_URL=wss://api.example.com/ws`.
+
+## Локальная разработка
+
+Нужен Node 22+ и PostgreSQL (свой или `npm run db` — локальный Postgres от Prisma, тогда `DATABASE_POOL_MAX=1`). Redis необязателен.
+
+```bash
+cp apps/api/.env.example apps/api/.env   # задать JWT_SECRET и DATABASE_URL
+npm run setup     # зависимости, клиент Prisma, миграции
+npm run dev       # API на :4000 (WebSocket на ws://localhost:4000/ws), web на :3000
+```
+
+Коды подтверждения в dev печатаются в лог API (`MAIL_PROVIDER=log`). Пока стоит `AUTH_DEV_ANY_CODE=true`, подходит любой код из 6 цифр; при `NODE_ENV=production` этот режим отключён.
+
+### Демо-данные (моки)
+
+Отключены, но не удалены: `apps/api/prisma/seed*.ts`. Запускаются только явно и никогда в проде:
+
+```bash
+SEED_DEMO=true npm run seed -w apps/api            # или npm run seed:demo
+SEED_DEMO=true npm run seed -w apps/api -- --reset # пересоздать с нуля
+```
+
+Сид создаёт 16 аккаунтов с паролем `password123`, 180 вещей со сгенерированными фото, сделки, чаты и жалобы (около 20 минут на рендер фото).
+
+## Опциональные ключи
 
 | Переменная | Что включает | Без неё |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | AI-распознавание вещи по фото (Claude vision): категория, цвет, бренд, стиль, название, описание | Поля заполняются вручную |
+| `ANTHROPIC_API_KEY` | AI-распознавание вещи по фото: категория, цвет, бренд, стиль, название, описание | Поля заполняются вручную |
 | `GOOGLE_CLIENT_ID` | Кнопка «Продолжить с Google» | Кнопка скрыта |
 | `APPLE_CLIENT_ID` | Кнопка «Продолжить с Apple» | Кнопка скрыта |
+| `SMS_PROVIDER=twilio` + `TWILIO_*` | Регистрация по телефону | Вход по телефону недоступен, по email работает |
 
 ## Что в итерации 1 (core loop)
 
@@ -57,8 +112,8 @@ npm run seed -w apps/api -- --reset
 
 - Предложить цену: торг до 3 раундов, 48 ч на ответ, диапазон для встречной цены, скрытая минимальная цена с авто-отказом. Принятый оффер резервирует вещь, покупатель выбирает способ получения.
 - Корзина: группировка по продавцам, один запрос на продавца с общим способом получения.
-- Чат по вещи и по сделке, непрочитанные, live-доставка, подсказка против предоплаты.
-- Уведомления: страница с фильтрами, колокольчик, live-пуш через SSE (`/events`) с тостами.
+- Чат по вещи и по сделке: live-доставка по WebSocket, «печатает…», «Прочитано», непрочитанные, подсказка против предоплаты.
+- Уведомления: страница с фильтрами, колокольчик, live-пуш по WebSocket / Pusher с тостами.
 - Свайп: режим на главной и онбординг на 20 карточек после регистрации. Гости смотрят без аккаунта; вход нужен только для ♡, корзины, покупки, торга, подписки и чата.
 - Коллекции в избранном, лента подписок, списки подписчиков.
 - Жалобы на вещь и пользователя, обжалование блокировки, админка: метрика «завершённые сделки за неделю», очередь модерации, разблокировка.
@@ -68,7 +123,7 @@ npm run seed -w apps/api -- --reset
 - В Add Item на шаге цены переключатель «Фиксированная цена / Аукцион»: старт, шаг (по умолчанию 5%), 1 / 3 / 7 дней, необязательная скрытая резервная цена.
 - Ставка в последние 5 минут продлевает аукцион. Пока он идёт, нет «Купить», оффера и корзины; цена заморожена; отменить можно до первой ставки.
 - Закрытие раз в минуту. Победитель получает сделку ACCEPTED и выбирает способ получения за 48 ч, иначе вещь уходит следующей ставке не ниже резерва или возвращается в продажу.
-- Чип «Аукционы» на главной, таймер на карточках, вкладка «Ставки» в «Мои покупки». Демо-аукционы добавляет `npx tsx prisma/seed-auctions.ts` (входит в основной сид).
+- Чип «Аукционы» на главной, таймер на карточках, вкладка «Ставки» в «Мои покупки». Демо-аукционы добавляет `SEED_DEMO=true npx tsx prisma/seed-auctions.ts` (входит в основной сид).
 
 ## Дальше
 

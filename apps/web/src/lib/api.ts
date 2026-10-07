@@ -51,9 +51,40 @@ export function qs(params: Record<string, string | number | boolean | string[] |
   return s ? `?${s}` : "";
 }
 
-export const uploadPhoto = (file: File) => {
+/** Serverless request bodies are capped (Vercel: 4.5 MB), so photos are shrunk in the browser first. */
+const UPLOAD_LIMIT = 4 * 1024 * 1024;
+const MAX_SIDE = 2560;
+
+async function shrink(file: File): Promise<Blob> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    // The browser cannot decode it (e.g. HEIC outside Safari): send as is if it fits.
+    if (file.size <= UPLOAD_LIMIT) return file;
+    throw new ApiError(413, "Фото слишком большое — сохраните его как JPG и попробуйте снова");
+  }
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  if (scale === 1 && file.size <= UPLOAD_LIMIT && file.type !== "image/heic" && file.type !== "image/heif") {
+    bitmap.close();
+    return file;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  for (const quality of [0.9, 0.8, 0.7]) {
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    if (blob && blob.size <= UPLOAD_LIMIT) return blob;
+  }
+  throw new ApiError(413, "Фото слишком большое");
+}
+
+export const uploadPhoto = async (file: File) => {
+  const blob = await shrink(file);
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", blob, blob === file ? file.name : file.name.replace(/\.[^.]+$/, "") + ".jpg");
   return api<{ id: string; width: number; height: number; urls: PhotoUrls }>("/media/photos", { body: form });
 };
 

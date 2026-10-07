@@ -32,7 +32,7 @@ export type NotificationType =
   | 'auction_sold'
   | 'auction_no_sale';
 
-/** In-app notifications, pushed live over SSE (frame 15). Email delivery plugs in here later. */
+/** In-app notifications, pushed live over WebSocket / Pusher (frame 15). Email delivery plugs in here later. */
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -42,15 +42,15 @@ export class NotificationsService {
 
   async notify(userId: string, type: NotificationType, payload: Prisma.InputJsonValue) {
     const n = await this.prisma.notification.create({ data: { userId, type, payload } });
-    this.events.emit(userId, { type: 'notification', data: n });
+    await this.events.emit(userId, { type: 'notification', data: n });
     return n;
   }
 
   async notifyMany(userIds: string[], type: NotificationType, payload: Prisma.InputJsonValue) {
     const unique = [...new Set(userIds)];
     if (!unique.length) return;
-    await this.prisma.notification.createMany({ data: unique.map((userId) => ({ userId, type, payload })) });
-    for (const userId of unique) this.events.emit(userId, { type: 'notification', data: { type, payload } });
+    const rows = await this.prisma.notification.createManyAndReturn({ data: unique.map((userId) => ({ userId, type, payload })) });
+    await Promise.all(rows.map((n) => this.events.emit(n.userId, { type: 'notification', data: n })));
   }
 
   unreadCount(userId: string) {

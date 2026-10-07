@@ -46,6 +46,16 @@ export class AuthService {
     private readonly codes: CodeSenderService,
   ) {}
 
+  /**
+   * Accounts whose verified email is listed in ADMIN_EMAILS (comma-separated) become admins on sign-in:
+   * the way to get the first moderator on a fresh production database.
+   */
+  async ensureAdmin(user: User): Promise<User> {
+    const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    if (user.role === 'ADMIN' || !user.email || !user.emailVerifiedAt || !admins.includes(user.email)) return user;
+    return this.prisma.user.update({ where: { id: user.id }, data: { role: 'ADMIN' } });
+  }
+
   sign(user: Pick<User, 'id' | 'username' | 'role'>) {
     return this.jwt.signAsync({ sub: user.id, username: user.username, role: user.role });
   }
@@ -193,10 +203,16 @@ export class AuthService {
       throw new HttpException({ message: 'Код уже отправлен — повторите через минуту' }, HttpStatus.TOO_MANY_REQUESTS);
     }
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.prisma.verificationCode.create({
+    const record = await this.prisma.verificationCode.create({
       data: { target, purpose, codeHash: await bcrypt.hash(code, 8), expiresAt: new Date(Date.now() + CODE_TTL_MS) },
     });
-    await this.codes.send(target, code, purpose);
+    try {
+      await this.codes.send(target, code, purpose);
+    } catch (e) {
+      // Undelivered code must not hold the resend cooldown.
+      await this.prisma.verificationCode.delete({ where: { id: record.id } });
+      throw e;
+    }
   }
 
   private async consumeCode(target: string, purpose: CodePurpose, code: string) {

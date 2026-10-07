@@ -92,7 +92,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(200)
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(AUTH_COOKIE, { path: '/' });
+    res.clearCookie(AUTH_COOKIE, { path: '/', httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
     return { ok: true };
   }
 
@@ -108,7 +108,8 @@ export class AuthController {
     return { google: process.env.GOOGLE_CLIENT_ID || null, apple: process.env.APPLE_CLIENT_ID || null, devAnyCode: DEV_ANY_CODE };
   }
 
-  private async startSession(res: Response, { user, isNew }: { user: User; isNew: boolean }) {
+  private async startSession(res: Response, { user: signedIn, isNew }: { user: User; isNew: boolean }) {
+    const user = await this.auth.ensureAdmin(signedIn);
     res.cookie(AUTH_COOKIE, await this.auth.sign(user), {
       httpOnly: true,
       sameSite: 'lax',

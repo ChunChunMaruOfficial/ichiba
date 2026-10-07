@@ -35,12 +35,14 @@ class S3Storage implements Storage {
   private readonly s3 = new S3Client({
     endpoint: process.env.S3_ENDPOINT || undefined,
     region: process.env.S3_REGION ?? 'us-east-1',
-    forcePathStyle: true,
+    // Path-style URLs for S3-compatible endpoints (R2, Supabase Storage, MinIO); virtual-hosted for AWS.
+    forcePathStyle: process.env.S3_FORCE_PATH_STYLE ? process.env.S3_FORCE_PATH_STYLE === 'true' : !!process.env.S3_ENDPOINT,
     credentials: { accessKeyId: process.env.S3_ACCESS_KEY ?? '', secretAccessKey: process.env.S3_SECRET_KEY ?? '' },
   });
 
-  /** Creates a public-read bucket if missing (dev convenience; prod puts a CDN in front). */
+  /** With S3_CREATE_BUCKET=true, creates a public-read bucket if missing (dev convenience; prod buckets are made by hand). */
   async init() {
+    if (process.env.S3_CREATE_BUCKET !== 'true') return;
     try {
       await this.s3.send(new HeadBucketCommand({ Bucket: this.bucket }));
     } catch {

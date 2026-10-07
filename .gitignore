@@ -6,3 +6,4 @@ dist
 apps/api/src/generated
 *.log
 apps/api/storage
+*.tsbuildinfo
