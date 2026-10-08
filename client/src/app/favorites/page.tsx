@@ -11,6 +11,7 @@ import { WardrobeCards } from "@/components/sections";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconPlus, Skeleton } from "@/components/ui";
 import { plural } from "@/lib/labels";
 import type { Card, CollectionSummary, Cover, SellerSummary } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const SORTS = [
   ["recent", "Недавно добавленные"],
@@ -121,13 +122,7 @@ function SavedItems() {
         <Chip active={onlyAvailable} onClick={() => setOnlyAvailable((v) => !v)}>
           Только доступные
         </Chip>
-        <select aria-label="Сортировка" value={sort} onChange={(e) => setSort(e.target.value)} className="h-9 rounded-full border border-line-strong bg-surface px-3 text-sm">
-          {SORTS.map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
-            </option>
-          ))}
-        </select>
+        <Select variant="pill" aria-label="Сортировка" value={sort} onChange={setSort} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />
       </div>
       {data && (data.reserved > 0 || data.priceDropped > 0) && <ShopNews priceDropped={data.priceDropped} reserved={data.reserved} />}
       <div className="mt-6">

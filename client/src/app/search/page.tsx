@@ -9,13 +9,14 @@ import { useBrandSuggestions } from "@/components/brand-picker";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CardRow, CategoryTiles, SectionHeader } from "@/components/sections";
 import { useMeta, useSession } from "@/components/session";
-import { Button, Chip, EmptyState, ErrorState, IconChevronDown, IconFilter, IconSearch, IconSparkle, IconX, Input, Spinner } from "@/components/ui";
+import { Button, Chip, EmptyState, ErrorState, IconFilter, IconSearch, IconSparkle, IconX, Input, Spinner } from "@/components/ui";
 import { api, qs } from "@/lib/api";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { CONDITION_LABEL, items as itemsLabel } from "@/lib/labels";
 import { usePresence } from "@/lib/presence";
 import { pushRecent } from "@/lib/recent-searches";
 import type { Card, Meta, SearchInterpretation } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const LIST_KEYS = ["category", "subcategory", "style", "gender", "size", "condition", "color", "brand"] as const;
 type ListKey = (typeof LIST_KEYS)[number];
@@ -158,12 +159,7 @@ function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: 
         </div>
       </Group>
       <Group title="Город">
-        <select className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3" value={value.city ?? ""} onChange={(e) => onChange({ ...value, city: e.target.value || undefined })}>
-          <option value="">Любой</option>
-          {meta.cities.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
+        <Select aria-label="Город" value={value.city ?? ""} onChange={(v) => onChange({ ...value, city: v || undefined })} options={[{ value: "", label: "Любой" }, ...meta.cities.map((c) => ({ value: c, label: c }))]} />
       </Group>
       <Group title="Продавец">
         <Input placeholder="@alex…" value={value.seller ?? ""} onChange={(e) => onChange({ ...value, seller: e.target.value.replace(/^@/, "") || undefined })} />
@@ -241,19 +237,7 @@ function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta, closing }
 }
 
 function SortMenu({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <label className="relative inline-flex h-9 items-center gap-1 rounded-full border border-line-strong bg-surface pl-4 pr-8 text-sm focus-within:border-ink focus-within:ring-3 focus-within:ring-accent/15">
-      <span className="sr-only">Сортировка</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="appearance-none bg-transparent outline-none">
-        {SORTS.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-      <IconChevronDown className="pointer-events-none absolute right-3 size-4" />
-    </label>
-  );
+  return <Select variant="pill" aria-label="Сортировка" value={value} onChange={onChange} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />;
 }
 
 function SearchLanding({ meta }: { meta: Meta }) {

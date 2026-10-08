@@ -6,9 +6,10 @@ import { RequireAuth } from "@/components/require-auth";
 import { useMeta, useSession } from "@/components/session";
 import { Noren } from "@/components/shop/noren";
 import { SwipeDeck } from "@/components/swipe-deck";
-import { Button, Chip, Field, inputClass } from "@/components/ui";
+import { Button, Chip, Field } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { Me } from "@/lib/types";
+import { Select } from "@/components/select";
 
 const DECK = 20;
 const MIN_TO_FINISH = 10;
@@ -89,12 +90,7 @@ function Welcome({ me }: { me: Me }) {
                   </div>
                 </Field>
                 <Field label="Город" htmlFor="welcome-city">
-                  <select id="welcome-city" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass()}>
-                    <option value="">Не указан</option>
-                    {meta.cities.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
+                  <Select id="welcome-city" value={city} onChange={setCity} options={[{ value: "", label: "Не указан" }, ...meta.cities.map((c) => ({ value: c, label: c }))]} />
                 </Field>
                 <Button size="lg" block loading={busy} onClick={() => finish(true)}>
                   Готово

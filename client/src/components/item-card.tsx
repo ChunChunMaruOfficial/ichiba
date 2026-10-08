@@ -143,7 +143,8 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
   if (variant === "feed") {
     return (
       <article className="group relative">
-        <Link href={`/item/${card.id}`} className="block overflow-hidden rounded-[18px]">
+        {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
+        <Link href={`/item/${card.id}`} className="relative block overflow-hidden rounded-[18px]">
           <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
           <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-2.5 transition-opacity md:group-hover:opacity-0" />
           <span className="transition-opacity md:group-hover:opacity-0">

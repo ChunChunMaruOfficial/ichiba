@@ -8,10 +8,11 @@ import { RequireAuth } from "@/components/require-auth";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { tiersText } from "@/components/trust";
-import { Button, Chip, Field, Input, inputClass, Modal, Textarea } from "@/components/ui";
+import { Button, Chip, Field, Input, Modal, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { DARK_THEME_ENABLED, getTheme, setTheme, type ThemeChoice } from "@/lib/theme";
 import type { BodyMeasurements, BundleTier, Me, PreferredSizes } from "@/lib/types";
+import { Select } from "@/components/select";
 
 export default function SettingsPage() {
   return <RequireAuth reason="чтобы открыть настройки">{(me) => <Settings me={me} />}</RequireAuth>;
@@ -207,12 +208,7 @@ function ProfileSection({ me }: { me: Me }) {
         }}
       >
         <Field label="Город" htmlFor="city" hint="Подставляется в новые вещи">
-          <select id="city" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass()}>
-            <option value="">Не указан</option>
-            {meta?.cities.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+          <Select id="city" value={city} onChange={setCity} options={[{ value: "", label: "Не указан" }, ...(meta?.cities ?? []).map((c) => ({ value: c, label: c }))]} />
         </Field>
         <Field label="О себе" htmlFor="bio" error={fields.bio} hint={`${bio.length}/160 · видно в гардеробе`}>
           <Textarea id="bio" maxLength={160} value={bio} onChange={(e) => setBio(e.target.value)} className="min-h-20" />

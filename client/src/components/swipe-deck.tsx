@@ -42,12 +42,19 @@ function useFitHeight() {
     const measure = () => {
       if (!ref.current) return;
       const top = ref.current.getBoundingClientRect().top + window.scrollY;
-      const reserve = window.innerWidth < 768 ? 88 : 32;
+      // Room for the bottom tabs when they are shown (not in the immersive swipe mode).
+      const nav = document.querySelector<HTMLElement>('[data-chrome="bottom-nav"]');
+      const reserve = nav && nav.offsetParent !== null ? nav.offsetHeight + 16 : 28;
       setHeight(Math.max(420, window.innerHeight - top - reserve));
     };
     measure();
+    // The page switches immersive mode on after this mounts: measure again once that has applied.
+    const raf = requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
   }, []);
   return { ref, height };
 }

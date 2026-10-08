@@ -89,7 +89,7 @@ function Sales() {
 
       {tab === "sold" && data?.soldTotal != null && data.items.length > 0 && <p className="mt-4 text-ink-2">Продано на <b className="tabular text-ink">{formatPrice(data.soldTotal)}</b></p>}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2 lg:[&>*:only-child]:col-span-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2 [&>*]:min-w-0 lg:[&>*:only-child]:col-span-2">
         {error ? (
           <ErrorState message="Не удалось загрузить сделки" onRetry={() => mutate()} />
         ) : !data ? (

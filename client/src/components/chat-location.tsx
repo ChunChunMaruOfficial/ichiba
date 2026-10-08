@@ -113,25 +113,55 @@ function ViewerBody({ location }: { location: ChatLocation }) {
     L.marker([location.lat, location.lng], { icon: pinIcon(L), keyboard: false }).addTo(map);
   });
   const links = mapLinks(location.lat, location.lng);
-  const link = "inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-semibold shadow-[inset_0_0_0_1px_var(--line-strong)] hover:bg-ink/5";
+  const app = "grid size-12 shrink-0 place-items-center rounded-2xl bg-surface shadow-[inset_0_0_0_1px_var(--line-strong)] transition-transform hover:-translate-y-0.5 hover:shadow-[inset_0_0_0_1px_var(--line-control)]";
   return (
     <>
       <div className="relative -mx-6 h-[min(60vh,440px)] overflow-hidden md:mx-0 md:rounded-2xl">
         <div ref={el} className="size-full bg-skeleton" />
       </div>
-      {location.accuracy && <p className="mt-2 text-sm text-muted">Определено устройством, {accuracyText(location.accuracy)}</p>}
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <a href={links.route} target="_blank" rel="noreferrer" className={clsx(link, "btn-wa btn-wa-ink shadow-none")}>
+      <div className="mt-4 flex items-center gap-2">
+        <a href={links.route} target="_blank" rel="noreferrer" className="btn-wa btn-wa-ink inline-flex h-12 flex-1 items-center justify-center rounded-xl px-4 text-sm font-semibold">
           Маршрут
         </a>
-        <a href={links.yandex} target="_blank" rel="noreferrer" className={link}>
-          Яндекс Карты
+        <a href={links.yandex} target="_blank" rel="noreferrer" aria-label="Открыть в Яндекс Картах" title="Яндекс Карты" className={app}>
+          <YandexMapsIcon />
         </a>
-        <a href={links.google} target="_blank" rel="noreferrer" className={link}>
-          Google Maps
+        <a href={links.google} target="_blank" rel="noreferrer" aria-label="Открыть в Google Maps" title="Google Maps" className={app}>
+          <GoogleMapsIcon />
         </a>
       </div>
     </>
+  );
+}
+
+const PIN = "M12 1.5C7.3 1.5 3.5 5.2 3.5 9.8c0 6 7 12 8 12.7.3.2.7.2 1 0 1-.7 8-6.7 8-12.7 0-4.6-3.8-8.3-8.5-8.3Z";
+
+/** Map apps as their recognisable pins: Yandex's red one, Google's four-colour one. */
+function YandexMapsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-7" aria-hidden>
+      <path d={PIN} fill="#fc3f1d" />
+      <circle cx="12" cy="9.8" r="3.3" fill="#fff" />
+    </svg>
+  );
+}
+
+function GoogleMapsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-7" aria-hidden>
+      <defs>
+        <clipPath id="gm-pin">
+          <path d={PIN} />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#gm-pin)">
+        <rect x="0" y="0" width="12" height="10" fill="#1a73e8" />
+        <rect x="12" y="0" width="12" height="10" fill="#ea4335" />
+        <rect x="0" y="10" width="12" height="14" fill="#34a853" />
+        <rect x="12" y="10" width="12" height="14" fill="#fbbc04" />
+      </g>
+      <circle cx="12" cy="9.8" r="3.3" fill="#fff" />
+    </svg>
   );
 }
 

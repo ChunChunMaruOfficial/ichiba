@@ -68,7 +68,7 @@ function Purchases() {
           );
         })}
       </div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-2 lg:[&>*:only-child]:col-span-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2 [&>*]:min-w-0 lg:[&>*:only-child]:col-span-2">
         {showDeals && error ? (
           <ErrorState message="Не удалось загрузить сделки" onRetry={() => mutate()} />
         ) : loading ? (

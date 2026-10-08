@@ -8,7 +8,8 @@ import type { Meta, SizeSystem } from "@/lib/types";
 import { BrandPicker } from "./brand-picker";
 import { MeasureFields, measureKind } from "./measure-guide";
 import { Nefuda } from "./shop/nefuda";
-import { Button, Chip, Field, IconSparkle, Input, inputClass, OptionCard, Textarea } from "./ui";
+import { Button, Chip, Field, IconSparkle, Input, OptionCard, Textarea } from "./ui";
+import { Select } from "./select";
 
 /** Condition as the rank stamp of a Japanese second-hand shop: 新 new, 美 as new, 良 good, 並 ordinary wear. */
 const CONDITION_GRADE = { NEW_WITH_TAGS: "新", LIKE_NEW: "美", GOOD: "良", VISIBLE_WEAR: "並" } as const;
@@ -49,36 +50,23 @@ export function ItemFields(props: FieldsProps) {
       <div className="grid gap-7 lg:grid-cols-2">
         <Field label="Категория" required error={errors.category}>
           <div className="grid gap-3 sm:grid-cols-2">
-            <select
+            <Select
               aria-label="Категория"
               value={values.category ?? ""}
-              onChange={(e) => {
-                const c = e.target.value || null;
+              onChange={(v) => {
+                const c = v || null;
                 setAiValue("category", { category: c, subcategory: null, sizeValue: null, sizeSystem: null }, c);
               }}
-              className={inputClass(errors.category)}
-            >
-              <option value="">Выберите</option>
-              {meta.categories.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <select
+              error={errors.category}
+              options={[{ value: "", label: "Выберите" }, ...meta.categories.map((c) => ({ value: c.slug, label: c.label }))]}
+            />
+            <Select
               aria-label="Подкатегория"
               value={values.subcategory ?? ""}
               disabled={!category}
-              onChange={(e) => setAiValue("subcategory", { subcategory: e.target.value || null }, e.target.value || null)}
-              className={clsx(inputClass(), "disabled:opacity-50")}
-            >
-              <option value="">Подкатегория</option>
-              {category?.subcategories.map((s) => (
-                <option key={s.slug} value={s.slug}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setAiValue("subcategory", { subcategory: v || null }, v || null)}
+              options={[{ value: "", label: "Подкатегория" }, ...(category?.subcategories ?? []).map((s) => ({ value: s.slug, label: s.label }))]}
+            />
           </div>
         </Field>
         <Field label="Для кого">
@@ -273,12 +261,7 @@ export function DetailFields(props: FieldsProps) {
           </div>
         </Field>
         <Field label="Материал">
-          <select value={values.material ?? ""} onChange={(e) => set({ material: e.target.value || null })} className={inputClass()}>
-            <option value="">Не указан</option>
-            {meta.materials.map((m) => (
-              <option key={m}>{m}</option>
-            ))}
-          </select>
+          <Select aria-label="Материал" value={values.material ?? ""} onChange={(v) => set({ material: v || null })} options={[{ value: "", label: "Не указан" }, ...meta.materials.map((m) => ({ value: m, label: m }))]} />
         </Field>
       </div>
 
@@ -305,12 +288,7 @@ export function HandoverFields({ values, set, errors, meta }: FieldsProps) {
   return (
     <div className="grid gap-7 lg:grid-cols-2">
       <Field label="Город">
-        <select value={values.city ?? ""} onChange={(e) => set({ city: e.target.value || null })} className={inputClass()}>
-          <option value="">Не указан</option>
-          {meta.cities.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
+        <Select aria-label="Город" value={values.city ?? ""} onChange={(v) => set({ city: v || null })} options={[{ value: "", label: "Не указан" }, ...meta.cities.map((c) => ({ value: c, label: c }))]} />
       </Field>
       <Field label="Способ передачи" required error={errors.deliveryOptions}>
         <div className="flex flex-wrap gap-2">

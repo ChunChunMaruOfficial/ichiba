@@ -116,9 +116,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           const m = data as LiveMessage;
           window.dispatchEvent(new CustomEvent(LIVE_MESSAGE_EVENT, { detail: m }));
           void globalMutate("/threads");
-          if (!window.location.pathname.startsWith(`/messages/${m.threadId}`)) {
-            toast(`@${m.message.from}: ${(m.message.preview ?? m.message.body).slice(0, 60)}`, { action: { label: "Ответить", onClick: () => router.push(`/messages/${m.threadId}`) } });
-          }
+          // Outside the chat a new message pops up as the mini chat in the corner (mini-chat.tsx).
         } else if (type === "message_risk") {
           const r = data as LiveRisk;
           window.dispatchEvent(new CustomEvent(LIVE_RISK_EVENT, { detail: r }));

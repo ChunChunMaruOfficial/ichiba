@@ -229,20 +229,42 @@ export function CatalogButton({ anchor }: { anchor: React.RefObject<HTMLElement 
         type="button"
         aria-expanded={open}
         aria-haspopup="true"
+        aria-label="Каталог"
         onClick={() => {
           setActive((a) => a || meta.categories[0].slug);
           setOpen((v) => !v);
         }}
         className={clsx(
-          "hidden h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] font-semibold transition-colors md:inline-flex",
+          "hidden h-11 shrink-0 items-center gap-2 rounded-full px-3 text-[15px] font-semibold transition-colors md:inline-flex lg:px-4",
           open ? "bg-[#1f3354] text-[#f4efe6]" : "bg-surface shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]",
         )}
       >
         {open ? <IconX className="size-5" /> : <IconGrid />}
-        Каталог
+        {/* Tablets: the header is tight, the icon alone says it. */}
+        <span className="hidden lg:inline">Каталог</span>
       </button>
       {pop.mounted && <MegaPanel meta={meta} active={active || meta.categories[0].slug} setActive={setActive} audience={audience} setAudience={setAudience} onNavigate={close} closing={pop.closing} />}
     </>
+  );
+}
+
+/**
+ * Opens and closes smoothly: the height animates from 0 to the content's own (grid rows 0fr → 1fr), the content
+ * fades and slides in. Closed content stays in the page but is inert (not focusable, not read out).
+ */
+function Expand({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      inert={!open}
+      className={clsx(
+        "grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div className={clsx("transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none", open ? "translate-y-0" : "-translate-y-2")}>{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -252,6 +274,8 @@ export function MobileCatalog() {
   const [open, setOpen] = useState(false);
   const pop = usePresence(open);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [brandsSeen, setBrandsSeen] = useState(false);
+  if (expanded === BRANDS && !brandsSeen) setBrandsSeen(true);
   const [audience, setAudience] = useState<Audience>("");
   const pathname = usePathname();
   const [prevPath, setPrevPath] = useState(pathname);
@@ -313,7 +337,7 @@ export function MobileCatalog() {
                         {c.label}
                         <IconChevronDown className={clsx("size-5 text-muted transition-transform", isOpen && "rotate-180")} />
                       </button>
-                      {isOpen && (
+                      <Expand open={isOpen}>
                         <ul className="grid grid-cols-2 gap-x-3 px-3 pb-3">
                           <li className="col-span-2">
                             <Link href={categoryHref(c.slug, undefined, audience)} onClick={close} className="block py-2 text-[15px] font-medium text-accent">
@@ -328,7 +352,7 @@ export function MobileCatalog() {
                             </li>
                           ))}
                         </ul>
-                      )}
+                      </Expand>
                     </li>
                   );
                 })}
@@ -342,11 +366,14 @@ export function MobileCatalog() {
                     Бренды
                     <IconChevronDown className={clsx("size-5 text-muted transition-transform", expanded === BRANDS && "rotate-180")} />
                   </button>
-                  {expanded === BRANDS && (
-                    <div className="px-3 pb-3">
-                      <BrandDirectory meta={meta} audience={audience} onNavigate={close} />
-                    </div>
-                  )}
+                  <Expand open={expanded === BRANDS}>
+                    {/* The brand list is long: built only once it is first opened. */}
+                    {(expanded === BRANDS || brandsSeen) && (
+                      <div className="px-3 pb-3">
+                        <BrandDirectory meta={meta} audience={audience} onNavigate={close} />
+                      </div>
+                    )}
+                  </Expand>
                 </li>
               </ul>
             </div>

@@ -224,6 +224,7 @@ export const Composer = forwardRef<
   const items = attachments.items;
   const uploading = items.some((a) => !a.error && a.progress < 1);
   const broken = items.some((a) => a.error);
+  const showSend = !!editing || !!draft.trim() || items.length > 0;
   const canSend = editing ? !!draft.trim() || !!editing.media?.length : (!!draft.trim() || items.length > 0) && !broken;
 
   const submit = () => {
@@ -393,15 +394,31 @@ export const Composer = forwardRef<
           placeholder={editing ? "Изменить сообщение…" : items.length ? "Подпись…" : "Сообщение…"}
           className="max-h-40 min-h-11 flex-1 resize-none rounded-[22px] border border-line-strong bg-surface px-4 py-2.5 text-[15px] leading-snug outline-none focus-visible:border-ink focus-visible:ring-3 focus-visible:ring-accent/15"
         />
-        <button
-          type="submit"
-          disabled={!canSend}
-          aria-label={editing ? "Сохранить" : uploading ? "Отправить, когда загрузится" : "Отправить"}
-          title={editing ? "Сохранить" : "Отправить"}
-          className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-accent-ink transition-[transform,opacity] hover:bg-accent-hover active:scale-90 disabled:opacity-35"
+        {/* The send button appears only once there is something to send: it slides in, growing and turning
+            into place, and leaves the same way when the field is cleared. */}
+        <div
+          className={clsx(
+            // Clipped: the hidden button must not stick out past the screen edge (it would widen the page on phones).
+            "shrink-0 overflow-hidden transition-[width,margin] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none",
+            showSend ? "w-11" : "-ml-1.5 w-0",
+          )}
         >
-          {editing ? <IconCheck className="size-6" /> : <IconSend className="size-6" />}
-        </button>
+          <button
+            type="submit"
+            disabled={!canSend}
+            tabIndex={showSend ? undefined : -1}
+            aria-hidden={!showSend || undefined}
+            aria-label={editing ? "Сохранить" : uploading ? "Отправить, когда загрузится" : "Отправить"}
+            title={editing ? "Сохранить" : "Отправить"}
+            className={clsx(
+              "grid size-11 place-items-center rounded-full bg-accent text-accent-ink transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)] hover:bg-accent-hover active:scale-90 motion-reduce:transition-none",
+              // Dimmed while it can't send yet (an upload failed); fully gone while there is nothing to send.
+              showSend ? "translate-x-0 rotate-0 scale-100 opacity-100 disabled:opacity-35" : "pointer-events-none translate-x-3 -rotate-45 scale-50 opacity-0",
+            )}
+          >
+            {editing ? <IconCheck className="size-6" /> : <IconSend className="size-6" />}
+          </button>
+        </div>
       </form>
     </div>
   );

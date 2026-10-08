@@ -21,6 +21,7 @@ import { FollowButton } from "./sections";
 import { useSession } from "./session";
 import { useToast } from "./toast";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconMore, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
+import { Select } from "./select";
 
 export interface WardrobeData {
   seller: SellerSummary;
@@ -232,7 +233,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
         </div>
       ) : (
         // The seller's cover: aizome cloth, the nickname large, a brush label 箪笥 («wardrobe») at the side.
-        <header className="aizome aizome-fade-r flex flex-col gap-6 rounded-[28px] px-5 py-8 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
+        <header className="aizome aizome-fade-r relative flex flex-col gap-6 rounded-[28px] px-5 py-6 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
           <div className="absolute right-3 top-3 flex md:right-5 md:top-5">
             {owner && (
               <Link href="/settings" aria-label="Настройки" title="Настройки" className="grid size-10 place-items-center rounded-full text-ink-2 transition-[color,background-color,transform] duration-300 hover:rotate-45 hover:bg-ink/10 hover:text-ink">
@@ -243,20 +244,45 @@ export function WardrobeView({ username, initial }: { username: string; initial?
               <IconShare className="size-5" />
             </button>
           </div>
-          <div className="min-w-0 pr-20">
-            <h1 className="break-words text-5xl font-bold leading-[1.02] md:text-6xl">{s.username}</h1>
-            {/* One line of facts; the account's age is on hover. */}
-            <p className="mt-3 text-[15px] text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
-              {s.city && <>{s.city} · </>}
-              {s.activeCount} {plural(s.activeCount, "вещь", "вещи", "вещей")} · {s.soldCount} продано ·{" "}
-              <button className="hover:text-ink hover:underline" onClick={() => setPeople("followers")}>
-                {s.followers} {plural(s.followers, "подписчик", "подписчика", "подписчиков")}
-              </button>
-            </p>
-            <RatingInline rating={s.rating} username={s.username} className="mt-1.5" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-4 pr-20 md:pr-0">
+              {/* A personal seal: the nickname's first letter, pressed in cinnabar. */}
+              <span aria-hidden className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-3xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
+                {s.username.slice(0, 1)}
+              </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-4xl font-bold leading-[1.05] md:text-6xl">{s.username}</h1>
+                <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
+                  {s.city ? `${s.city} · ` : ""}на ichiba с {sinceLabel(s.createdAt)}
+                </p>
+              </div>
+            </div>
+            {/* The counts as three columns: easy to read at a glance, on a phone too. */}
+            <dl className="mt-6 grid max-w-md grid-cols-3 divide-x divide-[#f4efe6]/15 rounded-2xl bg-[#f4efe6]/[0.07] py-3 text-center ring-1 ring-[#f4efe6]/10">
+              <div>
+                <dt className="sr-only">Вещей в продаже</dt>
+                <dd className="tabular text-2xl font-bold leading-none">{s.activeCount}</dd>
+                <dd className="mt-1 text-xs text-ink-2">{plural(s.activeCount, "вещь", "вещи", "вещей")}</dd>
+              </div>
+              <div>
+                <dt className="sr-only">Продано</dt>
+                <dd className="tabular text-2xl font-bold leading-none">{s.soldCount}</dd>
+                <dd className="mt-1 text-xs text-ink-2">продано</dd>
+              </div>
+              <div>
+                <dt className="sr-only">Подписчики</dt>
+                <dd>
+                  <button className="group/f w-full" onClick={() => setPeople("followers")}>
+                    <span className="tabular block text-2xl font-bold leading-none">{s.followers}</span>
+                    <span className="mt-1 block text-xs text-ink-2 group-hover/f:text-ink group-hover/f:underline">{plural(s.followers, "подписчик", "подписчика", "подписчиков")}</span>
+                  </button>
+                </dd>
+              </div>
+            </dl>
+            <RatingInline rating={s.rating} username={s.username} className="mt-3" />
             {s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 empty:hidden max-md:[&>*]:flex-1">
             {owner ? (
               <>
                 {!empty && (
@@ -303,13 +329,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                 </Chip>
               ))}
             </div>
-            <select aria-label="Сортировка" value={sort} onChange={(e) => setSort(e.target.value)} className="h-9 shrink-0 rounded-full border border-line-strong bg-surface px-3 text-sm">
-              {SORTS.map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
+            <Select variant="pill" aria-label="Сортировка" value={sort} onChange={setSort} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />
           </div>
 
           {!data ? (

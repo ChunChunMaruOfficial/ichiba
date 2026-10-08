@@ -348,9 +348,10 @@ export function Header() {
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           <button
             onClick={() => requireAuth(() => router.push("/sell"), { reason: "чтобы выставить вещь" })}
-            className="btn-wa btn-wa-shu mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-5 text-[15px] font-semibold md:inline-flex"
+            aria-label="Продать вещь"
+            className="btn-wa btn-wa-shu mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex lg:px-5"
           >
-            <IconPlus className="size-4.5" /> Продать вещь
+            <IconPlus className="size-4.5" /> <span className="hidden lg:inline">Продать вещь</span>
           </button>
           {loading ? (
             <span className="h-11 w-24" />
@@ -380,7 +381,7 @@ export function Header() {
         </div>
       </div>
       {showMobileSearch && (
-        <div className="px-4 pb-3 md:hidden">
+        <div data-chrome="mobile-search" className="px-4 pb-3 md:hidden">
           <Suspense>
             <SearchBox />
           </Suspense>
@@ -398,7 +399,7 @@ const isThread = (pathname: string) => /^\/messages\/.+/.test(pathname);
 export function Main({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   return (
-    <main id="main" tabIndex={-1} className={clsx(!isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
+    <main id="main" data-chrome="main" tabIndex={-1} className={clsx(!isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
       {children}
     </main>
   );
@@ -444,17 +445,17 @@ export function BottomNav() {
   };
 
   return (
-    <nav aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav data-chrome="bottom-nav" aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
       {item("/", "Главная", IconHome)}
       {item("/search", "Поиск", IconSearch)}
       <button
-        className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-ink"
+        aria-label="Продать вещь"
+        className="flex flex-1 items-center justify-center py-1.5 text-ink"
         onClick={() => requireAuth(() => router.push("/sell"), { reason: "чтобы выставить вещь" })}
       >
-        <span className="grid h-9 w-12 place-items-center rounded-full bg-accent text-accent-ink">
-          <IconPlus className="size-5" />
+        <span className="grid h-11 w-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_4px_12px_-4px_rgb(28_26_23/0.5)] transition-transform active:scale-95">
+          <IconPlus className="size-6" />
         </span>
-        <span className="text-[11px]">Продать</span>
       </button>
       {item("/favorites", "Избранное", IconHeart, { auth: true })}
       {item("/wardrobe", "Гардероб", IconHanger, { auth: true, badge: me ? me.pendingSales + me.pendingOffers : 0 })}

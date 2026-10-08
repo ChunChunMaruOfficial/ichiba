@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useLayoutEffect } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CardRow, CategoryTiles, SectionHeader, SellBand, WardrobeCards } from "@/components/sections";
@@ -55,12 +55,23 @@ function HomeFeed() {
   // «Свайп» mode (decision D2): one item at a time, right = ♡, left = не моё.
   const swipeMode = params.get("mode") === "swipe";
   const setMode = (mode: "feed" | "swipe") => router.replace(mode === "swipe" ? "/?mode=swipe" : "/", { scroll: false });
+  // Swiping takes the whole screen: no bottom tabs, footer or search row (globals.css, html[data-immersive]).
+  useLayoutEffect(() => {
+    if (!swipeMode) return;
+    const root = document.documentElement;
+    root.dataset.immersive = "";
+    window.scrollTo(0, 0);
+    return () => {
+      delete root.dataset.immersive;
+    };
+  }, [swipeMode]);
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       {/* Discovery bar */}
       <div className="sticky top-[var(--header-offset,113px)] z-30 transition-[top] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none -mx-4 bg-washi px-4 pb-3 pt-4 md:-mx-6 md:px-6">
-        <div className="flex items-center gap-3">
+        {/* One row that scrolls as a whole on phones: the mode switch travels with the chips. */}
+        <div className="no-scrollbar -mx-4 -my-2 flex items-center gap-3 overflow-x-auto px-4 py-2 md:-mx-6 md:px-6">
           <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
             {(
               [
@@ -80,7 +91,7 @@ function HomeFeed() {
             ))}
           </div>
           {!swipeMode && (
-            <div className="no-scrollbar -my-2 flex gap-2 overflow-x-auto py-2">
+            <div className="flex shrink-0 gap-2">
               {chips.map(([key, label]) => (
                 <Chip key={key} active={chip === key} onClick={() => setChip(key)}>
                   {label}

@@ -45,7 +45,7 @@ export function Footer() {
     pathname.startsWith("/sell") || pathname.startsWith("/buy/") || pathname.startsWith("/welcome") || pathname.startsWith("/admin") || /^\/messages\/.+/.test(pathname) || pathname.endsWith("/edit");
   if (hidden) return null;
   return (
-    <div className="relative mt-12 md:mt-16">
+    <div data-chrome="footer" className="relative mt-12 md:mt-16">
       {/* A cherry branch in bloom behind the page: it grows out from the footer's edge and whatever sits above (cards) covers it. */}
       <SakuraBranch className="pointer-events-none absolute bottom-full right-0 -z-10 w-[340px] md:right-6 md:w-[600px]" />
     <footer className="aizome aizome-fade-in">
