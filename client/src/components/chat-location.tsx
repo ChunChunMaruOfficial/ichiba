@@ -56,7 +56,7 @@ function drawMe(L: typeof Leaflet, map: Leaflet.Map, p: ChatLocation) {
 // ---------- in the message list ----------
 
 /** A small static map (plain tiles, no library) with the pin in the middle. */
-export function LocationBubble({ location, mine, time, onOpen }: { location: ChatLocation; mine: boolean; time: string; onOpen: () => void }) {
+export function LocationBubble({ location, mine, time, onOpen, embedded }: { location: ChatLocation; mine: boolean; time: React.ReactNode; onOpen: () => void; embedded?: boolean }) {
   const w = 248;
   const h = 150;
   const tiles = tilesAround(location.lat, location.lng, 16, w, h);
@@ -66,7 +66,11 @@ export function LocationBubble({ location, mine, time, onOpen }: { location: Cha
       type="button"
       onClick={onOpen}
       aria-label="Открыть местоположение на карте"
-      className={clsx("overflow-hidden rounded-2xl text-left shadow-[inset_0_0_0_1px_var(--line)]", mine ? "self-end rounded-br-md bg-accent text-accent-ink" : "self-start rounded-bl-md bg-surface")}
+      className={clsx(
+        "overflow-hidden text-left",
+        // Inside a chat bubble the bubble draws the shape and colour.
+        embedded ? "block w-full rounded-xl" : ["rounded-2xl shadow-[inset_0_0_0_1px_var(--line)]", mine ? "self-end rounded-br-md bg-accent text-accent-ink" : "self-start rounded-bl-md bg-surface"],
+      )}
     >
       <span className="relative block overflow-hidden bg-skeleton" style={{ width: w, height: h }}>
         {tiles.map((t) => (
@@ -79,7 +83,7 @@ export function LocationBubble({ location, mine, time, onOpen }: { location: Cha
         <span className="flex items-center gap-1.5 font-medium">
           <IconPin className="size-4" /> Местоположение
         </span>
-        <span className={clsx("text-[11px]", mine ? "text-accent-ink/60" : "text-muted")}>{time}</span>
+        <span className={clsx("flex items-center gap-1 text-[11px]", mine ? "text-accent-ink/60" : "text-muted")}>{time}</span>
       </span>
       {acc && <span className={clsx("block px-3 pb-1.5 text-[11px]", mine ? "text-accent-ink/70" : "text-muted")}>{acc}</span>}
     </button>

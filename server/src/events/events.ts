@@ -13,6 +13,9 @@ export type RealtimeEvent =
   | { type: 'notification'; data: unknown }
   | { type: 'message'; data: { threadId: string; message: unknown } }
   | { type: 'message_risk'; data: { threadId: string; messageId: string; risk: unknown } }
+  | { type: 'message_update'; data: { threadId: string; message: unknown } }
+  | { type: 'message_delete'; data: { threadId: string; ids: string[] } }
+  | { type: 'thread_pins'; data: { threadId: string } }
   | { type: 'thread_read'; data: { threadId: string; at: Date } }
   | { type: 'typing'; data: { threadId: string } }
   | { type: 'counters'; data: Record<string, never> };

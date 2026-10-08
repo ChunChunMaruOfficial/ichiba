@@ -3,6 +3,8 @@ import { BadRequestException } from '@nestjs/common';
 /** Listing videos: short clips like on Depop and Avito. */
 export const MAX_VIDEO_BYTES = 40 * 1024 * 1024;
 export const MAX_VIDEO_MS = 30_000;
+/** Chat videos may run longer; the byte limit is the same. */
+export const MAX_CHAT_VIDEO_MS = 180_000;
 
 const TYPES = {
   'video/mp4': 'mp4',

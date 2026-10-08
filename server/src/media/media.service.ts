@@ -6,12 +6,19 @@ import type { PhotoProvider } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { cloudinaryEnabled, cloudinaryInfo, cloudinaryUrl, destroyCloudinary, fetchCloudinaryImage, uploadTicket, userFolder, validUploadSignature } from './cloudinary.js';
 import { createStorage } from './storage.js';
-import { MAX_VIDEO_MS, mp4DurationMs, sniffVideo } from './video.js';
+import { MAX_CHAT_VIDEO_MS, MAX_VIDEO_MS, mp4DurationMs, sniffVideo } from './video.js';
 
 /** Preview widths from frame 30: 320 / 640 / 1280, WebP, EXIF stripped. */
 const VARIANTS = [320, 640, 1280] as const;
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const MIN_SIDE = 400;
+/** Chat photos are screenshots and quick snaps too: only tiny images are refused. */
+const CHAT_MIN_SIDE = 64;
+/** Where an upload goes: a listing (strict quality rules) or a chat message. */
+export type MediaPurpose = 'listing' | 'chat';
+const minSide = (purpose: MediaPurpose) => (purpose === 'chat' ? CHAT_MIN_SIDE : MIN_SIDE);
+const tooSmall = (purpose: MediaPurpose) =>
+  purpose === 'chat' ? 'Фото слишком маленькое' : 'Фото слишком маленькое — нужно от 400 px по меньшей стороне';
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 
 export interface PhotoUrls {
@@ -83,11 +90,13 @@ export const photoUrls = ({ key, provider }: StoredPhoto): PhotoUrls => {
   return { s: `${base}/${key}_320.webp`, m: `${base}/${key}_640.webp`, l: `${base}/${key}_1280.webp` };
 };
 
+export const videoPoster = (key: string, width: 320 | 640 = 640) => `${mediaBase()}/${key}_${width}.webp`;
+
 export const serializeVideo = (v: { id: string; key: string; ext: string; mime: string; width: number; height: number; durationMs: number }) => ({
   id: v.id,
   url: `${mediaBase()}/${v.key}.${v.ext}`,
   mime: v.mime,
-  poster: `${mediaBase()}/${v.key}_640.webp`,
+  poster: videoPoster(v.key),
   width: v.width,
   height: v.height,
   durationMs: v.durationMs,
@@ -108,7 +117,7 @@ export class MediaService implements OnModuleInit {
     }
   }
 
-  async upload(ownerId: string, file: Express.Multer.File) {
+  async upload(ownerId: string, file: Express.Multer.File, purpose: MediaPurpose = 'listing') {
     if (!ALLOWED_MIME.has(file.mimetype)) {
       throw new BadRequestException({ message: 'Поддерживаются JPG, PNG, HEIC и WEBP' });
     }
@@ -125,8 +134,8 @@ export class MediaService implements OnModuleInit {
     } catch {
       throw new BadRequestException({ message: 'Не удалось прочитать фото. Попробуйте JPG или PNG' });
     }
-    if (Math.min(width, height) < MIN_SIDE) {
-      throw new BadRequestException({ message: 'Фото слишком маленькое — нужно от 400 px по меньшей стороне', code: 'TOO_SMALL' });
+    if (Math.min(width, height) < minSide(purpose)) {
+      throw new BadRequestException({ message: tooSmall(purpose), code: 'TOO_SMALL' });
     }
 
     const key = `${ownerId}/${randomUUID()}`;
@@ -157,7 +166,7 @@ export class MediaService implements OnModuleInit {
    * public id must be in the user's folder (only our signature lets a file land there). Then the photo is checked
    * like a server upload (min size, hash, quality) and saved; a too-small photo is deleted from Cloudinary again.
    */
-  async registerCloudinary(ownerId: string, dto: { publicId: string; version: number; signature: string }) {
+  async registerCloudinary(ownerId: string, dto: { publicId: string; version: number; signature: string }, purpose: MediaPurpose = 'listing') {
     if (!cloudinaryEnabled()) throw new BadRequestException({ message: 'Загрузка в облако не настроена' });
     if (!dto.publicId.startsWith(`${userFolder(ownerId)}/`) || !validUploadSignature(dto.publicId, dto.version, dto.signature)) {
       throw new ForbiddenException({ message: 'Фото не прошло проверку. Загрузите его ещё раз' });
@@ -174,9 +183,9 @@ export class MediaService implements OnModuleInit {
       this.logger.warn(`cloudinary read failed for ${dto.publicId}: ${(e as Error).message}`);
       throw new BadRequestException({ message: 'Не удалось прочитать фото. Попробуйте JPG или PNG' });
     }
-    if (Math.min(info.width, info.height) < MIN_SIDE) {
+    if (Math.min(info.width, info.height) < minSide(purpose)) {
       await destroyCloudinary(dto.publicId).catch(() => undefined);
-      throw new BadRequestException({ message: 'Фото слишком маленькое — нужно от 400 px по меньшей стороне', code: 'TOO_SMALL' });
+      throw new BadRequestException({ message: tooSmall(purpose), code: 'TOO_SMALL' });
     }
     const [quality, dhash] = await Promise.all([measureQuality(medium).catch(() => null), differenceHash(small).catch(() => null)]);
     const photo = await this.prisma.photo.create({
@@ -199,13 +208,14 @@ export class MediaService implements OnModuleInit {
 
   /**
    * Nightly: Cloudinary files nobody uses — uploaded but never attached (form abandoned, photo removed while
-   * editing) for a day. Size copies share files, so a file is deleted only when no other row points at it.
+   * editing, or a chat message deleted for both sides) for a day. Size copies share files, so a file is deleted
+   * only when no other row points at it.
    */
   @Cron('30 4 * * *')
   async purgeOrphans(olderThanMs = 24 * 3600_000) {
     if (!cloudinaryEnabled()) return { removed: 0 };
     const orphans = await this.prisma.photo.findMany({
-      where: { provider: 'CLOUDINARY', listingId: null, createdAt: { lt: new Date(Date.now() - olderThanMs) } },
+      where: { provider: 'CLOUDINARY', listingId: null, messageId: null, createdAt: { lt: new Date(Date.now() - olderThanMs) } },
       select: { id: true, key: true },
       take: 500,
     });
@@ -234,11 +244,18 @@ export class MediaService implements OnModuleInit {
    * Listing video with a poster frame captured by the browser. The poster is stored like a photo
    * (`${key}_320/640.webp`), so moderation and cards treat it as one more image.
    */
-  async uploadVideo(ownerId: string, file: Express.Multer.File, poster: Express.Multer.File | undefined, client: { durationMs?: number; width?: number; height?: number }) {
+  async uploadVideo(
+    ownerId: string,
+    file: Express.Multer.File,
+    poster: Express.Multer.File | undefined,
+    client: { durationMs?: number; width?: number; height?: number },
+    purpose: MediaPurpose = 'listing',
+  ) {
     const { mime, ext } = sniffVideo(file.buffer, file.mimetype);
     const durationMs = mp4DurationMs(file.buffer) ?? client.durationMs ?? null;
     if (durationMs == null) throw new BadRequestException({ message: 'Не удалось определить длительность видео' });
-    if (durationMs > MAX_VIDEO_MS + 500) throw new BadRequestException({ message: 'Видео должно быть не длиннее 30 секунд', code: 'TOO_LONG' });
+    const maxMs = purpose === 'chat' ? MAX_CHAT_VIDEO_MS : MAX_VIDEO_MS;
+    if (durationMs > maxMs + 500) throw new BadRequestException({ message: `Видео должно быть не длиннее ${purpose === 'chat' ? '3 минут' : '30 секунд'}`, code: 'TOO_LONG' });
     if (!poster) throw new BadRequestException({ message: 'Не получен кадр-обложка видео' });
 
     let posterImage: ReturnType<typeof sharp>;

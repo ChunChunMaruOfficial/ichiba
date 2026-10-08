@@ -87,58 +87,58 @@ enum CodePurpose {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  username        String    @unique
-  email           String?   @unique
-  phone           String?   @unique
-  passwordHash    String?
-  emailVerifiedAt DateTime?
-  phoneVerifiedAt DateTime?
-  googleSub       String?   @unique
-  appleSub        String?   @unique
-  role            Role      @default(USER)
-  city            String?
-  bio             String?
+  id                String    @id @default(uuid())
+  username          String    @unique
+  email             String?   @unique
+  phone             String?   @unique
+  passwordHash      String?
+  emailVerifiedAt   DateTime?
+  phoneVerifiedAt   DateTime?
+  googleSub         String?   @unique
+  appleSub          String?   @unique
+  role              Role      @default(USER)
+  city              String?
+  bio               String?
   /// Preferred sizes from onboarding: { clothing?: string[], shoes?: string[], jeans?: string[] }
-  sizes           Json?
+  sizes             Json?
   /// Body measurements for fit hints, cm: { height?, chest?, waist?, hips?, footLength? }
-  bodyMeasurements Json?
+  bodyMeasurements  Json?
   /// Seller's bundle discount tiers: [{ minItems, percent }] (ascending, up to 3)
-  bundleDiscounts Json?
+  bundleDiscounts   Json?
   /// Email preferences: { deals: boolean }
-  emailPrefs      Json?
+  emailPrefs        Json?
   /// Consent to personal data processing (Belarus Law No. 99-Z): when and which policy version.
   privacyAcceptedAt DateTime?
   privacyVersion    String?
   /// Account deleted by its owner: personal data wiped, the row kept for counterparties' deal history.
-  deletedAt       DateTime?
-  onboardedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  deletedAt         DateTime?
+  onboardedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  listings      Listing[]
-  photos        Photo[]
-  favorites     Favorite[]
-  following     Follow[]       @relation("follower")
-  followers     Follow[]       @relation("seller")
-  purchases     BuyRequest[]   @relation("buyer")
-  sales         BuyRequest[]   @relation("seller")
-  signals       Signal[]
-  notifications Notification[]
-  offersMade    Offer[]        @relation("offerBuyer")
-  offersGot     Offer[]        @relation("offerSeller")
-  cartItems     CartItem[]
-  threadsBuyer  Thread[]       @relation("threadBuyer")
-  threadsSeller Thread[]       @relation("threadSeller")
-  messages      Message[]
-  collections   Collection[]
-  reports       Report[]
-  bids          Bid[]
-  autoBids      AutoBid[]
-  reviewsWritten  Review[]   @relation("reviewAuthor")
-  reviewsReceived Review[]   @relation("reviewSeller")
-  videos        Video[]
-  blockedAt     DateTime?
+  listings        Listing[]
+  photos          Photo[]
+  favorites       Favorite[]
+  following       Follow[]       @relation("follower")
+  followers       Follow[]       @relation("seller")
+  purchases       BuyRequest[]   @relation("buyer")
+  sales           BuyRequest[]   @relation("seller")
+  signals         Signal[]
+  notifications   Notification[]
+  offersMade      Offer[]        @relation("offerBuyer")
+  offersGot       Offer[]        @relation("offerSeller")
+  cartItems       CartItem[]
+  threadsBuyer    Thread[]       @relation("threadBuyer")
+  threadsSeller   Thread[]       @relation("threadSeller")
+  messages        Message[]
+  collections     Collection[]
+  reports         Report[]
+  bids            Bid[]
+  autoBids        AutoBid[]
+  reviewsWritten  Review[]       @relation("reviewAuthor")
+  reviewsReceived Review[]       @relation("reviewSeller")
+  videos          Video[]
+  blockedAt       DateTime?
 }
 
 model VerificationCode {
@@ -221,15 +221,15 @@ model Listing {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  photos       Photo[]
-  favorites    Favorite[]
-  requestItems BuyRequestItem[]
-  stats        ListingStat[]
-  reviews      Review[]
-  signals      Signal[]
-  offers       Offer[]
-  cartItems    CartItem[]
-  threads      Thread[]
+  photos          Photo[]
+  favorites       Favorite[]
+  requestItems    BuyRequestItem[]
+  stats           ListingStat[]
+  reviews         Review[]
+  signals         Signal[]
+  offers          Offer[]
+  cartItems       CartItem[]
+  threads         Thread[]
   collectionItems CollectionItem[]
   auctions        Auction[]
   video           Video?
@@ -249,11 +249,11 @@ enum PhotoProvider {
 }
 
 model Photo {
-  id        String   @id @default(uuid())
+  id        String        @id @default(uuid())
   ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id])
+  owner     User          @relation(fields: [ownerId], references: [id])
   listingId String?
-  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  listing   Listing?      @relation(fields: [listingId], references: [id], onDelete: SetNull)
   provider  PhotoProvider @default(LOCAL)
   /// LOCAL: storage key prefix, variants at `${key}_{320,640,1280}.webp`. CLOUDINARY: the asset's public_id.
   key       String
@@ -264,16 +264,20 @@ model Photo {
   bytes     Int?
   width     Int
   height    Int
-  order     Int      @default(0)
-  isCover   Boolean  @default(false)
-  isDefect  Boolean  @default(false)
+  order     Int           @default(0)
+  isCover   Boolean       @default(false)
+  isDefect  Boolean       @default(false)
   /// Technical quality measured at upload: { brightness, contrast, sharpness }.
   quality   Json?
   /// 64-bit difference hash (hex) of the image: near-identical photos differ in a few bits.
   dhash     String?
-  createdAt DateTime @default(now())
+  /// Sent in chat: the message this photo belongs to (an album keeps `order`).
+  messageId String?
+  message   Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  createdAt DateTime      @default(now())
 
   @@index([listingId, order])
+  @@index([messageId])
   @@index([key])
 }
 
@@ -290,9 +294,13 @@ model Video {
   width      Int
   height     Int
   durationMs Int
+  /// Sent in chat: the message this video belongs to.
+  messageId  String?
+  message    Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
 
   @@index([ownerId])
+  @@index([messageId])
 }
 
 model Favorite {
@@ -334,32 +342,32 @@ model Signal {
 }
 
 model BuyRequest {
-  id             String          @id @default(uuid())
+  id              String         @id @default(uuid())
   /// Human-readable deal number shown as "№ 10482".
-  number         Int             @unique @default(autoincrement())
-  buyerId        String
-  buyer          User            @relation("buyer", fields: [buyerId], references: [id])
-  sellerId       String
-  seller         User            @relation("seller", fields: [sellerId], references: [id])
-  priceTotal     Int
+  number          Int            @unique @default(autoincrement())
+  buyerId         String
+  buyer           User           @relation("buyer", fields: [buyerId], references: [id])
+  sellerId        String
+  seller          User           @relation("seller", fields: [sellerId], references: [id])
+  priceTotal      Int
   /// Sum of item prices before the bundle discount (null = no discount).
-  subtotal       Int?
+  subtotal        Int?
   discountPercent Int            @default(0)
-  source         RequestSource   @default(BUY)
-  deliveryMethod DeliveryMethod
-  deliveryPoint  String?
-  contactPhone   String?
-  buyerComment   String?
-  trackingNumber String?
-  status         RequestStatus   @default(PENDING_SELLER)
+  source          RequestSource  @default(BUY)
+  deliveryMethod  DeliveryMethod
+  deliveryPoint   String?
+  contactPhone    String?
+  buyerComment    String?
+  trackingNumber  String?
+  status          RequestStatus  @default(PENDING_SELLER)
   /// Reason for DECLINED / CANCELLED, shown to the other side.
-  reason         String?
-  cancelledById  String?
-  expiresAt      DateTime?
-  handedOverAt   DateTime?
-  completedAt    DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  reason          String?
+  cancelledById   String?
+  expiresAt       DateTime?
+  handedOverAt    DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   items   BuyRequestItem[]
   events  BuyRequestEvent[]
@@ -486,28 +494,67 @@ model Thread {
 enum MessageKind {
   TEXT
   LOCATION
+  /// Photos and/or videos (an album), `body` is the optional caption.
+  MEDIA
 }
 
 model Message {
-  id        String   @id @default(uuid())
+  id        String            @id @default(uuid())
   threadId  String
-  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread    Thread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
   senderId  String
-  sender    User     @relation(fields: [senderId], references: [id])
+  sender    User              @relation(fields: [senderId], references: [id])
   /// Text, or the preview line for non-text messages ("📍 Местоположение").
   body      String
-  kind      MessageKind @default(TEXT)
+  kind      MessageKind       @default(TEXT)
   /// LOCATION: the shared point (WGS84) and, for a device fix, its accuracy in metres. Wiped on account deletion.
   lat       Float?
   lng       Float?
   accuracy  Float?
   /// Antifraud verdict: { level: warn|high, categories, source: rules|ai }.
   risk      Json?
-  createdAt DateTime @default(now())
+  /// Quoted message (reply), Telegram-style.
+  replyToId String?
+  replyTo   Message?          @relation("messageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[]         @relation("messageReply")
+  editedAt  DateTime?
+  /// Deleted for both sides. The text and media are dropped unless antifraud flagged the message (kept for moderation).
+  deletedAt DateTime?
+  /// Users who deleted this message only for themselves.
+  hiddenFor String[]          @default([])
+  photos    Photo[]
+  videos    Video[]
+  reactions MessageReaction[]
+  pins      MessagePin[]
+  createdAt DateTime          @default(now())
 
   @@index([threadId, createdAt])
   /// Antifraud: recent flagged messages of one sender.
   @@index([senderId, createdAt])
+}
+
+/// One reaction per user per message, as in Telegram.
+model MessageReaction {
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@id([messageId, userId])
+}
+
+/// A pinned message: `forAll` pins show to both sides, otherwise only to `userId` who pinned it.
+model MessagePin {
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  threadId  String
+  userId    String
+  forAll    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@id([messageId, userId])
+  @@index([threadId])
 }
 
 /// Private collections inside favorites (frame 11).
@@ -607,7 +654,7 @@ model Auction {
   createdAt     DateTime      @default(now())
 
   /// "Купить сейчас" price (decision D16+).
-  buyNowPrice   Int?
+  buyNowPrice Int?
 
   bids     Bid[]
   autoBids AutoBid[]

@@ -262,6 +262,19 @@ h1, h2 {
   to { transform: translateX(-100%); }
 }
 [data-closing] { pointer-events: none; }
+/* Chat message menu: grows from where it was opened. */
+@keyframes menu-pop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+.menu-pop { animation: menu-pop 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+[data-closing] .menu-pop { animation: fade-out 120ms ease-in both; }
+/* A message the chat jumped to (reply quote, pinned bar) flashes once. */
+@keyframes msg-flash {
+  0%, 60% { background: color-mix(in srgb, var(--shu) 14%, transparent); }
+  100% { background: transparent; }
+}
+.msg-flash { animation: msg-flash 1.4s ease-out; }
 [data-closing].fade-in, [data-closing] .fade-in { animation: fade-out 180ms ease-in both; }
 [data-closing].sheet-up, [data-closing] .sheet-up { animation: sheet-down 180ms ease-in both; }
 [data-closing].slide-in-left, [data-closing] .slide-in-left { animation: slide-out-left 180ms cubic-bezier(0.4, 0, 1, 1) both; }

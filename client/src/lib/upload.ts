@@ -33,7 +33,7 @@ async function shrink(file: File, maxBytes = CLOUD_MAX_BYTES): Promise<Blob> {
 }
 
 /** POST a form with upload progress (fetch can't report it). */
-function send(url: string, form: FormData, onProgress?: (share: number) => void, signal?: AbortSignal) {
+export function postForm(url: string, form: FormData, onProgress?: (share: number) => void, signal?: AbortSignal) {
   return new Promise<{ status: number; body: Record<string, unknown> | null }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
@@ -57,14 +57,16 @@ function send(url: string, form: FormData, onProgress?: (share: number) => void,
  * (signed by our API, the secret never leaves the server), then the API checks and saves it. Without it,
  * the file is posted to the API as before. Either way the result is the same photo record.
  */
-export async function uploadPhoto(file: File, onProgress?: (share: number) => void, signal?: AbortSignal): Promise<UploadedPhoto> {
+export async function uploadPhoto(file: File, onProgress?: (share: number) => void, signal?: AbortSignal, purpose: "listing" | "chat" = "listing"): Promise<UploadedPhoto> {
+  // Chat photos skip the listing-only rules (minimum size).
+  const usage = purpose === "chat" ? "?for=chat" : "";
   const ticket = await api<Ticket>("/media/photos/ticket", { method: "POST", signal });
 
   if (ticket.provider === "local") {
     const form = new FormData();
     const blob = await shrink(file, API_MAX_BYTES);
     form.append("file", blob, blob === file ? file.name : file.name.replace(/\.[^.]+$/, "") + ".jpg");
-    const res = await send("/api/media/photos", form, onProgress, signal);
+    const res = await postForm(`/api/media/photos${usage}`, form, onProgress, signal);
     if (res.status >= 400 || !res.body) {
       const b = res.body ?? {};
       throw new ApiError(res.status, typeof b.message === "string" ? b.message : "Не загрузилось", {}, typeof b.code === "string" ? b.code : undefined);
@@ -75,7 +77,7 @@ export async function uploadPhoto(file: File, onProgress?: (share: number) => vo
   const form = new FormData();
   for (const [k, v] of Object.entries(ticket.fields)) form.append(k, String(v));
   form.append("file", await shrink(file), file.name);
-  const res = await send(ticket.uploadUrl, form, (s) => onProgress?.(s * 0.95), signal);
+  const res = await postForm(ticket.uploadUrl, form, (s) => onProgress?.(s * 0.95), signal);
   const body = res.body as { public_id?: string; version?: number; signature?: string; error?: { message?: string } } | null;
   if (res.status >= 400 || !body?.public_id) {
     const msg = body?.error?.message ?? "";
@@ -83,7 +85,7 @@ export async function uploadPhoto(file: File, onProgress?: (share: number) => vo
     if (/format/i.test(msg)) throw new ApiError(res.status, "Поддерживаются JPG, PNG, HEIC и WEBP");
     throw new ApiError(res.status, "Не загрузилось. Повторите");
   }
-  const photo = await api<UploadedPhoto>("/media/photos/cloudinary", { body: { publicId: body.public_id, version: body.version, signature: body.signature }, signal });
+  const photo = await api<UploadedPhoto>(`/media/photos/cloudinary${usage}`, { body: { publicId: body.public_id, version: body.version, signature: body.signature }, signal });
   onProgress?.(1);
   return photo;
 }

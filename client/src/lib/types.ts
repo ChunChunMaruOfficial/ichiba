@@ -397,18 +397,55 @@ export interface ThreadSummary {
   counterpartReadAt: string | null;
 }
 
+export type ChatMessageKind = "TEXT" | "LOCATION" | "MEDIA";
+
+export type ChatMedia = { type: "photo"; id: string; width: number; height: number; urls: PhotoUrls } | ({ type: "video" } & VideoView);
+
+/** A quoted message (reply) or a pinned one, as one preview line. */
+export interface ChatQuote {
+  id: string;
+  mine: boolean;
+  deleted: boolean;
+  text: string;
+  kind: ChatMessageKind;
+  thumb: string | null;
+}
+
+export interface ChatReaction {
+  emoji: string;
+  count: number;
+  mine: boolean;
+}
+
+export interface ChatPin {
+  messageId: string;
+  forAll: boolean;
+  createdAt: string;
+  message: ChatQuote & { createdAt: string };
+}
+
 export interface ChatMessage {
   id: string;
+  kind?: ChatMessageKind;
+  /** Text, the caption of a media message, or the preview line of a location. */
   body: string;
   mine: boolean;
   createdAt: string;
+  editedAt?: string | null;
   pending?: boolean;
+  /** Not sent (outbox only): shown with "retry". */
+  failed?: boolean;
+  /** Upload share 0…1 while media is still uploading (outbox only). */
+  progress?: number;
   /** Antifraud warning, shown to the recipient only. */
   risk?: MessageRisk | null;
   /** Shown to the sender, e.g. "card number hidden". */
   notice?: string | null;
   /** A shared point on the map (location message). */
   location?: ChatLocation | null;
+  media?: ChatMedia[];
+  replyTo?: ChatQuote | null;
+  reactions?: ChatReaction[];
 }
 
 export interface ChatLocation {

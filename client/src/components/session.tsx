@@ -6,7 +6,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { api } from "@/lib/api";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
 import { connectRealtime, type RealtimeStatus } from "@/lib/realtime";
-import type { ChatLocation, Me, MessageRisk, Meta } from "@/lib/types";
+import type { ChatMessage, Me, MessageRisk, Meta } from "@/lib/types";
 import { AuthModal } from "./auth-modal";
 import { useToast } from "./toast";
 
@@ -37,7 +37,18 @@ export function useSession() {
 
 export interface LiveMessage {
   threadId: string;
-  message: { id: string; body: string; mine: boolean; createdAt: string; from: string; title: string; risk?: MessageRisk | null; location?: ChatLocation | null };
+  /** The message as the recipient sees it, plus a preview line and who sent it for the toast. */
+  message: ChatMessage & { from: string; title: string; preview?: string };
+}
+
+export interface LiveMessageUpdate {
+  threadId: string;
+  message: ChatMessage;
+}
+
+export interface LiveMessageDelete {
+  threadId: string;
+  ids: string[];
 }
 
 export interface LiveRisk {
@@ -53,6 +64,10 @@ export const LIVE_RISK_EVENT = "ichiba:message-risk";
 /** The other side read the thread / is typing. */
 export const LIVE_READ_EVENT = "ichiba:thread-read";
 export const LIVE_TYPING_EVENT = "ichiba:typing";
+/** A message was edited or its reactions changed / messages were deleted for both / pins changed. */
+export const LIVE_UPDATE_EVENT = "ichiba:message-update";
+export const LIVE_DELETE_EVENT = "ichiba:message-delete";
+export const LIVE_PINS_EVENT = "ichiba:thread-pins";
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [realtime, setRealtime] = useState<RealtimeStatus>("connecting");
@@ -102,7 +117,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           window.dispatchEvent(new CustomEvent(LIVE_MESSAGE_EVENT, { detail: m }));
           void globalMutate("/threads");
           if (!window.location.pathname.startsWith(`/messages/${m.threadId}`)) {
-            toast(`@${m.message.from}: ${m.message.body.slice(0, 60)}`, { action: { label: "Ответить", onClick: () => router.push(`/messages/${m.threadId}`) } });
+            toast(`@${m.message.from}: ${(m.message.preview ?? m.message.body).slice(0, 60)}`, { action: { label: "Ответить", onClick: () => router.push(`/messages/${m.threadId}`) } });
           }
         } else if (type === "message_risk") {
           const r = data as LiveRisk;
@@ -114,6 +129,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           window.dispatchEvent(new CustomEvent(LIVE_READ_EVENT, { detail: data }));
         } else if (type === "typing") {
           window.dispatchEvent(new CustomEvent(LIVE_TYPING_EVENT, { detail: data }));
+        } else if (type === "message_update" || type === "message_delete") {
+          window.dispatchEvent(new CustomEvent(type === "message_update" ? LIVE_UPDATE_EVENT : LIVE_DELETE_EVENT, { detail: data }));
+          // The preview line in the list may have changed (edited or deleted last message).
+          void globalMutate("/threads");
+          if (type === "message_delete") void mutate();
+        } else if (type === "thread_pins") {
+          window.dispatchEvent(new CustomEvent(LIVE_PINS_EVENT, { detail: data }));
         }
       },
       setRealtime,

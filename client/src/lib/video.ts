@@ -1,9 +1,12 @@
-import { api } from "./api";
+import { ApiError } from "./api";
+import { postForm } from "./upload";
 import type { VideoView } from "./types";
 
 /** One short video per listing (Depop/Avito): up to 30 s, shown in the gallery after the photos. */
 export const VIDEO_ACCEPT = "video/mp4,video/quicktime,video/webm";
 const MAX_SECONDS = 30;
+/** Videos sent in chat may be longer. */
+const MAX_CHAT_SECONDS = 180;
 const MAX_BYTES = 40 * 1024 * 1024;
 
 /** Reads duration and size, and grabs a frame at ~0.5 s as the poster (the server never decodes video). */
@@ -43,15 +46,22 @@ function probe(file: File): Promise<{ durationMs: number; width: number; height:
 }
 
 /** Checks the limits in the browser, then uploads the video with its poster frame. Throws with a message to show. */
-export async function uploadVideo(file: File): Promise<VideoView> {
+export async function uploadVideo(file: File, opts: { purpose?: "listing" | "chat"; onProgress?: (share: number) => void; signal?: AbortSignal } = {}): Promise<VideoView> {
+  const chat = opts.purpose === "chat";
   if (file.size > MAX_BYTES) throw new Error("Видео больше 40 МБ — сократите его или снимите в меньшем качестве");
   const meta = await probe(file);
-  if (meta.durationMs > MAX_SECONDS * 1000 + 500) throw new Error(`Видео длиннее ${MAX_SECONDS} секунд — обрежьте его`);
+  const max = chat ? MAX_CHAT_SECONDS : MAX_SECONDS;
+  if (meta.durationMs > max * 1000 + 500) throw new Error(chat ? "Видео длиннее 3 минут — обрежьте его" : `Видео длиннее ${MAX_SECONDS} секунд — обрежьте его`);
   const form = new FormData();
   form.append("file", file);
   form.append("poster", meta.poster, "poster.jpg");
   form.append("durationMs", String(meta.durationMs));
   form.append("width", String(meta.width));
   form.append("height", String(meta.height));
-  return api<VideoView>("/media/videos", { body: form });
+  const res = await postForm(`/api/media/videos${chat ? "?for=chat" : ""}`, form, opts.onProgress, opts.signal);
+  if (res.status >= 400 || !res.body) {
+    const b = res.body ?? {};
+    throw new ApiError(res.status, typeof b.message === "string" ? b.message : "Видео не загрузилось. Повторите", {}, typeof b.code === "string" ? b.code : undefined);
+  }
+  return res.body as unknown as VideoView;
 }
