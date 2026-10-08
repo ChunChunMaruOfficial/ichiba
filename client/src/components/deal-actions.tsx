@@ -13,7 +13,7 @@ import { Button, ButtonLink, DealBadge, Field, Input, Modal } from "./ui";
 const DECLINE_REASONS = ["Уже продано", "Передумал продавать", "Не подходит способ получения", "Другое"];
 
 /** The conversation is where a deal lives: opens (or creates) the chat tied to it. */
-export function useOpenDealChat() {
+function useOpenDealChat() {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);

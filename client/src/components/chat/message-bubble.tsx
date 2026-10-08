@@ -7,7 +7,7 @@ import type { ChatMedia, ChatMessage, ChatQuote } from "@/lib/types";
 import { IconPlay, IconReply, IconRetry, Ticks } from "./icons";
 import { useMessageGestures } from "./gestures";
 
-export const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 const duration = (ms: number) => {
   const s = Math.round(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -184,7 +184,7 @@ function ClockIcon() {
 }
 
 /** The quoted message above a reply; tap jumps to it. */
-export function Quote({ q, mine, counterpart, onJump, inset }: { q: ChatQuote; mine: boolean; counterpart: string; onJump?: (id: string) => void; inset?: boolean }) {
+function Quote({ q, mine, counterpart, onJump, inset }: { q: ChatQuote; mine: boolean; counterpart: string; onJump?: (id: string) => void; inset?: boolean }) {
   return (
     <button
       type="button"

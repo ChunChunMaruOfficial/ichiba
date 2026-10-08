@@ -46,7 +46,7 @@ const threadInclude = {
 type ThreadRow = Prisma.ThreadGetPayload<{ include: typeof threadInclude }>;
 
 /** Reactions anyone can put on a message (a short list, like Telegram's default). */
-export const REACTIONS = ['👍', '❤️', '🔥', '😂', '😮', '😢', '🙏', '👎'] as const;
+const REACTIONS = ['👍', '❤️', '🔥', '😂', '😮', '😢', '🙏', '👎'] as const;
 /** Own messages can be edited for 48 hours, as in Telegram. */
 const EDIT_WINDOW_MS = 48 * 3600_000;
 const MAX_MEDIA = 10;

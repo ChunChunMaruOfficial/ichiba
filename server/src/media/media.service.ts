@@ -73,7 +73,7 @@ const mediaBase = () => process.env.MEDIA_PUBLIC_URL ?? 'http://localhost:4000/m
  * Difference hash: 9×8 greyscale thumbnail, one bit per "is this pixel brighter than its right neighbour".
  * Re-uploads, re-saves and light crops of the same photo land within a few bits of each other.
  */
-export async function differenceHash(input: Buffer | ReturnType<typeof sharp>): Promise<string> {
+async function differenceHash(input: Buffer | ReturnType<typeof sharp>): Promise<string> {
   const img = Buffer.isBuffer(input) ? sharp(input) : input.clone();
   const px = await img.resize(9, 8, { fit: 'fill' }).greyscale().raw().toBuffer();
   let bits = 0n;

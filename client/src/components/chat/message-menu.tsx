@@ -7,7 +7,7 @@ import { usePresence } from "@/lib/presence";
 import type { ChatReaction } from "@/lib/types";
 
 /** Kept in sync with REACTIONS on the server (chat.ts). */
-export const REACTIONS = ["👍", "❤️", "🔥", "😂", "😮", "😢", "🙏", "👎"] as const;
+const REACTIONS = ["👍", "❤️", "🔥", "😂", "😮", "😢", "🙏", "👎"] as const;
 
 export interface MenuAction {
   key: string;

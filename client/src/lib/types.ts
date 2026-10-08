@@ -397,7 +397,7 @@ export interface ThreadSummary {
   counterpartReadAt: string | null;
 }
 
-export type ChatMessageKind = "TEXT" | "LOCATION" | "MEDIA";
+type ChatMessageKind = "TEXT" | "LOCATION" | "MEDIA";
 
 export type ChatMedia = { type: "photo"; id: string; width: number; height: number; urls: PhotoUrls } | ({ type: "video" } & VideoView);
 
@@ -464,21 +464,6 @@ export interface CollectionSummary {
 }
 
 // ---------- AI ensemble ----------
-
-export interface PhotoIssue {
-  code: string;
-  severity: "error" | "warn" | "info";
-  text: string;
-}
-
-export interface PhotoCheck {
-  photos: Array<{ id: string; issues: PhotoIssue[] }>;
-  cover: { photoId: string; reason: string } | null;
-  missing: Array<{ code: string; text: string }>;
-  score: number;
-  ai: boolean;
-  model: string;
-}
 
 export interface PriceSuggestion {
   status: "ok" | "insufficient";

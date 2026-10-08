@@ -9,7 +9,7 @@ import type { ChatMedia, ChatMessage } from "@/lib/types";
 import { IconCheck } from "@/components/ui";
 import { IconClip, IconEdit, IconImage, IconPlay, IconReply, IconSend } from "./icons";
 
-export const MAX_ATTACHMENTS = 10;
+const MAX_ATTACHMENTS = 10;
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
 export interface Attachment {

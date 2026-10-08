@@ -7,10 +7,10 @@ export const DEFAULT_CENTER: [number, number] = [53.9023, 27.5619]; // Minsk
 
 const TILE = 256;
 
-export const tileUrl = (z: number, x: number, y: number) => TILE_URL.replace("{s}", "a").replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
+const tileUrl = (z: number, x: number, y: number) => TILE_URL.replace("{s}", "a").replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
 
 /** Web Mercator: latitude/longitude to world pixels at zoom z. */
-export function project(lat: number, lng: number, z: number): [number, number] {
+function project(lat: number, lng: number, z: number): [number, number] {
   const size = TILE * 2 ** z;
   const s = Math.sin((lat * Math.PI) / 180);
   return [((lng + 180) / 360) * size, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * size];
