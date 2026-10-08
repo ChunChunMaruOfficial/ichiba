@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Spectral, Yuji_Syuku } from "next/font/google";
 import { CookieNotice } from "@/components/cookie-notice";
 import { Footer } from "@/components/footer";
-import { BottomNav, Header } from "@/components/header";
+import { BottomNav, Header, Main } from "@/components/header";
 import { Providers } from "@/components/providers";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <Providers>
           <Header />
-          <main id="main" tabIndex={-1} className="pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+          <Main>{children}</Main>
           <Footer />
           <BottomNav />
           <CookieNotice />

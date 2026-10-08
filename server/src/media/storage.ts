@@ -1,15 +1,17 @@
-import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutBucketPolicyCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, PutBucketPolicyCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
 
 /**
- * Photo storage. `local` (default for dev) writes to MEDIA_DIR and the API serves it at /media;
+ * Photo and video storage. `local` (default for dev) writes to MEDIA_DIR and the API serves it at /media;
  * `s3` targets any S3-compatible bucket (prod: S3 + CDN, frame 30).
  */
 export interface Storage {
   init(): Promise<void>;
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer>;
+  /** Removes the file; a missing one counts as removed. */
+  delete(key: string): Promise<void>;
 }
 
 export const MEDIA_DIR = resolve(process.env.MEDIA_DIR ?? 'storage/media');
@@ -34,6 +36,10 @@ class LocalStorage implements Storage {
 
   get(key: string) {
     return readFile(safePath(key));
+  }
+
+  async delete(key: string) {
+    await rm(safePath(key), { force: true });
   }
 }
 
@@ -73,6 +79,10 @@ class S3Storage implements Storage {
   async get(key: string) {
     const res = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
     return Buffer.from(await res.Body!.transformToByteArray());
+  }
+
+  async delete(key: string) {
+    await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 }
 

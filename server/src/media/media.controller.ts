@@ -44,6 +44,21 @@ export class MediaController {
     return this.media.registerCloudinary(user.id, dto, purpose(usage));
   }
 
+  /** Direct-to-Cloudinary video upload, step 1 (or `local`: post the file to /media/videos). */
+  @Post('videos/ticket')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  videoTicket(@CurrentUser() user: AuthUser) {
+    return this.media.videoTicket(user.id);
+  }
+
+  /** Step 2: register the video Cloudinary stored. Same response as a server upload. */
+  @Post('videos/cloudinary')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  registerCloudinaryVideo(@CurrentUser() user: AuthUser, @Body(new ZodPipe(CloudinaryPhotoDto)) dto: z.infer<typeof CloudinaryPhotoDto>, @Query('for') usage?: string) {
+    return this.media.registerCloudinaryVideo(user.id, dto, purpose(usage));
+  }
+
   @Post('videos')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseInterceptors(FileFieldsInterceptor([{ name: 'file', maxCount: 1 }, { name: 'poster', maxCount: 1 }], { storage: memoryStorage(), limits: { fileSize: MAX_VIDEO_BYTES } }))

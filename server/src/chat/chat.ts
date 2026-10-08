@@ -22,7 +22,7 @@ const previewSelect = {
   deletedAt: true,
   hiddenFor: true,
   photos: { orderBy: { order: 'asc' }, take: 1, select: { key: true, provider: true } },
-  videos: { take: 1, select: { key: true } },
+  videos: { take: 1, select: { key: true, provider: true } },
   _count: { select: { photos: true, videos: true } },
 } satisfies Prisma.MessageSelect;
 type PreviewRow = Prisma.MessageGetPayload<{ select: typeof previewSelect }>;
@@ -78,7 +78,7 @@ export class ChatService {
     if (!m) return null;
     if (!visible(m, viewerId)) return { id: m.id, mine: m.senderId === viewerId, deleted: true, text: 'Сообщение удалено', kind: m.kind, thumb: null };
     const photo = m.photos[0];
-    const thumb = photo ? photoUrls(photo).s : m.videos[0] ? videoPoster(m.videos[0].key, 320) : null;
+    const thumb = photo ? photoUrls(photo).s : m.videos[0] ? videoPoster(m.videos[0], 320) : null;
     return { id: m.id, mine: m.senderId === viewerId, deleted: false, text: previewText(m), kind: m.kind, thumb };
   }
 

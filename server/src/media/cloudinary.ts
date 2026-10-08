@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'crypto';
 
 /**
- * Cloudinary for listing photos, without the SDK: the browser uploads the file straight to Cloudinary with a
+ * Cloudinary for photos and videos, without the SDK: the browser uploads the file straight to Cloudinary with a
  * short-lived signature from the API, so photo bytes never pass through our server. The API secret stays here.
  * Signing rules: https://cloudinary.com/documentation/authentication_signatures
  */
@@ -44,6 +44,43 @@ export function uploadTicket(userId: string) {
   };
 }
 
+const VIDEO_FORMATS = 'mp4,mov,webm';
+
+/** Same for a video: it goes straight from the browser to Cloudinary, never through our server's memory. */
+export function videoUploadTicket(userId: string) {
+  const c = cfg();
+  const params = { allowed_formats: VIDEO_FORMATS, public_id: `${userFolder(userId)}/v-${randomUUID()}`, timestamp: Math.floor(Date.now() / 1000) };
+  return {
+    provider: 'cloudinary' as const,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${c.cloud}/video/upload`,
+    fields: { ...params, api_key: c.key, signature: sign(params) },
+  };
+}
+
+/** Played as MP4 (H.264), so an iPhone's HEVC .mov plays in every browser; quality picked by Cloudinary. */
+export const cloudinaryVideoUrl = (publicId: string) => `https://res.cloudinary.com/${cfg().cloud}/video/upload/q_auto/${publicId}.mp4`;
+
+/** A frame at 10 % of the video as the poster (always inside the clip, unlike a fixed second). */
+export const cloudinaryVideoPoster = (publicId: string, width: number, format: 'jpg' | 'webp' = 'jpg') =>
+  `https://res.cloudinary.com/${cfg().cloud}/video/upload/so_10p,c_limit,w_${width}/q_auto/${publicId}.${format}`;
+
+/** Poster frame as WebP for server-side processing (moderation, AI). */
+export async function fetchCloudinaryVideoFrame(publicId: string, width: number): Promise<Buffer> {
+  const res = await fetch(cloudinaryVideoPoster(publicId, width, 'webp'), { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`cloudinary frame ${res.status} for ${publicId}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** What Cloudinary stored for a video, read with the Admin API (the browser's report can't be trusted). */
+export async function cloudinaryVideoInfo(publicId: string): Promise<{ width: number; height: number; format: string; bytes: number; durationMs: number | null }> {
+  const c = cfg();
+  const url = `https://api.cloudinary.com/v1_1/${c.cloud}/resources/video/upload/${publicId.split('/').map(encodeURIComponent).join('/')}?media_metadata=true`;
+  const res = await fetch(url, { headers: { authorization: `Basic ${Buffer.from(`${c.key}:${c.secret}`).toString('base64')}` }, signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`cloudinary video info ${res.status}`);
+  const r = (await res.json()) as { width: number; height: number; format: string; bytes: number; duration?: number };
+  return { width: r.width, height: r.height, format: r.format, bytes: r.bytes, durationMs: r.duration != null ? Math.round(r.duration * 1000) : null };
+}
+
 /** The `signature` of an upload response: proves Cloudinary really stored this public id and version. */
 export const validUploadSignature = (publicId: string, version: number, signature: string) => sign({ public_id: publicId, version }) === signature.toLowerCase();
 
@@ -68,10 +105,10 @@ export async function cloudinaryInfo(publicId: string): Promise<{ width: number;
 }
 
 /** Deletes the file. "not found" counts as done. */
-export async function destroyCloudinary(publicId: string) {
+export async function destroyCloudinary(publicId: string, resource: 'image' | 'video' = 'image') {
   const c = cfg();
   const params = { invalidate: 'true', public_id: publicId, timestamp: Math.floor(Date.now() / 1000) };
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${c.cloud}/image/destroy`, {
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${c.cloud}/${resource}/destroy`, {
     method: 'POST',
     body: new URLSearchParams({ ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])), api_key: c.key, signature: sign(params) }),
     signal: AbortSignal.timeout(15_000),

@@ -4,9 +4,23 @@ import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import type { PhotoProvider } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { cloudinaryEnabled, cloudinaryInfo, cloudinaryUrl, destroyCloudinary, fetchCloudinaryImage, uploadTicket, userFolder, validUploadSignature } from './cloudinary.js';
+import {
+  cloudinaryEnabled,
+  cloudinaryInfo,
+  cloudinaryUrl,
+  cloudinaryVideoInfo,
+  cloudinaryVideoPoster,
+  cloudinaryVideoUrl,
+  destroyCloudinary,
+  fetchCloudinaryImage,
+  fetchCloudinaryVideoFrame,
+  uploadTicket,
+  userFolder,
+  validUploadSignature,
+  videoUploadTicket,
+} from './cloudinary.js';
 import { createStorage } from './storage.js';
-import { MAX_CHAT_VIDEO_MS, MAX_VIDEO_MS, mp4DurationMs, sniffVideo } from './video.js';
+import { MAX_CHAT_VIDEO_MS, MAX_VIDEO_BYTES, MAX_VIDEO_MS, mp4DurationMs, sniffVideo } from './video.js';
 
 /** Preview widths from frame 30: 320 / 640 / 1280, WebP, EXIF stripped. */
 const VARIANTS = [320, 640, 1280] as const;
@@ -90,13 +104,20 @@ export const photoUrls = ({ key, provider }: StoredPhoto): PhotoUrls => {
   return { s: `${base}/${key}_320.webp`, m: `${base}/${key}_640.webp`, l: `${base}/${key}_1280.webp` };
 };
 
-export const videoPoster = (key: string, width: 320 | 640 = 640) => `${mediaBase()}/${key}_${width}.webp`;
+/** Video as stored: `key` is a storage prefix (LOCAL) or a Cloudinary public id. */
+export interface StoredVideo {
+  key: string;
+  provider?: PhotoProvider;
+}
 
-export const serializeVideo = (v: { id: string; key: string; ext: string; mime: string; width: number; height: number; durationMs: number }) => ({
+export const videoPoster = ({ key, provider }: StoredVideo, width: 320 | 640 = 640) =>
+  provider === 'CLOUDINARY' ? cloudinaryVideoPoster(key, width) : `${mediaBase()}/${key}_${width}.webp`;
+
+export const serializeVideo = (v: StoredVideo & { id: string; ext: string; mime: string; width: number; height: number; durationMs: number }) => ({
   id: v.id,
-  url: `${mediaBase()}/${v.key}.${v.ext}`,
-  mime: v.mime,
-  poster: videoPoster(v.key),
+  url: v.provider === 'CLOUDINARY' ? cloudinaryVideoUrl(v.key) : `${mediaBase()}/${v.key}.${v.ext}`,
+  mime: v.provider === 'CLOUDINARY' ? 'video/mp4' : v.mime,
+  poster: videoPoster(v),
   width: v.width,
   height: v.height,
   durationMs: v.durationMs,
@@ -207,37 +228,94 @@ export class MediaService implements OnModuleInit {
   }
 
   /**
-   * Nightly: Cloudinary files nobody uses — uploaded but never attached (form abandoned, photo removed while
-   * editing, or a chat message deleted for both sides) for a day. Size copies share files, so a file is deleted
-   * only when no other row points at it.
+   * Nightly: photos and videos nobody uses for a day — uploaded but never attached (form abandoned, removed while
+   * editing), or left behind by a chat message deleted for both sides. Works for every storage (local disk, S3,
+   * Cloudinary). Size copies share files, so a file is deleted only when no other row points at it.
    */
   @Cron('30 4 * * *')
   async purgeOrphans(olderThanMs = 24 * 3600_000) {
-    if (!cloudinaryEnabled()) return { removed: 0 };
-    const orphans = await this.prisma.photo.findMany({
-      where: { provider: 'CLOUDINARY', listingId: null, messageId: null, createdAt: { lt: new Date(Date.now() - olderThanMs) } },
-      select: { id: true, key: true },
-      take: 500,
-    });
+    const unused = { listingId: null, messageId: null, createdAt: { lt: new Date(Date.now() - olderThanMs) } };
     let removed = 0;
-    for (const p of orphans) {
-      const shared = await this.prisma.photo.count({ where: { key: p.key, id: { not: p.id } } });
+    let failed = 0;
+    const photos = await this.prisma.photo.findMany({ where: unused, select: { id: true, key: true, provider: true }, take: 500 });
+    for (const p of photos) {
       try {
-        if (!shared) await destroyCloudinary(p.key);
+        const shared = await this.prisma.photo.count({ where: { key: p.key, id: { not: p.id } } });
+        if (!shared) {
+          if (p.provider === 'CLOUDINARY') await destroyCloudinary(p.key);
+          else await Promise.all(VARIANTS.map((w) => this.storage.delete(`${p.key}_${w}.webp`)));
+        }
         await this.prisma.photo.delete({ where: { id: p.id } });
         removed++;
       } catch (e) {
-        this.logger.warn(`orphan ${p.key} not removed: ${(e as Error).message}`);
+        failed++;
+        this.logger.warn(`orphan photo ${p.key} not removed: ${(e as Error).message}`);
       }
     }
-    if (orphans.length) this.logger.log(`orphan photos removed: ${removed}/${orphans.length}`);
-    return { removed };
+    const videos = await this.prisma.video.findMany({ where: unused, select: { id: true, key: true, ext: true, provider: true }, take: 200 });
+    for (const v of videos) {
+      try {
+        const shared = await this.prisma.video.count({ where: { key: v.key, id: { not: v.id } } });
+        if (!shared) {
+          if (v.provider === 'CLOUDINARY') await destroyCloudinary(v.key, 'video');
+          else await Promise.all([`${v.key}.${v.ext}`, `${v.key}_320.webp`, `${v.key}_640.webp`].map((k) => this.storage.delete(k)));
+        }
+        await this.prisma.video.delete({ where: { id: v.id } });
+        removed++;
+      } catch (e) {
+        failed++;
+        this.logger.warn(`orphan video ${v.key} not removed: ${(e as Error).message}`);
+      }
+    }
+    if (photos.length || videos.length) this.logger.log(`orphan media removed: ${removed}, failed: ${failed} (photos ${photos.length}, videos ${videos.length})`);
+    return { removed, failed };
   }
 
-  /** A stored WebP of the given width, wherever the photo lives. Keys without a photo row (video posters) are LOCAL. */
+  /** A stored WebP of the given width, wherever the photo lives. A key without a photo row is a video's poster. */
   private async read(photo: StoredPhoto, width: 320 | 640): Promise<Buffer> {
-    const provider = photo.provider ?? (await this.prisma.photo.findFirst({ where: { key: photo.key }, select: { provider: true } }))?.provider;
-    return provider === 'CLOUDINARY' ? fetchCloudinaryImage(photo.key, width) : this.storage.get(`${photo.key}_${width}.webp`);
+    if (photo.provider) return photo.provider === 'CLOUDINARY' ? fetchCloudinaryImage(photo.key, width) : this.storage.get(`${photo.key}_${width}.webp`);
+    const row = await this.prisma.photo.findFirst({ where: { key: photo.key }, select: { provider: true } });
+    if (row) return this.read({ key: photo.key, provider: row.provider }, width);
+    const video = await this.prisma.video.findFirst({ where: { key: photo.key }, select: { provider: true } });
+    return video?.provider === 'CLOUDINARY' ? fetchCloudinaryVideoFrame(photo.key, width) : this.storage.get(`${photo.key}_${width}.webp`);
+  }
+
+  /** Step 1 of a browser video upload: a signed Cloudinary ticket, or `local` (then the file is posted to /media/videos). */
+  videoTicket(ownerId: string) {
+    return cloudinaryEnabled() ? videoUploadTicket(ownerId) : { provider: 'local' as const };
+  }
+
+  /**
+   * Step 2: the browser reports the video Cloudinary stored. Like photos, the signature and folder prove it is the
+   * user's upload; size and duration come from Cloudinary itself. A video over the limits is deleted again.
+   */
+  async registerCloudinaryVideo(ownerId: string, dto: { publicId: string; version: number; signature: string }, purpose: MediaPurpose = 'listing') {
+    if (!cloudinaryEnabled()) throw new BadRequestException({ message: 'Загрузка в облако не настроена' });
+    if (!dto.publicId.startsWith(`${userFolder(ownerId)}/`) || !validUploadSignature(dto.publicId, dto.version, dto.signature)) {
+      throw new ForbiddenException({ message: 'Видео не прошло проверку. Загрузите его ещё раз' });
+    }
+    const existing = await this.prisma.video.findFirst({ where: { ownerId, provider: 'CLOUDINARY', key: dto.publicId } });
+    if (existing) return serializeVideo(existing);
+
+    let info: Awaited<ReturnType<typeof cloudinaryVideoInfo>>;
+    try {
+      info = await cloudinaryVideoInfo(dto.publicId);
+    } catch (e) {
+      this.logger.warn(`cloudinary video read failed for ${dto.publicId}: ${(e as Error).message}`);
+      throw new BadRequestException({ message: 'Не удалось прочитать видео. Попробуйте MP4' });
+    }
+    const maxMs = purpose === 'chat' ? MAX_CHAT_VIDEO_MS : MAX_VIDEO_MS;
+    const reject = async (message: string, code: string) => {
+      await destroyCloudinary(dto.publicId, 'video').catch(() => undefined);
+      throw new BadRequestException({ message, code });
+    };
+    if (info.durationMs == null) await reject('Не удалось определить длительность видео', 'NO_DURATION');
+    if (info.durationMs! > maxMs + 500) await reject(`Видео должно быть не длиннее ${purpose === 'chat' ? '3 минут' : '30 секунд'}`, 'TOO_LONG');
+    if (info.bytes > MAX_VIDEO_BYTES) await reject('Видео больше 40 МБ — сократите его или снимите в меньшем качестве', 'TOO_BIG');
+    const video = await this.prisma.video.create({
+      data: { ownerId, provider: 'CLOUDINARY', key: dto.publicId, ext: info.format, mime: `video/${info.format}`, width: info.width || 1, height: info.height || 1, durationMs: info.durationMs! },
+    });
+    return serializeVideo(video);
   }
 
   /**

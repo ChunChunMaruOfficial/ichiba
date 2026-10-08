@@ -283,11 +283,13 @@ model Photo {
 
 /// Short video of a listing (up to 30 s). The file is `${key}.${ext}`, the poster frame `${key}_{320,640}.webp`.
 model Video {
-  id         String   @id @default(uuid())
+  id         String        @id @default(uuid())
   ownerId    String
-  owner      User     @relation(fields: [ownerId], references: [id])
-  listingId  String?  @unique
-  listing    Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  owner      User          @relation(fields: [ownerId], references: [id])
+  listingId  String?       @unique
+  listing    Listing?      @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  provider   PhotoProvider @default(LOCAL)
+  /// LOCAL: storage key, the file at `${key}.${ext}` and its poster at `${key}_{320,640}.webp`. CLOUDINARY: the public id.
   key        String
   ext        String
   mime       String
@@ -296,8 +298,8 @@ model Video {
   durationMs Int
   /// Sent in chat: the message this video belongs to.
   messageId  String?
-  message    Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  createdAt  DateTime @default(now())
+  message    Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  createdAt  DateTime      @default(now())
 
   @@index([ownerId])
   @@index([messageId])

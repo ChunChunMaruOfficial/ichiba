@@ -345,6 +345,8 @@ function Thread({ id }: { id: string }) {
             return res;
           }),
         );
+        // Server thumbnails replace local previews the browser may not draw (HEIC).
+        if (media.length) setOutbox((o) => o.map((x) => (x.id === tempId ? { ...x, media } : x)));
         const m = await api<ChatMessage>(`/threads/${id}/messages`, {
           body: {
             body: job.body,
@@ -601,7 +603,7 @@ function Thread({ id }: { id: string }) {
   const deletingMine = deleting.length > 0 && deleting.every((m) => m.mine);
 
   return (
-    <div className="mx-auto grid h-[calc(100dvh-56px)] max-w-[1280px] md:h-[calc(100dvh-64px)] lg:grid-cols-[360px_1fr] lg:gap-6 lg:px-6 lg:py-4">
+    <div className="mx-auto grid h-[calc(100dvh-57px)] max-w-[1280px] md:h-[calc(100dvh-65px)] lg:grid-cols-[360px_1fr] lg:gap-6 lg:px-6 lg:py-4">
       {/* Wide screens: all conversations stay on the left, like a messenger. */}
       <aside className="hidden min-h-0 overflow-y-auto overscroll-contain pr-1 lg:block">
         <ThreadList activeId={id} compact />

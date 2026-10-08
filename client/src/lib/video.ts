@@ -1,4 +1,4 @@
-import { ApiError } from "./api";
+import { api, ApiError } from "./api";
 import { postForm } from "./upload";
 import type { VideoView } from "./types";
 
@@ -45,20 +45,50 @@ function probe(file: File): Promise<{ durationMs: number; width: number; height:
   });
 }
 
-/** Checks the limits in the browser, then uploads the video with its poster frame. Throws with a message to show. */
+type Ticket = { provider: "local" } | { provider: "cloudinary"; uploadUrl: string; fields: Record<string, string | number> };
+
+/**
+ * Checks the limits in the browser, then uploads the video. With Cloudinary configured the file goes straight from
+ * the browser to Cloudinary (signed by our API) and Cloudinary makes the poster; otherwise it is posted to the API
+ * with a poster frame grabbed here. Throws with a message to show.
+ */
 export async function uploadVideo(file: File, opts: { purpose?: "listing" | "chat"; onProgress?: (share: number) => void; signal?: AbortSignal } = {}): Promise<VideoView> {
   const chat = opts.purpose === "chat";
+  const usage = chat ? "?for=chat" : "";
   if (file.size > MAX_BYTES) throw new Error("Видео больше 40 МБ — сократите его или снимите в меньшем качестве");
-  const meta = await probe(file);
   const max = chat ? MAX_CHAT_SECONDS : MAX_SECONDS;
-  if (meta.durationMs > max * 1000 + 500) throw new Error(chat ? "Видео длиннее 3 минут — обрежьте его" : `Видео длиннее ${MAX_SECONDS} секунд — обрежьте его`);
+  const tooLong = chat ? "Видео длиннее 3 минут — обрежьте его" : `Видео длиннее ${MAX_SECONDS} секунд — обрежьте его`;
+  const ticket = await api<Ticket>("/media/videos/ticket", { method: "POST", signal: opts.signal });
+
+  if (ticket.provider === "cloudinary") {
+    // The browser may not decode the file (an iPhone's HEVC .mov in Chrome): then Cloudinary checks the duration.
+    const meta = await probe(file).catch(() => null);
+    if (meta && meta.durationMs > max * 1000 + 500) throw new Error(tooLong);
+    const form = new FormData();
+    for (const [k, v] of Object.entries(ticket.fields)) form.append(k, String(v));
+    form.append("file", file, file.name);
+    const res = await postForm(ticket.uploadUrl, form, (s) => opts.onProgress?.(s * 0.95), opts.signal);
+    const body = res.body as { public_id?: string; version?: number; signature?: string; error?: { message?: string } } | null;
+    if (res.status >= 400 || !body?.public_id) {
+      const msg = body?.error?.message ?? "";
+      if (/too large/i.test(msg)) throw new ApiError(res.status, "Видео слишком большое");
+      if (/format/i.test(msg)) throw new ApiError(res.status, "Поддерживаются видео MP4, MOV и WEBM");
+      throw new ApiError(res.status, "Видео не загрузилось. Повторите");
+    }
+    const video = await api<VideoView>(`/media/videos/cloudinary${usage}`, { body: { publicId: body.public_id, version: body.version, signature: body.signature }, signal: opts.signal });
+    opts.onProgress?.(1);
+    return video;
+  }
+
+  const meta = await probe(file);
+  if (meta.durationMs > max * 1000 + 500) throw new Error(tooLong);
   const form = new FormData();
   form.append("file", file);
   form.append("poster", meta.poster, "poster.jpg");
   form.append("durationMs", String(meta.durationMs));
   form.append("width", String(meta.width));
   form.append("height", String(meta.height));
-  const res = await postForm(`/api/media/videos${chat ? "?for=chat" : ""}`, form, opts.onProgress, opts.signal);
+  const res = await postForm(`/api/media/videos${usage}`, form, opts.onProgress, opts.signal);
   if (res.status >= 400 || !res.body) {
     const b = res.body ?? {};
     throw new ApiError(res.status, typeof b.message === "string" ? b.message : "Видео не загрузилось. Повторите", {}, typeof b.code === "string" ? b.code : undefined);

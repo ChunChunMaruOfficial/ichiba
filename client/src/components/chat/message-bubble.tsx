@@ -232,13 +232,15 @@ function Album({ media, mine, progress, onOpen, meta }: { media: ChatMedia[]; mi
             className={clsx("relative block size-full overflow-hidden bg-skeleton", !one && tileClass(media.length, i))}
           >
             {item.type === "photo" ? (
+              // An outbox tile has no picture yet when the browser can't draw the local file (HEIC).
+              (one ? item.urls.m : item.urls.s) &&
               // eslint-disable-next-line @next/next/no-img-element
               <img src={one ? item.urls.m : item.urls.s} alt="" width={item.width} height={item.height} loading="lazy" draggable={false} className="size-full object-cover" />
             ) : item.poster ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={item.poster} alt="" width={item.width} height={item.height} loading="lazy" draggable={false} className="size-full object-cover" />
             ) : (
-              <video src={item.url} muted playsInline preload="metadata" className="size-full object-cover" />
+              item.url && <video src={item.url} muted playsInline preload="metadata" className="size-full object-cover" />
             )}
             {item.type === "video" && (
               <>

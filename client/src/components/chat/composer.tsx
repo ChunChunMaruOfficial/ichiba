@@ -15,8 +15,15 @@ const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 export interface Attachment {
   key: string;
   type: "photo" | "video";
-  /** Local preview (object URL) shown until the message is delivered. */
+  /** Local file (object URL) for a video preview; revoked when no longer needed. */
   preview: string;
+  /**
+   * What the tile shows: the local photo, or once uploaded the server's thumbnail / video poster.
+   * Null while there is nothing the browser can draw (HEIC outside Safari, an HEVC video): a placeholder then.
+   */
+  thumb: string | null;
+  /** The browser can't play the local video file. */
+  unplayable?: boolean;
   width: number;
   height: number;
   progress: number;
@@ -37,16 +44,19 @@ function upload(file: File, onProgress: (share: number) => void, signal: AbortSi
 }
 
 /** Local preview of an attachment as an album tile in the outbox bubble. */
-export const previewMedia = (a: Attachment): ChatMedia =>
-  a.type === "photo"
-    ? { type: "photo", id: a.key, width: a.width, height: a.height, urls: { s: a.preview, m: a.preview, l: a.preview } }
-    : { type: "video", id: a.key, url: a.preview, poster: "", mime: "", width: a.width || 16, height: a.height || 9, durationMs: 0 };
+export const previewMedia = (a: Attachment): ChatMedia => {
+  const thumb = a.thumb ?? "";
+  return a.type === "photo"
+    ? { type: "photo", id: a.key, width: a.width || 1, height: a.height || 1, urls: { s: thumb, m: thumb, l: thumb } }
+    : { type: "video", id: a.key, url: a.unplayable ? "" : a.preview, poster: thumb, mime: "", width: a.width || 16, height: a.height || 9, durationMs: 0 };
+};
 
+/** Size of an image the browser can decode; null when it can't (e.g. HEIC in Chrome or Firefox). */
 const imageSize = (url: string) =>
-  new Promise<{ width: number; height: number }>((resolve) => {
+  new Promise<{ width: number; height: number } | null>((resolve) => {
     const img = new Image();
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => resolve({ width: 1, height: 1 });
+    img.onerror = () => resolve(null);
     img.src = url;
   });
 
@@ -81,7 +91,12 @@ export function useAttachments(onError: (message: string) => void) {
         const start = () => {
           const done = upload(file, onProgress, ctrl.signal);
           done.then(
-            () => onProgress(1),
+            (media) => {
+              onProgress(1);
+              // The server's copy can always be drawn: replaces a missing local preview.
+              const thumb = media.type === "photo" ? media.urls.s : media.poster;
+              patch(key, { error: null, width: media.width, height: media.height, ...(thumb ? { thumb } : {}) });
+            },
             (e: Error) => {
               if (e.name !== "AbortError") patch(key, { error: e.message || "Не загрузилось" });
             },
@@ -92,6 +107,7 @@ export function useAttachments(onError: (message: string) => void) {
           key,
           type,
           preview,
+          thumb: type === "photo" ? preview : null,
           width: 0,
           height: 0,
           progress: 0,
@@ -108,7 +124,10 @@ export function useAttachments(onError: (message: string) => void) {
         };
         count.current++;
         setItems((prev) => [...prev, item]);
-        if (type === "photo") void imageSize(preview).then((s) => patch(key, s));
+        if (type === "photo")
+          void imageSize(preview).then((size) =>
+            setItems((list) => list.map((a) => (a.key !== key ? a : size ? { ...a, ...(a.width ? {} : size) } : { ...a, thumb: a.thumb === preview ? null : a.thumb }))),
+          );
       }
     },
     [onError, patch],
@@ -132,7 +151,9 @@ export function useAttachments(onError: (message: string) => void) {
     return taken;
   }, [items]);
 
-  return { items, add, remove, take };
+  const markUnplayable = useCallback((key: string) => patch(key, { unplayable: true }), [patch]);
+
+  return { items, add, remove, take, markUnplayable };
 }
 
 export interface ComposerHandle {
@@ -234,16 +255,19 @@ export const Composer = forwardRef<
         <ul className="no-scrollbar mb-2 flex gap-2 overflow-x-auto pb-1" aria-label="Вложения">
           {items.map((a) => (
             <li key={a.key} className="pop relative size-20 shrink-0 overflow-hidden rounded-xl bg-skeleton">
-              {a.type === "photo" ? (
+              {a.thumb ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.preview} alt="" className="size-full object-cover" />
+                <img src={a.thumb} alt="" className="size-full object-cover" />
+              ) : a.type === "video" && !a.unplayable ? (
+                <video src={a.preview} muted playsInline preload="metadata" className="size-full object-cover" onError={() => attachments.markUnplayable(a.key)} />
               ) : (
-                <>
-                  <video src={a.preview} muted playsInline preload="metadata" className="size-full object-cover" />
-                  <span className="absolute bottom-1 left-1 grid size-5 place-items-center rounded-full bg-black/50 text-white">
-                    <IconPlay className="ml-px size-3" />
-                  </span>
-                </>
+                // Nothing the browser can draw yet (HEIC, HEVC): a neutral tile until the upload brings a thumbnail.
+                <span className="grid size-full place-items-center text-muted">{a.type === "video" ? <IconPlay className="size-6" /> : <IconImage className="size-7" />}</span>
+              )}
+              {a.type === "video" && (
+                <span className="absolute bottom-1 left-1 grid size-5 place-items-center rounded-full bg-black/50 text-white">
+                  <IconPlay className="ml-px size-3" />
+                </span>
               )}
               {a.error ? (
                 <span className="absolute inset-0 grid place-items-center bg-danger/80 p-1 text-center text-[11px] font-medium leading-tight text-on-danger" title={a.error}>

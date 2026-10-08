@@ -391,6 +391,19 @@ export function Header() {
 }
 
 /** Mobile bottom navigation, 5 items (frame 05). Hidden on flows that pin their own bottom bar. */
+/** A conversation fills the screen like a messenger: no bottom tabs, and no room kept for them. */
+const isThread = (pathname: string) => /^\/messages\/.+/.test(pathname);
+
+/** The page area; on phones it keeps room at the bottom for the tab bar wherever the bar is shown. */
+export function Main({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  return (
+    <main id="main" tabIndex={-1} className={clsx(!isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
+      {children}
+    </main>
+  );
+}
+
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -400,7 +413,7 @@ export function BottomNav() {
     pathname.startsWith("/buy/") ||
     pathname.startsWith("/welcome") ||
     pathname.startsWith("/admin") ||
-    /^\/messages\/.+/.test(pathname) ||
+    isThread(pathname) ||
     /^\/item\/[^/]+$/.test(pathname) ||
     pathname.endsWith("/edit");
   if (hidden) return null;
