@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { DeliveryMethod, Prisma, RequestSource, RequestStatus } from '../generated/prisma/client.js';
 import { applyDiscount, discountFor, tiersOf } from '../listings/bundle.js';
+import { ChatService } from '../chat/chat.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { StatsService } from '../stats/stats.js';
 import { ListingsService } from '../listings/listings.service.js';
@@ -10,6 +11,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
 
 const REPLY_MS = 48 * 3600 * 1000;
+/** Ways to receive an item a buyer can choose. Pickup was folded into "in person" (older deals keep it). */
+const DELIVERY_METHODS: DeliveryMethod[] = ['IN_PERSON', 'DELIVERY'];
 const AUTO_COMPLETE_MS = 7 * 24 * 3600 * 1000;
 
 export const ACTIVE_REQUEST: RequestStatus[] = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT', 'WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED', 'DISPUTED'];
@@ -46,7 +49,23 @@ export class RequestsService {
     private readonly notifications: NotificationsService,
     private readonly recs: RecommendationsService,
     private readonly stats: StatsService,
+    private readonly chat: ChatService,
   ) {}
+
+  /**
+   * The buyer's comment opens the conversation: it is posted as their first chat message (through the same
+   * antifraud checks as any message). A failure here never fails the request itself.
+   */
+  private async postComment(requestId: string, buyerId: string, comment: string | null | undefined) {
+    const body = comment?.trim();
+    if (!body) return;
+    try {
+      const thread = await this.chat.open(buyerId, { requestId });
+      await this.chat.send(buyerId, thread.id, { body, photoIds: [], videoIds: [] });
+    } catch (e) {
+      this.logger.warn(`comment of request ${requestId} not posted to chat: ${(e as Error).message}`);
+    }
+  }
 
   // ---------- serialization ----------
 
@@ -132,7 +151,7 @@ export class RequestsService {
     if (listings.some((l) => l.saleType === 'AUCTION')) throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
     if (listings.some((l) => l.status === 'RESERVED')) throw new ConflictException({ message: 'Пока вы оформляли, вещь зарезервировали', code: 'RESERVED' });
     if (listings.some((l) => l.status !== 'PUBLISHED' || !l.price)) throw new ConflictException({ message: 'Вещь недоступна для покупки', code: 'UNAVAILABLE' });
-    const allowed = listings.reduce<DeliveryMethod[]>((acc, l) => acc.filter((m) => l.deliveryOptions.includes(m)), ['IN_PERSON', 'PICKUP', 'DELIVERY']);
+    const allowed = listings.reduce<DeliveryMethod[]>((acc, l) => acc.filter((m) => l.deliveryOptions.includes(m)), DELIVERY_METHODS);
     this.validateDelivery(input, allowed);
 
     const existing = await this.prisma.buyRequest.findFirst({
@@ -167,13 +186,15 @@ export class RequestsService {
     });
     if (input.source === 'CART') await this.prisma.cartItem.deleteMany({ where: { userId: buyerId, listingId: { in: ids } } });
     await this.linkThreads(request.id, buyerId, ids);
+    await this.postComment(request.id, buyerId, input.buyerComment);
     const title = listings.length > 1 ? `${listings[0].title} и ещё ${listings.length - 1}` : listings[0].title;
     await this.notifications.notify(sellerId, 'request_new', { requestId: request.id, title, price: request.priceTotal, buyer: request.buyer.username });
     for (const l of listings) {
       await this.recs.record(buyerId, 'request', l.id);
       this.stats.track(l.id, 'requests');
     }
-    return this.serialize(request, buyerId);
+    // Reloaded: posting the comment may have opened the conversation (threadId).
+    return input.buyerComment?.trim() ? this.get(request.id, buyerId) : this.serialize(request, buyerId);
   }
 
   /**
@@ -210,7 +231,7 @@ export class RequestsService {
   async confirmDelivery(buyerId: string, id: string, input: DeliveryInput) {
     const r0 = await this.load(id, buyerId);
     if (r0.buyerId !== buyerId) throw new ForbiddenException({ message: 'Это действие недоступно' });
-    const allowed = r0.items.reduce<DeliveryMethod[]>((acc, i) => acc.filter((m) => i.listing.deliveryOptions.includes(m)), ['IN_PERSON', 'PICKUP', 'DELIVERY']);
+    const allowed = r0.items.reduce<DeliveryMethod[]>((acc, i) => acc.filter((m) => i.listing.deliveryOptions.includes(m)), DELIVERY_METHODS);
     this.validateDelivery(input, allowed);
     const { r } = await this.transition(id, buyerId, {
       role: 'buyer',
@@ -224,6 +245,7 @@ export class RequestsService {
         expiresAt: null,
       },
     });
+    await this.postComment(id, buyerId, input.buyerComment);
     await this.notifications.notify(r.sellerId, 'request_accepted', { requestId: id, title: r.items[0]?.listing.title, buyer: r.buyer.username, confirmed: true });
     return this.get(id, buyerId);
   }
@@ -389,14 +411,15 @@ export class RequestsService {
     return { ...this.serialize(r, viewerId), events: events.map((e) => ({ status: e.status, at: e.at, reason: e.reason, byMe: e.byUserId === viewerId })) };
   }
 
-  async purchases(buyerId: string, tab: 'active' | 'completed' | 'cancelled') {
-    const statusByTab: Record<typeof tab, RequestStatus[]> = {
+  /** `all` (no filter chosen): every deal, the ones waiting for me first. */
+  async purchases(buyerId: string, tab: 'all' | 'active' | 'completed' | 'cancelled') {
+    const statusByTab: Record<Exclude<typeof tab, 'all'>, RequestStatus[]> = {
       active: ACTIVE_REQUEST,
       completed: ['COMPLETED'],
       cancelled: ['CANCELLED', 'DECLINED'],
     };
     const [rows, counts] = await Promise.all([
-      this.prisma.buyRequest.findMany({ where: { buyerId, status: { in: statusByTab[tab] } }, include: requestInclude, orderBy: { createdAt: 'desc' } }),
+      this.prisma.buyRequest.findMany({ where: { buyerId, ...(tab === 'all' ? {} : { status: { in: statusByTab[tab] } }) }, include: requestInclude, orderBy: { createdAt: 'desc' } }),
       this.prisma.buyRequest.groupBy({ by: ['status'], where: { buyerId }, _count: true }),
     ]);
     const count = (s: RequestStatus[]) => counts.filter((c) => s.includes(c.status)).reduce((n, c) => n + c._count, 0);
@@ -406,8 +429,10 @@ export class RequestsService {
     return { items, counts: { active: count(statusByTab.active), completed: count(statusByTab.completed), cancelled: count(statusByTab.cancelled) } };
   }
 
-  async sales(sellerId: string, tab: 'action' | 'deals' | 'sold') {
+  /** `all` (no filter chosen): every deal, the ones waiting for me first. */
+  async sales(sellerId: string, tab: 'all' | 'action' | 'deals' | 'sold') {
     const where: Record<typeof tab, Prisma.BuyRequestWhereInput> = {
+      all: {},
       action: { status: { in: ['PENDING_SELLER', 'WAITING_HANDOVER'] } },
       deals: { status: { in: ACTIVE_REQUEST } },
       sold: { status: 'COMPLETED' },
@@ -419,6 +444,7 @@ export class RequestsService {
       orderBy: { createdAt: tab === 'action' ? 'asc' : 'desc' },
     });
     const items = rows.map((r) => this.serialize(r, sellerId));
+    if (tab === 'all') items.sort((a, b) => Number(b.needsMyAction) - Number(a.needsMyAction));
     const soldTotal = tab === 'sold' ? items.reduce((s, i) => s + i.priceTotal, 0) : null;
     return { items, soldTotal, summary: await this.salesSummary(sellerId) };
   }

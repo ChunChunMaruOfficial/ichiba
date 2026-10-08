@@ -48,6 +48,7 @@ enum Gender {
 
 enum DeliveryMethod {
   IN_PERSON
+  /// No longer offered (folded into IN_PERSON); kept for earlier deals.
   PICKUP
   DELIVERY
 }

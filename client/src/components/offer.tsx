@@ -214,7 +214,7 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
         Цена {formatPrice(offer.amount)} согласована.{" "}
         {offer.requestId && (
           <Link href={`/deals/${offer.requestId}`} className="font-semibold underline">
-            Открыть сделку
+            Открыть переписку
           </Link>
         )}
       </div>
@@ -343,7 +343,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
         )}
         {offer.status === "ACCEPTED" && offer.requestId && (
           <Link href={`/deals/${offer.requestId}`} className="text-sm font-medium text-ink underline underline-offset-4">
-            Открыть сделку
+            Открыть переписку
           </Link>
         )}
       </div>

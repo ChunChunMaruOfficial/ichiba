@@ -156,6 +156,71 @@ export function DealBadge({ status, role }: { status: RequestStatus; role: "buye
   return <Badge tone={s.tone}>{s[role]}</Badge>;
 }
 
+/**
+ * A big choice tile in the style of the condition cards: a seal with a kanji, a title and a line of explanation;
+ * the chosen one is dyed indigo. `fixed` shows the only option there is, as a fact rather than a choice.
+ */
+export function OptionCard({
+  name,
+  checked,
+  onChange,
+  seal,
+  title,
+  hint,
+  aside,
+  disabled,
+  fixed,
+  className,
+}: {
+  name?: string;
+  checked?: boolean;
+  onChange?: () => void;
+  seal: string;
+  title: React.ReactNode;
+  hint?: React.ReactNode;
+  /** Top-right corner: a scale, a count, a note. */
+  aside?: React.ReactNode;
+  disabled?: boolean;
+  fixed?: boolean;
+  className?: string;
+}) {
+  const on = fixed || checked;
+  const body = (
+    <>
+      <span className="flex items-start justify-between gap-3">
+        <span key={on ? "on" : "off"} aria-hidden className={clsx("cond-seal", on && !fixed && "stamp")}>
+          {seal}
+        </span>
+        {aside && <span className="mt-1 text-xs opacity-75">{aside}</span>}
+      </span>
+      <span className="mt-3 block font-semibold leading-snug">{title}</span>
+      {hint && <span className="mt-0.5 block text-sm leading-snug opacity-70">{hint}</span>}
+    </>
+  );
+  if (fixed) return <div className={clsx("cond-card is-on cursor-default", className)}>{body}</div>;
+  return (
+    <label className={clsx("cond-card", on && "is-on", disabled && "cursor-not-allowed opacity-60", className)}>
+      <input type="radio" name={name} disabled={disabled} className="sr-only" checked={!!checked} onChange={onChange} />
+      {body}
+    </label>
+  );
+}
+
+/** A price on a kraft-paper hang tag, tied on with a string. */
+export function PriceTag({ label, children, className }: { label?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <span className={clsx("price-tag-wrap", className)}>
+      <svg aria-hidden viewBox="0 0 40 30" className="price-tag-string" fill="none">
+        <path d="M2 4c10 2 18 6 22 12s8 10 14 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+      <span className="price-tag">
+        {label && <span className="block text-[11px] font-medium uppercase tracking-[0.12em] opacity-75">{label}</span>}
+        <span className="tabular block text-2xl font-bold leading-tight">{children}</span>
+      </span>
+    </span>
+  );
+}
+
 export function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return <div aria-hidden className={clsx("skeleton rounded-lg", className)} style={style} />;
 }

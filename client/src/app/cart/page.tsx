@@ -8,10 +8,10 @@ import { RequireAuth } from "@/components/require-auth";
 import { useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { ManekiNeko } from "@/components/shop/maneki-neko";
-import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconX, Input, Skeleton, StatusBadge, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconX, Input, OptionCard, PriceTag, Skeleton, StatusBadge, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice, items as itemsLabel, plural } from "@/lib/labels";
-import type { CartGroup, Deal, DeliveryMethod, Me } from "@/lib/types";
+import { CONDITION_LABEL, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, items as itemsLabel, plural } from "@/lib/labels";
+import type { CartGroup, Deal, Me } from "@/lib/types";
 
 export default function CartPage() {
   return <RequireAuth reason="чтобы открыть корзину">{(me) => <Cart me={me} />}</RequireAuth>;
@@ -47,9 +47,15 @@ function Cart({ me }: { me: Me }) {
       {sent.length > 0 && (
         <div className="mt-6 rounded-2xl bg-ok-soft p-4 text-sm text-ok">
           {sent.length === 1 ? "Запрос отправлен продавцу." : `Отправлено запросов: ${sent.length}.`} Мы сообщим, когда продавец ответит.{" "}
-          <Link href="/purchases" className="font-semibold underline">
-            Мои покупки
-          </Link>
+          {sent.length === 1 ? (
+            <Link href={sent[0].threadId ? `/messages/${sent[0].threadId}` : `/deals/${sent[0].id}`} className="font-semibold underline">
+              Открыть переписку
+            </Link>
+          ) : (
+            <Link href="/purchases" className="font-semibold underline">
+              Мои покупки
+            </Link>
+          )}
         </div>
       )}
 
@@ -82,7 +88,7 @@ function Cart({ me }: { me: Me }) {
 }
 
 function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGroup; me: Me; index: number; onRemove: (id: string) => void; onSent: (d: Deal) => void }) {
-  const [method, setMethod] = useState<DeliveryMethod | null>(null);
+  const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
   const [phone, setPhone] = useState(me.phone ?? "");
   const [comment, setComment] = useState("");
@@ -90,7 +96,8 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
   const [busy, setBusy] = useState(false);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const chosen = method ?? g.deliveryOptions[0] ?? null;
+  const ways = deliveryWays(g.deliveryOptions);
+  const chosen = method ?? ways[0] ?? null;
   const available = g.items.filter((i) => i.status === "PUBLISHED");
 
   const submit = async () => {
@@ -171,13 +178,13 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
       <div className="lg:sticky lg:top-24 lg:self-start">
       {available.length === 0 ? (
         <p className="text-sm text-muted">Эти вещи сейчас недоступны для покупки.</p>
-      ) : !g.deliveryOptions.length ? (
+      ) : !ways.length ? (
         <p className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">У этих вещей нет общего способа получения — купите их по отдельности.</p>
       ) : !open ? (
         <div className="flex flex-col gap-4 rounded-3xl bg-surface p-5 shadow-[var(--shadow-paper)]">
-          <div className="flex items-baseline justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-ink-2">Итого</span>
-            <span className="tabular text-2xl font-bold">{formatPrice(g.total)}</span>
+            <PriceTag>{formatPrice(g.total)}</PriceTag>
           </div>
           <Button size="lg" block onClick={() => setOpen(true)}>
             Запросить покупку · {itemsLabel(available.length)}
@@ -193,14 +200,16 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
         >
           <fieldset>
             <legend className="mb-2 font-medium">Способ получения</legend>
-            <div className="flex flex-wrap gap-2">
-              {g.deliveryOptions.map((d) => (
-                <label key={d} className={clsx("flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2.5 text-sm", chosen === d ? "border-ink" : "border-line")}>
-                  <input type="radio" name={`delivery-${g.seller.id}`} className="accent-[var(--accent)]" checked={chosen === d} onChange={() => setMethod(d)} />
-                  {DELIVERY_LABEL[d]}
-                </label>
-              ))}
-            </div>
+            {ways.length === 1 ? (
+              // One way only: a fact, not a choice.
+              <OptionCard fixed seal={DELIVERY_WAY[ways[0]].seal} title={DELIVERY_WAY[ways[0]].only} hint={DELIVERY_WAY[ways[0]].hint} />
+            ) : (
+              <div role="radiogroup" aria-label="Способ получения" className="grid grid-cols-2 gap-2">
+                {ways.map((d) => (
+                  <OptionCard key={d} name={`delivery-${g.seller.id}`} checked={chosen === d} onChange={() => setMethod(d)} seal={DELIVERY_WAY[d].seal} title={DELIVERY_WAY[d].title} hint={d === "IN_PERSON" ? "Обсудите в чате" : "Оплачивается отдельно"} />
+                ))}
+              </div>
+            )}
           </fieldset>
           {chosen === "DELIVERY" && (
             <Field label="Город и адрес доставки" htmlFor={`point-${g.seller.id}`} required error={fields.deliveryPoint}>
@@ -210,7 +219,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
           <Field label="Телефон для связи" htmlFor={`phone-${g.seller.id}`} hint="Покажем продавцу только после подтверждения">
             <Input id={`phone-${g.seller.id}`} name="phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
-          <Field label="Комментарий продавцу" htmlFor={`comment-${g.seller.id}`} hint={`${comment.length}/300`}>
+          <Field label="Комментарий продавцу" htmlFor={`comment-${g.seller.id}`} hint={`Придёт продавцу первым сообщением в чате · ${comment.length}/300`}>
             <Textarea id={`comment-${g.seller.id}`} maxLength={300} value={comment} onChange={(e) => setComment(e.target.value)} className="min-h-20" />
           </Field>
           {g.discountPercent > 0 && (
@@ -219,9 +228,12 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
               <span className="tabular">−{formatPrice(g.discount)}</span>
             </div>
           )}
-          <div className="flex items-baseline justify-between">
-            <span className="text-ink-2">К оплате при получении</span>
-            <span className="tabular text-xl font-semibold">{formatPrice(g.total)}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-ink-2">
+              К оплате
+              <span className="block text-sm text-muted">при получении</span>
+            </span>
+            <PriceTag>{formatPrice(g.total)}</PriceTag>
           </div>
           {error && (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">

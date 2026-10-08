@@ -127,7 +127,7 @@ const SELLERS = [
 ];
 
 const BUYERS = ['buyer', 'nastya', 'igor', 'sveta'];
-const DELIVERY_SETS: DeliveryMethod[][] = [['IN_PERSON'], ['IN_PERSON', 'DELIVERY'], ['IN_PERSON', 'PICKUP', 'DELIVERY'], ['DELIVERY'], ['IN_PERSON', 'PICKUP']];
+const DELIVERY_SETS: DeliveryMethod[][] = [['IN_PERSON'], ['IN_PERSON', 'DELIVERY'], ['IN_PERSON', 'DELIVERY'], ['DELIVERY'], ['IN_PERSON']];
 const SCENES: Scene[] = ['bed', 'bed', 'floor', 'wall', 'wall', 'blanket', 'studio'];
 const DEFECTS = ['Небольшая затяжка на рукаве', 'Потёртости на манжетах', 'Катышки на боках', 'Маленькое пятнышко внизу, почти незаметно', 'Заломы на носке', 'Потёртости на подошве', 'Не хватает одной пуговицы'];
 const CONDITION_TEXT: Record<Condition, string> = {

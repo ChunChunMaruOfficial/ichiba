@@ -239,7 +239,7 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
         </div>
       ) : isOwner && a.requestId ? (
         <ButtonLink href={`/deals/${a.requestId}`} variant="secondary">
-          Открыть сделку с победителем
+          Открыть переписку с победителем
         </ButtonLink>
       ) : (
         <p className="text-sm text-muted">{a.boughtOut ? "Вещь выкупили по цене «Купить сейчас»." : "Аукцион завершён — вещь ушла победителю."}</p>

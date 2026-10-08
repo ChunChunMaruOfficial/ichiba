@@ -13,6 +13,19 @@ export const DELIVERY_LABEL: Record<DeliveryMethod, string> = {
   DELIVERY: "Доставка",
 };
 
+/** A way to receive an item a buyer can choose (pickup was folded into a personal handover). */
+export type DeliveryWay = Exclude<DeliveryMethod, "PICKUP">;
+
+/** Delivery choice tiles: seal, title, explanation, and the wording when it is the only way. */
+export const DELIVERY_WAY: Record<DeliveryWay, { seal: string; title: string; hint: string; only: string }> = {
+  IN_PERSON: { seal: "手", title: "Передача лично", hint: "Место и время обсудите в чате после ответа продавца", only: "Продавец передаёт вещи только лично" },
+  DELIVERY: { seal: "送", title: "Доставка", hint: "Продавец отправит сам и пришлёт трек-номер. Доставка оплачивается отдельно", only: "Продавец только отправляет доставкой" },
+};
+
+/** Ways the buyer can choose, in-person first; an old listing's "Самовывоз" counts as a personal handover. */
+export const deliveryWays = (options: DeliveryMethod[]): DeliveryWay[] =>
+  (["IN_PERSON", "DELIVERY"] as const).filter((w) => options.includes(w) || (w === "IN_PERSON" && options.includes("PICKUP")));
+
 /** Item status badge (frame 05). PUBLISHED has no badge. */
 export const LISTING_BADGE: Partial<Record<ListingStatus, { label: string; tone: "warn" | "dark" | "muted" | "danger" | "outline" }>> = {
   RESERVED: { label: "Зарезервировано", tone: "warn" },
@@ -22,16 +35,16 @@ export const LISTING_BADGE: Partial<Record<ListingStatus, { label: string; tone:
   DRAFT: { label: "Черновик", tone: "outline" },
 };
 
-/** Deal status as each side sees it (frame 13 status table). */
+/** Deal status as each side sees it (frame 13 status table): what is happening, in plain words. */
 export const DEAL_STATUS: Record<RequestStatus, { buyer: string; seller: string; tone: "muted" | "ok" | "danger" | "warn" | "dark" }> = {
   CREATED: { buyer: "Создан", seller: "Создан", tone: "muted" },
-  PENDING_SELLER: { buyer: "Ожидает подтверждения", seller: "Новый запрос", tone: "warn" },
-  ACCEPTED: { buyer: "Продавец подтвердил", seller: "Вы приняли запрос", tone: "ok" },
-  DECLINED: { buyer: "Продавец отклонил", seller: "Отклонён", tone: "danger" },
-  COUNTER_OFFERED: { buyer: "Встречная цена", seller: "Ждём покупателя", tone: "warn" },
-  WAITING_PAYMENT: { buyer: "Ожидает оплаты", seller: "Ждём оплату", tone: "warn" },
-  WAITING_HANDOVER: { buyer: "Ожидает передачи", seller: "Договоритесь о передаче", tone: "warn" },
-  HANDED_OVER: { buyer: "Передано продавцом", seller: "Передано", tone: "ok" },
+  PENDING_SELLER: { buyer: "Ожидает ответа", seller: "Ждёт вашего ответа", tone: "warn" },
+  ACCEPTED: { buyer: "Продавец согласен", seller: "Вы согласились", tone: "ok" },
+  DECLINED: { buyer: "Продавец отказал", seller: "Вы отказали", tone: "danger" },
+  COUNTER_OFFERED: { buyer: "Встречная цена", seller: "Ожидает ответа покупателя", tone: "warn" },
+  WAITING_PAYMENT: { buyer: "Ожидает оплаты", seller: "Ожидает оплаты", tone: "warn" },
+  WAITING_HANDOVER: { buyer: "Ожидает передачи", seller: "Передайте вещь", tone: "warn" },
+  HANDED_OVER: { buyer: "Продавец передал", seller: "Вы передали", tone: "ok" },
   IN_TRANSIT: { buyer: "В пути", seller: "Отправлено", tone: "ok" },
   RECEIVED: { buyer: "Получено", seller: "Покупатель получил", tone: "ok" },
   COMPLETED: { buyer: "Сделка завершена", seller: "Продано", tone: "dark" },

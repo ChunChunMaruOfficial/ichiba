@@ -273,13 +273,13 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             Ваш запрос <DealBadge status={l.myRequest.status} role="buyer" />
           </span>
           <Link href={`/deals/${l.myRequest.id}`} className="font-semibold text-accent hover:underline">
-            Открыть сделку
+            Открыть переписку
           </Link>
         </div>
       )}
       {l.myRequest?.status === "COMPLETED" && (
         <Link href={`/deals/${l.myRequest.id}`} className="rounded-xl bg-accent-soft px-4 py-3 text-sm font-medium text-accent">
-          Вы купили эту вещь · Открыть сделку
+          Вы купили эту вещь · Открыть переписку
         </Link>
       )}
       {showAuction && auction && <AuctionPanel auction={auction} listingId={l.id} title={l.title} isOwner={false} onChange={setAuction} />}

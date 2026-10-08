@@ -128,8 +128,8 @@ export function dealEmail(type: string, p: Payload, unsubscribeUrl: string): Ret
       return render({ ...base, subject: `Новый запрос на покупку: ${title}`, preheader: `@${p.buyer} хочет купить «${title}»`, title: 'Новый запрос на покупку', lines: [`@${p.buyer} хочет купить «${title}»${p.price ? ` за ${price(p.price)}` : ''}.`, 'Ответьте в течение 48 часов — иначе запрос отменится автоматически.'], cta: { label: 'Ответить на запрос', url: deal } });
     case 'request_accepted':
       return p.confirmed
-        ? render({ ...base, subject: `Покупатель выбрал способ получения: ${title}`, preheader: `@${p.buyer} подтвердил сделку`, title: 'Сделка подтверждена', lines: [`@${p.buyer} выбрал способ получения для «${title}». Контакты открыты — договоритесь о передаче.`], cta: { label: 'Открыть сделку', url: deal } })
-        : render({ ...base, subject: `Продавец подтвердил: ${title}`, preheader: `@${p.seller} готов продать «${title}»`, title: 'Продавец подтвердил покупку', lines: [`@${p.seller} подтвердил запрос на «${title}». Вещь зарезервирована за вами.`, 'Контакты продавца уже открыты в сделке — договоритесь о передаче.'], cta: { label: 'Открыть сделку', url: deal } });
+        ? render({ ...base, subject: `Покупатель выбрал способ получения: ${title}`, preheader: `@${p.buyer} подтвердил сделку`, title: 'Сделка подтверждена', lines: [`@${p.buyer} выбрал способ получения для «${title}». Контакты открыты — договоритесь о передаче.`], cta: { label: 'Открыть переписку', url: deal } })
+        : render({ ...base, subject: `Продавец подтвердил: ${title}`, preheader: `@${p.seller} готов продать «${title}»`, title: 'Продавец подтвердил покупку', lines: [`@${p.seller} подтвердил запрос на «${title}». Вещь зарезервирована за вами.`, 'Контакты продавца уже открыты — договоритесь о передаче в переписке.'], cta: { label: 'Открыть переписку', url: deal } });
     case 'request_declined':
       return render({ ...base, subject: `Запрос отклонён: ${title}`, preheader: 'Продавец не может продать вещь', title: 'Продавец отклонил запрос', lines: [`К сожалению, продавец не может продать «${title}».`, ...(p.reason ? [`Причина: ${p.reason}`] : []), 'Посмотрите похожие вещи — их часто выставляют снова.'], cta: { label: 'Смотреть похожие', url: item } });
     case 'request_cancelled':
@@ -139,9 +139,9 @@ export function dealEmail(type: string, p: Payload, unsubscribeUrl: string): Ret
     case 'deal_handed_over':
       return render({ ...base, subject: `Вещь передана: ${title}`, preheader: 'Подтвердите получение', title: 'Продавец отметил передачу', lines: [`Продавец отметил, что передал «${title}».`, 'Когда вещь у вас — нажмите «Я получил вещь». Если ничего не сделать, сделка завершится сама через 7 дней.'], cta: { label: 'Подтвердить получение', url: deal } });
     case 'deal_in_transit':
-      return render({ ...base, subject: `Вещь отправлена: ${title}`, preheader: p.trackingNumber ? `Трек-номер ${p.trackingNumber}` : 'Посылка в пути', title: 'Посылка в пути', lines: [`Продавец отправил «${title}».`, ...(p.trackingNumber ? [`Трек-номер: ${p.trackingNumber}`] : []), 'Когда получите — подтвердите получение в сделке.'], cta: { label: 'Открыть сделку', url: deal } });
+      return render({ ...base, subject: `Вещь отправлена: ${title}`, preheader: p.trackingNumber ? `Трек-номер ${p.trackingNumber}` : 'Посылка в пути', title: 'Посылка в пути', lines: [`Продавец отправил «${title}».`, ...(p.trackingNumber ? [`Трек-номер: ${p.trackingNumber}`] : []), 'Когда получите — подтвердите получение в переписке с продавцом.'], cta: { label: 'Открыть переписку', url: deal } });
     case 'deal_completed':
-      return render({ ...base, subject: `Сделка завершена: ${title}`, preheader: 'Покупатель подтвердил получение', title: 'Сделка завершена', lines: [`Покупатель получил «${title}». Спасибо, что продаёте на ichiba!`], cta: { label: 'Открыть сделку', url: deal } });
+      return render({ ...base, subject: `Сделка завершена: ${title}`, preheader: 'Покупатель подтвердил получение', title: 'Сделка завершена', lines: [`Покупатель получил «${title}». Спасибо, что продаёте на ichiba!`], cta: { label: 'Открыть переписку', url: deal } });
     case 'offer_accepted':
       return render({ ...base, subject: `Цена согласована: ${title}`, preheader: `${price(p.amount)} — предложение принято`, title: 'Предложение принято', lines: [`Цена ${price(p.amount)} за «${title}» согласована, вещь зарезервирована.`, 'Выберите способ получения в течение 48 часов.'], cta: { label: 'Выбрать способ получения', url: pick(deal) } });
     case 'auction_won':
@@ -149,7 +149,7 @@ export function dealEmail(type: string, p: Payload, unsubscribeUrl: string): Ret
     case 'auction_runner_up':
       return render({ ...base, subject: `Вещь досталась вам: ${title}`, preheader: 'Победитель не выкупил вещь', title: 'Вещь предлагают вам', lines: [`Победитель аукциона не выкупил «${title}». Вещь ваша по вашей ставке ${price(p.amount)}.`, 'Выберите способ получения в течение 48 часов.'], cta: { label: 'Выбрать способ получения', url: pick(deal) } });
     case 'auction_sold':
-      return render({ ...base, subject: `Аукцион завершён: ${title}`, preheader: `Продано за ${price(p.amount)}`, title: 'Аукцион завершён', lines: [`«${title}» продано за ${price(p.amount)}${p.runnerUp ? ' участнику со вторым местом' : ''}. Ждём, когда покупатель выберет способ получения.`], cta: { label: 'Открыть сделку', url: deal } });
+      return render({ ...base, subject: `Аукцион завершён: ${title}`, preheader: `Продано за ${price(p.amount)}`, title: 'Аукцион завершён', lines: [`«${title}» продано за ${price(p.amount)}${p.runnerUp ? ' участнику со вторым местом' : ''}. Ждём, когда покупатель выберет способ получения.`], cta: { label: 'Открыть переписку', url: deal } });
     default:
       return null;
   }

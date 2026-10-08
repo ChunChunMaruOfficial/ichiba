@@ -1,22 +1,15 @@
 "use client";
 
-import clsx from "clsx";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import useSWR from "swr";
 import { RequireAuth } from "@/components/require-auth";
 import { Furoshiki } from "@/components/shop/furoshiki";
-import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconChevronLeft, Input, Skeleton, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconChevronLeft, Input, OptionCard, PriceTag, Skeleton, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice } from "@/lib/labels";
-import type { Deal, DeliveryMethod, ListingDetail, ListingResponse, Me } from "@/lib/types";
-
-const DELIVERY_HINT: Record<DeliveryMethod, string> = {
-  IN_PERSON: "Договоритесь о месте и времени после подтверждения",
-  PICKUP: "Адрес продавца покажем после подтверждения",
-  DELIVERY: "Продавец отправит сам и пришлёт трек-номер. Доставка оплачивается отдельно",
-};
+import { CONDITION_LABEL, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice } from "@/lib/labels";
+import type { Deal, ListingDetail, ListingResponse, Me } from "@/lib/types";
 
 export default function BuyPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +30,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
   // After an accepted offer the deal already exists (ACCEPTED): the buyer only picks delivery (frame 13).
   const requestId = useSearchParams().get("request");
   const { data: agreed } = useSWR<Deal>(requestId ? `/requests/${requestId}` : null);
-  const [method, setMethod] = useState<DeliveryMethod | null>(null);
+  const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
   const [phone, setPhone] = useState(me.phone ?? "");
   const [comment, setComment] = useState("");
@@ -59,7 +52,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
   if (agreed && !confirming) {
     return (
       <EmptyState title="Способ получения уже выбран">
-        <ButtonLink href={`/deals/${agreed.id}`}>Открыть сделку</ButtonLink>
+        <ButtonLink href={`/deals/${agreed.id}`}>Открыть переписку</ButtonLink>
       </EmptyState>
     );
   }
@@ -71,7 +64,8 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
     );
   }
   const l: ListingDetail = data;
-  const chosen = method ?? l.deliveryOptions[0] ?? null;
+  const ways = deliveryWays(l.deliveryOptions);
+  const chosen = method ?? ways[0] ?? null;
   const cover = l.photos[0];
 
   if (sent) {
@@ -87,12 +81,15 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
         </div>
         <h1 className="rise mt-10 text-2xl font-bold">Запрос отправлен продавцу</h1>
         <Badge tone="warn" className="mt-3">
-          Ожидает подтверждения
+          Ожидает ответа
         </Badge>
-        <p className="mt-4 text-ink-2">Мы сообщим, когда @{l.seller.username} ответит. Продавец отвечает в течение 48 часов.</p>
+        <p className="mt-4 text-ink-2">
+          Мы сообщим, когда @{l.seller.username} ответит. Продавец отвечает в течение 48 часов
+          {sent.buyerComment ? " — ваш комментарий уже в переписке." : "."}
+        </p>
         <div className="mt-8 flex w-full flex-col gap-3">
-          <ButtonLink href={`/deals/${sent.id}`} size="lg" block>
-            Открыть сделку
+          <ButtonLink href={sent.threadId ? `/messages/${sent.threadId}` : `/deals/${sent.id}`} size="lg" block>
+            Открыть переписку
           </ButtonLink>
           <ButtonLink href="/" variant="secondary" block>
             Продолжить смотреть
@@ -111,7 +108,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
       const body = { deliveryMethod: chosen, deliveryPoint: chosen === "DELIVERY" ? point : null, contactPhone: phone || null, buyerComment: comment || null };
       if (confirming) {
         const deal = await api<Deal>(`/requests/${agreed.id}/confirm-delivery`, { body });
-        router.push(`/deals/${deal.id}`);
+        router.push(deal.threadId ? `/messages/${deal.threadId}` : `/deals/${deal.id}`);
         return;
       }
       const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...body } });
@@ -155,20 +152,18 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
           <div className="rise flex flex-col gap-8">
             <fieldset>
               <legend className="mb-3 text-lg font-semibold">Способ получения</legend>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {l.deliveryOptions.map((d) => (
-                  <label key={d} className={clsx("flex cursor-pointer gap-3 rounded-2xl border bg-surface p-4 transition-[border-color,transform] duration-200 hover:-translate-y-0.5", chosen === d ? "border-indigo shadow-[inset_0_0_0_1px_var(--indigo)]" : "border-line")}>
-                    <input type="radio" name="delivery" className="mt-1 accent-[var(--indigo)]" checked={chosen === d} onChange={() => setMethod(d)} />
-                    <span>
-                      <span className="font-medium">
-                        {DELIVERY_LABEL[d]}
-                        {d !== "DELIVERY" && l.city && <span className="font-normal text-ink-2"> · {l.city}</span>}
-                      </span>
-                      <span className="mt-0.5 block text-sm text-muted">{DELIVERY_HINT[d]}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
+              {ways.length === 1 ? (
+                // One way only: shown as a fact, not a choice.
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <OptionCard fixed seal={DELIVERY_WAY[ways[0]].seal} title={DELIVERY_WAY[ways[0]].only} hint={DELIVERY_WAY[ways[0]].hint} aside={ways[0] === "IN_PERSON" ? l.city : null} />
+                </div>
+              ) : (
+                <div role="radiogroup" aria-label="Способ получения" className="grid gap-2 sm:grid-cols-2">
+                  {ways.map((d) => (
+                    <OptionCard key={d} name="delivery" checked={chosen === d} onChange={() => setMethod(d)} seal={DELIVERY_WAY[d].seal} title={DELIVERY_WAY[d].title} hint={DELIVERY_WAY[d].hint} aside={d === "IN_PERSON" ? l.city : null} />
+                  ))}
+                </div>
+              )}
               {chosen === "DELIVERY" && (
                 <div className="rise mt-4">
                   <Field label="Город и адрес доставки" htmlFor="point" required error={fields.deliveryPoint}>
@@ -182,7 +177,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
               <Field label="Телефон для связи" htmlFor="phone" hint="Покажем продавцу только после подтверждения">
                 <Input id="phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+375 29 …" />
               </Field>
-              <Field label="Комментарий продавцу" htmlFor="comment" error={fields.buyerComment} hint={`${comment.length}/300`}>
+              <Field label="Комментарий продавцу" htmlFor="comment" error={fields.buyerComment} hint={`Придёт продавцу первым сообщением в чате · ${comment.length}/300`}>
                 <Textarea id="comment" maxLength={300} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Могу забрать сегодня после 18:00" className="min-h-11" />
               </Field>
             </div>
@@ -203,9 +198,12 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
           </Link>
           {!reserved && (
             <div className="flex flex-col gap-4 rounded-[28px] bg-surface p-5 shadow-[var(--shadow-paper)]">
-              <div className="flex items-baseline justify-between">
-                <span className="text-ink-2">К оплате при получении</span>
-                <span className="tabular text-2xl font-bold">{formatPrice(price)}</span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-ink-2">
+                  К оплате
+                  <span className="block text-sm text-muted">при получении</span>
+                </span>
+                <PriceTag>{formatPrice(price)}</PriceTag>
               </div>
               {confirming && price !== l.price && (
                 <p className="-mt-2 text-right text-sm">
@@ -217,7 +215,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
                   {error.message}
                   {error.requestId && (
                     <Link href={`/deals/${error.requestId}`} className="ml-2 font-semibold underline">
-                      Открыть сделку
+                      Открыть переписку
                     </Link>
                   )}
                 </div>

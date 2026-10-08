@@ -6,7 +6,7 @@ import { ZodPipe } from '../common/zod.js';
 import { RequestsService } from './requests.service.js';
 
 const DeliveryDto = z.object({
-  deliveryMethod: z.enum(['IN_PERSON', 'PICKUP', 'DELIVERY']),
+  deliveryMethod: z.enum(['IN_PERSON', 'DELIVERY']),
   deliveryPoint: z.string().max(200).nullish(),
   contactPhone: z.string().max(30).nullish(),
   buyerComment: z.string().max(300, 'До 300 символов').nullish(),
@@ -86,12 +86,12 @@ export class RequestsController {
   }
 
   @Get('purchases')
-  purchases(@CurrentUser() user: AuthUser, @Query('tab') tab: 'active' | 'completed' | 'cancelled' = 'active') {
-    return this.requests.purchases(user.id, ['active', 'completed', 'cancelled'].includes(tab) ? tab : 'active');
+  purchases(@CurrentUser() user: AuthUser, @Query('tab') tab: 'all' | 'active' | 'completed' | 'cancelled' = 'all') {
+    return this.requests.purchases(user.id, ['active', 'completed', 'cancelled'].includes(tab) ? tab : 'all');
   }
 
   @Get('sales')
-  sales(@CurrentUser() user: AuthUser, @Query('tab') tab: 'action' | 'deals' | 'sold' = 'action') {
-    return this.requests.sales(user.id, ['action', 'deals', 'sold'].includes(tab) ? tab : 'action');
+  sales(@CurrentUser() user: AuthUser, @Query('tab') tab: 'all' | 'action' | 'deals' | 'sold' = 'all') {
+    return this.requests.sales(user.id, ['action', 'deals', 'sold'].includes(tab) ? tab : 'all');
   }
 }

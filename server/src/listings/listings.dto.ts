@@ -30,7 +30,7 @@ export const ListingInput = z.object({
     .nullish(),
   description: z.string().trim().max(2000, 'До 2000 символов').nullish(),
   city: z.enum(CITIES as [string, ...string[]]).nullish(),
-  deliveryOptions: z.array(z.enum(['IN_PERSON', 'PICKUP', 'DELIVERY'])).optional(),
+  deliveryOptions: z.array(z.enum(['IN_PERSON', 'DELIVERY'])).optional(),
   acceptsOffers: z.boolean().optional(),
   saleType: z.enum(['FIXED', 'AUCTION']).optional(),
   auctionStep: z.number().int().min(1).max(10_000).nullish(),

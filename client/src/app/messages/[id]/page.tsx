@@ -11,6 +11,7 @@ import { MediaViewer } from "@/components/chat/media-viewer";
 import { type MenuAction, type MenuAnchor, MessageMenu } from "@/components/chat/message-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { PinnedBar } from "@/components/chat/pinned-bar";
+import { DealPanel } from "@/components/deal-panel";
 import { RequireAuth } from "@/components/require-auth";
 import { ThreadList } from "@/components/thread-list";
 import {
@@ -28,10 +29,10 @@ import {
   useSession,
 } from "@/components/session";
 import { useToast } from "@/components/toast";
-import { Button, DealBadge, EmptyState, ErrorState, IconChevronLeft, IconX, Modal, Spinner } from "@/components/ui";
+import { Button, EmptyState, ErrorState, IconChevronLeft, IconX, Modal, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice } from "@/lib/labels";
-import type { ChatLocation, ChatMedia, ChatMessage, ChatPin, ChatQuote, ChatReaction, ThreadSummary } from "@/lib/types";
+import type { ChatLocation, ChatMedia, ChatMessage, ChatPin, ChatQuote, ChatReaction, Deal, ThreadSummary } from "@/lib/types";
 
 type ThreadData = { thread: ThreadSummary; messages: ChatMessage[]; hasMore: boolean; pins?: ChatPin[] };
 
@@ -129,6 +130,9 @@ function Thread({ id }: { id: string }) {
   const attachments = useAttachments(useCallback((msg: string) => toast(msg, { tone: "error" }), [toast]));
 
   const thread = data?.thread;
+  // The deal tied to this conversation: its status, next step and buttons live in a panel under the header.
+  // Deal changes arrive as notifications, which revalidate every /requests key (session.tsx).
+  const deal = useSWR<Deal>(thread?.request ? `/requests/${thread.request.id}` : null);
   const counterpart = thread?.counterpart.username ?? "";
   const pins = useMemo(() => data?.pins ?? [], [data?.pins]);
   const pinned = useMemo(() => new Set(pins.map((p) => p.messageId)), [pins]);
@@ -673,19 +677,23 @@ function Thread({ id }: { id: string }) {
                 )}
               </p>
             </div>
-            {t.request ? (
-              <Link href={`/deals/${t.request.id}`} className="shrink-0">
-                <DealBadge status={t.request.status} role={t.role} />
+            {/* No live deal: the buyer can start one from here. */}
+            {t.role === "buyer" && t.listing.status === "PUBLISHED" && (!t.request || ["DECLINED", "CANCELLED"].includes(deal.data?.status ?? t.request.status)) && (
+              <Link href={`/buy/${t.listing.id}`} className="shrink-0 btn-wa btn-wa-ink rounded-lg px-3 py-1.5 text-sm font-semibold">
+                Купить
               </Link>
-            ) : (
-              t.role === "buyer" &&
-              t.listing.status === "PUBLISHED" && (
-                <Link href={`/buy/${t.listing.id}`} className="shrink-0 btn-wa btn-wa-ink rounded-lg px-3 py-1.5 text-sm font-semibold">
-                  Купить
-                </Link>
-              )
             )}
           </div>
+        )}
+
+        {deal.data && !selected && (
+          <DealPanel
+            deal={deal.data}
+            onChange={(d) => {
+              void deal.mutate(d, { revalidate: true });
+              void mutate();
+            }}
+          />
         )}
 
         <PinnedBar pins={pins} onJump={(mid) => void jumpTo(mid)} onUnpin={(p) => void unpin(p.messageId)} />

@@ -6,7 +6,7 @@ import { StatsService } from '../stats/stats.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
 
-const DELIVERY_ORDER = ['IN_PERSON', 'PICKUP', 'DELIVERY'] as const;
+const DELIVERY_ORDER = ['IN_PERSON', 'DELIVERY'] as const;
 
 /**
  * Cart groups items by seller: one buy request per seller (frame 12). No quantities or coupons —

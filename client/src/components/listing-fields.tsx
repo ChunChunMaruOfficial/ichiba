@@ -8,7 +8,7 @@ import type { Meta, SizeSystem } from "@/lib/types";
 import { BrandPicker } from "./brand-picker";
 import { MeasureFields, measureKind } from "./measure-guide";
 import { Nefuda } from "./shop/nefuda";
-import { Button, Chip, Field, IconSparkle, Input, inputClass, Textarea } from "./ui";
+import { Button, Chip, Field, IconSparkle, Input, inputClass, OptionCard, Textarea } from "./ui";
 
 /** Condition as the rank stamp of a Japanese second-hand shop: 新 new, 美 as new, 良 good, 並 ordinary wear. */
 const CONDITION_GRADE = { NEW_WITH_TAGS: "新", LIKE_NEW: "美", GOOD: "良", VISIBLE_WEAR: "並" } as const;
@@ -145,28 +145,26 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
 
       <Field label="Состояние" required error={errors.condition} hint={lockedHint(locked)}>
         <div role="radiogroup" aria-label="Состояние" className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-          {meta.conditions.map((c, i) => {
-            const on = values.condition === c.value;
-            const grade = CONDITION_GRADE[c.value as keyof typeof CONDITION_GRADE];
-            return (
-              <label key={c.value} className={clsx("cond-card", on && "is-on", locked && "cursor-not-allowed opacity-60")}>
-                <input type="radio" name="condition" disabled={locked} className="sr-only" checked={on} onChange={() => set({ condition: c.value })} />
-                <span className="flex items-start justify-between gap-3">
-                  <span key={on ? "on" : "off"} aria-hidden className={clsx("cond-seal", on && "stamp")}>
-                    {grade ?? "品"}
-                  </span>
-                  {/* wear scale: how much of the life is used, new → worn */}
-                  <span aria-hidden className="mt-1 flex gap-1">
-                    {[0, 1, 2, 3].map((d) => (
-                      <span key={d} className={clsx("h-1.5 w-3 rounded-full", d <= i ? "bg-current opacity-70" : "bg-current opacity-15")} />
-                    ))}
-                  </span>
+          {meta.conditions.map((c, i) => (
+            <OptionCard
+              key={c.value}
+              name="condition"
+              checked={values.condition === c.value}
+              onChange={() => set({ condition: c.value })}
+              disabled={locked}
+              seal={CONDITION_GRADE[c.value as keyof typeof CONDITION_GRADE] ?? "品"}
+              title={c.label}
+              hint={c.hint}
+              // wear scale: how much of the life is used, new → worn
+              aside={
+                <span aria-hidden className="flex gap-1">
+                  {[0, 1, 2, 3].map((d) => (
+                    <span key={d} className={clsx("h-1.5 w-3 rounded-full", d <= i ? "bg-current opacity-70" : "bg-current opacity-15")} />
+                  ))}
                 </span>
-                <span className="mt-3 block font-semibold leading-snug">{c.label}</span>
-                <span className="mt-0.5 block text-sm leading-snug opacity-70">{c.hint}</span>
-              </label>
-            );
-          })}
+              }
+            />
+          ))}
         </div>
       </Field>
 
@@ -319,7 +317,6 @@ export function HandoverFields({ values, set, errors, meta }: FieldsProps) {
           {(
             [
               ["IN_PERSON", "Передача лично"],
-              ["PICKUP", "Самовывоз"],
               ["DELIVERY", "Доставка"],
             ] as const
           ).map(([v, label]) => (
@@ -391,23 +388,17 @@ export function PriceFields({
           )}
         </div>
 
-        <fieldset disabled={auctionLocked} className="flex flex-col gap-2">
+        <fieldset disabled={auctionLocked} className="grid grid-cols-2 gap-2">
           <legend className="sr-only">Как продаём?</legend>
           {(
             [
-              ["FIXED", "Фиксированная цена", "«Купить» или предложение цены"],
-              ["AUCTION", "Аукцион", "Ставки, вещь уйдёт тому, кто больше"],
+              ["FIXED", "定", "Фиксированная цена", "«Купить» или предложение цены"],
+              ["AUCTION", "競", "Аукцион", "Ставки, вещь уйдёт тому, кто больше"],
             ] as const
-          ).map(([v, label, hint]) => (
-            <label key={v} className={clsx("flex cursor-pointer gap-3 rounded-xl border bg-surface p-4 transition-[border-color,transform] duration-200 hover:-translate-y-0.5", values.saleType === v ? "border-indigo shadow-[inset_0_0_0_1px_var(--indigo)]" : "border-line", auctionLocked && "cursor-not-allowed opacity-60")}>
-              <input type="radio" name="saleType" className="mt-1 accent-[var(--indigo)]" checked={values.saleType === v} onChange={() => set({ saleType: v })} />
-              <span>
-                <span className="block font-medium">{label}</span>
-                <span className="text-sm text-muted">{hint}</span>
-              </span>
-            </label>
+          ).map(([v, seal, label, hint]) => (
+            <OptionCard key={v} name="saleType" checked={values.saleType === v} onChange={() => set({ saleType: v })} disabled={auctionLocked} seal={seal} title={label} hint={hint} />
           ))}
-          {auctionLocked && <p className="mt-1 text-sm text-muted">Идёт аукцион — условия торгов менять нельзя.</p>}
+          {auctionLocked && <p className="col-span-2 mt-1 text-sm text-muted">Идёт аукцион — условия торгов менять нельзя.</p>}
         </fieldset>
       </div>
 

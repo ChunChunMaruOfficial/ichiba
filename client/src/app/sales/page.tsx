@@ -43,9 +43,11 @@ export default function SalesPage() {
 function Sales() {
   const router = useRouter();
   const params = useSearchParams();
-  const tab = (TABS.find(([k]) => k === params.get("tab"))?.[0] ?? "action") as Tab;
-  const setTab = (t: Tab) => router.replace(t === "action" ? "?" : `?tab=${t}`, { scroll: false });
-  const { data, error, mutate } = useSWR<SalesData>(`/sales?tab=${tab}`);
+  // Chips are filters: none on at first (every deal), a second tap on the same chip shows everything again.
+  const tab = (TABS.find(([k]) => k === params.get("tab"))?.[0] ?? null) as Tab | null;
+  const toggle = (t: Tab) => router.replace(tab === t ? "?" : `?tab=${t}`, { scroll: false });
+  const setTab = (t: Tab) => router.replace(`?tab=${t}`, { scroll: false });
+  const { data, error, mutate } = useSWR<SalesData>(`/sales?tab=${tab ?? "all"}`);
   const offers = useSWR<{ items: Offer[] }>(tab === "action" ? "/offers?role=seller&turn=mine" : "/offers?role=seller");
   const s = data?.summary;
   return (
@@ -74,9 +76,9 @@ function Sales() {
         </div>
       )}
 
-      <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="tablist">
+      <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="group" aria-label="Показать только">
         {TABS.map(([key, label]) => (
-          <Chip key={key} role="tab" aria-selected={tab === key} active={tab === key} onClick={() => setTab(key)}>
+          <Chip key={key} active={tab === key} onClick={() => toggle(key)}>
             {label}
           </Chip>
         ))}

@@ -1,44 +1,37 @@
 "use client";
 
-import Link from "next/link";
+import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { DELIVERY_LABEL, formatPrice, hoursLeft, timeAgo } from "@/lib/labels";
+import { DELIVERY_LABEL, formatPrice, timeAgo } from "@/lib/labels";
 import type { Deal } from "@/lib/types";
 import { useSession } from "./session";
 import { useToast } from "./toast";
-import { Button, ButtonLink, DealBadge, Field, IconMessage, Input, Modal } from "./ui";
+import { Button, ButtonLink, DealBadge, Field, Input, Modal } from "./ui";
 
 const DECLINE_REASONS = ["Уже продано", "Передумал продавать", "Не подходит способ получения", "Другое"];
 
-/** Every deal action for the current role and status (frames 13–14). Calls `onChange` with the updated deal. */
-/** Opens (or creates) the chat tied to this deal. */
-function ChatButton({ requestId, size = "md", label = "Написать" }: { requestId: string; size?: "sm" | "md"; label?: string }) {
+/** The conversation is where a deal lives: opens (or creates) the chat tied to it. */
+export function useOpenDealChat() {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  return (
-    <Button
-      size={size}
-      variant="secondary"
-      loading={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          const t = await api<{ id: string }>("/threads", { body: { requestId } });
-          router.push(`/messages/${t.id}`);
-        } catch (e) {
-          toast(e instanceof ApiError ? e.message : "Не удалось открыть чат", { tone: "error" });
-          setBusy(false);
-        }
-      }}
-    >
-      <IconMessage className="size-4" /> {label}
-    </Button>
-  );
+  const open = async (deal: { id: string; threadId?: string | null }) => {
+    if (deal.threadId) return router.push(`/messages/${deal.threadId}`);
+    setBusy(true);
+    try {
+      const t = await api<{ id: string }>("/threads", { body: { requestId: deal.id } });
+      router.push(`/messages/${t.id}`);
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Не удалось открыть переписку", { tone: "error" });
+      setBusy(false);
+    }
+  };
+  return { open, busy };
 }
 
+/** Every deal action for the current role and status (frames 13–14). Calls `onChange` with the updated deal. */
 export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange: (d: Deal) => void; compact?: boolean }) {
   const toast = useToast();
   const { refresh } = useSession();
@@ -108,9 +101,6 @@ export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange:
     );
   }
   const canCancel = (deal.status === "PENDING_SELLER" && !seller) || deal.status === "WAITING_HANDOVER" || deal.status === "ACCEPTED";
-  if (!compact && !["DECLINED", "CANCELLED"].includes(deal.status)) {
-    buttons.push(<ChatButton key="chat" requestId={deal.id} size={size} label={seller ? "Написать покупателю" : "Написать продавцу"} />);
-  }
   if (canCancel && !compact) {
     buttons.push(
       <Button key="cancel" size={size} variant="ghost" onClick={() => setDialog("cancel")}>
@@ -162,7 +152,7 @@ export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange:
             void run("tracking", "tracking", { trackingNumber: tracking }, "Трек-номер отправлен покупателю");
           }}
         >
-          <Field label="Номер отправления" htmlFor="tracking" error={fieldError} hint="Покупатель увидит его на странице сделки">
+          <Field label="Номер отправления" htmlFor="tracking" error={fieldError} hint="Покупатель увидит его в переписке">
             <Input id="tracking" value={tracking} onChange={(e) => setTracking(e.target.value)} error={fieldError} />
           </Field>
           <Button type="submit" block className="mt-6" loading={busy === "tracking"}>
@@ -189,27 +179,47 @@ export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange:
   );
 }
 
-/** Deal card used in My Purchases / My Sales / "Требует действия" (frame 14 ORDER CARD). */
+/**
+ * Deal card used in My Purchases / My Sales / "Требует действия" (frame 14 ORDER CARD).
+ * The whole card opens the conversation, where the deal's status and actions live.
+ */
 export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) => void }) {
   const item = deal.items[0];
-  const left = deal.status === "PENDING_SELLER" ? hoursLeft(deal.expiresAt) : null;
+  const chat = useOpenDealChat();
+  const title = `${item?.title ?? "Сделка"}${deal.items.length > 1 ? ` и ещё ${deal.items.length - 1}` : ""}`;
   return (
-    <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5 ${deal.needsMyAction ? "border-l-4 border-l-amber" : ""}`}>
-      <Link href={`/deals/${deal.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+    <article
+      role="link"
+      tabIndex={0}
+      aria-label={`${title} — открыть переписку`}
+      aria-busy={chat.busy}
+      onClick={() => void chat.open(deal)}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          void chat.open(deal);
+        }
+      }}
+      className={clsx(
+        "rise flex cursor-pointer gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] outline-none transition-transform duration-200 hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-indigo/40 md:p-5",
+        deal.needsMyAction && "border-l-4 border-l-amber",
+        chat.busy && "opacity-70",
+      )}
+    >
+      <div className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {item?.cover && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.cover.urls.s} alt="" className="size-full object-cover" />
         )}
-      </Link>
+      </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <DealBadge status={deal.status} role={deal.role} />
-          {left != null && <span className="text-xs text-muted">осталось {left} ч на ответ</span>}
         </div>
-        <Link href={`/deals/${deal.id}`} className="truncate font-medium hover:underline">
-          {item?.title}
-          {item?.size && <span className="text-ink-2">, {item.size}</span>}
-        </Link>
+        <p className="truncate font-medium">
+          {title}
+          {deal.items.length === 1 && item?.size && <span className="text-ink-2">, {item.size}</span>}
+        </p>
         <p className="text-sm text-ink-2">
           {deal.role === "seller" ? (
             <>
@@ -223,10 +233,10 @@ export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) =
         </p>
         <p className="text-xs text-muted">
           {DELIVERY_LABEL[deal.deliveryMethod]}
-          {deal.sellerCity ? `, ${deal.sellerCity}` : ""} · запрос {timeAgo(deal.createdAt)} · № {deal.number}
+          {deal.sellerCity ? `, ${deal.sellerCity}` : ""} · {timeAgo(deal.createdAt)}
         </p>
-        {deal.buyerComment && deal.role === "seller" && deal.status === "PENDING_SELLER" && <p className="text-sm italic text-ink-2">«{deal.buyerComment}»</p>}
-        <div className="mt-1">
+        {/* Quick actions answer right here; they must not also open the chat. */}
+        <div className="mt-1 empty:hidden" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <DealActions deal={deal} onChange={onChange} compact />
         </div>
       </div>
