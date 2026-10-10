@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { OAuth2Client } from 'google-auth-library';
 import nodemailer, { type Transporter } from 'nodemailer';
 
 /**
@@ -6,9 +7,10 @@ import nodemailer, { type Transporter } from 'nodemailer';
  *  A) external SMTP with login (mail.hosting.reg.ru:465, SendGrid, Mailgun…): SMTP_HOST/PORT/SECURE/USER/PASS;
  *  B) local Postfix relay on the same server: SMTP_HOST=localhost, SMTP_PORT=25, no USER/PASS.
  * Email is enabled by SMTP_HOST alone — SMTP_USER is optional (Postfix has no auth).
- *  C) Brevo HTTP API (BREVO_API_KEY): for hosts that block outbound SMTP (Railway Free/Hobby). The sender
- *     (SMTP_FROM) must be a verified sender in Brevo; a plain Gmail address works, no own domain needed.
- * Without SMTP_HOST / BREVO_API_KEY (or with MAIL_PROVIDER=log) messages are printed to the API log instead.
+ *  C) Gmail API over HTTPS (GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN): for hosts that block outbound SMTP
+ *     (Railway Free/Hobby). Sends as the Gmail account the refresh token belongs to (SMTP_FROM = that address).
+ *     The token is obtained once with `node scripts/gmail-token.mjs`.
+ * Without any of these (or with MAIL_PROVIDER=log) messages are printed to the API log instead.
  */
 
 export interface OutgoingMail {
@@ -25,24 +27,32 @@ const isLocalHost = (h: string) => ['localhost', '127.0.0.1', '::1'].includes(h)
 export class MailerService implements OnModuleInit {
   private readonly logger = new Logger('Mail');
   private transporter: Transporter | null = null;
+  private gmail: OAuth2Client | null = null;
+  /** Builds the raw RFC 822 message for the Gmail API (Nodemailer handles MIME and UTF-8 headers). */
+  private readonly composer = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: 'windows' });
 
   readonly fromAddress = process.env.SMTP_FROM || 'noreply@ichiba.by';
   readonly fromName = process.env.SMTP_FROM_NAME || 'ichiba';
 
-  /** "brevo" with BREVO_API_KEY, else "smtp" when SMTP_HOST is set; MAIL_PROVIDER=log forces the log. */
-  get mode(): 'brevo' | 'smtp' | 'log' {
+  /** "gmail" with the GMAIL_* OAuth keys, else "smtp" when SMTP_HOST is set; MAIL_PROVIDER=log forces the log. */
+  get mode(): 'gmail' | 'smtp' | 'log' {
     if ((process.env.MAIL_PROVIDER || '').toLowerCase() === 'log') return 'log';
-    if (process.env.BREVO_API_KEY) return 'brevo';
+    if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) return 'gmail';
     return process.env.SMTP_HOST ? 'smtp' : 'log';
   }
 
   onModuleInit() {
-    if (this.mode === 'brevo') {
-      this.logger.log(`Email via Brevo API, from ${this.fromAddress}`);
+    if (this.mode === 'gmail') {
+      this.gmail = new OAuth2Client(process.env.GMAIL_CLIENT_ID, process.env.GMAIL_CLIENT_SECRET);
+      this.gmail.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+      this.gmail
+        .getAccessToken()
+        .then(() => this.logger.log(`Email via Gmail API, from ${this.fromAddress}`))
+        .catch((e: Error) => this.logger.error(`Gmail API token refresh failed: ${e.message}. Re-run scripts/gmail-token.mjs. Emails will be retried from the outbox.`));
       return;
     }
     if (this.mode !== 'smtp') {
-      this.logger.log('Email is not configured (no BREVO_API_KEY or SMTP_HOST) — emails are written to this log');
+      this.logger.log('Email is not configured (no GMAIL_* or SMTP_HOST) — emails are written to this log');
       return;
     }
     const host = process.env.SMTP_HOST!;
@@ -73,7 +83,7 @@ export class MailerService implements OnModuleInit {
 
   /** Sends one message; throws on delivery errors so the caller (outbox) can retry. */
   async send(mail: OutgoingMail) {
-    if (this.mode === 'brevo') return this.sendBrevo(mail);
+    if (this.mode === 'gmail') return this.sendGmail(mail);
     if (this.mode !== 'smtp' || !this.transporter) {
       this.logger.log(`[email → ${mail.to}] ${mail.subject}\n${mail.text}`);
       return { messageId: 'log' };
@@ -89,22 +99,21 @@ export class MailerService implements OnModuleInit {
     return { messageId: info.messageId as string };
   }
 
-  private async sendBrevo(mail: OutgoingMail) {
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+  private async sendGmail(mail: OutgoingMail) {
+    const { message } = (await this.composer.sendMail({
+      from: { name: this.fromName, address: this.fromAddress },
+      to: mail.to,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      headers: mail.headers,
+    })) as { message: Buffer };
+    const res = await this.gmail!.request<{ id: string }>({
+      url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
       method: 'POST',
-      headers: { 'api-key': process.env.BREVO_API_KEY!, 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({
-        sender: { name: this.fromName, email: this.fromAddress },
-        to: [{ email: mail.to }],
-        subject: mail.subject,
-        htmlContent: mail.html,
-        textContent: mail.text,
-        headers: mail.headers,
-      }),
-      signal: AbortSignal.timeout(20_000),
+      data: { raw: message.toString('base64url') },
+      timeout: 20_000,
     });
-    if (!res.ok) throw new Error(`Brevo ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const body = (await res.json()) as { messageId?: string };
-    return { messageId: body.messageId ?? 'brevo' };
+    return { messageId: res.data.id };
   }
 }

@@ -30,7 +30,7 @@ export function checkEnv() {
 
   if (prod) {
     if (!env.WEB_ORIGIN) errors.push('WEB_ORIGIN is not set (URL of the web app, e.g. https://ichiba.up.railway.app)');
-    if (!env.SMTP_HOST && !env.BREVO_API_KEY) logger.warn('No BREVO_API_KEY or SMTP_HOST: verification codes and emails go to the log only — see docs/EMAIL.md');
+    if (!env.SMTP_HOST && !env.GMAIL_REFRESH_TOKEN) logger.warn('No GMAIL_* or SMTP_HOST: verification codes and emails go to the log only — see docs/EMAIL.md');
     if (env.VERCEL && !env.CRON_SECRET) logger.warn('CRON_SECRET is not set: /cron/tick is disabled (jobs still run on traffic)');
     if (env.VERCEL && !env.PUSHER_APP_ID && env.REALTIME_DRIVER !== 'none') logger.warn('No PUSHER_* keys: Vercel cannot hold WebSockets, chat falls back to polling');
     if (!env.ADMIN_EMAILS) logger.warn('ADMIN_EMAILS is empty: nobody can become an admin on a fresh database');

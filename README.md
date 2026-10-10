@@ -33,7 +33,7 @@ MEDIA_DRIVER=local  MEDIA_DIR=/data/media  MEDIA_PUBLIC_URL=https://${{RAILWAY_P
 AUTH_DEV_ANY_CODE=false  SEED_DEMO=false
 # секреты — вписать вручную:
 JWT_SECRET=<openssl rand -base64 48>
-BREVO_API_KEY=…  SMTP_FROM=<проверенный отправитель в Brevo>  # почта: Railway Hobby блокирует SMTP
+GMAIL_CLIENT_ID=…  GMAIL_CLIENT_SECRET=…  GMAIL_REFRESH_TOKEN=…  SMTP_FROM=<тот же Gmail>  # почта через Gmail API: Railway Hobby блокирует SMTP
 TELEGRAM_BOT_TOKEN=…  TELEGRAM_BOT_USERNAME=…               # вход через Telegram (@BotFather, /setdomain)
 CLOUDINARY_CLOUD_NAME=…  CLOUDINARY_API_KEY=…  CLOUDINARY_API_SECRET=…   # иначе фото лежат на volume
 GEMINI_API_KEY=…  MISTRAL_API_KEY=…  ZAI_API_KEY=…                       # по желанию, ИИ
@@ -95,7 +95,7 @@ npm run dev                          # база (prisma dev), миграции, 
 | `GOOGLE_CLIENT_ID` | Кнопка «Продолжить с Google» | Кнопка скрыта |
 | `APPLE_CLIENT_ID` | Кнопка «Продолжить с Apple» | Кнопка скрыта |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | Вход через Telegram (Login Widget). Бот — @BotFather → /newbot; домен сайта — /setdomain | Кнопка скрыта |
-| `BREVO_API_KEY` | Письма через HTTP API Brevo вместо SMTP (нужно на Railway Hobby, где SMTP закрыт); `SMTP_FROM` — проверенный отправитель в Brevo | Письма идут по SMTP или в лог |
+| `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` | Письма через Gmail API по HTTPS вместо SMTP (нужно на Railway Hobby, где SMTP закрыт). OAuth-клиент «Desktop app» в Google Cloud, Gmail API включён, приложение в статусе In production; токен — `node server/scripts/gmail-token.mjs`. `SMTP_FROM` = тот же Gmail | Письма идут по SMTP или в лог |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_FROM_NAME`, `APP_URL` | Письма: коды подтверждения и события по сделкам (внешний SMTP или локальный Postfix) — см. [docs/EMAIL.md](docs/EMAIL.md) | Текст писем и коды пишутся в лог API |
 
 Для сайта (`client/.env.local`): `NEXT_PUBLIC_SITE_URL` — публичный адрес сайта (canonical, sitemap, Open Graph), `API_URL` — адрес API для сервера Next.js.
