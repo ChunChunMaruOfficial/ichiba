@@ -4,6 +4,7 @@ import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { background } from '../common/background.js';
 import { EventsService } from '../events/events.js';
 import { DealEmails } from '../mail/mail.module.js';
+import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export type NotificationType =
@@ -90,7 +91,28 @@ class NotificationsController {
       orderBy: { createdAt: 'desc' },
       take: take + 1,
     });
-    return { items: items.slice(0, take), hasMore: items.length > take };
+    const page = items.slice(0, take);
+    return { items: await this.withCovers(page), hasMore: items.length > take };
+  }
+
+  /** The item's photo next to each notification: from payload.listingId, or the first item of payload.requestId. */
+  private async withCovers<T extends { payload: Prisma.JsonValue }>(items: T[]) {
+    const field = (n: T, k: string) => {
+      const v = n.payload && typeof n.payload === 'object' && !Array.isArray(n.payload) ? (n.payload as Record<string, unknown>)[k] : undefined;
+      return typeof v === 'string' ? v : undefined;
+    };
+    const requestIds = [...new Set(items.map((n) => (field(n, 'listingId') ? undefined : field(n, 'requestId'))).filter((x): x is string => !!x))];
+    const requestItems = requestIds.length ? await this.prisma.buyRequestItem.findMany({ where: { requestId: { in: requestIds } }, select: { requestId: true, listingId: true } }) : [];
+    const listingOfRequest = new Map<string, string>();
+    for (const r of requestItems) if (!listingOfRequest.has(r.requestId)) listingOfRequest.set(r.requestId, r.listingId);
+    const listingOf = (n: T) => field(n, 'listingId') ?? listingOfRequest.get(field(n, 'requestId') ?? '');
+    const listingIds = [...new Set(items.map(listingOf).filter((x): x is string => !!x))];
+    const photos = listingIds.length
+      ? await this.prisma.photo.findMany({ where: { listingId: { in: listingIds } }, orderBy: { order: 'asc' }, select: { listingId: true, key: true, provider: true } })
+      : [];
+    const cover = new Map<string, string>();
+    for (const ph of photos) if (ph.listingId && !cover.has(ph.listingId)) cover.set(ph.listingId, photoUrls(ph).s);
+    return items.map((n) => ({ ...n, cover: cover.get(listingOf(n) ?? '') ?? null }));
   }
 
   @Post('read-all')

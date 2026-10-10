@@ -3,6 +3,7 @@
 
 import { Noren } from "@/components/shop/noren";
 import { Daruma } from "@/components/shop/daruma";
+import clsx from "clsx";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -55,43 +56,62 @@ const SORTS = [
   ["expensive", "Дороже"],
 ] as const;
 
+/** Owner actions on a card: a dropdown on desktop, a bottom sheet on phones (where a dropdown would leave the screen). */
 function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
-  const [open, setOpen] = useState(false);
-  const pop = usePresence(open);
+  const [open, setOpen] = useState<"menu" | "sheet" | null>(null);
+  const pop = usePresence(open === "menu");
   const router = useRouter();
   const actions = useListingActions(onDone);
   const reserved = card.status === "RESERVED";
+  const sheet = open === "sheet";
   const item = (label: string, onClick: () => void, opts: { danger?: boolean; disabled?: boolean } = {}) => (
     <button
       disabled={opts.disabled}
       title={opts.disabled ? "Идёт сделка — завершите или отмените её в «Мои продажи»" : undefined}
       onClick={() => {
-        setOpen(false);
+        setOpen(null);
         onClick();
       }}
-      className={`block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-paper disabled:cursor-not-allowed disabled:text-muted ${opts.danger ? "text-danger" : ""}`}
+      className={clsx(
+        "block w-full rounded-lg text-left hover:bg-paper disabled:cursor-not-allowed disabled:text-muted",
+        sheet ? "px-2 py-3 text-[15px]" : "px-3 py-2 text-sm",
+        opts.danger && "text-danger",
+      )}
     >
       {label}
     </button>
   );
+  const items = (
+    <>
+      {item(card.status === "DRAFT" ? "Продолжить" : "Редактировать", () => router.push(card.status === "DRAFT" ? `/sell?draft=${card.id}` : `/item/${card.id}/edit`))}
+      {card.status !== "DRAFT" && item("Выставить похожую", () => router.push(`/sell?similar=${card.id}`))}
+      {card.status === "PUBLISHED" && item("Снять с продажи", () => actions.hide(card.id))}
+      {card.status === "HIDDEN" && item("Вернуть в продажу", () => actions.unhide(card.id))}
+      {(card.status === "PUBLISHED" || card.status === "HIDDEN" || reserved) && item("Пометить как проданное", () => actions.markSold(card.id), { disabled: reserved })}
+      {card.status !== "SOLD" && item("Удалить", () => actions.remove(card.id), { danger: true, disabled: reserved })}
+    </>
+  );
   return (
     <div className="relative">
-      <button aria-label="Действия с вещью" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="grid size-9 place-items-center on-photo rounded-full text-ink">
+      <button
+        aria-label="Действия с вещью"
+        aria-expanded={!!open}
+        onClick={() => setOpen((v) => (v ? null : window.matchMedia("(min-width: 768px)").matches ? "menu" : "sheet"))}
+        className="grid size-9 place-items-center on-photo rounded-full text-ink"
+      >
         <IconMore />
       </button>
       {pop.mounted && (
         <>
-          {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />}
+          {open === "menu" && <div className="fixed inset-0 z-10" onClick={() => setOpen(null)} />}
           <div data-closing={pop.closing || undefined} className="fade-in absolute right-0 top-11 z-20 w-52 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
-            {item(card.status === "DRAFT" ? "Продолжить" : "Редактировать", () => router.push(card.status === "DRAFT" ? `/sell?draft=${card.id}` : `/item/${card.id}/edit`))}
-            {card.status !== "DRAFT" && item("Выставить похожую", () => router.push(`/sell?similar=${card.id}`))}
-            {card.status === "PUBLISHED" && item("Снять с продажи", () => actions.hide(card.id))}
-            {card.status === "HIDDEN" && item("Вернуть в продажу", () => actions.unhide(card.id))}
-            {(card.status === "PUBLISHED" || card.status === "HIDDEN" || reserved) && item("Пометить как проданное", () => actions.markSold(card.id), { disabled: reserved })}
-            {card.status !== "SOLD" && item("Удалить", () => actions.remove(card.id), { danger: true, disabled: reserved })}
+            {items}
           </div>
         </>
       )}
+      <Modal open={sheet} onClose={() => setOpen(null)} title={card.title || (card.status === "DRAFT" ? "Черновик" : "Вещь")}>
+        <div className="-mx-2 flex flex-col">{items}</div>
+      </Modal>
     </div>
   );
 }
@@ -103,7 +123,7 @@ function Grid({ items, owner, onDone }: { items: Card[]; owner: boolean; onDone:
         <div key={c.id} className="relative">
           <ItemCard card={c} variant="grid" source="wardrobe" />
           {owner && (
-            <div className="absolute right-12 top-2.5">
+            <div className="absolute right-2.5 top-2.5">
               <OwnerMenu card={c} onDone={onDone} />
             </div>
           )}
@@ -121,12 +141,12 @@ function ActionRequired({ onChange }: { onChange: () => void }) {
   const { newRequests, waitingHandover } = data.summary;
   const offerCount = offers.data?.items.length ?? 0;
   const cards = [
-    ...(offers.data?.items ?? []).map((o) => ({ key: o.id, node: <OfferCard offer={o} onChange={() => (void offers.mutate(), onChange())} /> })),
-    ...data.items.map((d) => ({ key: d.id, node: <DealCard deal={d} onChange={() => (void mutate(), onChange())} /> })),
+    ...(offers.data?.items ?? []).map((o) => ({ key: o.id, node: <OfferCard plain offer={o} onChange={() => (void offers.mutate(), onChange())} /> })),
+    ...data.items.map((d) => ({ key: d.id, node: <DealCard plain deal={d} onChange={() => (void mutate(), onChange())} /> })),
   ];
   return (
-    <section className="mb-10 rounded-3xl bg-warn-soft/60 p-4 md:p-6">
-      <div className="mb-4 flex items-baseline justify-between gap-4">
+    <section className="mb-10">
+      <div className="flex items-baseline justify-between gap-4">
         <h2 className="text-lg font-semibold">
           Требует действия
           <span className="ml-2 text-sm font-normal text-ink-2">
@@ -145,12 +165,12 @@ function ActionRequired({ onChange }: { onChange: () => void }) {
           </Link>
         )}
       </div>
-      <div className="flex flex-col gap-3">
+      <ul className="mt-1 divide-y divide-line border-b border-line">
         {cards.slice(0, 3).map((c) => (
-          <div key={c.key}>{c.node}</div>
+          <li key={c.key}>{c.node}</li>
         ))}
-      </div>
-      <Link href="/sales" className="mt-4 inline-block text-sm font-medium text-ink-2 hover:text-ink">
+      </ul>
+      <Link href="/sales" className="mt-3 inline-block text-sm font-medium text-ink-2 hover:text-ink">
         Все продажи
       </Link>
     </section>

@@ -92,6 +92,12 @@ function Notifications() {
                     <span className={clsx("block text-[15px]", !n.readAt && "font-medium")}>{notificationText(n)}</span>
                     <span className="text-xs text-muted">{timeAgo(n.createdAt)}</span>
                   </span>
+                  {n.cover && (
+                    <span className="w-11 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={n.cover} alt="" width={44} height={55} loading="lazy" className="size-full object-contain" />
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}

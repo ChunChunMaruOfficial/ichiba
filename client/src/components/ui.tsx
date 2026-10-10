@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { forwardRef, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { DEAL_STATUS, LISTING_BADGE } from "@/lib/labels";
 import { usePresence } from "@/lib/presence";
 import type { ListingStatus, RequestStatus } from "@/lib/types";
@@ -310,6 +311,58 @@ export const Textarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttrib
 });
 
 /** Modal on desktop, bottom sheet on mobile. Closes on Esc and backdrop click. */
+/**
+ * Bottom sheets on phones: a grab handle on top, and pulling the top part down closes the sheet (iOS style).
+ * Spread `grab` on the handle + header area and put `panel` on the sheet itself. Mouse and wide screens are left alone.
+ */
+export function useSheetDrag(onClose: () => void) {
+  const panel = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y: number; t: number } | null>(null);
+  const end = (e: React.PointerEvent) => {
+    const el = panel.current;
+    const d = drag.current;
+    if (!el || !d) return;
+    drag.current = null;
+    const dy = Math.max(0, e.clientY - d.y);
+    const speed = dy / Math.max(1, Date.now() - d.t);
+    if (dy > 110 || (dy > 30 && speed > 0.6)) {
+      el.style.transition = "transform 200ms cubic-bezier(0.4, 0, 1, 1)";
+      el.style.transform = "translateY(100%)";
+      setTimeout(onClose, 160);
+    } else {
+      el.style.transition = "transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+      el.style.transform = "";
+    }
+  };
+  const grab = {
+    onPointerDown: (e: React.PointerEvent) => {
+      const el = panel.current;
+      if (!el || e.pointerType === "mouse" || window.matchMedia("(min-width: 768px)").matches) return;
+      if ((e.target as HTMLElement).closest("button, a, input, textarea, select")) return;
+      drag.current = { y: e.clientY, t: Date.now() };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      // The entrance animation holds `transform`; drop it so the sheet follows the finger.
+      el.style.animation = "none";
+      el.style.transition = "none";
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const el = panel.current;
+      if (!el || !drag.current) return;
+      const dy = e.clientY - drag.current.y;
+      // A little resistance when pulled up, free movement down.
+      el.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px)`;
+    },
+    onPointerUp: end,
+    onPointerCancel: end,
+  };
+  return { panel, grab };
+}
+
+/** The light grey pill on top of a bottom sheet (phones only). */
+export function SheetHandle() {
+  return <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-ink/15 md:hidden" />;
+}
+
 export function Modal({
   open,
   onClose,
@@ -323,7 +376,7 @@ export function Modal({
   children: React.ReactNode;
   width?: string;
 }) {
-  const panel = useRef<HTMLDivElement>(null);
+  const { panel, grab } = useSheetDrag(onClose);
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
@@ -340,7 +393,9 @@ export function Modal({
 
   const { mounted, closing } = usePresence(open);
   if (!mounted) return null;
-  return (
+  // Rendered at the end of <body>: a modal opened from inside a positioned panel (the chat, a deal card) must not be
+  // painted under that panel's own layers.
+  return createPortal(
     <div data-closing={closing || undefined} className="fade-in fixed inset-0 z-[60] flex items-end justify-center bg-[var(--scrim)] md:items-center md:p-6" onMouseDown={onClose}>
       <div
         ref={panel}
@@ -349,19 +404,23 @@ export function Modal({
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
         className={clsx(
-          "sheet-up relative isolate max-h-[90vh] w-full overflow-y-auto overscroll-contain rounded-t-[28px] bg-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-float)] md:rounded-[28px] md:pb-6",
+          "sheet-up relative isolate max-h-[90vh] w-full overflow-y-auto overscroll-contain rounded-t-[28px] bg-surface p-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-float)] md:rounded-[28px] md:pb-6 md:pt-6",
           width,
         )}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
-          {title ? <h2 className="text-[22px] font-bold leading-tight">{title}</h2> : <span />}
-          <button aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 text-ink-2 hover:bg-ink/5">
-            <IconX />
-          </button>
+        <div {...grab} className="-mx-6 touch-none px-6 pb-4 md:touch-auto">
+          <SheetHandle />
+          <div className="flex items-start justify-between gap-4">
+            {title ? <h2 className="text-[22px] font-bold leading-tight">{title}</h2> : <span />}
+            <button aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 text-ink-2 hover:bg-ink/5">
+              <IconX />
+            </button>
+          </div>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

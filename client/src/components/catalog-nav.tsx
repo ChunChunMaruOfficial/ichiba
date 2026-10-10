@@ -80,7 +80,7 @@ function PanelBody({ meta, active, audience, onNavigate }: { meta: Meta; active:
           ))}
           <li>
             <Link href={categoryHref(c.slug, undefined, audience)} onClick={onNavigate} className="block rounded-lg py-1.5 text-[15px] font-medium text-accent hover:underline">
-              Все вещи
+              Смотреть все…
             </Link>
           </li>
         </ul>
@@ -339,11 +339,6 @@ export function MobileCatalog() {
                       </button>
                       <Expand open={isOpen}>
                         <ul className="grid grid-cols-2 gap-x-3 px-3 pb-3">
-                          <li className="col-span-2">
-                            <Link href={categoryHref(c.slug, undefined, audience)} onClick={close} className="block py-2 text-[15px] font-medium text-accent">
-                              Все вещи
-                            </Link>
-                          </li>
                           {c.subcategories.map((s) => (
                             <li key={s.slug}>
                               <Link href={categoryHref(c.slug, s.slug, audience)} onClick={close} className="block py-2 text-[15px] text-ink-2">
@@ -351,6 +346,11 @@ export function MobileCatalog() {
                               </Link>
                             </li>
                           ))}
+                          <li className="col-span-2">
+                            <Link href={categoryHref(c.slug, undefined, audience)} onClick={close} className="block py-2 text-[15px] font-medium text-accent">
+                              Смотреть все…
+                            </Link>
+                          </li>
                         </ul>
                       </Expand>
                     </li>

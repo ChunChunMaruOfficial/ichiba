@@ -289,20 +289,20 @@ export function OfferStatusPanel({ offer, listingId, onChange, onNewOffer }: { o
 }
 
 /** Offer card for the seller's "Требует действия" and for lists (frame 13 SELLER OFFER SCREEN). */
-export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => void }) {
+export function OfferCard({ offer, onChange, plain }: { offer: Offer; onChange: () => void; plain?: boolean }) {
   const { busy, run } = useOfferActions(offer, () => onChange());
   const [counter, setCounter] = useState<string | null>(null);
   const left = hoursLeft(offer.expiresAt);
   const discount = offer.listPrice ? Math.round((1 - offer.amount / offer.listPrice) * 100) : 0;
   const cover = offer.listing.cover?.urls.s;
   return (
-    <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5`}>
-      <Link href={`/item/${offer.listing.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+    <article className={plain ? "flex gap-4 py-4" : "rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5"}>
+      <Link href={`/item/${offer.listing.id}`} className={`${plain ? "w-16" : "w-20"} shrink-0 overflow-hidden rounded-xl bg-skeleton`} style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {cover && <img src={cover} alt="" width={80} height={100} className="size-full object-contain" />}
       </Link>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={plain ? "hidden" : "flex flex-wrap items-center gap-2"}>
           <Badge tone={offer.myTurn ? "warn" : offer.status === "ACCEPTED" ? "ok" : "muted"}>
             {offer.myTurn ? "Предложение цены" : offer.status === "ACCEPTED" ? "Принято" : offer.status === "PENDING" ? "Ждём ответа" : offer.status === "DECLINED" ? "Отклонено" : "Истекло"}
           </Badge>

@@ -183,7 +183,7 @@ export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange:
  * Deal card used in My Purchases / My Sales / "Требует действия" (frame 14 ORDER CARD).
  * The whole card opens the conversation, where the deal's status and actions live.
  */
-export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) => void }) {
+export function DealCard({ deal, onChange, plain }: { deal: Deal; onChange: (d: Deal) => void; plain?: boolean }) {
   const item = deal.items[0];
   const chat = useOpenDealChat();
   const title = `${item?.title ?? "Сделка"}${deal.items.length > 1 ? ` и ещё ${deal.items.length - 1}` : ""}`;
@@ -201,20 +201,24 @@ export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) =
         }
       }}
       className={clsx(
-        "rise flex cursor-pointer gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] outline-none transition-transform duration-200 hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-indigo/40 md:p-5",
+        "flex cursor-pointer gap-4 outline-none focus-visible:ring-3 focus-visible:ring-indigo/40",
+        // `plain`: a row in a list (wardrobe "Требует действия"), not a raised card; the status goes without saying there.
+        plain ? "py-4" : "rise rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5",
         chat.busy && "opacity-70",
       )}
     >
-      <div className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+      <div className={clsx("shrink-0 overflow-hidden rounded-xl bg-skeleton", plain ? "w-16" : "w-20")} style={{ aspectRatio: "4 / 5" }}>
         {item?.cover && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.cover.urls.s} alt="" className="size-full object-contain" />
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <DealBadge status={deal.status} role={deal.role} />
-        </div>
+        {!plain && (
+          <div className="flex flex-wrap items-center gap-2">
+            <DealBadge status={deal.status} role={deal.role} />
+          </div>
+        )}
         <p className="truncate font-medium">
           {title}
           {deal.items.length === 1 && item?.size && <span className="text-ink-2">, {item.size}</span>}

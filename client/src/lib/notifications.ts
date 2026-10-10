@@ -26,6 +26,8 @@ export interface NotificationRow {
   };
   readAt: string | null;
   createdAt: string;
+  /** Small photo of the item the notification is about (list endpoint only). */
+  cover?: string | null;
 }
 
 /** Human text for every notification type (frame 15). */

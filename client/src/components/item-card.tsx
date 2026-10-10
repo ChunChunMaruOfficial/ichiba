@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFavorite } from "@/lib/hooks";
 import { CONDITION_LABEL, formatPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
@@ -17,6 +17,14 @@ import { Hanko, IconHeart, StatusBadge } from "./ui";
 function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: boolean }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const img = useRef<HTMLImageElement>(null);
+  // A server-rendered photo can finish loading before React attaches onLoad: it would then stay invisible.
+  useEffect(() => {
+    const el = img.current;
+    if (!el?.complete) return;
+    const t = setTimeout(() => (el.naturalWidth ? setLoaded(true) : setFailed(true)), 0);
+    return () => clearTimeout(t);
+  }, []);
   // Masonry keeps each photo's own shape; rows (`uniform`) use one 4:5 frame and fit the whole photo inside it.
   const ratio = card.cover && !uniform ? `${card.cover.width} / ${card.cover.height}` : "4 / 5";
   return (
@@ -24,6 +32,7 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
       {card.cover && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- variants are pre-sized WebP from our own storage
         <img
+          ref={img}
           src={card.cover.urls.m}
           srcSet={`${card.cover.urls.s} 320w, ${card.cover.urls.m} 640w, ${card.cover.urls.l} 1280w`}
           sizes={sizes}

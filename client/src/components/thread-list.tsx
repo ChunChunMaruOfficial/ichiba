@@ -24,13 +24,13 @@ export function ThreadList({ activeId, compact }: { activeId?: string; compact?:
     );
   if (data.items.length === 0) return <EmptyState title="Здесь появятся переписки с продавцами и покупателями" hint="Нажмите «Задать вопрос» на странице вещи" />;
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className="flex flex-col divide-y divide-line">
       {data.items.map((t, i) => (
         <li key={t.id} className="rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
           <Link
             href={`/messages/${t.id}`}
             aria-current={t.id === activeId ? "page" : undefined}
-            className={clsx("flex gap-3.5 rounded-2xl px-3 py-3 transition-colors", t.id === activeId ? "bg-surface shadow-[inset_3px_0_0_var(--shu)]" : "hover:bg-surface/70")}
+            className={clsx("flex gap-3.5 rounded-2xl px-3 py-3.5 transition-colors", t.id === activeId ? "bg-surface" : "hover:bg-surface/70")}
           >
             <div className="w-14 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}

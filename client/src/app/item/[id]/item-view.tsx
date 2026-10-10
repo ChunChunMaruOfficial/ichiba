@@ -358,17 +358,12 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                   <Badge tone={sold ? "dark" : reserved ? "warn" : "outline"}>{sold ? "Продано" : reserved ? "Зарезервировано" : l.status === "HIDDEN" ? "Скрыто" : "Черновик"}</Badge>
                 </span>
               )}
-              {!l.isOwner && (
-                <button aria-label={isFavorite ? "Убрать из избранного" : "В избранное"} onClick={toggle} className="absolute right-3 top-3 grid size-11 place-items-center on-photo rounded-full md:hidden">
-                  <IconHeart className={clsx("size-5", isFavorite && "text-heart")} filled={isFavorite} />
-                </button>
-              )}
             </>
           }
         />
 
         <div className="md:sticky md:top-24 md:self-start">
-          {/* Share and ♡ hang in the corner without stretching the title row, so the price follows the title closely. */}
+          {/* Share, ♡ and report hang in the corner without stretching the title row, so the price follows the title closely. */}
           <div className="relative pr-12">
             <h1 className="text-2xl font-semibold leading-tight tracking-tight">
             {auctionRunning && <Badge tone="warn" className="mb-2 block w-fit">Аукцион</Badge>}
@@ -381,6 +376,11 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               {!l.isOwner && (
                 <button aria-label={isFavorite ? "Убрать из избранного" : "В избранное"} aria-pressed={isFavorite} onClick={toggle} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
                   <IconHeart className={clsx("size-5", isFavorite && "text-heart")} filled={isFavorite} />
+                </button>
+              )}
+              {!l.isOwner && (
+                <button aria-label="Пожаловаться" title="Пожаловаться" onClick={() => requireAuth(() => setReportOpen(true))} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
+                  <IconFlag className="size-5" />
                 </button>
               )}
             </div>
@@ -448,19 +448,12 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                   {expanded ? "Свернуть" : "Показать полностью"}
                 </button>
               )}
-              {l.descriptionByAi && <p className="mt-2 text-xs text-muted">Описание составлено с помощью AI, проверено продавцом</p>}
             </div>
           )}
-          {!measurements.length && l.size && <p className="mt-4 text-sm text-muted">Замеры не указаны</p>}
 
           <p className="mt-6 text-xs text-muted">
             {l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"} · {l.viewsCount} просмотров · {l.favoritesCount} сохранений
           </p>
-          {!l.isOwner && (
-            <button className="mt-3 text-xs text-muted underline underline-offset-4 hover:text-ink" onClick={() => requireAuth(() => setReportOpen(true))}>
-              Пожаловаться
-            </button>
-          )}
         </div>
       </div>
 
@@ -549,5 +542,14 @@ function AppealModal({ open, onClose, listingId, onDone }: { open: boolean; onCl
         Отправить
       </Button>
     </Modal>
+  );
+}
+
+function IconFlag({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 21V4" />
+      <path d="M5 4h11l-2 4 2 4H5" />
+    </svg>
   );
 }

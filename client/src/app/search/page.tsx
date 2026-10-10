@@ -9,7 +9,7 @@ import { useBrandSuggestions } from "@/components/brand-picker";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CardRow, CategoryTiles, SectionHeader } from "@/components/sections";
 import { useMeta, useSession } from "@/components/session";
-import { Button, Chip, EmptyState, ErrorState, IconFilter, IconSearch, IconSparkle, IconX, Input, Spinner } from "@/components/ui";
+import { Button, Chip, EmptyState, ErrorState, IconFilter, IconSearch, IconSparkle, IconX, Input, SheetHandle, Spinner, useSheetDrag } from "@/components/ui";
 import { api, qs } from "@/lib/api";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { CONDITION_LABEL, items as itemsLabel } from "@/lib/labels";
@@ -87,10 +87,11 @@ function toggle(list: string[], v: string) {
 // Defined outside FilterPanel so inputs inside keep focus between renders.
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="border-b border-line py-5 last:border-0">
-      <legend className="mb-3 text-sm font-semibold">{title}</legend>
+    // A <legend> would sit on the section's top edge, ignoring the padding: a plain heading keeps its distance from the line.
+    <div role="group" aria-label={title} className="border-b border-line py-5 last:border-0">
+      <p className="mb-3 text-sm font-semibold">{title}</p>
       {children}
-    </fieldset>
+    </div>
   );
 }
 
@@ -190,6 +191,7 @@ function FilterDrawer(props: DrawerProps) {
 function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta, closing }: DrawerProps & { closing: boolean }) {
   const [draft, setDraft] = useState(initial);
   const [count, setCount] = useState<number | null>(null);
+  const { panel: sheetPanel, grab: sheetGrab } = useSheetDrag(onClose);
   // Live "Показать N вещей" with 300 ms debounce (frame 07).
   useEffect(() => {
     if (!open) return;
@@ -213,12 +215,15 @@ function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta, closing }
   }, [open, onClose]);
   return (
     <div data-closing={closing || undefined} className="fade-in fixed inset-0 z-[60] flex items-end bg-black/40 md:items-stretch md:justify-end" onMouseDown={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Фильтры" onMouseDown={(e) => e.stopPropagation()} className="sheet-up flex h-[90vh] w-full flex-col rounded-t-3xl bg-surface md:h-full md:w-[420px] md:rounded-none">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="text-lg font-semibold">Фильтры</h2>
-          <button aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 hover:bg-ink/5">
-            <IconX />
-          </button>
+      <div ref={sheetPanel} role="dialog" aria-modal="true" aria-label="Фильтры" onMouseDown={(e) => e.stopPropagation()} className="sheet-up flex h-[90vh] w-full flex-col rounded-t-3xl bg-surface md:h-full md:w-[420px] md:rounded-none">
+        <div {...sheetGrab} className="touch-none border-b border-line px-5 pb-4 pt-3 md:touch-auto md:pt-4">
+          <SheetHandle />
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Фильтры</h2>
+            <button aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 hover:bg-ink/5">
+              <IconX />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain px-5">
           <FilterPanel value={draft} onChange={setDraft} meta={meta} />
