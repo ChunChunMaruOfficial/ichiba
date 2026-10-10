@@ -17,7 +17,7 @@ import { Hanko, IconHeart, StatusBadge } from "./ui";
 function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: boolean }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  // Masonry keeps each photo's own shape; rows (`uniform`) crop every photo to the same 4:5 frame.
+  // Masonry keeps each photo's own shape; rows (`uniform`) use one 4:5 frame and fit the whole photo inside it.
   const ratio = card.cover && !uniform ? `${card.cover.width} / ${card.cover.height}` : "4 / 5";
   return (
     <div className={clsx("relative overflow-hidden bg-skeleton", className)} style={{ aspectRatio: ratio }}>
@@ -33,7 +33,7 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
           className={clsx(
-            "absolute inset-0 size-full object-cover transition-[opacity,transform] duration-300",
+            "absolute inset-0 size-full object-contain transition-[opacity,transform] duration-300",
             loaded ? "opacity-100" : "opacity-0",
             card.status === "SOLD" && "opacity-60 grayscale-[30%]",
           )}
@@ -63,7 +63,7 @@ function BuyButton({ card, className }: { card: Card; className?: string }) {
       disabled={reserved}
       onClick={(e) => {
         e.preventDefault();
-        requireAuth(() => router.push(`/buy/${card.id}`), { reason: `чтобы купить «${card.title}»` });
+        requireAuth(() => router.push(`/buy/${card.id}`));
       }}
       className={clsx("btn-wa btn-wa-ink rounded-xl px-3 py-2 text-sm font-semibold disabled:bg-ink/10 disabled:text-ink-2", className)}
     >

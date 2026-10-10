@@ -79,7 +79,7 @@ function Stats() {
             ))}
           </dl>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[3fr_2fr]">
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <section className="rounded-3xl bg-surface p-5">
               <h2 className="font-semibold">Просмотры по дням</h2>
               <Bars values={data.series.map((d) => d.views)} labels={data.series.map((d) => dayLabel(d.day))} height={140} className="mt-4" title="Просмотры по дням" />
@@ -140,10 +140,10 @@ function Stats() {
             </h2>
             <ul className="flex flex-col gap-2">
               {data.listings.map((r) => (
-                <li key={r.listing.id} className="grid grid-cols-[56px_1fr] gap-3 rounded-2xl bg-surface p-3 md:grid-cols-[56px_1fr_auto_auto] md:items-center">
+                <li key={r.listing.id} className="grid grid-cols-[56px_minmax(0,1fr)] gap-3 rounded-2xl bg-surface p-3 md:grid-cols-[56px_minmax(0,1fr)_auto_auto] md:items-center">
                   <Link href={`/item/${r.listing.id}`} className="row-span-2 overflow-hidden rounded-lg bg-skeleton md:row-span-1" style={{ aspectRatio: "4 / 5" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {r.listing.cover && <img src={r.listing.cover.urls.s} alt="" className="size-full object-cover" />}
+                    {r.listing.cover && <img src={r.listing.cover.urls.s} alt="" className="size-full object-contain" />}
                   </Link>
                   <div className="min-w-0">
                     <Link href={`/item/${r.listing.id}`} className="block truncate font-medium hover:underline">

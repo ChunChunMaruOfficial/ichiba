@@ -57,7 +57,7 @@ export function OfferSheet({
       <div className="flex items-center gap-3">
         {listing.cover && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={listing.cover} alt="" width={56} height={70} className="h-[70px] w-14 rounded-lg object-cover" />
+          <img src={listing.cover} alt="" width={56} height={70} className="h-[70px] w-14 rounded-lg object-contain" />
         )}
         <div className="min-w-0">
           <p className="truncate font-medium">{listing.title}</p>
@@ -299,7 +299,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
     <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5 ${offer.myTurn ? "border-l-4 border-l-amber" : ""}`}>
       <Link href={`/item/${offer.listing.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {cover && <img src={cover} alt="" width={80} height={100} className="size-full object-cover" />}
+        {cover && <img src={cover} alt="" width={80} height={100} className="size-full object-contain" />}
       </Link>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">

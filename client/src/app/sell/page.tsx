@@ -13,8 +13,7 @@ import { usePriceSuggestion } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
 import { useToast } from "@/components/toast";
-import { Daruma } from "@/components/shop/daruma";
-import { Button, ButtonLink, Hanko, IconCheck, IconSparkle, IconX, Spinner } from "@/components/ui";
+import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { type AiState, applySuggestion, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, similarValues, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
 import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me } from "@/lib/types";
@@ -61,7 +60,7 @@ function DraftReminder({ me }: { me: Me }) {
     <Link href={`/sell?draft=${draft.id}`} className="mb-6 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-ink">
       <span className="size-14 shrink-0 overflow-hidden rounded-xl bg-skeleton">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {draft.cover && <img src={draft.cover.urls.s} alt="" className="size-full object-cover" />}
+        {draft.cover && <img src={draft.cover.urls.s} alt="" className="size-full object-contain" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm text-muted">Незаконченный черновик</span>
@@ -113,7 +112,7 @@ function AiScanning({ cover, slow, onManual }: { cover?: string; slow: boolean; 
     <div className="rise flex flex-col items-center py-16 text-center">
       <div className="relative w-56 overflow-hidden rounded-3xl bg-skeleton shadow-[var(--shadow-float)]" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {cover && <img src={cover} alt="" className="size-full object-cover" />}
+        {cover && <img src={cover} alt="" className="size-full object-contain" />}
         <span className="absolute inset-x-0 h-12 animate-[scan_1.5s_ease-in-out_infinite] bg-gradient-to-b from-transparent via-ai/30 to-transparent" aria-hidden />
       </div>
       <p className="mt-6 flex items-center gap-2 text-lg font-semibold" role="status">
@@ -330,7 +329,7 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
       <div className="mx-auto flex max-w-md flex-col items-center px-4 py-16 text-center">
         <div className="sheet-up w-40 overflow-hidden rounded-2xl shadow-xl" style={{ aspectRatio: cover?.width ? `${cover.width} / ${cover.height}` : "4 / 5" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {cover && <img src={cover.preview} alt="" className="size-full object-cover" />}
+          {cover && <img src={cover.preview} alt="" className="size-full object-contain" />}
         </div>
         <h1 className="mt-8 text-2xl font-semibold">Публикация запланирована</h1>
         <p className="mt-2 text-ink-2">Вещь появится в каталоге {scheduleLabel(scheduled)}. До этого её видите только вы — в черновиках гардероба.</p>
@@ -353,24 +352,19 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
         <div className="relative">
           <div className="rise w-48 overflow-hidden rounded-3xl shadow-[var(--shadow-float)]" style={{ aspectRatio: cover ? `${cover.width} / ${cover.height}` : "4 / 5" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {cover && <img src={cover.urls.m} alt="" className="size-full object-cover" />}
+            {cover && <img src={cover.urls.m} alt="" className="size-full object-contain" />}
           </div>
           <span className="stamp-down absolute -right-6 -top-4 block" style={{ animationDelay: "350ms" }}>
             <Hanko kind="listed" className="scale-125" />
           </span>
-          <Daruma eyes={1} className="rise absolute -bottom-6 -left-12 h-24" />
         </div>
         <h1 className="mt-8 text-2xl font-semibold">{published.sizes ? `Опубликовано в ${published.sizes.length} размерах` : "Вещь опубликована"}</h1>
-        <p className="mt-2 text-ink-2">Она уже в каталоге, в вашем гардеробе и в «Новинках».</p>
         <div className="mt-8 flex w-full flex-col gap-3">
           <ButtonLink href={`/item/${published.id}`} size="lg" block>
             Посмотреть вещь
           </ButtonLink>
           <Button variant="secondary" block onClick={() => router.push(`/sell?new=${Date.now()}`)}>
             Добавить ещё
-          </Button>
-          <Button variant="ghost" block onClick={() => router.push(`/sell?similar=${published.id}`)}>
-            Выставить похожую
           </Button>
           <Link href="/wardrobe" className="py-2 text-sm font-medium text-ink-2 hover:text-ink">
             Открыть гардероб
@@ -383,8 +377,8 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
   const fieldProps = { values, set, ai, setAi, errors, meta, photos, setPhotos, mode: "create" as const };
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-8">
-      <div className="mb-8 flex items-center justify-between gap-4">
+    <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-2 md:px-6 md:pb-16 md:pt-8">
+      <div className="mb-3 flex items-center justify-between gap-4 md:mb-8">
         <button onClick={exit} aria-label="Выйти" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-ink/5">
           <IconX />
         </button>
@@ -414,8 +408,7 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
               }}
             />
           ) : (
-            <div className="flex flex-col gap-10">
-              <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Расскажите о вещи</h1>
+            <div className="flex flex-col gap-8 md:gap-10">
               {aiFlags?.not_clothing && <p className="rise rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">На фото не видно вещи — можно заменить фото или продолжить вручную.</p>}
               <FormSection kanji="写" title="Фото и видео" index={0}>
                 <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} big video={values.video} onVideo={(video) => set({ video })} />
@@ -438,8 +431,7 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
       )}
 
       {step === 3 && (
-        <div key="s3" className="flex flex-col gap-10">
-          <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Цена</h1>
+        <div key="s3" className="flex flex-col gap-8 md:gap-10">
           <FormSection kanji="値" title="Цена и формат продажи" index={0}>
             <PriceFields values={values} set={set} errors={errors} market={market} />
           </FormSection>
@@ -450,15 +442,16 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
       {/* No bar on the photo screen (the first photo moves on by itself) or while AI is reading the photo. */}
       {step !== 1 && !(step === 2 && aiPhase === "running") && (
         <div className="sheet-up fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mt-10 md:justify-end md:border-0 md:bg-transparent md:p-0">
-          {/* All the bar's buttons are one size: equal shares on a phone, the same fixed width on desktop. */}
+          {/* Desktop: equal buttons of one width. Phone: "Назад" and "Запланировать" shrink to icons so the main action fits. */}
           {step > 2 && (
-            <Button variant="secondary" size="lg" className="flex-1 md:w-48 md:flex-none" onClick={() => setStep((s) => (s - 1) as Step)}>
-              Назад
+            <Button variant="secondary" size="lg" aria-label="Назад" className="w-13 shrink-0 px-0 md:w-48" onClick={() => setStep((s) => (s - 1) as Step)}>
+              <IconChevronLeft className="size-5 md:hidden" />
+              <span className="hidden md:inline">Назад</span>
             </Button>
           )}
           {step === 3 ? (
             <>
-              <SchedulePicker disabled={publishing} onSchedule={schedule} className="flex-1 md:w-48 md:flex-none" buttonClassName="w-full" />
+              <SchedulePicker disabled={publishing} onSchedule={schedule} className="w-13 shrink-0 md:w-48" buttonClassName="w-full px-0" compact />
               <Button size="lg" className="flex-1 md:w-48 md:flex-none" loading={publishing} onClick={publish}>
                 {publishing ? "Публикуем…" : "Опубликовать"}
               </Button>

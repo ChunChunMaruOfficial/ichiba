@@ -92,7 +92,7 @@ function ReportItem({ r, onDone }: { r: ReportRow; onDone: () => void }) {
       {l && (
         <Link href={`/item/${l.id}`} target="_blank" className="w-24 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {l.cover && <img src={l.cover.urls.s} alt="" width={96} height={120} className="size-full object-cover" />}
+          {l.cover && <img src={l.cover.urls.s} alt="" width={96} height={120} className="size-full object-contain" />}
         </Link>
       )}
       <div className="min-w-0 flex-1">

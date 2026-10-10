@@ -359,7 +359,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
           )}
           {s && !owner && me?.username !== s.username && (
             <p className="mt-14 text-center">
-              <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => requireAuth(() => setReporting(true), { reason: "чтобы отправить жалобу" })}>
+              <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => requireAuth(() => setReporting(true))}>
                 Пожаловаться на гардероб
               </button>
             </p>

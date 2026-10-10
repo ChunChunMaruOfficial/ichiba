@@ -180,8 +180,10 @@ export class AuthController {
     return {
       google: process.env.GOOGLE_CLIENT_ID || null,
       apple: process.env.APPLE_CLIENT_ID || null,
-      // The widget needs the bot's username (without @); the token itself never leaves the server.
+      // The login popup needs the bot's username and numeric id (the public part of the token before ":");
+      // the secret part never leaves the server.
       telegram: (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, '')) || null,
+      telegramBotId: process.env.TELEGRAM_BOT_TOKEN?.split(':')[0] || null,
       devAnyCode: DEV_ANY_CODE,
     };
   }

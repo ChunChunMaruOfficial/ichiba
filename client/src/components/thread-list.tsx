@@ -34,7 +34,7 @@ export function ThreadList({ activeId, compact }: { activeId?: string; compact?:
           >
             <div className="w-14 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={56} height={70} className="size-full object-cover" />}
+              {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={56} height={70} className="size-full object-contain" />}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">

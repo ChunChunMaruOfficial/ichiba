@@ -16,7 +16,7 @@ import { AuctionPanel, AuctionTimer } from "@/components/auction";
 import { AddToCollection } from "@/components/collections";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
-import { BundleNote, FitHintBox, ListingStatsCard, RatingInline } from "@/components/trust";
+import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
 import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconBag, IconCheck, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
@@ -29,7 +29,7 @@ const measurementLabel = (k: string) => (MEASURE_LABEL[k as keyof typeof MEASURE
 
 function ProductSkeleton() {
   return (
-    <div className="mx-auto grid max-w-[1280px] gap-10 px-4 py-6 md:grid-cols-[58fr_42fr] md:px-6">
+    <div className="mx-auto grid grid-cols-1 max-w-[1280px] gap-10 px-4 py-6 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:px-6">
       <Skeleton className="aspect-[4/5] rounded-3xl" />
       <div className="flex flex-col gap-4">
         <Skeleton className="h-8 w-3/4" />
@@ -119,8 +119,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const showAuction = !!auction && (auctionRunning || auction.status === "SOLD" || (auction.status === "NO_SALE" && auction.bidsCount > 0));
   const canBuy = !l.isOwner && l.status === "PUBLISHED" && !activeRequest && !auctionRunning;
 
-  const buy = () => requireAuth(() => router.push(`/buy/${l.id}`), { reason: `чтобы купить «${l.title}»` });
-  const openOffer = () => requireAuth(() => setOfferOpen(true), { reason: `чтобы предложить цену за «${l.title}»` });
+  const buy = () => requireAuth(() => router.push(`/buy/${l.id}`));
+  const openOffer = () => requireAuth(() => setOfferOpen(true));
   const ask = () =>
     requireAuth(
       async () => {
@@ -131,7 +131,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           toast(e instanceof ApiError ? e.message : "Не удалось открыть чат", { tone: "error" });
         }
       },
-      { reason: "чтобы задать вопрос продавцу" },
     );
   const toggleCart = () =>
     requireAuth(
@@ -147,7 +146,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           toast(e instanceof ApiError ? e.message : "Не удалось", { tone: "error" });
         }
       },
-      { reason: "чтобы добавить вещь в корзину" },
     );
   const offerOpenNegotiation = offer && (offer.status === "PENDING" || offer.status === "ACCEPTED");
   const canOffer = canBuy && l.acceptsOffers && !offerOpenNegotiation;
@@ -180,6 +178,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         ) : (
           <b>{l.size}</b>
         )}
+        {l.fit && !l.isOwner && !sold && <FitNote fit={l.fit} />}
         {measurements.length > 0 && (
           <button className="ml-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => setShowMeasurements((v) => !v)} aria-expanded={showMeasurements}>
             Замеры
@@ -333,7 +332,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   );
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 pb-28 pt-4 md:px-6 md:pb-16">
+    <div className="mx-auto max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16">
       <nav aria-label="Хлебные крошки" className="mb-4 hidden text-sm text-muted md:block">
         <Link href="/" className="hover:text-ink">Главная</Link>
         {l.categoryLabel && (
@@ -345,7 +344,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         {l.subcategoryLabel && <> / <span className="text-ink-2">{l.subcategoryLabel}</span></>}
       </nav>
 
-      <div className="grid gap-8 md:grid-cols-[58fr_42fr] md:gap-12">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">
         <Gallery
           photos={l.photos}
           video={l.video}
@@ -400,7 +399,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             </p>
           )}
 
-          <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[15px]">
+          <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-[15px]">
             {params
               .filter(([, v]) => v)
               .map(([k, v]) => (
@@ -432,7 +431,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               <span className="block text-xs text-muted">Замеры в разложенном виде</span>
             </p>
           )}
-          {!l.isOwner && !sold && <FitHintBox fit={l.fit} hasProfile={l.fitProfile} signedIn={!!me} hasSize={!!l.size} />}
+          {!l.isOwner && !sold && !l.fit && <FitProfilePrompt hasProfile={l.fitProfile} signedIn={!!me} hasSize={!!l.size} />}
 
 
           <div className="mt-6">{l.isOwner ? ownerPanel : buyerPanel}</div>
@@ -458,7 +457,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             {l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"} · {l.viewsCount} просмотров · {l.favoritesCount} сохранений
           </p>
           {!l.isOwner && (
-            <button className="mt-3 text-xs text-muted underline underline-offset-4 hover:text-ink" onClick={() => requireAuth(() => setReportOpen(true), { reason: "чтобы отправить жалобу" })}>
+            <button className="mt-3 text-xs text-muted underline underline-offset-4 hover:text-ink" onClick={() => requireAuth(() => setReportOpen(true))}>
               Пожаловаться
             </button>
           )}
@@ -466,7 +465,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
       </div>
 
       {/* Seller wardrobe block */}
-      <section className="mt-16 grid gap-8 border-t border-line pt-10 md:mt-24 md:grid-cols-[minmax(0,320px)_1fr]">
+      <section className="mt-16 grid grid-cols-1 gap-8 border-t border-line pt-10 md:mt-24 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <div>
           <Link href={`/u/${seller.username}`} className="text-2xl font-semibold hover:underline">
             {seller.username}
@@ -515,33 +514,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
       <AddToCollection listingId={l.id} open={collectionOpen} onClose={() => setCollectionOpen(false)} />
       {l.isOwner && <AppealModal open={appealOpen} onClose={() => setAppealOpen(false)} listingId={l.id} onDone={refresh} />}
 
-      {/* Mobile sticky buy bar (replaces bottom nav on this page) */}
-      {!l.isOwner && auctionRunning && auction && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden">
-          <span className="tabular text-lg font-semibold">{formatPrice(auction.currentBid ?? auction.startPrice)}</span>
-          <AuctionTimer endsAt={auction.endsAt} />
-          {auction.leaderIsMe ? (
-            <span className="ml-auto text-sm font-medium text-ok">Вы лидируете</span>
-          ) : (
-            <Button className="ml-auto" onClick={() => document.getElementById("bid-amount")?.focus()}>
-              Сделать ставку
-            </Button>
-          )}
-        </div>
-      )}
-      {!l.isOwner && !sold && !auctionRunning && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden">
-          <span className="tabular text-lg font-semibold">{formatPrice(l.price)}</span>
-          {canOffer && (
-            <Button variant="secondary" className="ml-auto" onClick={openOffer}>
-              Предложить
-            </Button>
-          )}
-          <Button className={canOffer ? "min-w-28" : "ml-auto min-w-36"} onClick={buy} disabled={!canBuy}>
-            {activeRequest ? "Запрос отправлен" : "Купить"}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export default function AdminListingsPage() {
             <li key={l.id} className="flex items-center gap-4 py-3">
               <div className="w-14 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {l.cover && <img src={l.cover.urls.s} alt="" width={56} height={70} className="size-full object-cover" />}
+                {l.cover && <img src={l.cover.urls.s} alt="" width={56} height={70} className="size-full object-contain" />}
               </div>
               <div className="min-w-0 flex-1">
                 <Link href={`/item/${l.id}`} target="_blank" className="block truncate font-medium hover:underline">

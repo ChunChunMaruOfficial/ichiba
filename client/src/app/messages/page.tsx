@@ -13,7 +13,7 @@ function Threads() {
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Сообщения</h1>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <ThreadList />
         <div className="hidden min-h-[60vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-line-strong text-center lg:flex">
           <Chochin ch="話" className="h-44" />

@@ -35,7 +35,7 @@ function Breakdown<K extends string>({ title, data, label }: { title: string; da
       <h2 className="mb-4 font-semibold">{title}</h2>
       <ul className="flex flex-col gap-2.5">
         {rows.map(([k, n]) => (
-          <li key={k} className="grid grid-cols-[minmax(0,10rem)_1fr_3rem] items-center gap-3 text-sm">
+          <li key={k} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem] items-center gap-3 text-sm">
             <span className="truncate text-ink-2">{label(k)}</span>
             <span className="h-2 rounded-full bg-paper">
               <span className="block h-full rounded-full bg-ink" style={{ width: `${(n / max) * 100}%` }} />
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
           ))}
         </dl>
       </section>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Breakdown title="Вещи по статусам" data={data.listingsByStatus} label={(k) => LISTING_LABEL[k]} />
         <Breakdown title="Сделки по статусам" data={data.dealsByStatus} label={(k) => DEAL_STATUS[k].seller} />
       </div>
@@ -122,7 +122,7 @@ function AiStatus() {
   return (
     <section className="rounded-2xl bg-surface p-5">
       <h2 className="mb-4 font-semibold">ИИ-ансамбль</h2>
-      <ul className="grid gap-3 sm:grid-cols-3">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {data.providers.map((p) => (
           <li key={p.id} className="rounded-xl border border-line p-3 text-sm">
             <p className="flex items-center gap-2 font-medium">

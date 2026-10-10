@@ -25,8 +25,8 @@ declare global {
   interface Window {
     google?: { accounts: { id: { initialize: (o: object) => void; renderButton: (el: HTMLElement, o: object) => void } } };
     AppleID?: { auth: { init: (o: object) => void; signIn: () => Promise<{ authorization: { id_token: string } }> } };
-    /** Callback named in the Telegram Login Widget's data-onauth. */
-    ichibaTelegramAuth?: (user: TelegramUser) => void;
+    /** telegram-widget.js: opens Telegram's login popup and hands back the signed user (false if cancelled). */
+    Telegram?: { Login: { auth: (o: { bot_id: string; request_access?: "write"; lang?: string }, cb: (user: TelegramUser | false) => void) => void } };
   }
 }
 
@@ -57,7 +57,6 @@ const prettyPhone = (v: string) => {
 
 interface AuthModalProps {
   open: boolean;
-  reason?: string;
   onClose: () => void;
   onSignedIn: (me: Me, isNew?: boolean) => void;
 }
@@ -68,7 +67,7 @@ export function AuthModal(props: AuthModalProps) {
   return mounted ? <AuthForm {...props} /> : null;
 }
 
-function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
+function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
   const [step, setStep] = useState<Step>("start");
   const [login, setLogin] = useState("");
   const [target, setTarget] = useState("");
@@ -83,7 +82,7 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
   const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [usernameHint, setUsernameHint] = useState<{ ok: boolean; text: string; suggestion?: string } | null>(null);
-  const { data: providers } = useSWR<{ google: string | null; apple: string | null; telegram?: string | null; devAnyCode?: boolean }>("/auth/providers");
+  const { data: providers } = useSWR<{ google: string | null; apple: string | null; telegram?: string | null; telegramBotId?: string | null; devAnyCode?: boolean }>("/auth/providers");
   const codeInput = useRef<HTMLInputElement>(null);
   const hint = step === "profile" && username.length >= 3 ? usernameHint : null;
   const byEmail = isEmail(target || login);
@@ -206,16 +205,17 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <div aria-hidden className="pattern-asanoha pattern-fade-b pointer-events-none absolute inset-x-0 top-0 h-32 rounded-t-[inherit]" />
-      {reason && step === "start" && <p className="-mt-2 mb-5 text-sm text-muted">{reason}</p>}
 
       {step === "start" && (providers?.google || providers?.telegram) && (
         <>
-          {providers.google && <GoogleButton clientId={providers.google} onToken={(idToken) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/google", { body: { idToken } })))} />}
-          {providers.telegram && (
-            <div className={providers.google ? "mt-3" : undefined}>
-              <TelegramButton bot={providers.telegram} onAuth={(user) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/telegram", { body: user })))} />
-            </div>
-          )}
+          <div className="flex gap-3">
+            {providers.google && (
+              <GoogleButton clientId={providers.google} onToken={(idToken) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/google", { body: { idToken } })))} />
+            )}
+            {providers.telegram && providers.telegramBotId && (
+              <TelegramButton botId={providers.telegramBotId} onAuth={(user) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/telegram", { body: user })))} />
+            )}
+          </div>
           {providers.apple && (
             <div className="mt-3">
               <AppleButton clientId={providers.apple} onToken={(idToken) => run(async () => finish(await api<SessionResult>("/auth/apple", { body: { idToken } })))} />
@@ -390,10 +390,10 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
         </button>
       )}
       {step === "start" && (
-        <p className="mt-5 text-center text-xs leading-relaxed text-muted">
-          Продолжая, вы соглашаетесь с{" "}
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-muted min-[360px]:whitespace-nowrap sm:text-xs">
+          Продолжая, вы принимаете{" "}
           <Link href="/privacy" target="_blank" className="underline underline-offset-2">
-            Политикой конфиденциальности
+            Политику конфиденциальности
           </Link>
         </p>
       )}
@@ -401,6 +401,10 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
   );
 }
 
+/**
+ * Google's button is an iframe with its own look and a 200 px minimum width. To sit in a half-width slot next to
+ * Telegram, our own button is drawn and the real Google button lies on top of it, transparent, taking the click.
+ */
 function GoogleButton({ clientId, onToken }: { clientId: string; onToken: (t: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const cb = useRef(onToken);
@@ -411,45 +415,64 @@ function GoogleButton({ clientId, onToken }: { clientId: string; onToken: (t: st
     let cancelled = false;
     loadScript("https://accounts.google.com/gsi/client")
       .then(() => {
-        if (cancelled || !ref.current || !window.google) return;
+        const box = ref.current;
+        if (cancelled || !box || !window.google) return;
         window.google.accounts.id.initialize({ client_id: clientId, callback: (r: { credential: string }) => cb.current(r.credential) });
-        window.google.accounts.id.renderButton(ref.current, { theme: "outline", size: "large", text: "continue_with", shape: "pill", width: 360, locale: "ru" });
+        window.google.accounts.id.renderButton(box, { type: "standard", size: "large", text: "signin", width: Math.max(200, box.offsetWidth), locale: "ru" });
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [clientId]);
-  return <div ref={ref} className="flex min-h-11 justify-center" />;
+  return (
+    <div className="relative flex-1 overflow-hidden rounded-full">
+      <SocialFace label="Google">
+        <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
+          <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.8Z" />
+          <path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1 .7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.7-4.9H1.3v3.1A12 12 0 0 0 12 24Z" />
+          <path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z" />
+          <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8Z" />
+        </svg>
+      </SocialFace>
+      <div ref={ref} className="absolute inset-0 flex items-center justify-center opacity-[0.01]" />
+    </div>
+  );
 }
 
-/** Official Telegram Login Widget: an iframe from telegram.org that hands back a signed user object. */
-function TelegramButton({ bot, onAuth }: { bot: string; onAuth: (u: TelegramUser) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const cb = useRef(onAuth);
+/** Opens Telegram's own login popup (telegram-widget.js) from a button styled like the rest of the modal. */
+function TelegramButton({ botId, onAuth }: { botId: string; onAuth: (u: TelegramUser) => void }) {
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    cb.current = onAuth;
-  });
-  useEffect(() => {
-    const box = ref.current;
-    if (!box) return;
-    window.ichibaTelegramAuth = (u) => cb.current(u);
-    const s = document.createElement("script");
-    s.src = "https://telegram.org/js/telegram-widget.js?22";
-    s.async = true;
-    s.dataset.telegramLogin = bot;
-    s.dataset.size = "large";
-    s.dataset.radius = "20";
-    s.dataset.onauth = "ichibaTelegramAuth(user)";
-    s.dataset.requestAccess = "write";
-    s.dataset.lang = "ru";
-    box.replaceChildren(s);
-    return () => {
-      box.replaceChildren();
-      delete window.ichibaTelegramAuth;
-    };
-  }, [bot]);
-  return <div ref={ref} className="flex min-h-11 justify-center" />;
+    loadScript("https://telegram.org/js/telegram-widget.js?22")
+      .then(() => setReady(true))
+      .catch(() => {});
+  }, []);
+  return (
+    <button
+      type="button"
+      disabled={!ready}
+      className="flex-1 rounded-full disabled:opacity-60"
+      onClick={() => window.Telegram?.Login.auth({ bot_id: botId, request_access: "write", lang: "ru" }, (user) => user && onAuth(user))}
+    >
+      <SocialFace label="Telegram">
+        <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
+          <circle cx="12" cy="12" r="12" fill="#2AABEE" />
+          <path fill="#fff" d="M5.4 11.8 16.9 7.4c.5-.2 1 .1.8.9l-2 9.3c-.1.6-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5c.2-.2 0-.3-.4-.1l-6.9 4.3-3-.9c-.6-.2-.6-.6.2-.9Z" />
+        </svg>
+      </SocialFace>
+    </button>
+  );
+}
+
+/** Shared look of the social sign-in buttons: a paper pill with the service's logo and name. */
+function SocialFace({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <span className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line bg-surface text-[15px] font-semibold text-ink transition-colors hover:border-ink-2">
+      {children}
+      {label}
+    </span>
+  );
 }
 
 function AppleButton({ clientId, onToken }: { clientId: string; onToken: (t: string) => void }) {

@@ -17,7 +17,7 @@ export function RequireAuth({ children, reason }: { children: (me: Me) => React.
   if (!me) {
     return (
       <EmptyState title="Войдите, чтобы продолжить" hint={reason ? `Нужно войти ${reason}` : undefined}>
-        <Button onClick={() => openAuth({ reason })}>Войти</Button>
+        <Button onClick={() => openAuth()}>Войти</Button>
       </EmptyState>
     );
   }

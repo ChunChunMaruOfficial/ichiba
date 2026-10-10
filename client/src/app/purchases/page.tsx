@@ -68,7 +68,7 @@ function Purchases() {
           );
         })}
       </div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-2 [&>*]:min-w-0 lg:[&>*:only-child]:col-span-2">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0 lg:[&>*:only-child]:col-span-2">
         {showDeals && error ? (
           <ErrorState message="Не удалось загрузить сделки" onRetry={() => mutate()} />
         ) : loading ? (
@@ -121,7 +121,7 @@ function BidRow({ listing, auction: a }: { listing: Card; auction: AuctionView }
     >
       <div className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {listing.cover && <img src={listing.cover.urls.s} alt="" width={80} height={100} className="size-full object-cover" />}
+        {listing.cover && <img src={listing.cover.urls.s} alt="" width={80} height={100} className="size-full object-contain" />}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">

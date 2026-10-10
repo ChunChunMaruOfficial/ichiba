@@ -47,9 +47,9 @@ export function ItemFields(props: FieldsProps) {
   const category = meta.categories.find((c) => c.slug === values.category);
   return (
     <>
-      <div className="grid gap-7 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-7 lg:grid-cols-2">
         <Field label="Категория" required error={errors.category}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
               aria-label="Категория"
               value={values.category ?? ""}
@@ -79,7 +79,7 @@ export function ItemFields(props: FieldsProps) {
           </div>
         </Field>
       </div>
-      <div className="grid gap-7 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-7 lg:grid-cols-2">
         <Field label="Название" required error={errors.title} hint={`${values.title.length}/80`}>
           <Input maxLength={80} value={values.title} onChange={(e) => setAiValue("title", { title: e.target.value }, e.target.value)} error={errors.title} placeholder="Чёрная кожаная куртка Zara" />
         </Field>
@@ -183,7 +183,7 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
                         className={clsx("relative h-16 w-13 overflow-hidden rounded-lg border-2", p.isDefect ? "border-amber" : "border-transparent opacity-70")}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-cover" />
+                        <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-contain" />
                       </button>
                     ) : null,
                   )}
@@ -243,7 +243,7 @@ export function DetailFields(props: FieldsProps) {
 
   return (
     <>
-      <div className="grid gap-7 lg:grid-cols-[1fr_280px]">
+      <div className="grid grid-cols-1 gap-7 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Field label="Цвет">
           <div className="flex flex-wrap gap-2">
             {meta.colors.map((c) => (
@@ -286,7 +286,7 @@ export function DetailFields(props: FieldsProps) {
 /** Where the seller is and how the thing changes hands. */
 export function HandoverFields({ values, set, errors, meta }: FieldsProps) {
   return (
-    <div className="grid gap-7 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-7 lg:grid-cols-2">
       <Field label="Город">
         <Select aria-label="Город" value={values.city ?? ""} onChange={(v) => set({ city: v || null })} options={[{ value: "", label: "Не указан" }, ...meta.cities.map((c) => ({ value: c, label: c }))]} />
       </Field>
@@ -322,7 +322,7 @@ export function PriceFields({
   return (
     <div className="flex flex-col gap-7">
       {/* The price is written on the shop's paper tag itself; how it's sold is chosen beside it. */}
-      <div className="grid items-start gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2">
         <div className="flex flex-col gap-3" data-error={errors.price ? "" : undefined}>
           <label className={clsx("block pl-8 text-[56px] font-bold md:text-[64px]", (locked || auctionLocked) && "opacity-60")}>
             <Nefuda className={clsx("tabular w-full [&>span:last-child]:flex-1", errors.price && "[&>span:last-child]:shadow-[inset_0_0_0_2px_var(--danger)]")}>
@@ -397,7 +397,7 @@ export function PriceFields({
               ))}
             </div>
           </Field>
-          <div className="grid gap-6 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
             <Field label="Шаг ставки, BYN" error={errors.auctionStep} hint={autoStep ? `По умолчанию ${autoStep} BYN` : undefined}>
               <Input inputMode="numeric" disabled={auctionLocked} value={values.auctionStep} onChange={(e) => set({ auctionStep: e.target.value.replace(/\D/g, "") })} error={errors.auctionStep} placeholder={autoStep ? String(autoStep) : ""} />
             </Field>
@@ -419,7 +419,7 @@ export function PriceFields({
           </label>
           {values.acceptsOffers && (
             <div className="rise mt-4">
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <Field label="Автоотказ ниже, BYN" error={errors.minOfferPrice}>
                   <Input inputMode="numeric" value={values.minOfferPrice} onChange={(e) => set({ minOfferPrice: e.target.value.replace(/\D/g, "") })} error={errors.minOfferPrice} placeholder="Необязательно" />
                 </Field>

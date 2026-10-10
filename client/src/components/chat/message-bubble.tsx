@@ -21,7 +21,7 @@ export interface BubbleProps {
   selecting: boolean;
   selected: boolean;
   menuOpen: boolean;
-  onMenu: (m: ChatMessage, at: { point?: { x: number; y: number }; rect?: DOMRect; touch: boolean }) => void;
+  onMenu: (m: ChatMessage, at: { point?: { x: number; y: number }; rect?: DOMRect; el?: HTMLElement; touch: boolean }) => void;
   onReply: (m: ChatMessage) => void;
   onReact: (m: ChatMessage, emoji: string) => void;
   onToggleSelect: (m: ChatMessage) => void;
@@ -39,7 +39,10 @@ export const MessageBubble = memo(function MessageBubble(p: BubbleProps) {
   const hasMedia = !!m.media?.length;
   const { target, hint, handlers } = useMessageGestures({
     disabled: p.selecting || !!outbox,
-    onLongPress: () => p.onMenu(m, { rect: target.current?.querySelector("[data-bubble]")?.getBoundingClientRect(), touch: true }),
+    onLongPress: () => {
+      const el = target.current?.querySelector<HTMLElement>("[data-bubble]") ?? undefined;
+      p.onMenu(m, { el, rect: el?.getBoundingClientRect(), touch: true });
+    },
     onSwipeReply: () => p.onReply(m),
     onDoubleTap: hasMedia || m.location ? undefined : () => p.onReact(m, "❤️"),
     onContextMenu: (point) => p.onMenu(m, { point, touch: false }),
@@ -83,7 +86,8 @@ export const MessageBubble = memo(function MessageBubble(p: BubbleProps) {
               m.mine ? "rounded-br-md bg-accent text-accent-ink" : "rounded-bl-md bg-surface text-ink shadow-[inset_0_0_0_1px_var(--line)]",
               // On touch screens a held message must not start a text selection or the iOS callout.
               "pointer-coarse:select-none [-webkit-touch-callout:none]",
-              p.menuOpen && "z-[71] scale-[1.02] shadow-[var(--shadow-float)]",
+              // On phones the menu shows a lifted copy of the message, so the original hides meanwhile.
+              p.menuOpen && "z-[71] scale-[1.02] shadow-[var(--shadow-float)] pointer-coarse:invisible",
               outbox && !m.failed && "opacity-70",
               (hasMedia || m.location) && "p-1",
             )}

@@ -124,7 +124,7 @@ export function CollectionTile({ c }: { c: CollectionSummary }) {
           <div key={i} className="overflow-hidden bg-skeleton">
             {c.covers[i] && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={c.covers[i]!} alt="" width={160} height={160} loading="lazy" className="size-full object-cover transition-transform group-hover:scale-105" />
+              <img src={c.covers[i]!} alt="" width={160} height={160} loading="lazy" className="size-full object-contain transition-transform group-hover:scale-105" />
             )}
           </div>
         ))}

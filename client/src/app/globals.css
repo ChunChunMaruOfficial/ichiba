@@ -156,6 +156,15 @@ body {
   font-family: var(--font-sans);
   font-variant-numeric: lining-nums;
   -webkit-font-smoothing: antialiased;
+  /* A word longer than its line (a long Russian word in a big title, a link or a nickname in user text) wraps
+     instead of pushing the page sideways on a narrow phone. */
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3 {
+  hyphens: auto;
 }
 
 ::selection {

@@ -336,6 +336,8 @@ export function Header() {
       className={clsx(
         "bg-washi sticky top-0 z-40 border-b border-line transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
         hidden && "-translate-y-full",
+        // A conversation on a phone or tablet is full screen, like a messenger: its own header has the way back.
+        isThread(pathname) && "max-lg:hidden",
       )}
     >
       <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 md:h-16 md:gap-4 md:px-6">
@@ -343,11 +345,11 @@ export function Header() {
         <Logo />
         <CatalogButton anchor={header} />
         <Suspense fallback={<div className="hidden flex-1 md:block" />}>
-          <SearchBox className="mx-auto hidden w-full max-w-[560px] md:block" />
+          <SearchBox className="mx-auto hidden w-full min-w-0 max-w-[560px] md:block" />
         </Suspense>
-        <div className="ml-auto flex items-center gap-1 md:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
           <button
-            onClick={() => requireAuth(() => router.push("/sell"), { reason: "чтобы выставить вещь" })}
+            onClick={() => requireAuth(() => router.push("/sell"))}
             aria-label="Продать вещь"
             className="btn-wa btn-wa-shu mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex lg:px-5"
           >
@@ -415,7 +417,6 @@ export function BottomNav() {
     pathname.startsWith("/welcome") ||
     pathname.startsWith("/admin") ||
     isThread(pathname) ||
-    /^\/item\/[^/]+$/.test(pathname) ||
     pathname.endsWith("/edit");
   if (hidden) return null;
 
@@ -427,12 +428,13 @@ export function BottomNav() {
           <Icon className="size-6" filled={active && Icon === IconHeart} />
           {!!opts.badge && <span className="absolute -right-2 -top-1 rounded-full bg-shu px-1 text-[10px] font-semibold leading-4 text-on-shu">{opts.badge}</span>}
         </span>
-        <span className={clsx("text-[11px]", active && "font-semibold")}>{label}</span>
+        <span className={clsx("max-w-full truncate text-[11px]", active && "font-semibold")}>{label}</span>
         {/* The active tab gets the logo's cinnabar seal. */}
         <span className={clsx("seal-dot", !active && "invisible")} aria-hidden />
       </>
     );
-    const cls = clsx("flex flex-1 flex-col items-center gap-0.5 pb-1 pt-2", active ? "text-ink" : "text-ink-2");
+    // basis-0 + min-w-0: five equal tabs that never push past the screen edge, even at 320 px.
+    const cls = clsx("flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 pb-1 pt-2", active ? "text-ink" : "text-ink-2");
     return opts.auth ? (
       <button key={href} className={cls} onClick={() => requireAuth(() => router.push(href))}>
         {content}
@@ -450,8 +452,8 @@ export function BottomNav() {
       {item("/search", "Поиск", IconSearch)}
       <button
         aria-label="Продать вещь"
-        className="flex flex-1 items-center justify-center py-1.5 text-ink"
-        onClick={() => requireAuth(() => router.push("/sell"), { reason: "чтобы выставить вещь" })}
+        className="flex min-w-0 flex-1 basis-0 items-center justify-center py-1.5 text-ink"
+        onClick={() => requireAuth(() => router.push("/sell"))}
       >
         <span className="grid h-11 w-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_4px_12px_-4px_rgb(28_26_23/0.5)] transition-transform active:scale-95">
           <IconPlus className="size-6" />

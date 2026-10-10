@@ -68,7 +68,6 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
           setBusy(false);
         }
       },
-      { reason: `чтобы сделать ставку на «${title}»` },
     );
 
   const buyNow = () =>
@@ -88,7 +87,6 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
           setBuying(false);
         }
       },
-      { reason: `чтобы купить «${title}»` },
     );
 
   const cancelAuto = async () => {

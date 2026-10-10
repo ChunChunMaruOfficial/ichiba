@@ -74,7 +74,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
         <div className="relative">
           <div className="rise w-40 overflow-hidden rounded-3xl shadow-[var(--shadow-float)]" style={{ aspectRatio: "4 / 5" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {cover && <img src={cover.urls.m} alt="" className="size-full object-cover" />}
+            {cover && <img src={cover.urls.m} alt="" className="size-full object-contain" />}
           </div>
           {/* the purchase, wrapped in cloth for the way home */}
           <Furoshiki className="rise sway absolute -bottom-6 -right-14 h-24" />
@@ -135,7 +135,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
       {confirming && <p className="rise mt-2 text-ink-2">Вещь зарезервирована за вами. Выберите, как её получить — после этого откроются контакты продавца.</p>}
 
       <form
-        className="mt-8 grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-8"
+        className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-8"
         onSubmit={(e) => {
           e.preventDefault();
           if (!reserved) void submit();
@@ -154,11 +154,11 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
               <legend className="mb-3 text-lg font-semibold">Способ получения</legend>
               {ways.length === 1 ? (
                 // One way only: shown as a fact, not a choice.
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <OptionCard fixed seal={DELIVERY_WAY[ways[0]].seal} title={DELIVERY_WAY[ways[0]].only} hint={DELIVERY_WAY[ways[0]].hint} aside={ways[0] === "IN_PERSON" ? l.city : null} />
                 </div>
               ) : (
-                <div role="radiogroup" aria-label="Способ получения" className="grid gap-2 sm:grid-cols-2">
+                <div role="radiogroup" aria-label="Способ получения" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {ways.map((d) => (
                     <OptionCard key={d} name="delivery" checked={chosen === d} onChange={() => setMethod(d)} seal={DELIVERY_WAY[d].seal} title={DELIVERY_WAY[d].title} hint={DELIVERY_WAY[d].hint} aside={d === "IN_PERSON" ? l.city : null} />
                   ))}
@@ -173,7 +173,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
               )}
             </fieldset>
 
-            <div className="grid gap-8 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <Field label="Телефон для связи" htmlFor="phone" hint="Покажем продавцу только после подтверждения">
                 <Input id="phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+375 29 …" />
               </Field>
@@ -188,7 +188,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
           <Link href={`/item/${l.id}`} className="flex gap-4 rounded-[28px] bg-surface p-4 shadow-[var(--shadow-paper)]">
             <div className="w-24 shrink-0 overflow-hidden rounded-2xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {cover && <img src={cover.urls.s} alt="" className="size-full object-cover" />}
+              {cover && <img src={cover.urls.s} alt="" className="size-full object-contain" />}
             </div>
             <div className="min-w-0">
               <p className="font-medium">{l.title}</p>

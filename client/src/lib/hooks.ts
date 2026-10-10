@@ -42,7 +42,6 @@ export function useFavorite(card: Pick<Card, "id" | "title" | "isFavorite">, sou
         if (next) toast("Сохранено · сообщим о снижении цены и резерве", { action: { label: "Избранное", onClick: () => router.push("/favorites") } });
         else toast("Удалено из избранного", { action: { label: "Отменить", onClick: () => void set(true) } });
       },
-      { reason: `чтобы сохранить «${card.title}»` },
     );
   }, [requireAuth, isFavorite, set, toast, router, card.title]);
 

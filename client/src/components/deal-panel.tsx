@@ -164,7 +164,7 @@ export function DealPanel({ deal, onChange }: { deal: Deal; onChange: (d?: Deal)
                   <li key={it.id} className="flex items-center gap-3 py-2">
                     <Link href={`/item/${it.id}`} className="w-9 shrink-0 overflow-hidden rounded-md bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {it.cover && <img src={it.cover.urls.s} alt="" className="size-full object-cover" />}
+                      {it.cover && <img src={it.cover.urls.s} alt="" className="size-full object-contain" />}
                     </Link>
                     <Link href={`/item/${it.id}`} className="min-w-0 flex-1 truncate hover:underline">
                       {it.title}

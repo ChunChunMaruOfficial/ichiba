@@ -158,7 +158,7 @@ function ReviewCard({ review: r, onChange, showListing = true }: { review: Revie
           </button>
         )}
         {!r.mine && !r.canReply && (
-          <button className="text-muted underline underline-offset-4 hover:text-ink" onClick={() => requireAuth(() => setReportOpen(true), { reason: "чтобы пожаловаться на отзыв" })}>
+          <button className="text-muted underline underline-offset-4 hover:text-ink" onClick={() => requireAuth(() => setReportOpen(true))}>
             Пожаловаться
           </button>
         )}
@@ -185,7 +185,7 @@ export function ReviewsSection({ username }: { username: string }) {
   const items = data!.flatMap((p) => p.items);
 
   return (
-    <div className="grid gap-6 md:grid-cols-[280px_1fr]">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="flex flex-col gap-4 md:sticky md:top-24 md:self-start">
         <div className="rounded-2xl bg-surface p-5">
           <p className="tabular text-4xl font-semibold">{s.avg.toFixed(1)}</p>
@@ -196,7 +196,7 @@ export function ReviewsSection({ username }: { username: string }) {
           <ul className="mt-4 flex flex-col gap-1.5">
             {s.distribution.map((d) => (
               <li key={d.stars}>
-                <button className={clsx("grid w-full grid-cols-[1.5rem_1fr_2rem] items-center gap-2 text-sm", rating === d.stars && "font-semibold")} onClick={() => setRating((r) => (r === d.stars ? null : d.stars))} aria-pressed={rating === d.stars}>
+                <button className={clsx("grid w-full grid-cols-[1.5rem_minmax(0,1fr)_2rem] items-center gap-2 text-sm", rating === d.stars && "font-semibold")} onClick={() => setRating((r) => (r === d.stars ? null : d.stars))} aria-pressed={rating === d.stars}>
                   <span>{d.stars}★</span>
                   <span className="h-2 overflow-hidden rounded-full bg-ink/5">
                     <span className="block h-full rounded-full bg-amber" style={{ width: `${s.count ? (d.count / s.count) * 100 : 0}%` }} />

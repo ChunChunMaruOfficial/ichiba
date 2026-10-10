@@ -50,7 +50,7 @@ function Welcome({ me }: { me: Me }) {
         </button>
       </div>
 
-      <div className="grid items-start gap-8 lg:grid-cols-[1fr_460px] lg:gap-16">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_460px] lg:gap-16">
         {/* left: what this step is about, under the shop's noren */}
         <div className="rise lg:sticky lg:top-24">
           <Noren className="mb-6 hidden w-72 lg:block" />

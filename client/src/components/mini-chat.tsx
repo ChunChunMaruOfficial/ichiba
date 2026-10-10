@@ -271,7 +271,7 @@ function MiniChatCard({ id, closing, onClose }: { id: string; closing: boolean; 
         <Link href={`/item/${t.listing.id}`} onClick={() => onClose()} className="mx-4 flex items-center gap-3 rounded-2xl bg-paper p-2 pr-3 transition-colors hover:bg-surface-sunk">
           <span className="w-10 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={40} height={50} className="size-full object-cover" />}
+            {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={40} height={50} className="size-full object-contain" />}
           </span>
           <span className="min-w-0 flex-1 truncate text-sm">{t.listing.title}</span>
           <span className="hang-tag shrink-0 text-xs">{formatPrice(t.listing.price)}</span>

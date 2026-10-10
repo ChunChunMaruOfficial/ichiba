@@ -9,7 +9,7 @@ const NUMERALS = ["一", "二", "三", "四", "五", "六", "七", "八"];
 export function FormSection({ kanji, title, index = 0, className, children }: { kanji: string; title: string; index?: number; className?: string; children: React.ReactNode }) {
   return (
     <section
-      className={clsx("rise relative border-t border-line pt-8 focus-within:z-20 md:grid md:grid-cols-[176px_1fr] md:gap-10 md:pt-10", className)}
+      className={clsx("rise relative border-t border-line pt-8 focus-within:z-20 md:grid md:grid-cols-[176px_minmax(0,1fr)] md:gap-10 md:pt-10", className)}
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* the big kanji as a faint watermark on the right; the fields keep clear of it (clipped here, so the sticky header still follows the page) */}

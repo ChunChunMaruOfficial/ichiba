@@ -347,7 +347,7 @@ function SearchView() {
             <Chip
               active={!!filters.my_size}
               onClick={() =>
-                requireAuth(() => (hasSizes || filters.my_size ? navigate({ ...filters, my_size: filters.my_size ? undefined : "1" }) : router.push("/settings#sizes")), { reason: "чтобы искать вещи вашего размера" })
+                requireAuth(() => (hasSizes || filters.my_size ? navigate({ ...filters, my_size: filters.my_size ? undefined : "1" }) : router.push("/settings#sizes")))
               }
             >
               Мой размер

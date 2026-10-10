@@ -35,7 +35,20 @@ function presets() {
 }
 
 /** "Опубликовать позже" (eBay scheduled listings): pick a time up to 30 days ahead. */
-export function SchedulePicker({ onSchedule, disabled, className, buttonClassName }: { onSchedule: (at: Date) => void; disabled?: boolean; className?: string; buttonClassName?: string }) {
+/** `compact`: on phones the button is just a clock icon, so it fits next to the main action. */
+export function SchedulePicker({
+  onSchedule,
+  disabled,
+  className,
+  buttonClassName,
+  compact,
+}: {
+  onSchedule: (at: Date) => void;
+  disabled?: boolean;
+  className?: string;
+  buttonClassName?: string;
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const pop = usePresence(open);
   const [value, setValue] = useState("");
@@ -54,8 +67,14 @@ export function SchedulePicker({ onSchedule, disabled, className, buttonClassNam
 
   return (
     <div ref={box} className={clsx("relative", className)}>
-      <Button type="button" variant="secondary" size="lg" disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open} className={buttonClassName}>
-        Запланировать
+      <Button type="button" variant="secondary" size="lg" disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Запланировать" className={buttonClassName}>
+        {compact && (
+          <svg viewBox="0 0 24 24" className="size-5 md:hidden" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" />
+          </svg>
+        )}
+        <span className={compact ? "hidden md:inline" : undefined}>Запланировать</span>
       </Button>
       {pop.mounted && (
         <div data-closing={pop.closing || undefined} className="fade-in absolute bottom-[calc(100%+8px)] left-0 z-50 w-[min(88vw,320px)] rounded-2xl border border-line bg-surface p-4 shadow-xl md:left-auto md:right-0">

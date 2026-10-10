@@ -607,7 +607,7 @@ function Thread({ id }: { id: string }) {
   const deletingMine = deleting.length > 0 && deleting.every((m) => m.mine);
 
   return (
-    <div className="mx-auto grid h-[calc(100dvh-57px)] max-w-[1280px] md:h-[calc(100dvh-65px)] lg:grid-cols-[360px_1fr] lg:gap-6 lg:px-6 lg:py-4">
+    <div className="mx-auto grid h-dvh max-w-[1280px] grid-cols-[minmax(0,1fr)] max-lg:pt-[env(safe-area-inset-top)] lg:h-[calc(100dvh-65px)] lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:py-4">
       {/* Wide screens: all conversations stay on the left, like a messenger. */}
       <aside className="hidden min-h-0 overflow-y-auto overscroll-contain pr-1 lg:block">
         <ThreadList activeId={id} compact />
@@ -659,7 +659,7 @@ function Thread({ id }: { id: string }) {
             </Link>
             <Link href={`/item/${t.listing.id}`} className="w-11 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={44} height={55} className="size-full object-cover" />}
+              {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={44} height={55} className="size-full object-contain" />}
             </Link>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">

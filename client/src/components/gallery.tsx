@@ -6,8 +6,8 @@ import { usePresence } from "@/lib/presence";
 import type { Photo, VideoView } from "@/lib/types";
 import { IconChevronLeft, IconChevronRight, IconExpand, IconX } from "./ui";
 
-function VideoSlide({ video, className }: { video: VideoView; className?: string }) {
-  return <video src={video.url} poster={video.poster} controls playsInline preload="metadata" className={clsx("bg-black object-contain", className)} />;
+function VideoSlide({ video, className, style }: { video: VideoView; className?: string; style?: React.CSSProperties }) {
+  return <video src={video.url} poster={video.poster} controls playsInline preload="metadata" className={clsx("bg-black object-contain", className)} style={style} />;
 }
 
 function PlayBadge() {
@@ -38,6 +38,9 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
 
   if (!count) return <div className="aspect-[4/5] rounded-3xl bg-skeleton" />;
   const current = photos[index] ?? photos[0];
+  // Phone carousel: one frame for every slide, shaped like the cover (within sane bounds); each photo is shown whole.
+  const first = photos[0];
+  const frame = first ? Math.min(Math.max(first.width / first.height, 0.6), 1.5) : 0.8;
   const dots = [...photos.map((p) => p.id), ...(video ? [video.id] : [])];
 
   return (
@@ -54,14 +57,15 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
           }}
         >
           {photos.map((p, i) => (
-            <button key={p.id} className="w-full shrink-0 snap-center" onClick={() => setFullscreen(true)} aria-label={`Фото ${i + 1} из ${count}, открыть во весь экран`}>
+            <button key={p.id} className="relative w-full shrink-0 snap-center overflow-hidden bg-skeleton" style={{ aspectRatio: frame }} onClick={() => setFullscreen(true)} aria-label={`Фото ${i + 1} из ${count}, открыть во весь экран`}>
+              <BlurBackdrop src={p.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.urls.l} alt={i === 0 ? title : ""} className="aspect-[4/5] w-full object-cover" loading={i === 0 ? "eager" : "lazy"} />
+              <img src={p.urls.l} alt={i === 0 ? title : ""} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} />
             </button>
           ))}
           {video && (
             <div className="w-full shrink-0 snap-center">
-              <VideoSlide video={video} className="aspect-[4/5] w-full" />
+              <VideoSlide video={video} className="w-full" style={{ aspectRatio: frame }} />
             </div>
           )}
         </div>
@@ -116,7 +120,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
                 className={clsx("relative size-18 overflow-hidden rounded-xl border-2", i === index ? "border-ink" : "border-transparent opacity-80 hover:opacity-100")}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.urls.s} alt="" className="size-full object-cover" />
+                <img src={p.urls.s} alt="" className="size-full object-contain" />
                 {p.isDefect && <span className="absolute inset-x-0 bottom-0 bg-warn-soft py-0.5 text-[10px] font-semibold text-warn">дефект</span>}
               </button>
             ))}
@@ -128,7 +132,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
                 className={clsx("relative size-18 overflow-hidden rounded-xl border-2", onVideo ? "border-ink" : "border-transparent opacity-80 hover:opacity-100")}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={video.poster} alt="" className="size-full object-cover" />
+                <img src={video.poster} alt="" className="size-full object-contain" />
                 <PlayBadge />
               </button>
             )}
@@ -206,4 +210,10 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
       )}
     </div>
   );
+}
+
+/** The same photo, blurred, filling the frame around a photo shown whole (as Instagram and Telegram do). */
+export function BlurBackdrop({ src }: { src: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" aria-hidden className="absolute inset-0 size-full scale-110 object-cover opacity-60 blur-2xl" />;
 }

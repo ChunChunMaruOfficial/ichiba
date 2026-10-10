@@ -81,34 +81,15 @@ export function StarInput({ value, onChange }: { value: number; onChange: (v: nu
 
 // ---------- size hint ----------
 
-const FIT_TONE: Record<FitHint["verdict"], string> = {
-  good: "bg-ok-soft text-ok",
-  snug: "bg-warn-soft text-warn",
-  loose: "bg-warn-soft text-warn",
-  small: "bg-danger-soft text-danger",
-  large: "bg-danger-soft text-danger",
-};
+/** Inline next to the size: "(на 2 размера меньше вашего)", plain bold text. */
+export function FitNote({ fit }: { fit: FitHint }) {
+  return <b className="ml-1.5 font-semibold">({fit.title.charAt(0).toLowerCase() + fit.title.slice(1)})</b>;
+}
 
-/** "Скорее всего, подойдёт" under the size, or an invitation to save sizes. */
-export function FitHintBox({ fit, hasProfile, signedIn, hasSize }: { fit: FitHint | null; hasProfile: boolean | null; signedIn: boolean; hasSize: boolean }) {
-  if (!hasSize && !fit) return null;
-  if (fit) {
-    return (
-      <div className={clsx("mt-3 rounded-xl px-4 py-3 text-sm", FIT_TONE[fit.verdict])}>
-        <p className="font-semibold">{fit.title}</p>
-        <ul className="mt-0.5 opacity-90">
-          {fit.details.map((d) => (
-            <li key={d}>{d}</li>
-          ))}
-        </ul>
-        <Link href="/settings#sizes" className="mt-1 inline-block text-xs underline underline-offset-4 opacity-80">
-          {fit.basis === "size" ? "Добавьте замеры — подсказка станет точнее" : "Мои размеры"}
-        </Link>
-      </div>
-    );
-  }
+/** Invitation to save one's sizes, for signed-in people who have none yet (the hint itself sits next to the size). */
+export function FitProfilePrompt({ hasProfile, signedIn, hasSize }: { hasProfile: boolean | null; signedIn: boolean; hasSize: boolean }) {
   // null = not known yet (server-rendered copy) or not applicable.
-  if (!signedIn || hasProfile !== false) return null;
+  if (!hasSize || !signedIn || hasProfile !== false) return null;
   return (
     <Link href="/settings#sizes" className="mt-3 block rounded-xl border border-dashed border-line-strong px-4 py-3 text-sm text-ink-2 hover:border-ink">
       <b className="font-semibold text-ink">Подойдёт ли размер?</b> Укажите свои размеры — будем подсказывать на каждой вещи

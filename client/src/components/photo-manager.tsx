@@ -154,7 +154,7 @@ export function PhotoManager({
             className={clsx("pop group relative overflow-hidden rounded-2xl bg-skeleton shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-1", big ? "h-[200px] w-40" : "h-[150px] w-[120px]", p.status === "error" && "ring-2 ring-danger", dragKey === p.key && "opacity-50")}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-cover" />
+            <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-contain" />
             {p.status === "uploading" && (
               <span className="absolute inset-0 grid place-items-center bg-surface/60" aria-label="Загружается">
                 <Spinner className="size-6 text-ink" />

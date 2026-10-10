@@ -19,18 +19,6 @@ const LABEL: Record<MeasurementKey, string> = {
   foot_length: "Длина стельки",
 };
 
-/** How to measure each field, shown while it's focused. */
-const HOW: Record<MeasurementKey, string> = {
-  shoulders: "От шва до шва по плечам, по прямой",
-  chest: "Подмышка до подмышки в разложенном виде — полуобхват",
-  waist: "По поясу от края до края в разложенном виде",
-  hips: "По самой широкой части, от края до края",
-  length: "От верхней точки (у ворота или пояса) до низа",
-  sleeve: "От плечевого шва до края манжеты",
-  inseam: "От шва в паху до низа штанины",
-  foot_length: "Достаньте стельку и измерьте от пятки до носка",
-};
-
 const FIELDS: Record<Kind, MeasurementKey[]> = {
   top: ["shoulders", "chest", "length", "sleeve"],
   dress: ["shoulders", "chest", "waist", "length"],
@@ -71,7 +59,7 @@ const ARROWS: Record<Kind, Partial<Record<MeasurementKey, [number, number, numbe
   dress: { shoulders: [52, 22, 108, 22], chest: [50, 50, 110, 50], waist: [56, 78, 104, 78], length: [134, 16, 134, 152] },
   bottom: { waist: [48, 18, 112, 18], hips: [44, 46, 116, 46], length: [130, 14, 130, 152], inseam: [84, 64, 96, 150] },
   skirt: { waist: [54, 22, 106, 22], hips: [46, 52, 114, 52], length: [128, 20, 128, 130] },
-  shoes: { foot_length: [52, 150, 108, 16] },
+  shoes: { foot_length: [80, 152, 80, 14] },
 };
 
 function Silhouette({ kind }: { kind: Kind }) {
@@ -85,7 +73,7 @@ function Silhouette({ kind }: { kind: Kind }) {
 
 /**
  * Measurement inputs with a garment diagram (Depop/Grailed): only the measurements that make sense for the
- * category, and the arrow for the focused field is highlighted with a one-line "how to measure".
+ * category, and the arrow for the focused field is highlighted.
  */
 export function MeasureFields({ values, set }: { values: ListingValues; set: (patch: Partial<ListingValues>) => void }) {
   const kind = measureKind(values.category);
@@ -94,7 +82,7 @@ export function MeasureFields({ values, set }: { values: ListingValues; set: (pa
   const fields = FIELDS[kind];
   const shown = active && fields.includes(active) ? active : fields[0];
   return (
-    <div className="grid items-start gap-4 sm:grid-cols-[160px_1fr]">
+    <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[160px_minmax(0,1fr)]">
       <svg viewBox="0 0 160 160" className="mx-auto w-36 sm:w-40" aria-hidden>
         <Silhouette kind={kind} />
         {fields.map((f) => ARROWS[kind][f] && <Arrow key={f} d={ARROWS[kind][f]!} active={f === shown} />)}
@@ -115,9 +103,6 @@ export function MeasureFields({ values, set }: { values: ListingValues; set: (pa
             </label>
           ))}
         </div>
-        <p className="rounded-xl bg-paper px-3 py-2 text-sm text-ink-2">
-          <span className="font-medium text-ink">{LABEL[shown]}:</span> {HOW[shown].toLowerCase()}
-        </p>
       </div>
     </div>
   );

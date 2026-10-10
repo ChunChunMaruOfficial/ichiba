@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
+import { BlurBackdrop } from "./gallery";
 import { CONDITION_LABEL, formatPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { useSession } from "./session";
@@ -98,7 +99,6 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
             setHistory((h) => [...h, { card: top, dir }]);
             setIndex((i) => i + 1);
           },
-          { reason: `чтобы сохранить «${top.title}»` },
         );
         return;
       }
@@ -255,7 +255,10 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
                 <div className="relative min-h-0 flex-1 bg-skeleton">
                   {card.cover && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={card.cover.urls.l} alt={isTop ? card.title : ""} draggable={false} className="pointer-events-none absolute inset-0 size-full object-cover" />
+                    <>
+                      <BlurBackdrop src={card.cover.urls.s} />
+                      <img src={card.cover.urls.l} alt={isTop ? card.title : ""} draggable={false} className="pointer-events-none absolute inset-0 size-full object-contain" />
+                    </>
                   )}
                   {isTop && (
                     <>
@@ -302,7 +305,7 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
         </button>
 {context === "swipe_mode" && top.status === "PUBLISHED" && me?.id !== top.seller.id && (
           <button
-            onClick={() => requireAuth(() => router.push(`/buy/${top.id}`), { reason: `чтобы купить «${top.title}»` })}
+            onClick={() => requireAuth(() => router.push(`/buy/${top.id}`))}
             className="h-11 rounded-full bg-accent px-5 text-sm font-semibold text-accent-ink shadow-sm transition hover:scale-105 hover:bg-accent-hover"
           >
             Купить

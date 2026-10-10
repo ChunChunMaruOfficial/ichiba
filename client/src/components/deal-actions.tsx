@@ -209,7 +209,7 @@ export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) =
       <div className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {item?.cover && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.cover.urls.s} alt="" className="size-full object-cover" />
+          <img src={item.cover.urls.s} alt="" className="size-full object-contain" />
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

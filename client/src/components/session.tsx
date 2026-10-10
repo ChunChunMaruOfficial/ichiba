@@ -10,19 +10,14 @@ import type { ChatMessage, Me, MessageRisk, Meta } from "@/lib/types";
 import { AuthModal } from "./auth-modal";
 import { useToast } from "./toast";
 
-interface AuthContext {
-  /** Short reason shown under the modal title, e.g. "чтобы сохранить Levi's 501". */
-  reason?: string;
-}
-
 interface SessionValue {
   me: Me | null;
   loading: boolean;
   refresh: () => Promise<unknown>;
   logout: () => Promise<void>;
   /** Runs `action` now if signed in; otherwise opens the auth modal and runs it after sign-in (frame 18). */
-  requireAuth: (action: (me: Me) => void | Promise<void>, ctx?: AuthContext) => void;
-  openAuth: (ctx?: AuthContext) => void;
+  requireAuth: (action: (me: Me) => void | Promise<void>) => void;
+  openAuth: () => void;
   /** "live" when the socket is up; otherwise pages poll for fresh data. */
   realtime: RealtimeStatus;
 }
@@ -77,24 +72,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
-  const [ctx, setCtx] = useState<AuthContext>({});
   const pending = useRef<((me: Me) => void | Promise<void>) | null>(null);
 
-  const openAuth = useCallback((c: AuthContext = {}) => {
-    setCtx(c);
-    setAuthOpen(true);
-  }, []);
+  const openAuth = useCallback(() => setAuthOpen(true), []);
 
   const user = data?.user ?? null;
   const userId = user?.id;
   const requireAuth = useCallback<SessionValue["requireAuth"]>(
-    (action, c) => {
+    (action) => {
       if (user) {
         void action(user);
         return;
       }
       pending.current = action;
-      openAuth(c);
+      openAuth();
     },
     [user, openAuth],
   );
@@ -170,7 +161,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       {children}
       <AuthModal
         open={authOpen}
-        reason={ctx.reason}
         onClose={() => {
           pending.current = null;
           setAuthOpen(false);

@@ -55,7 +55,7 @@ function Notifications() {
           </Button>
         )}
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[240px_1fr] lg:gap-10">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
       <div className="no-scrollbar flex gap-2 overflow-x-auto lg:sticky lg:top-24 lg:flex-col lg:self-start lg:overflow-visible">
         {GROUPS.map(([key, label]) => (
           <Chip key={key} active={group === key} onClick={() => setGroup(key)} className="lg:justify-start">

@@ -120,7 +120,7 @@ function Settings({ me }: { me: Me }) {
           {me.email ? ` · ${me.email}` : ""}
         </p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[240px_1fr] lg:gap-10">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
       <SettingsNav
         items={[
           ["profile", "個", "Профиль"],
@@ -168,7 +168,7 @@ function ThemeSection() {
   ];
   return (
     <Section title="Оформление" hint="Сохраняется на этом устройстве">
-      <div role="radiogroup" aria-label="Тема" className="grid gap-2 sm:grid-cols-3">
+      <div role="radiogroup" aria-label="Тема" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {options.map(([value, label, hint]) => (
           <button
             key={value}
@@ -270,7 +270,7 @@ function SizesSection({ me }: { me: Me }) {
         ))}
         <div>
           <p className="text-sm font-medium">Замеры тела, см</p>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {BODY.map((b) => (
               <Field key={b.key} label={b.label} htmlFor={`body-${b.key}`} hint={b.hint} error={fields[`bodyMeasurements.${b.key}`] ? `От ${b.min} до ${b.max} см` : undefined}>
                 <Input id={`body-${b.key}`} inputMode="decimal" value={body[b.key] ?? ""} onChange={(e) => setBody((s) => ({ ...s, [b.key]: e.target.value.replace(/[^\d.,]/g, "").slice(0, 5) }))} placeholder="—" />

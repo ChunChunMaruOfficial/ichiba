@@ -19,13 +19,13 @@ import { Button, ButtonLink, IconChevronRight } from "./ui";
 export function SectionHeader({ title, count, href, linkLabel = "Все", kanji }: { title: string; count?: string; href?: string; linkLabel?: string; kanji?: string }) {
   return (
     <div className="mb-5 flex items-end justify-between gap-4">
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         {kanji && (
           <span className="pt-1 font-brush text-[15px] leading-none tracking-[0.15em] text-shu [writing-mode:vertical-rl]" aria-hidden>
             {kanji}
           </span>
         )}
-        <h2 className="text-2xl font-bold leading-tight md:text-[28px]">
+        <h2 className="min-w-0 text-2xl font-bold leading-tight [overflow-wrap:anywhere] md:text-[28px]">
           {title}
           {count && <span className="ml-2 font-sans text-sm font-normal tracking-normal text-muted">{count}</span>}
         </h2>
@@ -51,7 +51,7 @@ export function SellBand() {
     ["三", "Договоритесь с покупателем", "Ответьте на вопросы, примите предложение, отправьте Белпочтой или встретьтесь"],
   ];
   return (
-    <section className="aizome aizome-fade-r grid gap-10 rounded-[28px] px-6 pb-10 pt-28 md:grid-cols-[1fr_1.2fr] md:gap-14 md:px-12 md:pb-14 md:pt-36">
+    <section className="aizome aizome-fade-r grid grid-cols-1 gap-10 rounded-[28px] px-6 pb-10 pt-28 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-14 md:px-12 md:pb-14 md:pt-36">
       {/* The shop is open: a washi noren with the crest and いちば hangs from the band's top edge. */}
       <Noren className="absolute left-1/2 top-0 w-[280px] -translate-x-1/2 md:left-12 md:w-[340px] md:translate-x-0" cloth="#f4efe6" ink="#1f3354" />
       <Chochin className="absolute right-10 top-0 hidden h-40 lg:block" delay={-1.4} />
@@ -95,7 +95,7 @@ export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: 
 function CoverImg({ cover, alt }: { cover: Cover | null; alt: string }) {
   return cover ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={cover.urls.s} alt={alt} loading="lazy" className="size-full object-cover" />
+    <img src={cover.urls.s} alt={alt} loading="lazy" className="size-full object-contain" />
   ) : (
     <div className="size-full bg-skeleton" />
   );
@@ -121,7 +121,6 @@ export function FollowButton({ seller, onChange, size = "md" }: { seller: Pick<S
               toast("Не удалось сохранить изменение", { tone: "error" });
             }
           },
-          { reason: `чтобы подписаться на @${seller.username}` },
         )
       }
     >

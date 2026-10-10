@@ -121,7 +121,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
   };
 
   return (
-    <section className="rise grid gap-6 border-t border-line pt-8 lg:grid-cols-[1fr_400px] lg:gap-10" style={{ animationDelay: `${index * 80}ms` }}>
+    <section className="rise grid grid-cols-1 gap-6 border-t border-line pt-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10" style={{ animationDelay: `${index * 80}ms` }}>
       <div className="min-w-0">
       <div className="mb-4 flex items-baseline justify-between gap-4">
         <h2 className="text-lg font-semibold">
@@ -152,12 +152,12 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
           )}
         </p>
       )}
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {g.items.map((i) => (
           <li key={i.id} className={clsx("pop flex gap-4 rounded-2xl bg-surface p-3", i.status !== "PUBLISHED" && "opacity-70")}>
             <Link href={`/item/${i.id}`} className="w-18 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {i.cover && <img src={i.cover.urls.s} alt="" width={72} height={90} className="size-full object-cover" />}
+              {i.cover && <img src={i.cover.urls.s} alt="" width={72} height={90} className="size-full object-contain" />}
             </Link>
             <div className="min-w-0 flex-1">
               <Link href={`/item/${i.id}`} className="block truncate font-medium hover:underline">

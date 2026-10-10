@@ -39,7 +39,7 @@ function Table({ rows }: { rows: Array<[string, string]> }) {
   return (
     <dl className="divide-y divide-line overflow-hidden rounded-2xl bg-surface">
       {rows.map(([k, v]) => (
-        <div key={k} className="grid gap-1 px-4 py-3 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-4">
+        <div key={k} className="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-4">
           <dt className="font-medium text-ink">{k}</dt>
           <dd>{v}</dd>
         </div>
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
         </ul>
       </aside>
 
-      <div className="mt-10 grid gap-10 md:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
+      <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
         <article className="flex max-w-3xl flex-col gap-10">
           <Section id="general" n={1} title="Общие положения">
             <p>

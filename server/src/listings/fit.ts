@@ -111,6 +111,7 @@ function bySize(system: string | null, value: string | null, sizes: PreferredSiz
   const tolerance = system === 'JEANS_W' ? 1 : 0;
   if (Math.abs(diff) <= tolerance) return { verdict: diff < 0 ? 'snug' : 'loose', title: diff < 0 ? 'Может сесть плотно' : 'Может быть свободной', details: [`Ваш размер — ${scale[nearest]}, у вещи ${value}`], basis: 'size' };
   const verdict: FitVerdict = diff < 0 ? (Math.abs(diff) === 1 ? 'snug' : 'small') : Math.abs(diff) === 1 ? 'loose' : 'large';
-  const step = Math.abs(diff) === 1 ? 'на размер' : `на ${Math.abs(diff)} размера`;
+  const n = Math.abs(diff);
+  const step = n === 1 ? 'на размер' : `на ${n} ${n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'размера' : 'размеров'}`;
   return { verdict, title: diff < 0 ? `${step[0].toUpperCase()}${step.slice(1)} меньше вашего` : `${step[0].toUpperCase()}${step.slice(1)} больше вашего`, details: [`Вы обычно носите ${mine.join(', ')}, у вещи ${value}`], basis: 'size' };
 }
