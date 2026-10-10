@@ -10,7 +10,7 @@ export function checkEnv() {
   const prod = env.NODE_ENV === 'production';
   const errors: string[] = [];
 
-  if (!env.DATABASE_URL) errors.push('DATABASE_URL is not set (Supabase: Project → Connect → Session pooler)');
+  if (!env.DATABASE_URL) errors.push('DATABASE_URL is not set (Railway: ${{Postgres.DATABASE_URL}})');
   if (!env.JWT_SECRET) errors.push('JWT_SECRET is not set — copy server/.env.example to .env');
   // Sessions are signed with this secret: a short or default one makes them forgeable.
   else if (prod && (env.JWT_SECRET.length < 32 || env.JWT_SECRET.startsWith('change-me'))) errors.push('JWT_SECRET must be a random string of at least 32 characters in production');
@@ -23,10 +23,13 @@ export function checkEnv() {
     for (const k of ['S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY', 'MEDIA_PUBLIC_URL']) if (!env[k]) errors.push(`${k} is required with MEDIA_DRIVER=s3`);
   } else if (env.VERCEL && !cloudinary) {
     errors.push('Vercel has no persistent disk: set CLOUDINARY_* (or MEDIA_DRIVER=s3 with S3_*) for photos');
+  } else if (env.RAILWAY_ENVIRONMENT && !cloudinary && !env.RAILWAY_VOLUME_MOUNT_PATH) {
+    // A Railway container's disk is wiped on every deploy: local media needs a volume (MEDIA_DIR inside it).
+    errors.push('Railway disk is not persistent: set CLOUDINARY_* or attach a volume and point MEDIA_DIR into it');
   }
 
   if (prod) {
-    if (!env.WEB_ORIGIN) errors.push('WEB_ORIGIN is not set (URL of the web app, e.g. https://ichiba.vercel.app)');
+    if (!env.WEB_ORIGIN) errors.push('WEB_ORIGIN is not set (URL of the web app, e.g. https://ichiba.up.railway.app)');
     if (!env.SMTP_HOST) logger.warn('SMTP_HOST is empty: verification codes and emails go to the log only — see docs/EMAIL.md');
     if (env.VERCEL && !env.CRON_SECRET) logger.warn('CRON_SECRET is not set: /cron/tick is disabled (jobs still run on traffic)');
     if (env.VERCEL && !env.PUSHER_APP_ID && env.REALTIME_DRIVER !== 'none') logger.warn('No PUSHER_* keys: Vercel cannot hold WebSockets, chat falls back to polling');

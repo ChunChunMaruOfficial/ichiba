@@ -2,50 +2,63 @@
 
 MVP по спецификации с Miro-доски «Wardrobe Marketplace». Две независимые части, у каждой свой `package.json` и `package-lock.json`:
 
-- `server` — NestJS 12 (ESM) + Prisma 7 + PostgreSQL (Supabase). REST API, WebSocket-чат, фоновые задачи. **Деплой на Railway.**
-- `client` — Next.js 16 + Tailwind 4. **Деплой на Vercel.** Браузер ходит в API через `/api/*` (rewrite в `client/next.config.ts`), поэтому сессионная кука first-party.
+- `server` — NestJS 12 (ESM) + Prisma 7 + PostgreSQL. REST API, WebSocket-чат, фоновые задачи.
+- `client` — Next.js 16 + Tailwind 4. Браузер ходит в API через `/api/*` (rewrite в `client/next.config.ts`), поэтому сессионная кука first-party.
 
-## Деплой
+## Деплой (всё на Railway)
 
-### 1. Сервер на Railway (папка `server`)
+Один репозиторий, один проект Railway `ichiba`, четыре сервиса:
 
-New Project → Deploy from GitHub repo → выбрать репозиторий → в настройках сервиса **Root Directory = `server`**. Сборку, миграции перед запуском, старт и health-check Railway берёт из `server/railway.json`. В Settings → Networking нажать **Generate Domain** — получится адрес вида `https://ichiba-server.up.railway.app`.
+| Сервис | Что это | Настройки |
+|---|---|---|
+| `Postgres` | база (шаблон Railway) | — |
+| `Redis` | шина событий чата между копиями сервера, лимиты | — |
+| `server` | репозиторий, **Root Directory `/server`**, Watch Paths `/server/**` | Build `npm run build`, Pre-deploy `npx prisma migrate deploy`, Start `node dist/main.js`, Healthcheck `/health`; volume `/data` для фото без Cloudinary |
+| `client` | репозиторий, **Root Directory `/client`**, Watch Paths `/client/**` | Railpack сам: `npm run build` → `npm start`; Healthcheck `/` |
 
-Variables (полный список с комментариями — `server/.env.example`):
+Каждый пуш в `main` пересобирает только тот сервис, чья папка изменилась. Настройки сборки заданы в самом сервисе Railway (config-as-code `railway.json` Railway больше не поддерживает).
+
+**server → Variables** (полный список с комментариями — `server/.env.example`):
 
 ```
-JWT_SECRET=<openssl rand -base64 48>
-WEB_ORIGIN=https://<проект>.vercel.app
-DATABASE_URL=<Supabase → Connect → Session pooler>
+PORT=4000
+DATABASE_URL=${{Postgres.DATABASE_URL}}
 DATABASE_POOL_MAX=10
-CLOUDINARY_CLOUD_NAME=…  CLOUDINARY_API_KEY=…  CLOUDINARY_API_SECRET=…
+REDIS_URL=${{Redis.REDIS_URL}}
+REALTIME_DRIVER=ws
+WEB_ORIGIN=https://${{client.RAILWAY_PUBLIC_DOMAIN}}
+APP_URL=https://${{client.RAILWAY_PUBLIC_DOMAIN}}
 ADMIN_EMAILS=c4erkaoui@gmail.com
+MEDIA_DRIVER=local  MEDIA_DIR=/data/media  MEDIA_PUBLIC_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}/media
+AUTH_DEV_ANY_CODE=false  SEED_DEMO=false
+# секреты — вписать вручную:
+JWT_SECRET=<openssl rand -base64 48>
 SMTP_HOST=…  SMTP_PORT=465  SMTP_SECURE=true  SMTP_USER=…  SMTP_PASS=…  SMTP_FROM=…
-APP_URL=https://<проект>.vercel.app
+CLOUDINARY_CLOUD_NAME=…  CLOUDINARY_API_KEY=…  CLOUDINARY_API_SECRET=…   # иначе фото лежат на volume
+GEMINI_API_KEY=…  MISTRAL_API_KEY=…  ZAI_API_KEY=…                       # по желанию, ИИ
 ```
 
-`DIRECT_URL` на Railway лучше не задавать: прямое подключение Supabase работает только по IPv6, а миграции отлично идут через session pooler из `DATABASE_URL`.
-Чат работает по WebSocket прямо с сервера (`wss://<домен Railway>/ws`, адрес сервер берёт из `RAILWAY_PUBLIC_DOMAIN` сам). Фоновые задачи (аукционы, 48-часовые сроки, очередь писем, чистка фото) крутятся внутри процесса. Redis (`REDIS_URL`, можно добавить плагином Railway) нужен, только если запустить больше одной копии сервера.
-Проверка: `https://<домен Railway>/health` → `{"ok":true,"db":true,…}`.
-
-### 2. Сайт на Vercel (папка `client`)
-
-Add New → Project → тот же репозиторий → **Root Directory = `client`**. Environment Variables:
+**client → Variables:**
 
 ```
-API_URL=https://<домен Railway>
-NEXT_PUBLIC_SITE_URL=https://<проект>.vercel.app
+PORT=3000
+API_URL=http://${{server.RAILWAY_PRIVATE_DOMAIN}}:4000   # внутренняя сеть Railway
+NEXT_PUBLIC_SITE_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
 NEXT_PUBLIC_LEGAL_EMAIL=c4erkaoui@gmail.com
 NEXT_PUBLIC_LEGAL_OPERATOR=<ИП или организация>   NEXT_PUBLIC_LEGAL_UNP=<УНП>   NEXT_PUBLIC_LEGAL_ADDRESS=<адрес>
 ```
 
-`NODE_ENV` вручную не задавать ни там, ни там. После деплоя впишите адрес Vercel в `WEB_ORIGIN` и `APP_URL` на Railway.
+Чат работает по WebSocket прямо с сервера (`wss://<домен server>/ws`, адрес сервер берёт из `RAILWAY_PUBLIC_DOMAIN` сам). Фоновые задачи (аукционы, 48-часовые сроки, очередь писем, чистка фото) крутятся внутри процесса. Проверка: `https://<домен server>/health` → `{"ok":true,"db":true,…}`.
+
+Свой домен: client → Settings → Networking → Custom Domain. Благодаря ссылкам `${{…}}` `WEB_ORIGIN`, `APP_URL` и `NEXT_PUBLIC_SITE_URL` подхватят его сами (`NEXT_PUBLIC_*` — после пересборки client).
+
+**Бэкапы базы:** Postgres → Backups, включить расписание.
 
 **Администратор.** Зарегистрируйтесь на сайте с email из `ADMIN_EMAILS` и подтвердите код — аккаунт станет администратором; вход в `/admin` — по паролю.
 
 **Демо-данные (моки)** отключены, но не удалены (`server/prisma/seed*.ts`): запускаются только локально командой `SEED_DEMO=true npm --prefix server run seed` и никогда в production.
 
-Сервер можно выложить и на Vercel/другой serverless (тогда нужны `PUSHER_*` для чата и `CRON_SECRET` для `/cron/tick`), и на любой VPS — см. комментарии в `server/.env.example`.
+Сервер можно выложить и на Vercel/другой serverless (тогда нужны `PUSHER_*` для чата и `CRON_SECRET` для `/cron/tick`), и на любой VPS — см. комментарии в `server/.env.example`. С Supabase вместо Postgres Railway: `DATABASE_URL` = Session pooler; миграция `supabase_rls` сама добавит политики RLS (на обычной Postgres она только включает RLS).
 
 ## Локальный запуск (без Docker)
 
@@ -67,10 +80,8 @@ npm run dev                          # база (prisma dev), миграции, 
 
 Без `CLOUDINARY_*` фото хранятся в `server/storage/media` и раздаются сервером по `/media`.
 
-## Supabase и Cloudinary
+## Cloudinary
 
-- **Supabase** — это база: `DATABASE_URL` (session pooler) и `DIRECT_URL` (direct) из Project → Connect, затем `npm --prefix server run db:migrate`. API работает с базой через Prisma как с любым Postgres, вся бизнес-логика (модерация, сделки, дубли, ИИ) остаётся в API.
-- **RLS** (миграция `supabase_rls`): у всех таблиц включён RLS, и новые таблицы получают его автоматически. Через публичный ключ Supabase (REST API) можно только читать видимые объявления (опубликованные, в резерве, проданные) и их фото. Менять можно лишь свои объявления и фото (`auth.uid()` = владелец). Пользователи, заказы, чаты и всё остальное закрыты. Проверка: `node _rls-check.mjs`.
 - **Cloudinary** — файлы фото. Браузер берёт у API подпись (`POST /media/photos/ticket`) и грузит файл прямо в Cloudinary. Секрет есть только у API. Затем API проверяет подпись ответа Cloudinary и папку пользователя (`ichiba/<userId>/`), размер (от 400 px), считает хеш для поиска дублей и сохраняет в таблице `Photo` public_id, URL, версию, формат, размер, порядок и обложку. Оригинал при загрузке ужимается до 2560 px, EXIF и GPS удаляются. На витрину отдаются `f_auto,q_auto` превью 320/640/1280. Файлы, которые сутки не привязаны к объявлению (форму бросили, фото убрали при редактировании), ночью удаляются из Cloudinary. Проверка всего пути: `node _e2e-cloudinary.mjs`.
 
 ## Опциональные ключи (`server/.env`)
@@ -150,7 +161,7 @@ E2E: `cd server && node _e2e-v3.mjs` (нужен SMTP-приёмник `node _sm
 
 - **Вход без пароля** (как на Avito, Kufar, Vinted): Google или телефон/почта → код из 6 цифр → для новых — ник и согласие на обработку данных. Аккаунт создаётся только после согласия; вход по паролю оставлен для тех, у кого он есть. Номера понимаются в любом белорусском формате (`8 029…`, `29…`, `+375…`); на Android код подставляется из SMS сам (WebOTP).
 - **SMS:** SMSC.ru (`SMS_PROVIDER=smsc`, `SMSC_LOGIN`, `SMSC_PASSWORD`, `SMSC_SENDER`). SMS уходят только на разрешённые коды стран (`SMS_ALLOWED_PREFIXES`, по умолчанию `+375`) — защита от «накрутки» SMS; лимиты: 1 код в минуту и 5 в час на номер, 30 запросов в час с IP.
-- **Политика конфиденциальности** — `/privacy` (Закон РБ № 99-З). Реквизиты оператора — в `client/.env.local` (`NEXT_PUBLIC_LEGAL_*`); незаданные реквизиты просто не выводятся, почта для обращений по умолчанию — `c4erkaoui@gmail.com`. Обработчики (Vercel, Railway, Supabase, Cloudinary, почта, SMSC, модели ИИ) перечислены в тексте. Версия согласия хранится у пользователя (`privacyVersion`).
+- **Политика конфиденциальности** — `/privacy` (Закон РБ № 99-З). Реквизиты оператора — в `client/.env.local` (`NEXT_PUBLIC_LEGAL_*`); незаданные реквизиты просто не выводятся, почта для обращений по умолчанию — `c4erkaoui@gmail.com`. Обработчики (Railway, Cloudinary, почта, SMSC, модели ИИ) перечислены в тексте. Версия согласия хранится у пользователя (`privacyVersion`).
 - **Удаление аккаунта** в настройках: контакты и профиль стираются сразу, сделки и переписка остаются у второй стороны обезличенно; сессии удалённых и заблокированных аккаунтов перестают работать.
 - **Сроки хранения** выполняются автоматически каждую ночь: коды — 1 сутки, письма — 30 дней, журнал ИИ — 90 дней, прочитанные уведомления — 180 дней, просмотры и свайпы — 12 месяцев.
 - Уведомление о cookie внизу страницы (только необходимые cookie, без трекеров).
