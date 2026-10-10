@@ -145,7 +145,7 @@ if (!only || only === 'auction') {
   ok(badPub.status === 400 && badPub.data.fields?.auctionBuyNow, 'buy-now below start price rejected');
   await alex(`/listings/${bad.data.id}`, { method: 'DELETE' });
 
-  const A = await mk('Чёрная куртка аукцион автоставки', { auctionBuyNow: 120 });
+  const A = await mk('Чёрная кожаная куртка Zara', { auctionBuyNow: 120 });
   ok(A.auction?.buyNowPrice === 120 && A.auction.buyNowAvailable, 'auction with buy-now 120 BYN');
   const aid = A.auction.id;
   const r1 = await igor(`/auctions/${aid}/bids`, { body: { maxAmount: 80 } });
@@ -167,7 +167,7 @@ if (!only || only === 'auction') {
   ok(!!(await waitMail((x) => x.to?.includes('sveta@ichiba.test') && x.subject.startsWith('Вы выиграли аукцион'))), 'buyer gets the deal email');
   await sveta(`/requests/${bn.data.requestId}/cancel`, { method: 'POST', body: { reason: 'тест' } });
 
-  const B = await mk('Серая куртка аукцион порог выкупа', { auctionBuyNow: 100 });
+  const B = await mk('Серая куртка Mango, размер M', { auctionBuyNow: 100 });
   await igor(`/auctions/${B.auction.id}/bids`, { body: { amount: 75 } });
   const b2 = (await guest(`/listings/${B.id}`)).data.auction;
   ok(!b2.buyNowAvailable, 'bid at 75% of buy-now hides "Купить сейчас"');

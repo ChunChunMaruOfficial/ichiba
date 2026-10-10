@@ -25,12 +25,17 @@ async function session(login) {
   return call;
 }
 const t0 = () => Date.now();
-const files = readdirSync('storage/media', { recursive: true }).filter((x) => String(x).endsWith('_1280.webp'));
-const jpeg = (i, op = (s) => s) => op(sharp(`storage/media/${files[i]}`)).jpeg({ quality: 85 }).toBuffer();
-
 const admin = await session('admin@ichiba.test');
 const seller = await session('stylist_anna@ichiba.test');
 const igor = await session('igor@ichiba.test');
+
+// Test photos come from other people's seeded items (media is stored under <ownerId>/): a copy of the
+// seller's own photo would be caught by the duplicate check instead of the rule under test.
+const sellerId = (await seller('/auth/me')).data.user.id;
+const files = readdirSync('storage/media', { recursive: true })
+  .map(String)
+  .filter((x) => x.endsWith('_1280.webp') && !x.startsWith(sellerId));
+const jpeg = (i, op = (s) => s) => op(sharp(`storage/media/${files[i]}`)).jpeg({ quality: 85 }).toBuffer();
 
 if (!only || only === 'status') {
   const s = await admin('/ai/status');
