@@ -10,7 +10,7 @@ import { Button, Field, Input, Modal } from "./ui";
 
 /**
  * Sign-in and sign-up in one flow, the way Avito, Kufar and Vinted do it:
- *   1. Google — or a phone / email → we send a one-time code (no password to invent);
+ *   1. Google / Telegram — or a phone / email → we send a one-time code (no password to invent);
  *   2. the code (autofill from SMS on phones);
  *   3. only for new people: a nickname + consent to personal data processing → account created.
  * Password sign-in stays available for accounts that have a password.
@@ -18,11 +18,15 @@ import { Button, Field, Input, Modal } from "./ui";
 type Step = "start" | "code" | "profile" | "password" | "reset" | "reset-confirm";
 type SessionResult = { user: Me; isNew: boolean };
 type Signup = { token: string; contact: string; suggestion: string };
+/** What the Telegram Login Widget returns; the server checks its signature. */
+type TelegramUser = { id: number; first_name?: string; last_name?: string; username?: string; photo_url?: string; auth_date: number; hash: string };
 
 declare global {
   interface Window {
     google?: { accounts: { id: { initialize: (o: object) => void; renderButton: (el: HTMLElement, o: object) => void } } };
     AppleID?: { auth: { init: (o: object) => void; signIn: () => Promise<{ authorization: { id_token: string } }> } };
+    /** Callback named in the Telegram Login Widget's data-onauth. */
+    ichibaTelegramAuth?: (user: TelegramUser) => void;
   }
 }
 
@@ -79,7 +83,7 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
   const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [usernameHint, setUsernameHint] = useState<{ ok: boolean; text: string; suggestion?: string } | null>(null);
-  const { data: providers } = useSWR<{ google: string | null; apple: string | null; devAnyCode?: boolean }>("/auth/providers");
+  const { data: providers } = useSWR<{ google: string | null; apple: string | null; telegram?: string | null; devAnyCode?: boolean }>("/auth/providers");
   const codeInput = useRef<HTMLInputElement>(null);
   const hint = step === "profile" && username.length >= 3 ? usernameHint : null;
   const byEmail = isEmail(target || login);
@@ -124,7 +128,7 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
     setUsername(s.suggestion);
     setStep("profile");
   };
-  /** Session or "new person" — the same handling for codes and Google. */
+  /** Session or "new person" — the same handling for codes, Google and Telegram. */
   const handle = (r: SessionResult | { signup: Signup }) => ("signup" in r ? toProfile(r.signup) : finish(r));
 
   const sendCode = () =>
@@ -204,9 +208,14 @@ function AuthForm({ open, reason, onClose, onSignedIn }: AuthModalProps) {
       <div aria-hidden className="pattern-asanoha pattern-fade-b pointer-events-none absolute inset-x-0 top-0 h-32 rounded-t-[inherit]" />
       {reason && step === "start" && <p className="-mt-2 mb-5 text-sm text-muted">{reason}</p>}
 
-      {step === "start" && providers?.google && (
+      {step === "start" && (providers?.google || providers?.telegram) && (
         <>
-          <GoogleButton clientId={providers.google} onToken={(idToken) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/google", { body: { idToken } })))} />
+          {providers.google && <GoogleButton clientId={providers.google} onToken={(idToken) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/google", { body: { idToken } })))} />}
+          {providers.telegram && (
+            <div className={providers.google ? "mt-3" : undefined}>
+              <TelegramButton bot={providers.telegram} onAuth={(user) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/telegram", { body: user })))} />
+            </div>
+          )}
           {providers.apple && (
             <div className="mt-3">
               <AppleButton clientId={providers.apple} onToken={(idToken) => run(async () => finish(await api<SessionResult>("/auth/apple", { body: { idToken } })))} />
@@ -411,6 +420,35 @@ function GoogleButton({ clientId, onToken }: { clientId: string; onToken: (t: st
       cancelled = true;
     };
   }, [clientId]);
+  return <div ref={ref} className="flex min-h-11 justify-center" />;
+}
+
+/** Official Telegram Login Widget: an iframe from telegram.org that hands back a signed user object. */
+function TelegramButton({ bot, onAuth }: { bot: string; onAuth: (u: TelegramUser) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const cb = useRef(onAuth);
+  useEffect(() => {
+    cb.current = onAuth;
+  });
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    window.ichibaTelegramAuth = (u) => cb.current(u);
+    const s = document.createElement("script");
+    s.src = "https://telegram.org/js/telegram-widget.js?22";
+    s.async = true;
+    s.dataset.telegramLogin = bot;
+    s.dataset.size = "large";
+    s.dataset.radius = "20";
+    s.dataset.onauth = "ichibaTelegramAuth(user)";
+    s.dataset.requestAccess = "write";
+    s.dataset.lang = "ru";
+    box.replaceChildren(s);
+    return () => {
+      box.replaceChildren();
+      delete window.ichibaTelegramAuth;
+    };
+  }, [bot]);
   return <div ref={ref} className="flex min-h-11 justify-center" />;
 }
 

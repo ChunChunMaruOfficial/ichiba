@@ -6,7 +6,9 @@ import nodemailer, { type Transporter } from 'nodemailer';
  *  A) external SMTP with login (mail.hosting.reg.ru:465, SendGrid, Mailgun…): SMTP_HOST/PORT/SECURE/USER/PASS;
  *  B) local Postfix relay on the same server: SMTP_HOST=localhost, SMTP_PORT=25, no USER/PASS.
  * Email is enabled by SMTP_HOST alone — SMTP_USER is optional (Postfix has no auth).
- * Without SMTP_HOST (or with MAIL_PROVIDER=log) messages are printed to the API log instead.
+ *  C) Brevo HTTP API (BREVO_API_KEY): for hosts that block outbound SMTP (Railway Free/Hobby). The sender
+ *     (SMTP_FROM) must be a verified sender in Brevo; a plain Gmail address works, no own domain needed.
+ * Without SMTP_HOST / BREVO_API_KEY (or with MAIL_PROVIDER=log) messages are printed to the API log instead.
  */
 
 export interface OutgoingMail {
@@ -27,15 +29,20 @@ export class MailerService implements OnModuleInit {
   readonly fromAddress = process.env.SMTP_FROM || 'noreply@ichiba.by';
   readonly fromName = process.env.SMTP_FROM_NAME || 'ichiba';
 
-  /** "smtp" when SMTP_HOST is set (unless MAIL_PROVIDER=log forces the log). */
-  get mode(): 'smtp' | 'log' {
+  /** "brevo" with BREVO_API_KEY, else "smtp" when SMTP_HOST is set; MAIL_PROVIDER=log forces the log. */
+  get mode(): 'brevo' | 'smtp' | 'log' {
     if ((process.env.MAIL_PROVIDER || '').toLowerCase() === 'log') return 'log';
+    if (process.env.BREVO_API_KEY) return 'brevo';
     return process.env.SMTP_HOST ? 'smtp' : 'log';
   }
 
   onModuleInit() {
+    if (this.mode === 'brevo') {
+      this.logger.log(`Email via Brevo API, from ${this.fromAddress}`);
+      return;
+    }
     if (this.mode !== 'smtp') {
-      this.logger.log('SMTP is not configured (SMTP_HOST empty) — emails are written to this log');
+      this.logger.log('Email is not configured (no BREVO_API_KEY or SMTP_HOST) — emails are written to this log');
       return;
     }
     const host = process.env.SMTP_HOST!;
@@ -64,8 +71,9 @@ export class MailerService implements OnModuleInit {
       .catch((e: Error) => this.logger.error(`SMTP check failed for ${host}:${port}: ${e.message}. Emails will be retried from the outbox.`));
   }
 
-  /** Sends one message; throws on SMTP errors so the caller (outbox) can retry. */
+  /** Sends one message; throws on delivery errors so the caller (outbox) can retry. */
   async send(mail: OutgoingMail) {
+    if (this.mode === 'brevo') return this.sendBrevo(mail);
     if (this.mode !== 'smtp' || !this.transporter) {
       this.logger.log(`[email → ${mail.to}] ${mail.subject}\n${mail.text}`);
       return { messageId: 'log' };
@@ -79,5 +87,24 @@ export class MailerService implements OnModuleInit {
       headers: mail.headers,
     });
     return { messageId: info.messageId as string };
+  }
+
+  private async sendBrevo(mail: OutgoingMail) {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': process.env.BREVO_API_KEY!, 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { name: this.fromName, email: this.fromAddress },
+        to: [{ email: mail.to }],
+        subject: mail.subject,
+        htmlContent: mail.html,
+        textContent: mail.text,
+        headers: mail.headers,
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) throw new Error(`Brevo ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const body = (await res.json()) as { messageId?: string };
+    return { messageId: body.messageId ?? 'brevo' };
   }
 }

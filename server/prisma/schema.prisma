@@ -97,6 +97,7 @@ model User {
   phoneVerifiedAt   DateTime?
   googleSub         String?   @unique
   appleSub          String?   @unique
+  telegramId        String?   @unique
   role              Role      @default(USER)
   city              String?
   bio               String?

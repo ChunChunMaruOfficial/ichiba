@@ -18,7 +18,7 @@ MVP по спецификации с Miro-доски «Wardrobe Marketplace». �
 
 Каждый пуш в `main` пересобирает только тот сервис, чья папка изменилась. Настройки сборки заданы в самом сервисе Railway (config-as-code `railway.json` Railway больше не поддерживает).
 
-**server → Variables** (полный список с комментариями — `server/.env.example`):
+**server → Variables:**
 
 ```
 PORT=4000
@@ -33,7 +33,8 @@ MEDIA_DRIVER=local  MEDIA_DIR=/data/media  MEDIA_PUBLIC_URL=https://${{RAILWAY_P
 AUTH_DEV_ANY_CODE=false  SEED_DEMO=false
 # секреты — вписать вручную:
 JWT_SECRET=<openssl rand -base64 48>
-SMTP_HOST=…  SMTP_PORT=465  SMTP_SECURE=true  SMTP_USER=…  SMTP_PASS=…  SMTP_FROM=…
+BREVO_API_KEY=…  SMTP_FROM=<проверенный отправитель в Brevo>  # почта: Railway Hobby блокирует SMTP
+TELEGRAM_BOT_TOKEN=…  TELEGRAM_BOT_USERNAME=…               # вход через Telegram (@BotFather, /setdomain)
 CLOUDINARY_CLOUD_NAME=…  CLOUDINARY_API_KEY=…  CLOUDINARY_API_SECRET=…   # иначе фото лежат на volume
 GEMINI_API_KEY=…  MISTRAL_API_KEY=…  ZAI_API_KEY=…                       # по желанию, ИИ
 ```
@@ -58,14 +59,16 @@ NEXT_PUBLIC_LEGAL_OPERATOR=<ИП или организация>   NEXT_PUBLIC_LE
 
 **Демо-данные (моки)** отключены, но не удалены (`server/prisma/seed*.ts`): запускаются только локально командой `SEED_DEMO=true npm --prefix server run seed` и никогда в production.
 
-Сервер можно выложить и на Vercel/другой serverless (тогда нужны `PUSHER_*` для чата и `CRON_SECRET` для `/cron/tick`), и на любой VPS — см. комментарии в `server/.env.example`. С Supabase вместо Postgres Railway: `DATABASE_URL` = Session pooler; миграция `supabase_rls` сама добавит политики RLS (на обычной Postgres она только включает RLS).
+Сервер можно выложить и на Vercel/другой serverless (тогда нужны `PUSHER_*` для чата и `CRON_SECRET` для `/cron/tick`), и на любой VPS (там подойдёт обычный SMTP: `SMTP_HOST/PORT/SECURE/USER/PASS`). С Supabase вместо Postgres Railway: `DATABASE_URL` = Session pooler; миграция `supabase_rls` сама добавит политики RLS (на обычной Postgres она только включает RLS).
 
 ## Локальный запуск (без Docker)
 
 Нужен Node 22+.
 
 ```bash
-cp server/.env.example server/.env   # задать JWT_SECRET
+# server/.env: минимум PORT=4000, WEB_ORIGIN=http://localhost:3000, JWT_SECRET=<случайная строка>,
+#   DATABASE_URL=postgres://postgres:postgres@localhost:51214/template1?sslmode=disable, DATABASE_POOL_MAX=1,
+#   AUTH_DEV_ANY_CODE=true; ключи — по таблице «Опциональные ключи» ниже
 npm run install:all                  # зависимости корня, server и client
 npm run dev                          # база (prisma dev), миграции, сервер на :4000, сайт на :3000
 ```
@@ -91,9 +94,11 @@ npm run dev                          # база (prisma dev), миграции, 
 | `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `ZAI_API_KEY` | ИИ-ансамбль: автозаполнение по фото, подсказка цены, проверка фото, советы в торге, умный поиск, автомодерация, антифрод чата | Работают только правила (контакты, мат, бессмыслица, фишинг-ссылки, номера карт); поля заполняются вручную |
 | `GOOGLE_CLIENT_ID` | Кнопка «Продолжить с Google» | Кнопка скрыта |
 | `APPLE_CLIENT_ID` | Кнопка «Продолжить с Apple» | Кнопка скрыта |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | Вход через Telegram (Login Widget). Бот — @BotFather → /newbot; домен сайта — /setdomain | Кнопка скрыта |
+| `BREVO_API_KEY` | Письма через HTTP API Brevo вместо SMTP (нужно на Railway Hobby, где SMTP закрыт); `SMTP_FROM` — проверенный отправитель в Brevo | Письма идут по SMTP или в лог |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_FROM_NAME`, `APP_URL` | Письма: коды подтверждения и события по сделкам (внешний SMTP или локальный Postfix) — см. [docs/EMAIL.md](docs/EMAIL.md) | Текст писем и коды пишутся в лог API |
 
-Для сайта (`client/.env.local`, см. `client/.env.example`): `NEXT_PUBLIC_SITE_URL` — публичный адрес сайта (canonical, sitemap, Open Graph), `API_URL` — адрес API для сервера Next.js.
+Для сайта (`client/.env.local`): `NEXT_PUBLIC_SITE_URL` — публичный адрес сайта (canonical, sitemap, Open Graph), `API_URL` — адрес API для сервера Next.js.
 
 ## Что в итерации 1 (core loop)
 

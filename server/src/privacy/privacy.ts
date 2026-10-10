@@ -65,6 +65,7 @@ export class PrivacyService {
           passwordHash: null,
           googleSub: null,
           appleSub: null,
+          telegramId: null,
           emailVerifiedAt: null,
           phoneVerifiedAt: null,
           city: null,

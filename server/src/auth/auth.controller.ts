@@ -25,6 +25,15 @@ const VerifyDto = z.object({ login, code });
 const ResendDto = z.object({ login, purpose: z.enum(['VERIFY', 'RESET']).default('VERIFY') });
 const ResetConfirmDto = z.object({ login, code, password });
 const TokenDto = z.object({ idToken: z.string().min(10) });
+const TelegramDto = z.object({
+  id: z.number().int().positive(),
+  first_name: z.string().max(256).optional(),
+  last_name: z.string().max(256).optional(),
+  username: z.string().max(64).optional(),
+  photo_url: z.string().max(1024).optional(),
+  auth_date: z.number().int().positive(),
+  hash: z.string().regex(/^[0-9a-f]{64}$/),
+});
 const StartDto = z.object({ login });
 const CompleteDto = z.object({
   token: z.string().min(20),
@@ -113,6 +122,13 @@ export class AuthController {
     return r.session ? this.startSession(res, r.session) : { signup: r.signup };
   }
 
+  @Post('telegram')
+  @HttpCode(200)
+  async telegram(@Body(new ZodPipe(TelegramDto)) dto: z.infer<typeof TelegramDto>, @Res({ passthrough: true }) res: Response) {
+    const r = await this.auth.telegram(dto);
+    return r.session ? this.startSession(res, r.session) : { signup: r.signup };
+  }
+
   @Post('apple')
   @HttpCode(200)
   async apple(@Body(new ZodPipe(TokenDto)) dto: { idToken: string }, @Res({ passthrough: true }) res: Response) {
@@ -161,7 +177,13 @@ export class AuthController {
   /** Exposes which sign-in buttons should be shown. */
   @Get('providers')
   providers() {
-    return { google: process.env.GOOGLE_CLIENT_ID || null, apple: process.env.APPLE_CLIENT_ID || null, devAnyCode: DEV_ANY_CODE };
+    return {
+      google: process.env.GOOGLE_CLIENT_ID || null,
+      apple: process.env.APPLE_CLIENT_ID || null,
+      // The widget needs the bot's username (without @); the token itself never leaves the server.
+      telegram: (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, '')) || null,
+      devAnyCode: DEV_ANY_CODE,
+    };
   }
 
   private async startSession(res: Response, { user: signedIn, isNew }: { user: User; isNew: boolean }) {

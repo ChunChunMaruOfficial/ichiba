@@ -107,7 +107,7 @@ export class CodeMailer {
   constructor(private readonly mailer: MailerService) {}
 
   get enabled() {
-    return this.mailer.mode === 'smtp';
+    return this.mailer.mode !== 'log';
   }
 
   async send(to: string, code: string, purpose: string) {

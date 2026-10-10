@@ -1,6 +1,6 @@
 /**
  * Operator details for the privacy policy, from client/.env.local or the hosting project settings
- * (see .env.example). Requisites that are not set are left out of the text rather than shown as blanks.
+ * (NEXT_PUBLIC_LEGAL_*). Requisites that are not set are left out of the text rather than shown as blanks.
  */
 const env = (v: string | undefined) => (v && v.trim() ? v.trim() : null);
 

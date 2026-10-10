@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { randomInt } from 'crypto';
+import { createHash, createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { CodePurpose, User } from '../generated/prisma/client.js';
@@ -55,10 +55,25 @@ function normalizeLogin(raw: string): { kind: 'email' | 'phone'; value: string }
   return { kind: 'phone', value: `+${digits}` };
 }
 
-/** Pending sign-up after a confirmed code or a new Google account: the account is created on "complete". */
+/** Pending sign-up after a confirmed code or a new Google/Telegram account: the account is created on "complete". */
 type SignupClaims =
   | { purpose: 'signup'; kind: 'email' | 'phone'; value: string }
-  | { purpose: 'signup'; kind: 'google'; sub: string; email?: string; nameHint?: string };
+  | { purpose: 'signup'; kind: 'google'; sub: string; email?: string; nameHint?: string }
+  | { purpose: 'signup'; kind: 'telegram'; sub: string; nameHint?: string };
+
+/** Fields the Telegram Login Widget hands to the page (https://core.telegram.org/widgets/login). */
+export interface TelegramAuthData {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+}
+
+/** A widget login older than this is refused (replay protection). */
+const TELEGRAM_AUTH_MAX_AGE_S = 24 * 3600;
 
 @Injectable()
 export class AuthService {
@@ -187,6 +202,14 @@ export class AuthService {
       return { user, isNew: true };
     }
 
+    if (claims.kind === 'telegram') {
+      const existing = await this.prisma.user.findUnique({ where: { telegramId: claims.sub } });
+      if (existing) return { user: existing, isNew: false };
+      await this.assertUsername(name);
+      const user = await this.prisma.user.create({ data: { username: name, telegramId: claims.sub, ...consent } });
+      return { user, isNew: true };
+    }
+
     const login = { kind: claims.kind, value: claims.value };
     const existing = await this.findByContact(login);
     if (existing) return { user: existing, isNew: false };
@@ -300,6 +323,40 @@ export class AuthService {
       signup: {
         token: await this.jwt.signAsync({ purpose: 'signup', kind: 'google', sub: p.sub, email, nameHint: hint } satisfies SignupClaims, { expiresIn: SIGNUP_TOKEN_TTL }),
         contact: email ?? 'Google',
+        suggestion: await this.freeUsername(hint),
+      },
+    };
+  }
+
+  /**
+   * Telegram Login Widget: the payload is signed with HMAC-SHA256 keyed by SHA-256(bot token), so only Telegram
+   * (which knows the token) can produce it. Telegram gives no email, so accounts are matched by Telegram id only.
+   */
+  async telegram(data: TelegramAuthData) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) throw new ServiceUnavailableException({ message: 'Вход через Telegram ещё не настроен' });
+    const { hash, ...fields } = data;
+    const checkString = Object.keys(fields)
+      .filter((k) => fields[k as keyof typeof fields] !== undefined)
+      .sort()
+      .map((k) => `${k}=${fields[k as keyof typeof fields]}`)
+      .join('\n');
+    const expected = createHmac('sha256', createHash('sha256').update(botToken).digest()).update(checkString).digest();
+    const given = Buffer.from(hash, 'hex');
+    const fresh = Date.now() / 1000 - data.auth_date < TELEGRAM_AUTH_MAX_AGE_S;
+    if (given.length !== expected.length || !timingSafeEqual(given, expected) || !fresh) {
+      throw new UnauthorizedException({ message: 'Не удалось войти через Telegram — попробуйте ещё раз' });
+    }
+    const sub = String(data.id);
+    const existing = await this.prisma.user.findUnique({ where: { telegramId: sub } });
+    if (existing?.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
+    if (existing) return { session: { user: existing, isNew: false } };
+    // New person: ask for a nickname and consent before creating the account.
+    const hint = data.username ?? (data.first_name && /^[a-z0-9_]+$/i.test(data.first_name) ? data.first_name : 'user');
+    return {
+      signup: {
+        token: await this.jwt.signAsync({ purpose: 'signup', kind: 'telegram', sub, nameHint: hint } satisfies SignupClaims, { expiresIn: SIGNUP_TOKEN_TTL }),
+        contact: data.username ? `@${data.username}` : 'Telegram',
         suggestion: await this.freeUsername(hint),
       },
     };
