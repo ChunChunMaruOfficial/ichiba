@@ -117,7 +117,7 @@ function BidRow({ listing, auction: a }: { listing: Card; auction: AuctionView }
       aria-label={`${listing.title} — ${state.text}`}
       onClick={() => router.push(href)}
       onKeyDown={(e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), router.push(href))}
-      className={`rise flex cursor-pointer gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] outline-none transition-transform duration-200 hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-indigo/40 md:p-5 ${a.status === "ACTIVE" && !a.leaderIsMe ? "border-l-4 border-l-amber" : ""}`}
+      className={`rise flex cursor-pointer gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] outline-none transition-transform duration-200 hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-indigo/40 md:p-5`}
     >
       <div className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

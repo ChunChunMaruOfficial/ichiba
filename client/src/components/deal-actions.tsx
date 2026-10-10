@@ -202,7 +202,6 @@ export function DealCard({ deal, onChange }: { deal: Deal; onChange: (d: Deal) =
       }}
       className={clsx(
         "rise flex cursor-pointer gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] outline-none transition-transform duration-200 hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-indigo/40 md:p-5",
-        deal.needsMyAction && "border-l-4 border-l-amber",
         chat.busy && "opacity-70",
       )}
     >

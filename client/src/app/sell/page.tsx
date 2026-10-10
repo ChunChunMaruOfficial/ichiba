@@ -15,13 +15,12 @@ import { useMeta } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { type AiState, applySuggestion, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, similarValues, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
+import { type AiState, applySuggestionToEmpty, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, similarValues, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
 import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me } from "@/lib/types";
 
 type Step = 1 | 2 | 3;
 /** Numbered steps after the photo screen (step 1 is the upload itself and has no number). */
 const STEPS = ["Информация", "Цена"];
-const AI_MANUAL_AFTER_MS = 10_000;
 
 export default function SellPage() {
   return (
@@ -107,24 +106,12 @@ function StepIndicator({ step, onStep }: { step: Step; onStep: (s: Step) => void
   );
 }
 
-function AiScanning({ cover, slow, onManual }: { cover?: string; slow: boolean; onManual: () => void }) {
+/** Under the photos while the AI reads them; the fields stay open and editable meanwhile. */
+function AiStatus() {
   return (
-    <div className="rise flex flex-col items-center py-16 text-center">
-      <div className="relative w-56 overflow-hidden rounded-3xl bg-skeleton shadow-[var(--shadow-float)]" style={{ aspectRatio: "4 / 5" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {cover && <img src={cover} alt="" className="size-full object-contain" />}
-        <span className="absolute inset-x-0 h-12 animate-[scan_1.5s_ease-in-out_infinite] bg-gradient-to-b from-transparent via-ai/30 to-transparent" aria-hidden />
-      </div>
-      <p className="mt-6 flex items-center gap-2 text-lg font-semibold" role="status">
-        <IconSparkle className="size-5 text-ai" filled /> Определяем вещь…
-      </p>
-      {slow && (
-        <Button variant="secondary" className="mt-6" onClick={onManual}>
-          Заполнить вручную
-        </Button>
-      )}
-      <style>{`@keyframes scan { 0% { top: -15% } 50% { top: 95% } 100% { top: -15% } }`}</style>
-    </div>
+    <p className="mt-3 flex items-center gap-2 text-sm font-medium text-ai" role="status">
+      <IconSparkle className="size-4 animate-pulse" filled /> Определяем вещь по фото — поля заполнятся сами
+    </p>
   );
 }
 
@@ -140,7 +127,6 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
   const [aiModel, setAiModel] = useState<string>();
   // A "similar" listing already has its description: AI autofill would overwrite it.
   const [aiPhase, setAiPhase] = useState<"idle" | "running" | "done" | "failed" | "disabled">(source || draft ? "disabled" : "idle");
-  const [aiSlow, setAiSlow] = useState(false);
   const [aiFlags, setAiFlags] = useState<AiSuggestion["flags"] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [draftId, setDraftId] = useState<string | null>(draft?.id ?? null);
@@ -189,35 +175,42 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
     if (!ids.length) return;
     const run = ++aiRun.current;
     setAiPhase("running");
-    setAiSlow(false);
-    const slowTimer = setTimeout(() => setAiSlow(true), AI_MANUAL_AFTER_MS);
     try {
       const r = await api<{ status: "ok" | "failed" | "disabled"; suggestion?: AiSuggestion }>("/ai/analyze", { body: { photoIds: ids } });
-      if (run !== aiRun.current) return; // user chose "Заполнить вручную" meanwhile
+      if (run !== aiRun.current) return;
       if (r.status === "ok" && r.suggestion) {
-        const applied = applySuggestion(values, r.suggestion);
-        setValues(applied.values);
-        setAi(applied.ai);
-        setAiModel(r.suggestion.model);
+        const s = r.suggestion;
+        // Fields typed while the photo was being read stay as the seller left them.
+        let filled: AiState = {};
+        setValues((cur) => {
+          const applied = applySuggestionToEmpty(cur, s);
+          filled = applied.ai;
+          return applied.values;
+        });
+        setAi((cur) => ({ ...cur, ...filled }));
+        setAiModel(s.model);
         setAiFlags(r.suggestion.flags);
         setAiPhase("done");
       } else setAiPhase(r.status === "disabled" ? "disabled" : "failed");
     } catch {
       if (run === aiRun.current) setAiPhase("failed");
-    } finally {
-      clearTimeout(slowTimer);
     }
-  }, [photos, values]);
+  }, [photos]);
 
-  // The first uploaded photo starts everything at once: the draft is created and AI analyses the photo while the
-  // form opens (other photos keep uploading in the background).
+  // Picking a photo opens the form at once with empty fields; photos keep uploading in the background.
   useEffect(() => {
-    if (step !== 1 || !uploaded.length || autoAdvanced.current) return;
+    if (step !== 1 || !photos.length || autoAdvanced.current) return;
     autoAdvanced.current = true;
-    if (!draftId && !creating.current) void saveDraft({ quiet: true });
     setStep(2);
-    void runAi();
-  }, [step, uploaded.length, draftId, saveDraft, runAi]);
+  }, [step, photos.length]);
+
+  // As soon as the first photo is uploaded the draft is created and the AI reads the photo to fill the fields.
+  useEffect(() => {
+    if (aiPhase !== "idle" || !uploaded.length) return;
+    if (!draftId && !creating.current) void saveDraft({ quiet: true });
+    const t = setTimeout(() => void runAi(), 0);
+    return () => clearTimeout(t);
+  }, [aiPhase, uploaded.length, draftId, saveDraft, runAi]);
 
   // Leaving with unsaved progress.
   useEffect(() => {
@@ -398,35 +391,25 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
 
       {step === 2 && (
         <div key="s2">
-          {aiPhase === "running" ? (
-            <AiScanning
-              cover={uploaded[0]?.preview}
-              slow={aiSlow}
-              onManual={() => {
-                aiRun.current++;
-                setAiPhase("failed");
-              }}
-            />
-          ) : (
-            <div className="flex flex-col gap-8 md:gap-10">
-              {aiFlags?.not_clothing && <p className="rise rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">На фото не видно вещи — можно заменить фото или продолжить вручную.</p>}
-              <FormSection kanji="写" title="Фото и видео" index={0}>
-                <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} big video={values.video} onVideo={(video) => set({ video })} />
-              </FormSection>
-              <FormSection kanji="品" title="Что за вещь" index={1}>
-                <ItemFields {...fieldProps} />
-              </FormSection>
-              <FormSection kanji="寸" title="Размер и состояние" index={2}>
-                <SizeConditionFields {...fieldProps} />
-              </FormSection>
-              <FormSection kanji="詳" title="Детали" index={3}>
-                <DetailFields {...fieldProps} />
-              </FormSection>
-              <FormSection kanji="渡" title="Передача" index={4}>
-                <HandoverFields {...fieldProps} />
-              </FormSection>
-            </div>
-          )}
+          <div className="flex flex-col gap-8 md:gap-10">
+            {aiFlags?.not_clothing && <p className="rise rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">На фото не видно вещи — можно заменить фото или продолжить вручную.</p>}
+            <FormSection kanji="写" title="Фото и видео" index={0}>
+              <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} big video={values.video} onVideo={(video) => set({ video })} />
+              {(aiPhase === "running" || (aiPhase === "idle" && photos.length > 0)) && <AiStatus />}
+            </FormSection>
+            <FormSection kanji="品" title="Что за вещь" index={1}>
+              <ItemFields {...fieldProps} />
+            </FormSection>
+            <FormSection kanji="寸" title="Размер и состояние" index={2}>
+              <SizeConditionFields {...fieldProps} />
+            </FormSection>
+            <FormSection kanji="詳" title="Детали" index={3}>
+              <DetailFields {...fieldProps} />
+            </FormSection>
+            <FormSection kanji="渡" title="Передача" index={4}>
+              <HandoverFields {...fieldProps} />
+            </FormSection>
+          </div>
         </div>
       )}
 
@@ -439,8 +422,8 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
       )}
 
 
-      {/* No bar on the photo screen (the first photo moves on by itself) or while AI is reading the photo. */}
-      {step !== 1 && !(step === 2 && aiPhase === "running") && (
+      {/* No bar on the photo screen: the first photo moves on by itself. */}
+      {step !== 1 && (
         <div className="sheet-up fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mt-10 md:justify-end md:border-0 md:bg-transparent md:p-0">
           {/* Desktop: equal buttons of one width. Phone: "Назад" and "Запланировать" shrink to icons so the main action fits. */}
           {step > 2 && (

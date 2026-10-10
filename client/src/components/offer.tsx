@@ -296,7 +296,7 @@ export function OfferCard({ offer, onChange }: { offer: Offer; onChange: () => v
   const discount = offer.listPrice ? Math.round((1 - offer.amount / offer.listPrice) * 100) : 0;
   const cover = offer.listing.cover?.urls.s;
   return (
-    <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5 ${offer.myTurn ? "border-l-4 border-l-amber" : ""}`}>
+    <article className={`rise flex gap-4 rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5`}>
       <Link href={`/item/${offer.listing.id}`} className="w-20 shrink-0 overflow-hidden rounded-xl bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {cover && <img src={cover} alt="" width={80} height={100} className="size-full object-contain" />}

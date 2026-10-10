@@ -157,6 +157,33 @@ export function applySuggestion(values: ListingValues, s: AiSuggestion): { value
   return { values: next, ai };
 }
 
+/**
+ * The suggestion fills only what is still empty: the form is open while the photo is analysed, so anything the
+ * seller typed meanwhile wins. A subcategory is taken only together with the suggested category.
+ */
+export function applySuggestionToEmpty(values: ListingValues, s: AiSuggestion): { values: ListingValues; ai: AiState } {
+  const full = applySuggestion(values, s);
+  const empty = (v: unknown) => v == null || v === "" || (Array.isArray(v) && !v.length);
+  const field: Record<AiField, keyof ListingValues> = {
+    category: "category",
+    subcategory: "subcategory",
+    color: "color",
+    brand: "brand",
+    style_tags: "styleTags",
+    title: "title",
+    description: "description",
+  };
+  const next = { ...values };
+  const ai: AiState = {};
+  for (const [k, key] of Object.entries(field) as [AiField, keyof ListingValues][]) {
+    if (!full.ai[k] || !empty(values[key])) continue;
+    if (k === "subcategory" && values.category && values.category !== full.values.category) continue;
+    (next as Record<string, unknown>)[key] = full.values[key];
+    ai[k] = full.ai[k];
+  }
+  return { values: next, ai };
+}
+
 /** Marks an AI field as edited once the user changes it; the AI badge then disappears. */
 export function markEdited(ai: AiState, field: AiField, newValue: unknown): AiState {
   const a = ai[field];
