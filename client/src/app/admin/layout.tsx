@@ -13,6 +13,8 @@ const NAV = [
   ["/admin", "Обзор"],
   ["/admin/moderation", "Модерация"],
   ["/admin/listings", "Заблокированные"],
+  ["/admin/users", "Пользователи"],
+  ["/admin/db", "База данных"],
 ];
 
 /**
@@ -83,15 +85,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <nav aria-label="Админка" className="mb-8 flex items-center gap-1 border-b border-line">
+      <nav aria-label="Админка" className="mb-8 flex items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-line">
         {NAV.map(([href, label]) => (
-          <Link key={href} href={href} className={clsx("-mb-px border-b-2 px-4 py-2.5 text-sm font-medium", pathname === href ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")}>
+          <Link key={href} href={href} className={clsx("-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium", pathname === href ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")}>
             {label}
           </Link>
         ))}
         <button
           type="button"
-          className="ml-auto px-2 py-2.5 text-sm text-muted hover:text-ink"
+          className="ml-auto shrink-0 whitespace-nowrap px-2 py-2.5 text-sm text-muted hover:text-ink"
           onClick={async () => {
             await api("/auth/admin-logout", { method: "POST" }).catch(() => {});
             await session.mutate(undefined, { revalidate: true });

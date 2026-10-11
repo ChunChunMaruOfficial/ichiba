@@ -24,6 +24,7 @@ import { inProcessSchedulerEnabled, LazyMaintenanceMiddleware, lazyMaintenanceEn
 import { RedisModule, RedisService, RedisThrottlerStorage } from './redis/redis.js';
 import { MailModule } from './mail/mail.module.js';
 import { FollowingController } from './follows/following.js';
+import { AdminDataController } from './moderation/admin-data.js';
 import { AdminController, AdminGuard, ReportsController } from './moderation/moderation.js';
 import { OffersController, OffersService } from './offers/offers.js';
 import { SwipeController } from './swipe/swipe.js';
@@ -84,6 +85,7 @@ import { UsersController, UsersService } from './users/users.service.js';
     FollowingController,
     ReportsController,
     AdminController,
+    AdminDataController,
     ReviewsController,
     StatsController,
     PrivacyController,
