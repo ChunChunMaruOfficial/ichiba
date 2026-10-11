@@ -217,28 +217,49 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
     let c: Crop;
     if (d.mode === "move") c = { ...s, x: clamp(s.x + dx, 0, 1 - s.w), y: clamp(s.y + dy, 0, 1 - s.h) };
     else {
-      // Corner drag: the opposite corner stays put.
-      const left = d.mode.includes("w");
-      const top = d.mode.includes("n");
-      let x0 = left ? clamp(s.x + dx, 0, s.x + s.w - MIN_CROP) : s.x;
-      let y0 = top ? clamp(s.y + dy, 0, s.y + s.h - MIN_CROP) : s.y;
-      let x1 = left ? s.x + s.w : clamp(s.x + s.w + dx, s.x + MIN_CROP, 1);
-      let y1 = top ? s.y + s.h : clamp(s.y + s.h + dy, s.y + MIN_CROP, 1);
+      // A corner moves two sides, an edge one; the sides that aren't dragged stay put.
+      const [l, r, t, b] = (["w", "e", "n", "s"] as const).map((k) => d.mode.includes(k));
+      let x0 = l ? clamp(s.x + dx, 0, s.x + s.w - MIN_CROP) : s.x;
+      let x1 = r ? clamp(s.x + s.w + dx, s.x + MIN_CROP, 1) : s.x + s.w;
+      let y0 = t ? clamp(s.y + dy, 0, s.y + s.h - MIN_CROP) : s.y;
+      let y1 = b ? clamp(s.y + s.h + dy, s.y + MIN_CROP, 1) : s.y + s.h;
       if (edit.aspect) {
         const { w: fw, h: fh } = frameSize(img, edit.quarter);
-        const r = (edit.aspect * fh) / fw;
-        // Follow the width; the height comes from the ratio, shrunk back if it would leave the frame.
-        let w = x1 - x0;
-        let h = w / r;
-        const room = top ? y1 : 1 - y0;
-        if (h > room) {
-          h = room;
-          w = h * r;
+        const ratio = (edit.aspect * fh) / fw; // width / height in frame shares
+        if ((l || r) && (t || b)) {
+          // Corner: follow the width; the height comes from the ratio, shrunk back if it would leave the frame.
+          let w = x1 - x0;
+          let h = w / ratio;
+          const room = t ? y1 : 1 - y0;
+          if (h > room) {
+            h = room;
+            w = h * ratio;
+          }
+          if (l) x0 = x1 - w;
+          else x1 = x0 + w;
+          if (t) y0 = y1 - h;
+          else y1 = y0 + h;
+        } else if (l || r) {
+          // Side edge: the height follows, growing evenly up and down around the box's middle.
+          const cy = s.y + s.h / 2;
+          let w = x1 - x0;
+          const h = Math.min(w / ratio, 2 * Math.min(cy, 1 - cy));
+          w = h * ratio;
+          if (l) x0 = x1 - w;
+          else x1 = x0 + w;
+          y0 = cy - h / 2;
+          y1 = cy + h / 2;
+        } else {
+          // Top or bottom edge: the width follows, evenly left and right.
+          const cx = s.x + s.w / 2;
+          let h = y1 - y0;
+          const w = Math.min(h * ratio, 2 * Math.min(cx, 1 - cx));
+          h = w / ratio;
+          if (t) y0 = y1 - h;
+          else y1 = y0 + h;
+          x0 = cx - w / 2;
+          x1 = cx + w / 2;
         }
-        if (left) x0 = x1 - w;
-        else x1 = x0 + w;
-        if (top) y0 = y1 - h;
-        else y1 = y0 + h;
       }
       c = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
     }
@@ -320,6 +341,24 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
                 <span className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-white/60" />
                 <span className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-white/60" />
                 <span className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-white/60" />
+                {/* Edges: drag one side only. The whole side is grabbable (between the corners); a short bar marks it. */}
+                {(["n", "s", "w", "e"] as const).map((k) => (
+                  <span
+                    key={k}
+                    aria-hidden
+                    data-mode={k}
+                    onPointerDown={onDown}
+                    className={clsx(
+                      "absolute grid touch-none place-items-center",
+                      k === "n" && "inset-x-5 -top-4 h-8 cursor-ns-resize",
+                      k === "s" && "inset-x-5 -bottom-4 h-8 cursor-ns-resize",
+                      k === "w" && "inset-y-5 -left-4 w-8 cursor-ew-resize",
+                      k === "e" && "inset-y-5 -right-4 w-8 cursor-ew-resize",
+                    )}
+                  >
+                    <span className={clsx("rounded-full bg-white shadow-[0_0_2px_rgb(0_0_0/0.5)]", k === "n" || k === "s" ? "h-1 w-7" : "h-7 w-1")} />
+                  </span>
+                ))}
                 {/* Corner brackets, the way phone editors draw them; the hit area is larger than the mark. */}
                 {(["nw", "ne", "sw", "se"] as const).map((k) => (
                   <span
