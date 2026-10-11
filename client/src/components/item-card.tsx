@@ -111,7 +111,7 @@ function StatusMark({ card, className }: { card: Card; className?: string }) {
 function PriceTag({ price, previous, className }: { price: string; previous?: number | null; className?: string }) {
   return (
     <span className={clsx("pl-1.5 drop-shadow-[0_2px_5px_rgb(0_0_0/0.28)]", className)}>
-      <Nefuda className="tabular text-[15px] font-bold leading-6">
+      <Nefuda longThread className="tabular text-[15px] font-bold leading-6">
         <span className={previous ? "text-shu" : undefined}>{price}</span>
         {previous && <s className="ml-1.5 text-xs font-medium opacity-70">{previous}</s>}
       </Nefuda>
