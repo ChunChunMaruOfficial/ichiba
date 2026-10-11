@@ -28,6 +28,7 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
   [
     "ichiba",
     [
+      ["/terms", "Пользовательское соглашение"],
       ["/privacy", "Политика конфиденциальности"],
       ["/privacy#cookies", "Cookie"],
       ["/settings", "Настройки"],

@@ -367,8 +367,12 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
         </button>
       )}
       {step === "start" && (
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-muted min-[360px]:whitespace-nowrap sm:text-xs">
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-muted sm:text-xs">
           Продолжая, вы принимаете{" "}
+          <Link href="/terms" target="_blank" className="underline underline-offset-2">
+            Соглашение
+          </Link>{" "}
+          и{" "}
           <Link href="/privacy" target="_blank" className="underline underline-offset-2">
             Политику конфиденциальности
           </Link>

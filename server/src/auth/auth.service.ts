@@ -24,7 +24,7 @@ const MAX_CODE_ATTEMPTS = 5;
 const MAX_CODES_PER_HOUR = 5;
 const SIGNUP_TOKEN_TTL = '30m';
 /** Bump when the privacy policy changes materially; stored with each consent. */
-const PRIVACY_VERSION = '2026-10-10';
+const PRIVACY_VERSION = '2026-10-11';
 /** Dev only: any 6-digit code passes verification. Never enabled in production. */
 export const DEV_ANY_CODE = process.env.AUTH_DEV_ANY_CODE === 'true' && process.env.NODE_ENV !== 'production';
 
