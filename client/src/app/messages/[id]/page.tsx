@@ -13,7 +13,6 @@ import { MessageBubble } from "@/components/chat/message-bubble";
 import { PinnedBar } from "@/components/chat/pinned-bar";
 import { DealPanel } from "@/components/deal-panel";
 import { RequireAuth } from "@/components/require-auth";
-import { ThreadList } from "@/components/thread-list";
 import {
   LIVE_DELETE_EVENT,
   LIVE_MESSAGE_EVENT,
@@ -29,7 +28,7 @@ import {
   useSession,
 } from "@/components/session";
 import { useToast } from "@/components/toast";
-import { Button, EmptyState, ErrorState, IconChevronLeft, IconX, Modal, Spinner } from "@/components/ui";
+import { Button, EmptyState, ErrorState, IconChevronLeft, IconX, Modal, Skeleton, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice } from "@/lib/labels";
 import type { ChatLocation, ChatMedia, ChatMessage, ChatPin, ChatQuote, ChatReaction, Deal, ThreadSummary } from "@/lib/types";
@@ -40,7 +39,41 @@ const EDIT_WINDOW_MS = 48 * 3600_000;
 
 export default function ThreadPage() {
   const { id } = useParams<{ id: string }>();
+  // The shell and the conversation list live in messages/layout.tsx; this is the chat column only.
   return <RequireAuth reason="чтобы открыть переписку">{() => <Thread key={id} id={id} />}</RequireAuth>;
+}
+
+const CHAT_COLUMN = "relative flex min-h-0 flex-col lg:overflow-hidden lg:rounded-[28px] lg:border lg:border-line";
+
+/** Placeholder for the chat column while a conversation loads: header, a few bubbles, the composer. */
+function ChatSkeleton() {
+  const bubbles: Array<[boolean, string]> = [
+    [false, "w-2/5"],
+    [true, "w-1/3"],
+    [false, "w-3/5"],
+    [true, "w-1/2"],
+    [false, "w-1/4"],
+    [true, "w-2/5"],
+  ];
+  return (
+    <div className={CHAT_COLUMN} aria-busy="true" aria-label="Загружаем переписку">
+      <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+        <Skeleton className="h-[55px] w-11 shrink-0 rounded-lg" />
+        <div className="flex flex-1 flex-col gap-2">
+          <Skeleton className="h-4 w-32 rounded-full" />
+          <Skeleton className="h-3.5 w-48 rounded-full" />
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col justify-end gap-3 overflow-hidden px-3 py-4 sm:px-5">
+        {bubbles.map(([mine, w], i) => (
+          <Skeleton key={i} className={`h-10 rounded-2xl ${w} ${mine ? "self-end" : "self-start"}`} />
+        ))}
+      </div>
+      <div className="border-t border-line px-3 py-3">
+        <Skeleton className="h-11 rounded-full" />
+      </div>
+    </div>
+  );
 }
 
 function dayLabel(iso: string) {
@@ -586,19 +619,17 @@ function Thread({ id }: { id: string }) {
   }, [selected]);
 
   if (error) {
-    return error instanceof ApiError && (error.status === 404 || error.status === 403) ? (
-      <EmptyState title="Диалог не найден" />
-    ) : (
-      <ErrorState message="Не удалось загрузить переписку" onRetry={() => mutate()} />
-    );
-  }
-  if (!data || !thread) {
     return (
-      <div className="flex justify-center py-24 text-muted">
-        <Spinner />
+      <div className={`${CHAT_COLUMN} justify-center`}>
+        {error instanceof ApiError && (error.status === 404 || error.status === 403) ? (
+          <EmptyState title="Диалог не найден" />
+        ) : (
+          <ErrorState message="Не удалось загрузить переписку" onRetry={() => mutate()} />
+        )}
       </div>
     );
   }
+  if (!data || !thread) return <ChatSkeleton />;
 
   const t = thread;
   const readAt = t.counterpartReadAt ? new Date(t.counterpartReadAt).getTime() : 0;
@@ -607,225 +638,219 @@ function Thread({ id }: { id: string }) {
   const deletingMine = deleting.length > 0 && deleting.every((m) => m.mine);
 
   return (
-    <div className="mx-auto grid h-dvh max-w-[1280px] grid-cols-[minmax(0,1fr)] max-lg:pt-[env(safe-area-inset-top)] lg:h-[calc(100dvh-65px)] lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:py-4">
-      {/* Wide screens: all conversations stay on the left, like a messenger. */}
-      <aside className="hidden min-h-0 overflow-y-auto overscroll-contain pr-1 lg:block">
-        <ThreadList activeId={id} compact />
-      </aside>
-      <div
-        className="relative flex min-h-0 flex-col lg:overflow-hidden lg:rounded-[28px] lg:border lg:border-line"
-        onDragOver={(e) => {
-          if (!e.dataTransfer.types.includes("Files") || editing) return;
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
-        }}
-        onDrop={(e) => {
-          if (!e.dataTransfer.files.length) return;
-          e.preventDefault();
-          setDragging(false);
-          attachments.add(e.dataTransfer.files);
-        }}
-      >
-        {/* Item / deal context on top (frame 15); in selection mode, what to do with the selected messages. */}
-        {selected ? (
-          <div className="flex items-center gap-2 border-b border-line px-3 py-3">
-            <button type="button" onClick={() => setSelected(null)} aria-label="Отменить выделение" className="grid size-10 place-items-center rounded-full hover:bg-ink/5">
-              <IconX />
-            </button>
-            <p className="flex-1 font-semibold tabular" aria-live="polite">
-              Выбрано: {selected.size}
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                void copy(selectedList.map(copyable).filter(Boolean).join("\n\n"));
-                setSelected(null);
-              }}
-              className="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold hover:bg-ink/5"
-            >
-              <IconCopy /> <span className="max-sm:sr-only">Копировать</span>
-            </button>
-            <button type="button" onClick={() => askDelete([...selected])} className="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-danger hover:bg-danger-soft">
-              <IconTrash /> <span className="max-sm:sr-only">Удалить</span>
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-            <Link href="/messages" aria-label="Все сообщения" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-ink/5 lg:hidden">
-              <IconChevronLeft />
-            </Link>
-            <Link href={`/item/${t.listing.id}`} className="w-11 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={44} height={55} className="size-full object-contain" />}
-            </Link>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">
-                <Link href={`/u/${t.counterpart.username}`} className="hover:underline">
-                  @{t.counterpart.username}
-                </Link>
-              </p>
-              <p className="truncate text-sm text-ink-2">
-                {typingUntil > 0 ? (
-                  <span className="text-shu">печатает…</span>
-                ) : (
-                  <>
-                    {t.listing.title} · <span className="tabular">{formatPrice(t.listing.price)}</span>
-                  </>
-                )}
-              </p>
-            </div>
-            {/* No live deal: the buyer can start one from here. */}
-            {t.role === "buyer" && t.listing.status === "PUBLISHED" && (!t.request || ["DECLINED", "CANCELLED"].includes(deal.data?.status ?? t.request.status)) && (
-              <Link href={`/buy/${t.listing.id}`} className="shrink-0 btn-wa btn-wa-ink rounded-lg px-3 py-1.5 text-sm font-semibold">
-                Купить
-              </Link>
-            )}
-          </div>
-        )}
-
-        {deal.data && !selected && (
-          <DealPanel
-            deal={deal.data}
-            onChange={(d) => {
-              void deal.mutate(d, { revalidate: true });
-              void mutate();
-            }}
-          />
-        )}
-
-        <PinnedBar pins={pins} onJump={(mid) => void jumpTo(mid)} onUnpin={(p) => void unpin(p.messageId)} />
-
-        <div ref={list} onScroll={onScroll} className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-3 sm:px-4" aria-live="polite" aria-busy={loadingOlder}>
-          {hasMore && (
-            <div className="flex justify-center py-2 text-muted">
-              {loadingOlder ? (
-                <Spinner />
-              ) : (
-                <button type="button" onClick={() => void loadOlder()} className="rounded-full px-3 py-1 text-sm hover:bg-ink/5">
-                  Показать раньше
-                </button>
-              )}
-            </div>
-          )}
-          {messages.length === 0 && <p className="py-10 text-center text-sm text-muted">Напишите продавцу — например, есть ли замеры или можно ли посмотреть вещь вживую.</p>}
-          <ol className="flex flex-col">
-            {messages.map((m, i) => {
-              const day = dayLabel(m.createdAt);
-              const showDay = i === 0 || day !== dayLabel(messages[i - 1].createdAt);
-              return (
-                <li key={m.id} className="flex flex-col">
-                  {showDay && <span className="my-3 self-center rounded-full bg-ink/5 px-3 py-0.5 text-xs text-muted">{day}</span>}
-                  <MessageBubble
-                    m={m}
-                    read={m.mine && readAt >= new Date(m.createdAt).getTime()}
-                    counterpart={counterpart}
-                    selecting={!!selected}
-                    selected={!!selected?.has(m.id)}
-                    menuOpen={menu?.m.id === m.id}
-                    onMenu={openMenu}
-                    onReply={reply}
-                    onReact={react}
-                    onToggleSelect={toggleSelect}
-                    onJump={jumpTo}
-                    onOpenMedia={openMedia}
-                    onOpenLocation={openLocation}
-                    onRetry={(x) => void run(x.id)}
-                    onDiscard={discard}
-                  />
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-
-        {!atBottom && (
+    <div
+      className={CHAT_COLUMN}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("Files") || editing) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        setDragging(false);
+        attachments.add(e.dataTransfer.files);
+      }}
+    >
+      {/* Item / deal context on top (frame 15); in selection mode, what to do with the selected messages. */}
+      {selected ? (
+        <div className="flex items-center gap-2 border-b border-line px-3 py-3">
+          <button type="button" onClick={() => setSelected(null)} aria-label="Отменить выделение" className="grid size-10 place-items-center rounded-full hover:bg-ink/5">
+            <IconX />
+          </button>
+          <p className="flex-1 font-semibold tabular" aria-live="polite">
+            Выбрано: {selected.size}
+          </p>
           <button
             type="button"
             onClick={() => {
-              scrollToBottom();
-              setUnseen(0);
+              void copy(selectedList.map(copyable).filter(Boolean).join("\n\n"));
+              setSelected(null);
             }}
-            aria-label={unseen ? `Вниз, новых сообщений: ${unseen}` : "Вниз"}
-            className="pop absolute bottom-24 right-4 z-10 grid size-11 place-items-center rounded-full bg-surface text-ink shadow-[var(--shadow-paper)] ring-1 ring-line hover:bg-paper"
+            className="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold hover:bg-ink/5"
           >
-            <IconArrowDown />
-            {unseen > 0 && <span className="absolute -top-1.5 left-1/2 min-w-5 -translate-x-1/2 rounded-full bg-shu px-1.5 text-center text-[11px] font-semibold leading-5 text-on-shu tabular">{unseen}</span>}
+            <IconCopy /> <span className="max-sm:sr-only">Копировать</span>
           </button>
-        )}
-
-        <Composer
-          ref={composer}
-          counterpart={counterpart}
-          replyTo={replyTo}
-          editing={editing}
-          attachments={attachments}
-          onCancel={() => {
-            setReplyTo(null);
-            setEditing(null);
-          }}
-          onSend={send}
-          onEdit={(m, body) => void edit(m, body)}
-          onEditLast={editLast}
-          onTyping={notifyTyping}
-          onLocation={() => setPicking(true)}
-        />
-
-        {dragging && (
-          <div className="fade-in pointer-events-none absolute inset-2 z-20 grid place-items-center rounded-[24px] border-2 border-dashed border-ink/40 bg-paper/90 text-center">
-            <p className="text-lg font-semibold">
-              Отпустите, чтобы прикрепить
-              <span className="block text-sm font-normal text-muted">фото или видео</span>
+          <button type="button" onClick={() => askDelete([...selected])} className="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-danger hover:bg-danger-soft">
+            <IconTrash /> <span className="max-sm:sr-only">Удалить</span>
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+          <Link href="/messages" aria-label="Все сообщения" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-ink/5 lg:hidden">
+            <IconChevronLeft />
+          </Link>
+          <Link href={`/item/${t.listing.id}`} className="w-11 shrink-0 overflow-hidden rounded-lg bg-skeleton" style={{ aspectRatio: "4 / 5" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {t.listing.cover && <img src={t.listing.cover.urls.s} alt="" width={44} height={55} className="size-full object-contain" />}
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold">
+              <Link href={`/u/${t.counterpart.username}`} className="hover:underline">
+                @{t.counterpart.username}
+              </Link>
+            </p>
+            <p className="truncate text-sm text-ink-2">
+              {typingUntil > 0 ? (
+                <span className="text-shu">печатает…</span>
+              ) : (
+                <>
+                  {t.listing.title} · <span className="tabular">{formatPrice(t.listing.price)}</span>
+                </>
+              )}
             </p>
           </div>
-        )}
-
-        <MessageMenu
-          anchor={menu?.anchor ?? null}
-          actions={menu ? menuActions(menu.m, menu.selection, menu.at) : []}
-          reactions={menu?.m.reactions}
-          onReact={menu ? (emoji) => void react(menu.m, emoji) : undefined}
-          onClose={closeMenu}
-        />
-
-        <Modal open={!!pinAsk} onClose={() => setPinAsk(null)} title="Закрепить сообщение?">
-          <label className="flex cursor-pointer items-center gap-3 py-2 text-[15px]">
-            <input type="checkbox" checked={pinForAll} onChange={(e) => setPinForAll(e.target.checked)} className="size-5 accent-[var(--accent)]" />
-            Также закрепить у @{counterpart}
-          </label>
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setPinAsk(null)}>
-              Отмена
-            </Button>
-            <Button onClick={() => pinAsk && void pin(pinAsk, pinForAll)}>Закрепить</Button>
-          </div>
-        </Modal>
-
-        <Modal open={!!deleteAsk} onClose={() => setDeleteAsk(null)} title={deleting.length > 1 ? `Удалить ${deleting.length} сообщ.?` : "Удалить сообщение?"}>
-          {deletingMine ? (
-            <label className="flex cursor-pointer items-center gap-3 py-2 text-[15px]">
-              <input type="checkbox" checked={deleteForAll} onChange={(e) => setDeleteForAll(e.target.checked)} className="size-5 accent-[var(--accent)]" />
-              Также удалить у @{counterpart}
-            </label>
-          ) : (
-            <p className="text-[15px] text-ink-2">{deleting.length > 1 ? "Сообщения удалятся" : "Сообщение удалится"} только у вас. У @{counterpart} {deleting.length > 1 ? "они останутся" : "оно останется"}.</p>
+          {/* No live deal: the buyer can start one from here. */}
+          {t.role === "buyer" && t.listing.status === "PUBLISHED" && (!t.request || ["DECLINED", "CANCELLED"].includes(deal.data?.status ?? t.request.status)) && (
+            <Link href={`/buy/${t.listing.id}`} className="shrink-0 btn-wa btn-wa-ink rounded-lg px-3 py-1.5 text-sm font-semibold">
+              Купить
+            </Link>
           )}
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setDeleteAsk(null)}>
-              Отмена
-            </Button>
-            <Button variant="danger" onClick={() => deleteAsk && void remove(deleteAsk, deletingMine && deleteForAll)}>
-              Удалить
-            </Button>
-          </div>
-        </Modal>
+        </div>
+      )}
 
-        {viewer && <MediaViewer media={viewer.media} start={viewer.start} title={viewer.title} onClose={() => setViewer(null)} />}
-        <LocationPicker open={picking} onClose={() => setPicking(false)} onSend={(p) => void sendLocation(p)} />
-        <LocationViewer location={viewing?.location ?? null} title={viewing?.mine ? "Ваше местоположение" : `Местоположение @${counterpart}`} onClose={() => setViewing(null)} />
+      {deal.data && !selected && (
+        <DealPanel
+          deal={deal.data}
+          onChange={(d) => {
+            void deal.mutate(d, { revalidate: true });
+            void mutate();
+          }}
+        />
+      )}
+
+      <PinnedBar pins={pins} onJump={(mid) => void jumpTo(mid)} onUnpin={(p) => void unpin(p.messageId)} />
+
+      <div ref={list} onScroll={onScroll} className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-3 sm:px-4" aria-live="polite" aria-busy={loadingOlder}>
+        {hasMore && (
+          <div className="flex justify-center py-2 text-muted">
+            {loadingOlder ? (
+              <Spinner />
+            ) : (
+              <button type="button" onClick={() => void loadOlder()} className="rounded-full px-3 py-1 text-sm hover:bg-ink/5">
+                Показать раньше
+              </button>
+            )}
+          </div>
+        )}
+        {messages.length === 0 && <p className="py-10 text-center text-sm text-muted">Напишите продавцу — например, есть ли замеры или можно ли посмотреть вещь вживую.</p>}
+        <ol className="flex flex-col">
+          {messages.map((m, i) => {
+            const day = dayLabel(m.createdAt);
+            const showDay = i === 0 || day !== dayLabel(messages[i - 1].createdAt);
+            return (
+              <li key={m.id} className="flex flex-col">
+                {showDay && <span className="my-3 self-center rounded-full bg-ink/5 px-3 py-0.5 text-xs text-muted">{day}</span>}
+                <MessageBubble
+                  m={m}
+                  read={m.mine && readAt >= new Date(m.createdAt).getTime()}
+                  counterpart={counterpart}
+                  selecting={!!selected}
+                  selected={!!selected?.has(m.id)}
+                  menuOpen={menu?.m.id === m.id}
+                  onMenu={openMenu}
+                  onReply={reply}
+                  onReact={react}
+                  onToggleSelect={toggleSelect}
+                  onJump={jumpTo}
+                  onOpenMedia={openMedia}
+                  onOpenLocation={openLocation}
+                  onRetry={(x) => void run(x.id)}
+                  onDiscard={discard}
+                />
+              </li>
+            );
+          })}
+        </ol>
       </div>
+
+      {!atBottom && (
+        <button
+          type="button"
+          onClick={() => {
+            scrollToBottom();
+            setUnseen(0);
+          }}
+          aria-label={unseen ? `Вниз, новых сообщений: ${unseen}` : "Вниз"}
+          className="pop absolute bottom-24 right-4 z-10 grid size-11 place-items-center rounded-full bg-surface text-ink shadow-[var(--shadow-paper)] ring-1 ring-line hover:bg-paper"
+        >
+          <IconArrowDown />
+          {unseen > 0 && <span className="absolute -top-1.5 left-1/2 min-w-5 -translate-x-1/2 rounded-full bg-shu px-1.5 text-center text-[11px] font-semibold leading-5 text-on-shu tabular">{unseen}</span>}
+        </button>
+      )}
+
+      <Composer
+        ref={composer}
+        counterpart={counterpart}
+        replyTo={replyTo}
+        editing={editing}
+        attachments={attachments}
+        onCancel={() => {
+          setReplyTo(null);
+          setEditing(null);
+        }}
+        onSend={send}
+        onEdit={(m, body) => void edit(m, body)}
+        onEditLast={editLast}
+        onTyping={notifyTyping}
+        onLocation={() => setPicking(true)}
+      />
+
+      {dragging && (
+        <div className="fade-in pointer-events-none absolute inset-2 z-20 grid place-items-center rounded-[24px] border-2 border-dashed border-ink/40 bg-paper/90 text-center">
+          <p className="text-lg font-semibold">
+            Отпустите, чтобы прикрепить
+            <span className="block text-sm font-normal text-muted">фото или видео</span>
+          </p>
+        </div>
+      )}
+
+      <MessageMenu
+        anchor={menu?.anchor ?? null}
+        actions={menu ? menuActions(menu.m, menu.selection, menu.at) : []}
+        reactions={menu?.m.reactions}
+        onReact={menu ? (emoji) => void react(menu.m, emoji) : undefined}
+        onClose={closeMenu}
+      />
+
+      <Modal open={!!pinAsk} onClose={() => setPinAsk(null)} title="Закрепить сообщение?">
+        <label className="flex cursor-pointer items-center gap-3 py-2 text-[15px]">
+          <input type="checkbox" checked={pinForAll} onChange={(e) => setPinForAll(e.target.checked)} className="size-5 accent-[var(--accent)]" />
+          Также закрепить у @{counterpart}
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setPinAsk(null)}>
+            Отмена
+          </Button>
+          <Button onClick={() => pinAsk && void pin(pinAsk, pinForAll)}>Закрепить</Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!deleteAsk} onClose={() => setDeleteAsk(null)} title={deleting.length > 1 ? `Удалить ${deleting.length} сообщ.?` : "Удалить сообщение?"}>
+        {deletingMine ? (
+          <label className="flex cursor-pointer items-center gap-3 py-2 text-[15px]">
+            <input type="checkbox" checked={deleteForAll} onChange={(e) => setDeleteForAll(e.target.checked)} className="size-5 accent-[var(--accent)]" />
+            Также удалить у @{counterpart}
+          </label>
+        ) : (
+          <p className="text-[15px] text-ink-2">{deleting.length > 1 ? "Сообщения удалятся" : "Сообщение удалится"} только у вас. У @{counterpart} {deleting.length > 1 ? "они останутся" : "оно останется"}.</p>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setDeleteAsk(null)}>
+            Отмена
+          </Button>
+          <Button variant="danger" onClick={() => deleteAsk && void remove(deleteAsk, deletingMine && deleteForAll)}>
+            Удалить
+          </Button>
+        </div>
+      </Modal>
+
+      {viewer && <MediaViewer media={viewer.media} start={viewer.start} title={viewer.title} onClose={() => setViewer(null)} />}
+      <LocationPicker open={picking} onClose={() => setPicking(false)} onSend={(p) => void sendLocation(p)} />
+      <LocationViewer location={viewing?.location ?? null} title={viewing?.mine ? "Ваше местоположение" : `Местоположение @${counterpart}`} onClose={() => setViewing(null)} />
     </div>
   );
 }

@@ -365,7 +365,7 @@ export function Header() {
               <Link href="/favorites" aria-label="Избранное" className="hidden size-11 place-items-center rounded-full hover:bg-ink/5 md:grid">
                 <IconHeart />
               </Link>
-              <Link href="/messages" aria-label={me.unreadMessages ? `Сообщения, непрочитанных: ${me.unreadMessages}` : "Сообщения"} className="relative hidden size-11 place-items-center rounded-full hover:bg-ink/5 md:grid">
+              <Link href="/messages" aria-label={me.unreadMessages ? `Сообщения, непрочитанных: ${me.unreadMessages}` : "Сообщения"} className="relative grid size-11 place-items-center rounded-full hover:bg-ink/5">
                 <IconMessage />
                 {me.unreadMessages > 0 && <span className="absolute right-1.5 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-shu px-1 text-[11px] font-semibold leading-[18px] text-on-shu">{me.unreadMessages}</span>}
               </Link>
