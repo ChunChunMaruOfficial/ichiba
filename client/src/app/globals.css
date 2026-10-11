@@ -291,6 +291,9 @@ html[data-immersive] [data-chrome="footer"],
 html[data-immersive] [data-chrome="mobile-search"] {
   display: none;
 }
+html[data-chrome-away] [data-chrome="bottom-nav"] {
+  transform: translateY(100%);
+}
 html[data-immersive] [data-chrome="main"] {
   padding-bottom: env(safe-area-inset-bottom);
 }

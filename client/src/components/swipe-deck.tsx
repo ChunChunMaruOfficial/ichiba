@@ -64,7 +64,20 @@ function useFitHeight() {
  * Tinder-style deck (decision D2). Drag or flick the top card, or use the buttons / ← → / Backspace.
  * Right = ♡ (asks guests to sign in), left = "не моё", ↶ brings the last card back.
  */
-export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "onboarding" | "swipe_mode"; limit?: number; onSwipe?: (count: number) => void; onDone?: () => void }) {
+/** `onEmpty`: called instead of showing the "nothing left" screen when the deck has no card to show. */
+export function SwipeDeck({
+  context,
+  limit = 20,
+  onSwipe,
+  onDone,
+  onEmpty,
+}: {
+  context: "onboarding" | "swipe_mode";
+  limit?: number;
+  onSwipe?: (count: number) => void;
+  onDone?: () => void;
+  onEmpty?: () => void;
+}) {
   const { me, requireAuth, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
@@ -142,6 +155,10 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
   useEffect(() => {
     if (data && cards.length > 0 && index >= cards.length) onDone?.();
   }, [index, cards.length, data, onDone]);
+  const empty = !!data && !top;
+  useEffect(() => {
+    if (empty) onEmpty?.();
+  }, [empty, onEmpty]);
 
   if (isLoading || !data) {
     return (
@@ -151,6 +168,7 @@ export function SwipeDeck({ context, limit = 20, onSwipe, onDone }: { context: "
     );
   }
   if (!top) {
+    if (onEmpty) return null;
     return (
       <div ref={frame}>
         <EmptyState art={<UmeBranch className="mb-2 w-56" />} title={cards.length ? "Вы посмотрели все вещи" : "Пока нечего показать"} hint="Новые вещи появляются каждый день">

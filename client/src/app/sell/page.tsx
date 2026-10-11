@@ -232,12 +232,18 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
     const el = document.querySelector<HTMLElement>("[data-error]"); el?.scrollIntoView({ behavior: "smooth", block: "center" }); el?.querySelector<HTMLElement>("input, select, textarea, button")?.focus({ preventScroll: true });
   });
 
+  /** Moving between steps starts the new one from the top (the price tag is the first thing on step 3). */
+  const goTo = (s: Step) => {
+    setStep(s);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const next = async () => {
     if (step === 2) {
       const e = validate(values, meta, photos, "describe");
       setErrors(e);
       if (Object.keys(e).length) return scrollToError();
-      setStep(3);
+      goTo(3);
       void saveDraft({ quiet: true });
       return;
     }
@@ -370,7 +376,7 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
         <button onClick={exit} aria-label="Выйти" className="-ml-2 grid size-10 place-items-center rounded-full hover:bg-ink/5">
           <IconX />
         </button>
-        <StepIndicator step={step} onStep={setStep} />
+        <StepIndicator step={step} onStep={goTo} />
         <span className="w-10 text-right text-xs text-muted" aria-live="polite" title={savedAt ? `Черновик сохранён в ${savedAt.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}` : undefined}>
           {savedAt && <IconCheck key={savedAt.getTime()} className="pop ml-auto size-4 text-ok" aria-label="Черновик сохранён" />}
         </span>
@@ -422,14 +428,14 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
         <div className="sheet-up fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mt-10 md:justify-end md:border-0 md:bg-transparent md:p-0">
           {/* Desktop: equal buttons of one width. Phone: "Назад" and "Запланировать" shrink to icons so the main action fits. */}
           {step > 2 && (
-            <Button variant="secondary" size="lg" aria-label="Назад" className="w-13 shrink-0 px-0 md:w-48" onClick={() => setStep((s) => (s - 1) as Step)}>
-              <IconChevronLeft className="size-5 md:hidden" />
+            <Button variant="secondary" size="lgTight" aria-label="Назад" className="w-13 shrink-0 md:w-48" onClick={() => goTo((step - 1) as Step)}>
+              <IconChevronLeft className="size-6 shrink-0 md:hidden" />
               <span className="hidden md:inline">Назад</span>
             </Button>
           )}
           {step === 3 ? (
             <>
-              <SchedulePicker disabled={publishing} onSchedule={schedule} className="w-13 shrink-0 md:w-48" buttonClassName="w-full px-0" compact />
+              <SchedulePicker disabled={publishing} onSchedule={schedule} className="w-13 shrink-0 md:w-48" buttonClassName="w-full" compact />
               <Button size="lg" className="flex-1 md:w-48 md:flex-none" loading={publishing} onClick={publish}>
                 {publishing ? "Публикуем…" : "Опубликовать"}
               </Button>

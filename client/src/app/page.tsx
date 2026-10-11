@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useLayoutEffect } from "react";
+import { Suspense, useCallback, useLayoutEffect, useState } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CardRow, CategoryTiles, SectionHeader, SellBand, WardrobeCards } from "@/components/sections";
@@ -53,8 +53,16 @@ function HomeFeed() {
 
   const chips = CHIPS.filter(([key]) => key !== "for_you" || (me && forYou));
   // «Свайп» mode (decision D2): one item at a time, right = ♡, left = не моё.
-  const swipeMode = params.get("mode") === "swipe";
   const setMode = (mode: "feed" | "swipe") => router.replace(mode === "swipe" ? "/?mode=swipe" : "/", { scroll: false });
+  // Nothing left to swipe: the switch disappears and only the feed stays.
+  const swipeProbe = useSWR<{ items: Card[] }>(sessionLoading ? null : "/swipe/deck?context=swipe_mode&limit=1", { revalidateOnFocus: false });
+  const [swipeEmpty, setSwipeEmpty] = useState(false);
+  const noSwipe = swipeEmpty || swipeProbe.data?.items.length === 0;
+  const swipeMode = params.get("mode") === "swipe" && !noSwipe;
+  const onSwipeEmpty = useCallback(() => {
+    setSwipeEmpty(true);
+    router.replace("/", { scroll: false });
+  }, [router]);
   // Swiping takes the whole screen: no bottom tabs, footer or search row (globals.css, html[data-immersive]).
   useLayoutEffect(() => {
     if (!swipeMode) return;
@@ -72,6 +80,7 @@ function HomeFeed() {
       <div className="sticky top-[var(--header-offset,113px)] z-30 transition-[top] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none -mx-4 bg-washi px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         {/* One row that scrolls as a whole on phones: the mode switch travels with the chips. */}
         <div className="no-scrollbar -mx-4 -my-2 flex items-center gap-3 overflow-x-auto px-4 py-2 md:-mx-6 md:px-6">
+          {!noSwipe && (
           <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
             {(
               [
@@ -90,6 +99,7 @@ function HomeFeed() {
               </button>
             ))}
           </div>
+          )}
           {!swipeMode && (
             <div className="flex shrink-0 gap-2">
               {chips.map(([key, label]) => (
@@ -107,7 +117,7 @@ function HomeFeed() {
 
       {swipeMode ? (
         <div className="py-6">
-          <SwipeDeck context="swipe_mode" limit={30} />
+          <SwipeDeck context="swipe_mode" limit={30} onEmpty={onSwipeEmpty} />
         </div>
       ) : home.error || feed.error ? (
         <ErrorState message="Не удалось загрузить вещи" onRetry={() => (home.mutate(), feed.mutate())} />

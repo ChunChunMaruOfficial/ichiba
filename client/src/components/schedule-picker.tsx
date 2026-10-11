@@ -66,10 +66,11 @@ export function SchedulePicker({
   const valid = !!chosen && value >= bounds.min && value <= bounds.max;
 
   return (
-    <div ref={box} className={clsx("relative", className)}>
-      <Button type="button" variant="secondary" size="lg" disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Запланировать" className={buttonClassName}>
+        // Compact (phone bar): the menu is anchored to the fixed bottom bar and spans it, so it never leaves the screen.
+    <div ref={box} className={clsx(compact ? "md:relative" : "relative", className)}>
+      <Button type="button" variant="secondary" size={compact ? "lgTight" : "lg"} disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Запланировать" className={buttonClassName}>
         {compact && (
-          <svg viewBox="0 0 24 24" className="size-5 md:hidden" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg viewBox="0 0 24 24" className="size-6 shrink-0 md:hidden" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <circle cx="12" cy="12" r="8.5" />
             <path d="M12 7.5V12l3 2" />
           </svg>
@@ -77,7 +78,7 @@ export function SchedulePicker({
         <span className={compact ? "hidden md:inline" : undefined}>Запланировать</span>
       </Button>
       {pop.mounted && (
-        <div data-closing={pop.closing || undefined} className="fade-in absolute bottom-[calc(100%+8px)] left-0 z-50 w-[min(88vw,320px)] rounded-2xl border border-line bg-surface p-4 shadow-xl md:left-auto md:right-0">
+        <div data-closing={pop.closing || undefined} className={clsx("fade-in absolute bottom-[calc(100%+8px)] z-50 rounded-2xl border border-line bg-surface p-4 shadow-xl md:left-auto md:right-0 md:w-80", compact ? "inset-x-3" : "left-0 w-[min(88vw,320px)]")}>
           <p className="font-semibold">Опубликовать позже</p>
           <p className="mt-1 text-sm text-muted">Проверим объявление сейчас, а в каталоге оно появится в выбранное время.</p>
           <div className="mt-3 flex flex-wrap gap-2">

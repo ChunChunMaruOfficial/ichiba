@@ -22,7 +22,8 @@ const buttonVariants: Record<ButtonVariant, string> = {
   shu: "btn-wa btn-wa-shu",
   link: "text-ink underline-offset-4 hover:underline px-0 py-0 h-auto",
 };
-const buttonSizes = { sm: "h-9 px-3 text-sm", md: "h-11 px-5 text-[15px]", lg: "h-13 px-6 text-base" };
+// lgTight: the large height without side padding, for icon-only buttons that get their width from the caller.
+const buttonSizes = { sm: "h-9 px-3 text-sm", md: "h-11 px-5 text-[15px]", lg: "h-13 px-6 text-base", lgTight: "h-13 text-base" };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;

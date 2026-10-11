@@ -327,7 +327,10 @@ export function Header() {
     setHidden(false);
   }
   useEffect(() => {
-    document.documentElement.style.setProperty("--header-offset", hidden ? "0px" : "var(--header-h)");
+    const root = document.documentElement;
+    root.style.setProperty("--header-offset", hidden ? "0px" : "var(--header-h)");
+    // The phone tab bar tucks away together with the header (globals.css, html[data-chrome-away]).
+    root.toggleAttribute("data-chrome-away", hidden);
   }, [hidden]);
 
   return (
@@ -447,7 +450,7 @@ export function BottomNav() {
   };
 
   return (
-    <nav data-chrome="bottom-nav" aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav data-chrome="bottom-nav" aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none md:hidden">
       {item("/", "Главная", IconHome)}
       {item("/search", "Поиск", IconSearch)}
       <button
