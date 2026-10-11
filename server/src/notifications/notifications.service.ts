@@ -1,7 +1,6 @@
-import { Controller, Get, HttpCode, Injectable, Logger, Module, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Controller, Get, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
-import { background } from '../common/background.js';
 import { EventsService } from '../events/events.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -45,7 +44,6 @@ export type NotificationType =
 /** In-app notifications, pushed live over SSE (frame 15). Email carries sign-in codes only. */
 @Injectable()
 export class NotificationsService {
-  private readonly logger = new Logger('Notifications');
 
   constructor(
     private readonly prisma: PrismaService,
