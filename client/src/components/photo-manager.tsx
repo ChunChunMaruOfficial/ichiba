@@ -166,8 +166,16 @@ export function PhotoManager({
             }}
             className={clsx("pop group relative overflow-hidden rounded-2xl bg-skeleton shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-1", big ? "h-[200px] w-40" : "h-[150px] w-[120px]", p.status === "error" && "ring-2 ring-danger", dragKey === p.key && "opacity-50")}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-contain" />
+            {p.status === "done" ? (
+              // Tapping the photo opens the editor (crop, turn, draw).
+              <button type="button" aria-label={`Редактировать фото ${i + 1}`} title="Нажмите, чтобы обрезать, повернуть или нарисовать" onClick={() => setEditing(p)} className="block size-full cursor-pointer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-contain" />
+              </button>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-contain" />
+            )}
             {p.status === "uploading" && (
               <span className="absolute inset-0 grid place-items-center bg-surface/60" aria-label="Загружается">
                 <Spinner className="size-6 text-ink" />
@@ -184,14 +192,6 @@ export function PhotoManager({
             <button type="button" aria-label="Удалить фото" onClick={() => onChange((prev) => prev.filter((x) => x.key !== p.key))} className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white">
               <IconX className="size-3.5" />
             </button>
-            {p.status === "done" && (
-              <button type="button" aria-label={`Редактировать фото ${i + 1}`} title="Обрезать, повернуть, поправить свет" onClick={() => setEditing(p)} className="absolute right-1 top-8 grid size-6 place-items-center rounded-full bg-black/60 text-white">
-                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M4 20h4L19 9l-4-4L4 16Z" />
-                  <path d="m13.5 6.5 4 4" />
-                </svg>
-              </button>
-            )}
             <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
               <button type="button" aria-label="Сдвинуть влево" disabled={i === 0} onClick={() => move(p.key, -1)} className="grid size-6 place-items-center rounded-full bg-white/90 disabled:invisible">
                 <IconChevronLeft className="size-3.5" />
