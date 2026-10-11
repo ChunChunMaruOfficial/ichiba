@@ -73,7 +73,7 @@ const mediaBase = () => process.env.MEDIA_PUBLIC_URL ?? 'http://localhost:4000/m
  * Difference hash: 9×8 greyscale thumbnail, one bit per "is this pixel brighter than its right neighbour".
  * Re-uploads, re-saves and light crops of the same photo land within a few bits of each other.
  */
-async function differenceHash(input: Buffer | ReturnType<typeof sharp>): Promise<string> {
+export async function differenceHash(input: Buffer | ReturnType<typeof sharp>): Promise<string> {
   const img = Buffer.isBuffer(input) ? sharp(input) : input.clone();
   const px = await img.resize(9, 8, { fit: 'fill' }).greyscale().raw().toBuffer();
   let bits = 0n;
@@ -359,6 +359,17 @@ export class MediaService implements OnModuleInit {
   async imageForAi(photo: string | StoredPhoto, size = 512): Promise<Buffer> {
     const webp = await this.read(typeof photo === 'string' ? { key: photo } : photo, 640);
     return sharp(webp).resize(size, size, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
+  }
+
+  /** A photo the visitor searches by (never stored): upright, downscaled JPEG for the AI plus its difference hash. */
+  async searchImage(file: Buffer): Promise<{ jpeg: Buffer; dhash: string }> {
+    try {
+      const img = sharp(file, { failOn: 'error' }).rotate();
+      const jpeg = await img.clone().resize(512, 512, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
+      return { jpeg, dhash: await differenceHash(jpeg) };
+    } catch {
+      throw new BadRequestException({ message: 'Не получилось открыть фото — попробуйте JPG или PNG' });
+    }
   }
 
   /** Stored difference hash, computed lazily for photos uploaded before hashing existed. */

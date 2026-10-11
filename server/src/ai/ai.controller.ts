@@ -1,10 +1,13 @@
-import { Body, Controller, Get, HttpCode, Logger, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Logger, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
+import { memoryStorage } from 'multer';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
-import { CATEGORY_SLUGS } from '../catalog/catalog.js';
+import { CATEGORIES, CATEGORY_SLUGS, COLORS } from '../catalog/catalog.js';
 import { ZodPipe } from '../common/zod.js';
-import { MediaService } from '../media/media.service.js';
+import { ListingsService } from '../listings/listings.service.js';
+import { MAX_UPLOAD_BYTES, MediaService } from '../media/media.service.js';
 import { AdminGuard } from '../moderation/moderation.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AiService } from './ai.service.js';
@@ -53,6 +56,7 @@ export class AiController {
     private readonly price: PriceAdvisor,
     private readonly photos: PhotoChecker,
     private readonly search: SearchParser,
+    private readonly listings: ListingsService,
   ) {}
 
   /** Add Item autofill from photos (frame 22). */
@@ -104,6 +108,35 @@ export class AiController {
   @Throttle({ default: { limit: 40, ttl: 60_000 } })
   searchParse(@Body(new ZodPipe(SearchParseDto)) dto: z.infer<typeof SearchParseDto>) {
     return this.search.parse(dto.q);
+  }
+
+  /**
+   * Search by photo (guests too): the AI says what the item is, then items are ranked by those attributes and by
+   * how close their cover photos look. The uploaded photo is not stored.
+   */
+  @Public()
+  @Post('photo-search')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } }))
+  async photoSearch(@UploadedFile() file?: Express.Multer.File, @CurrentUser() user?: AuthUser) {
+    if (!file) throw new BadRequestException({ message: 'Выберите фото' });
+    const { jpeg, dhash } = await this.media.searchImage(file.buffer);
+    const seen = this.ai.enabled
+      ? await this.ai.analyze([jpeg], user?.id).catch((e: Error) => {
+          this.logger.warn(`photo search: analyze failed: ${e.message}`);
+          return null;
+        })
+      : null;
+    // "Not clothing" isn't final (AI answers vary, drawings and bags confuse it): then only the photo ranks.
+    if (seen?.flags.not_clothing) return { label: null, look: {}, items: await this.listings.photoSearch({}, dhash, user?.id), notClothing: true };
+    const category = seen && seen.category.confidence >= 0.5 ? CATEGORIES.find((c) => c.slug === seen.category.value) : undefined;
+    const subcategory = category?.subcategories.find((sc) => sc.slug === seen?.subcategory.value);
+    const color = seen && seen.color.confidence >= 0.5 ? COLORS.find((c) => c.value === seen.color.value) : undefined;
+    const brand = seen && seen.brand.confidence >= 0.6 && seen.brand.value ? seen.brand.value : null;
+    const look = { category: category?.slug ?? null, subcategory: subcategory?.slug ?? null, color: color?.value ?? null, brand };
+    const label = [subcategory?.label ?? category?.label, color?.label.toLowerCase(), brand].filter(Boolean).join(', ') || null;
+    return { label, look, items: await this.listings.photoSearch(look, dhash, user?.id), notClothing: false };
   }
 
   /** Provider health and recent usage for the admin dashboard. */

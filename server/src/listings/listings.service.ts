@@ -681,6 +681,35 @@ export class ListingsService {
     return scored.sort((a, b) => b.s - a.s).map((x) => x.l);
   }
 
+  /**
+   * Search by photo: what the AI recognised (category, subcategory, brand, colour — confident answers only) plus
+   * how close each cover photo looks. The category only weighs in, it doesn't filter: when the AI files the item
+   * under a neighbouring category (a backpack as an accessory), a close photo still comes out on top.
+   */
+  async photoSearch(look: { category?: string | null; subcategory?: string | null; brand?: string | null; color?: string | null }, dhash: string, viewerId?: string) {
+    const rows = await this.prisma.listing.findMany({
+      where: { status: { in: VISIBLE_IN_FEED }, ...(viewerId ? { sellerId: { not: viewerId } } : {}) },
+      include: { ...cardInclude, photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 } },
+      orderBy: { liftedAt: 'desc' },
+      take: 600,
+    });
+    const scored = await Promise.all(
+      rows.map(async (l) => {
+        let s = 0;
+        if (look.category && l.category === look.category) s += 3;
+        if (look.subcategory && l.subcategory === look.subcategory) s += 3;
+        if (look.brand && l.brand && l.brand.toLowerCase() === look.brand.toLowerCase()) s += 2;
+        if (look.color && l.color === look.color) s += 1.5;
+        const cover = l.photos[0];
+        const h = cover ? await this.media.dhash(cover) : null;
+        if (h) s += Math.max(0, (24 - hashDistance(dhash, h)) / 24) * 5;
+        return { l, s };
+      }),
+    );
+    const ranked = scored.sort((a, b) => b.s - a.s).map((x) => x.l);
+    return this.cards(ranked.slice(0, 48), viewerId);
+  }
+
   async similar(id: string, offset: number, limit: number, viewerId?: string) {
     const listing = await this.prisma.listing.findUnique({ where: { id } });
     if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });

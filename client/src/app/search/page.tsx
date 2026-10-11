@@ -17,6 +17,8 @@ import { usePresence } from "@/lib/presence";
 import { pushRecent } from "@/lib/recent-searches";
 import type { Card, Meta, SearchInterpretation } from "@/lib/types";
 import { Select } from "@/components/select";
+import { PhotoSearchButton } from "@/components/photo-search-button";
+import { photoSearchResult } from "@/lib/photo-search";
 
 const LIST_KEYS = ["category", "subcategory", "style", "gender", "size", "condition", "color", "brand"] as const;
 type ListKey = (typeof LIST_KEYS)[number];
@@ -340,6 +342,7 @@ function SearchView() {
         <label className="flex h-12 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 focus-within:border-ink">
           <IconSearch className="size-5 shrink-0 text-muted" />
           <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Что ищете?" className="h-full flex-1 bg-transparent outline-none" enterKeyHint="search" aria-label="Поиск" />
+          <PhotoSearchButton className="-mr-1.5 size-9 rounded-full hover:bg-ink/5" />
         </label>
       </form>
 
@@ -463,10 +466,51 @@ function SearchView() {
   );
 }
 
+/** Results of a search by photo (lib/photo-search.ts): what the AI saw and the closest items. */
+function PhotoResults({ id }: { id: string }) {
+  const router = useRouter();
+  const [result] = useState(() => photoSearchResult(id));
+  return (
+    <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-6">
+      <div className="mb-6 flex items-center gap-4">
+        {result?.preview && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={result.preview} alt="Ваше фото" className="size-16 shrink-0 rounded-xl object-cover" />
+        )}
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Поиск по фото</h1>
+          {result?.label && <p className="mt-0.5 truncate text-ink-2">Похоже на: {result.label}</p>}
+        </div>
+        <PhotoSearchButton className="h-10 rounded-full px-4 text-sm font-semibold shadow-[inset_0_0_0_1px_var(--line-strong)] hover:bg-ink/5">
+          Другое фото
+        </PhotoSearchButton>
+        <button type="button" aria-label="Закрыть поиск по фото" onClick={() => router.push("/search")} className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-ink/5">
+          <IconX />
+        </button>
+      </div>
+      {!result ? (
+        <EmptyState title="Результаты устарели" hint="Загрузите фото ещё раз — кнопка с камерой в поиске" />
+      ) : result.items.length === 0 ? (
+        <EmptyState title="Похожих вещей пока нет" hint="Загляните позже — новые вещи появляются каждый день" />
+      ) : (
+        <>
+          {result.notClothing && <p className="mb-4 text-sm text-muted">Не получилось точно понять, что за вещь, — показываем похожие по виду. Лучше всего работает фото вещи целиком при хорошем свете.</p>}
+          <Masonry items={result.items} variant="grid" source="search" />
+        </>
+      )}
+    </div>
+  );
+}
+
+function SearchRoute() {
+  const photo = useSearchParams().get("photo");
+  return photo ? <PhotoResults key={photo} id={photo} /> : <SearchView />;
+}
+
 export default function SearchPage() {
   return (
     <Suspense>
-      <SearchView />
+      <SearchRoute />
     </Suspense>
   );
 }

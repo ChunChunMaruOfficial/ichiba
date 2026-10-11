@@ -12,6 +12,7 @@ import { usePresence } from "@/lib/presence";
 import { getRecent, pushRecent, removeRecent } from "@/lib/recent-searches";
 import { CatalogButton, MobileCatalog } from "./catalog-nav";
 import { Wordmark } from "./logo";
+import { PhotoSearchButton } from "./photo-search-button";
 import { useMeta, useSession } from "./session";
 import { IconBag, IconBell, IconChart, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconReceipt, IconSearch, IconSettings, IconUsers, IconX } from "./ui";
 
@@ -112,6 +113,7 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
               <IconX className="size-4" />
             </button>
           )}
+          <PhotoSearchButton className="-mr-1.5 size-8 rounded-full hover:bg-ink/5" />
         </label>
       </form>
 
