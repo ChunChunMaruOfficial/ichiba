@@ -44,7 +44,7 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
         }}
       >
         <Field label="Логин" htmlFor="admin-login">
-          <Input id="admin-login" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Email или телефон" autoFocus />
+          <Input id="admin-login" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} type="email" placeholder="Email" autoFocus />
         </Field>
         <Field label="Пароль" htmlFor="admin-password" error={error ?? undefined}>
           <Input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} error={error ?? undefined} />

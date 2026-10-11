@@ -6,7 +6,6 @@ import { AuctionsService } from '../auctions/auctions.js';
 import { Public } from '../auth/auth.guard.js';
 import { background } from '../common/background.js';
 import { ListingsService } from '../listings/listings.service.js';
-import { EmailOutbox } from '../mail/mail.module.js';
 import { MediaService } from '../media/media.service.js';
 import { OffersService } from '../offers/offers.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -37,7 +36,6 @@ export class MaintenanceService {
     private readonly offers: OffersService,
     private readonly requests: RequestsService,
     private readonly listings: ListingsService,
-    private readonly outbox: EmailOutbox,
     private readonly moderator: ListingModerator,
     private readonly reviews: ReviewsService,
     private readonly media: MediaService,
@@ -52,7 +50,6 @@ export class MaintenanceService {
       ['scheduled-listings', 0, () => this.listings.publishScheduled()],
       ['offers', 0, () => this.offers.expire()],
       ['requests', 0, () => this.requests.sweep()],
-      ['email-outbox', 0, () => this.outbox.flush()],
       ['ai-recheck', 10 * MINUTE, () => this.moderator.recheckUnchecked()],
       ['review-reminders', 60 * MINUTE, () => this.reviews.remind()],
       ['photo-cleanup', 24 * 60 * MINUTE, () => this.media.purgeOrphans()],

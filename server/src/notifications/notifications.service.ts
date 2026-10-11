@@ -3,7 +3,6 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { background } from '../common/background.js';
 import { EventsService } from '../events/events.js';
-import { DealEmails } from '../mail/mail.module.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -43,7 +42,7 @@ export type NotificationType =
   | 'offer_likers'
   | 'offer_auto_accepted';
 
-/** In-app notifications, pushed live over SSE (frame 15); deal events are also emailed (DealEmails). */
+/** In-app notifications, pushed live over SSE (frame 15). Email carries sign-in codes only. */
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger('Notifications');
@@ -51,18 +50,11 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
-    private readonly emails: DealEmails,
   ) {}
-
-  private email(userIds: string[], type: NotificationType, payload: Prisma.InputJsonValue) {
-    // Never block or fail the action because of email.
-    background(this.emails.maybeSend(userIds, type, payload as Record<string, unknown>).catch((e) => this.logger.warn(`email for ${type} failed: ${(e as Error).message}`)));
-  }
 
   async notify(userId: string, type: NotificationType, payload: Prisma.InputJsonValue) {
     const n = await this.prisma.notification.create({ data: { userId, type, payload } });
     await this.events.emit(userId, { type: 'notification', data: n });
-    this.email([userId], type, payload);
     return n;
   }
 
@@ -71,7 +63,6 @@ export class NotificationsService {
     if (!unique.length) return;
     const rows = await this.prisma.notification.createManyAndReturn({ data: unique.map((userId) => ({ userId, type, payload })) });
     await Promise.all(rows.map((n) => this.events.emit(n.userId, { type: 'notification', data: n })));
-    this.email(unique, type, payload);
   }
 
   unreadCount(userId: string) {

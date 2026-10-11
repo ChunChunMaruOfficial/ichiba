@@ -30,7 +30,6 @@ import { SwipeController } from './swipe/swipe.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthService } from './auth/auth.service.js';
 import { CodeSenderService } from './auth/code-sender.service.js';
-import { SmsService } from './auth/sms.js';
 import { PrivacyController, PrivacyService } from './privacy/privacy.js';
 import { FavoritesController } from './favorites/favorites.controller.js';
 import { FollowsController } from './follows/follows.controller.js';
@@ -93,7 +92,6 @@ import { UsersController, UsersService } from './users/users.service.js';
   providers: [
     AuthService,
     CodeSenderService,
-    SmsService,
     PrivacyService,
     UsersService,
     MediaService,

@@ -126,7 +126,6 @@ function Settings({ me }: { me: Me }) {
           ["profile", "個", "Профиль"],
           ["sizes", "寸", "Мои размеры"],
           ...(me.isSeller ? ([["bundle", "組", "Скидка за комплект"]] as const) : []),
-          ["email", "便", "Письма"],
           ["danger", "出", "Выход и удаление"],
         ]}
       />
@@ -134,7 +133,6 @@ function Settings({ me }: { me: Me }) {
       <ProfileSection me={me} />
       <SizesSection me={me} />
       {me.isSeller && <BundleSection me={me} />}
-      <EmailSection me={me} />
       {DARK_THEME_ENABLED && <ThemeSection />}
       {/* The only place to sign out (it is not in the account menu) and to delete the account. */}
       <AccountActions
@@ -322,39 +320,6 @@ function BundleSection({ me }: { me: Me }) {
           Сохранить
         </Button>
       </div>
-    </Section>
-  );
-}
-
-function EmailSection({ me }: { me: Me }) {
-  const { saving, save } = useSave();
-  const [deals, setDeals] = useState(me.emailPrefs.deals);
-  return (
-    <Section id="email" title="Письма на почту" hint="Коды подтверждения и восстановления пароля приходят всегда.">
-      {!me.email ? (
-        <p className="text-sm text-ink-2">Почта не указана — уведомления приходят только на сайте.</p>
-      ) : (
-        <>
-          <label className="flex items-start justify-between gap-4">
-            <span>
-              <span className="font-medium">События по сделкам</span>
-              <span className="block text-sm text-ink-2">Новый запрос, подтверждение, передача, завершение, выигрыш в аукционе — на {me.email}</span>
-              {!me.emailVerified && <span className="mt-1 block text-sm text-warn">Почта не подтверждена — письма придут после подтверждения</span>}
-            </span>
-            <input
-              type="checkbox"
-              className="mt-1 size-5 shrink-0 accent-[var(--accent)]"
-              checked={deals}
-              disabled={saving}
-              onChange={async (e) => {
-                const v = e.target.checked;
-                setDeals(v);
-                if (!(await save({ emailPrefs: { deals: v } }, v ? "Письма о сделках включены" : "Письма о сделках отключены"))) setDeals(!v);
-              }}
-            />
-          </label>
-        </>
-      )}
     </Section>
   );
 }

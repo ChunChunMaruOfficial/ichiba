@@ -20,7 +20,7 @@ import { CodeSenderService } from './code-sender.service.js';
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 const MAX_CODE_ATTEMPTS = 5;
-/** Per address: protects users from being spammed and the SMS balance from being drained. */
+/** Per address: protects users from being spammed with codes. */
 const MAX_CODES_PER_HOUR = 5;
 const SIGNUP_TOKEN_TTL = '30m';
 /** Bump when the privacy policy changes materially; stored with each consent. */
@@ -33,26 +33,13 @@ const appleJwks = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/key
 export const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const BY_OPERATOR = /^(25|29|33|44|17)\d{7}$/;
 
-/**
- * Email is lower-cased; anything else is a phone in E.164. Belarusian habits are understood:
- * "8 029 123-45-67", "29 123 45 67" and "+375 29 1234567" all become +375291234567.
- */
+/** Sign-in is by email only (no SMS gateway): the address is lower-cased and checked. */
 function normalizeLogin(raw: string): { kind: 'email' | 'phone'; value: string } {
-  const trimmed = raw.trim();
-  if (trimmed.includes('@')) {
-    const email = trimmed.toLowerCase();
-    if (!EMAIL_RE.test(email)) throw new BadRequestException({ message: 'Проверьте адрес почты', fields: { login: 'Проверьте адрес почты' } });
-    return { kind: 'email', value: email };
-  }
-  let digits = trimmed.replace(/\D/g, '');
-  if (digits.length === 11 && digits.startsWith('80')) digits = `375${digits.slice(2)}`;
-  else if (BY_OPERATOR.test(digits)) digits = `375${digits}`;
-  if (digits.length < 10 || digits.length > 15 || (digits.startsWith('375') && digits.length !== 12)) {
-    throw new BadRequestException({ message: 'Проверьте номер телефона', fields: { login: 'Проверьте номер: +375 XX XXX-XX-XX' } });
-  }
-  return { kind: 'phone', value: `+${digits}` };
+  const email = raw.trim().toLowerCase();
+  if (!email.includes('@')) throw new BadRequestException({ message: 'Вход только по почте', fields: { login: 'Введите адрес почты' } });
+  if (!EMAIL_RE.test(email)) throw new BadRequestException({ message: 'Проверьте адрес почты', fields: { login: 'Проверьте адрес почты' } });
+  return { kind: 'email', value: email };
 }
 
 /** Pending sign-up after a confirmed code or a new Google/Telegram account: the account is created on "complete". */

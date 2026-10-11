@@ -10,8 +10,8 @@ import { Button, Field, Input, Modal } from "./ui";
 
 /**
  * Sign-in and sign-up in one flow, the way Avito, Kufar and Vinted do it:
- *   1. Google / Telegram — or a phone / email → we send a one-time code (no password to invent);
- *   2. the code (autofill from SMS on phones);
+ *   1. Google / Telegram — or an email → we send a one-time code (no password to invent);
+ *   2. the code from the email;
  *   3. only for new people: a nickname + consent to personal data processing → account created.
  * Password sign-in stays available for accounts that have a password.
  */
@@ -48,13 +48,6 @@ function loadScript(src: string) {
   return p;
 }
 
-const isEmail = (v: string) => v.includes("@");
-/** Pretty-prints a Belarusian number: +375 29 123-45-67. */
-const prettyPhone = (v: string) => {
-  const m = v.match(/^\+375(\d{2})(\d{3})(\d{2})(\d{2})$/);
-  return m ? `+375 ${m[1]} ${m[2]}-${m[3]}-${m[4]}` : v;
-};
-
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
@@ -85,7 +78,6 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
   const { data: providers } = useSWR<{ google: string | null; apple: string | null; telegram?: string | null; telegramBotId?: string | null; devAnyCode?: boolean }>("/auth/providers");
   const codeInput = useRef<HTMLInputElement>(null);
   const hint = step === "profile" && username.length >= 3 ? usernameHint : null;
-  const byEmail = isEmail(target || login);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -173,23 +165,6 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
 
   const confirmReset = () => run(async () => finish(await api<SessionResult>("/auth/reset/confirm", { body: { login: target, code, password } })));
 
-  // Android/Chrome: read the code from the incoming SMS (WebOTP) and submit it.
-  useEffect(() => {
-    if (step !== "code" || byEmail || typeof window === "undefined" || !("OTPCredential" in window)) return;
-    const ctrl = new AbortController();
-    (navigator.credentials as unknown as { get: (o: object) => Promise<{ code?: string } | null> })
-      .get({ otp: { transport: ["sms"] }, signal: ctrl.signal })
-      .then((otp) => {
-        if (otp?.code) {
-          setCode(otp.code);
-          void checkCode(otp.code);
-        }
-      })
-      .catch(() => {});
-    return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, byEmail]);
-
   const title = {
     start: "Вход или регистрация",
     code: "Введите код",
@@ -223,7 +198,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
           )}
           <div className="my-5 flex items-center gap-3 text-xs text-muted">
             <span className="h-px flex-1 bg-line" />
-            или по номеру телефона или почте
+            или по почте
             <span className="h-px flex-1 bg-line" />
           </div>
         </>
@@ -239,10 +214,10 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
       >
         {(step === "start" || step === "password" || step === "reset") && (
           <Field
-            label="Телефон или почта"
+            label="Почта"
             htmlFor="auth-login"
             error={fields.login}
-            hint={step === "start" && login.trim() ? (isEmail(login) ? "Пришлём код на почту" : "Пришлём код в SMS") : undefined}
+            hint={step === "start" ? "Пришлём код на почту" : undefined}
           >
             <Input
               id="auth-login"
@@ -254,7 +229,9 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
               value={login}
               onChange={(e) => setLogin(e.target.value)}
               error={fields.login}
-              placeholder="+375 29 123-45-67 или you@mail.by"
+              type="email"
+              inputMode="email"
+              placeholder="you@mail.by"
             />
           </Field>
         )}
@@ -262,7 +239,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
         {step === "code" && (
           <>
             <p className="-mt-1 text-sm text-ink-2">
-              {byEmail ? "Отправили письмо на" : "Отправили SMS на"} <b className="font-semibold text-ink">{byEmail ? target : prettyPhone(target)}</b>.{" "}
+              Отправили письмо на <b className="font-semibold text-ink">{target}</b>.{" "}
               <button type="button" className="underline underline-offset-4" onClick={() => setStep("start")}>
                 Изменить
               </button>
@@ -289,7 +266,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
                 placeholder="••••••"
               />
             </Field>
-            {byEmail && <p className="-mt-2 text-xs text-muted">Письма нет? Проверьте папку «Спам».</p>}
+            <p className="-mt-2 text-xs text-muted">Письма нет? Проверьте папку «Спам».</p>
           </>
         )}
 
@@ -323,7 +300,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
         {(step === "password" || step === "reset-confirm") && (
           <>
             {step === "reset-confirm" && (
-              <Field label={`Код из ${byEmail ? "письма" : "SMS"} на ${byEmail ? target : prettyPhone(target)}`} htmlFor="auth-code" error={fields.code}>
+              <Field label={`Код из письма на ${target}`} htmlFor="auth-code" error={fields.code}>
                 <Input id="auth-code" name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} error={fields.code} className="tabular text-center text-2xl tracking-[0.5em]" placeholder="••••••" />
               </Field>
             )}

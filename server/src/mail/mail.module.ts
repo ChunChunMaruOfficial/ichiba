@@ -1,105 +1,15 @@
-import { Controller, Get, Global, HttpCode, Injectable, Logger, Module, Post, Query, Res } from '@nestjs/common';
+import { Controller, Get, Global, HttpCode, Injectable, Module, Post, Query, Res } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import type { Response } from 'express';
 import { Public } from '../auth/auth.guard.js';
-import { background } from '../common/background.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MailerService } from './mailer.js';
-import { appUrl, codeEmail, DEAL_EMAIL_TYPES, dealEmail, esc } from './templates.js';
-
-/** Retry schedule after a failed attempt: 1 min, 5 min, 30 min, 2 h, 6 h; then the message is FAILED. */
-const BACKOFF_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 3600_000, 6 * 3600_000];
+import { appUrl, codeEmail, esc } from './templates.js';
 
 export interface EmailPrefs {
   deals: boolean;
 }
 export const emailPrefsOf = (raw: unknown): EmailPrefs => ({ deals: (raw as Partial<EmailPrefs> | null)?.deals !== false });
-
-/**
- * Outbox: notification emails are stored first and sent by a worker, so an SMTP outage delays mail
- * instead of losing it, and an HTTP request never waits for SMTP.
- */
-@Injectable()
-export class EmailOutbox {
-  private readonly logger = new Logger('Mail');
-  private running = false;
-
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly mailer: MailerService,
-    private readonly jwt: JwtService,
-  ) {}
-
-  async enqueue(mail: { to: string; subject: string; html: string; text: string; kind: string; userId?: string | null }) {
-    const row = await this.prisma.emailOutbox.create({ data: { ...mail, userId: mail.userId ?? null } });
-    // Try right away; the cron picks it up again if this attempt fails.
-    background(this.deliver(row.id));
-  }
-
-  private async deliver(id: string) {
-    // Claim the row so the cron and the immediate attempt never send it twice.
-    const claimed = await this.prisma.emailOutbox.updateMany({ where: { id, status: 'PENDING', sendAfter: { lte: new Date() } }, data: { status: 'SENDING' } });
-    if (!claimed.count) return;
-    const m = await this.prisma.emailOutbox.findUniqueOrThrow({ where: { id } });
-    try {
-      const headers: Record<string, string> = {};
-      if (m.userId && DEAL_EMAIL_TYPES.has(m.kind)) {
-        // RFC 8058 one-click unsubscribe (Gmail / Яндекс show an "Отписаться" button).
-        const url = unsubscribeUrl(unsubscribeToken(this.jwt, m.userId));
-        headers['List-Unsubscribe'] = `<${url}>`;
-        headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
-      }
-      await this.mailer.send({ to: m.to, subject: m.subject, html: m.html, text: m.text, headers });
-      await this.prisma.emailOutbox.update({ where: { id }, data: { status: 'SENT', sentAt: new Date(), attempts: { increment: 1 }, lastError: null } });
-    } catch (e) {
-      const attempts = m.attempts + 1;
-      const failed = attempts > BACKOFF_MS.length;
-      await this.prisma.emailOutbox.update({
-        where: { id },
-        data: { status: failed ? 'FAILED' : 'PENDING', attempts, lastError: (e as Error).message.slice(0, 500), sendAfter: new Date(Date.now() + (BACKOFF_MS[attempts - 1] ?? 0)) },
-      });
-      this.logger.warn(`email ${id} to ${m.to} failed (attempt ${attempts}${failed ? ', giving up' : ''}): ${(e as Error).message}`);
-    }
-  }
-
-  @Cron(CronExpression.EVERY_30_SECONDS)
-  async flush() {
-    if (this.running) return;
-    this.running = true;
-    try {
-      // Rows stuck in SENDING (process restarted mid-send) go back to the queue after 5 minutes.
-      await this.prisma.emailOutbox.updateMany({ where: { status: 'SENDING', createdAt: { lt: new Date(Date.now() - 5 * 60_000) }, sentAt: null }, data: { status: 'PENDING' } });
-      const due = await this.prisma.emailOutbox.findMany({ where: { status: 'PENDING', sendAfter: { lte: new Date() } }, orderBy: { createdAt: 'asc' }, take: 50, select: { id: true } });
-      for (const d of due) await this.deliver(d.id);
-    } finally {
-      this.running = false;
-    }
-  }
-}
-
-const unsubscribeToken = (jwt: JwtService, userId: string) => jwt.sign({ sub: userId, purpose: 'unsubscribe' }, { expiresIn: '3650d' });
-const unsubscribeUrl = (token: string) => `${appUrl()}/api/email/unsubscribe?token=${encodeURIComponent(token)}`;
-
-/** Turns deal notifications into emails for users with a verified address who haven't opted out. */
-@Injectable()
-export class DealEmails {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly outbox: EmailOutbox,
-    private readonly jwt: JwtService,
-  ) {}
-
-  async maybeSend(userIds: string[], type: string, payload: Record<string, unknown>) {
-    if (!DEAL_EMAIL_TYPES.has(type)) return;
-    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, email: { not: null }, emailVerifiedAt: { not: null }, blockedAt: null }, select: { id: true, email: true, emailPrefs: true } });
-    for (const u of users) {
-      if (!emailPrefsOf(u.emailPrefs).deals) continue;
-      const mail = dealEmail(type, payload, unsubscribeUrl(unsubscribeToken(this.jwt, u.id)));
-      if (mail) await this.outbox.enqueue({ to: u.email!, ...mail, kind: type, userId: u.id });
-    }
-  }
-}
 
 /** Verification codes go out synchronously: the user is waiting on the screen. */
 @Injectable()
@@ -173,8 +83,8 @@ class EmailController {
 
 @Global()
 @Module({
-  providers: [MailerService, EmailOutbox, DealEmails, CodeMailer],
+  providers: [MailerService, CodeMailer],
   controllers: [EmailController],
-  exports: [MailerService, EmailOutbox, DealEmails, CodeMailer],
+  exports: [MailerService, CodeMailer],
 })
 export class MailModule {}
