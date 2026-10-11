@@ -291,8 +291,12 @@ html[data-immersive] [data-chrome="footer"],
 html[data-immersive] [data-chrome="mobile-search"] {
   display: none;
 }
+/* Hidden for real once it has slid away: Safari on iOS 26 tints its bottom bar with a fixed element at the
+   bottom edge, even one moved off screen, so a visible-but-offscreen tab bar would paint the bar beige. */
 html[data-chrome-away] [data-chrome="bottom-nav"] {
   transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 300ms;
 }
 html[data-immersive] [data-chrome="main"] {
   padding-bottom: env(safe-area-inset-bottom);
