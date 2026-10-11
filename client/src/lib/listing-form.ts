@@ -121,25 +121,8 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
   };
 }
 
-/**
- * "Выставить похожую": the same item description without what is unique to the physical piece —
- * photos, video, size, condition, defects and measurements.
- */
-export function similarValues(l: ListingDetail): ListingValues {
-  return {
-    ...valuesFromListing(l),
-    sizeValue: null,
-    condition: null,
-    defectsPresent: null,
-    defectsDescription: "",
-    measurements: {},
-    extraSizes: [],
-    video: null,
-  };
-}
-
 /** Maps an AI suggestion onto empty form fields and records AI provenance per field. */
-export function applySuggestion(values: ListingValues, s: AiSuggestion): { values: ListingValues; ai: AiState } {
+function applySuggestion(values: ListingValues, s: AiSuggestion): { values: ListingValues; ai: AiState } {
   const ai: AiState = {};
   const next = { ...values };
   const take = <K extends AiField>(field: K, value: unknown, confidence: number) => {

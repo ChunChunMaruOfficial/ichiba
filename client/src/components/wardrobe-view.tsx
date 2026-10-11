@@ -84,7 +84,6 @@ function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
   const items = (
     <>
       {item(card.status === "DRAFT" ? "Продолжить" : "Редактировать", () => router.push(card.status === "DRAFT" ? `/sell?draft=${card.id}` : `/item/${card.id}/edit`))}
-      {card.status !== "DRAFT" && item("Выставить похожую", () => router.push(`/sell?similar=${card.id}`))}
       {card.status === "PUBLISHED" && item("Снять с продажи", () => actions.hide(card.id))}
       {card.status === "HIDDEN" && item("Вернуть в продажу", () => actions.unhide(card.id))}
       {(card.status === "PUBLISHED" || card.status === "HIDDEN" || reserved) && item("Пометить как проданное", () => actions.markSold(card.id), { disabled: reserved })}

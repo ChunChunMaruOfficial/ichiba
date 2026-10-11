@@ -224,11 +224,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         )}
       </div>
       {reserved && <p className="text-sm text-muted">Идёт сделка — завершите или отмените её в «Мои продажи».</p>}
-      {l.status !== "RESERVED" && (
-        <button className="self-start text-sm text-danger hover:underline" onClick={async () => (await actions.remove(l.id)) && router.push("/wardrobe")}>
-          Удалить
-        </button>
-      )}
       {(!!l.owner?.pendingRequests || !!l.owner?.pendingOffers) && (
         <p className="flex flex-wrap gap-x-4 gap-y-1 rounded-xl bg-accent-soft px-4 py-3 text-sm">
           {!!l.owner?.pendingRequests && (
@@ -244,9 +239,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         </p>
       )}
       {l.status === "PUBLISHED" && l.saleType === "FIXED" && l.price != null && <LikersOfferButton listingId={l.id} price={l.price} />}
-      <ButtonLink href={`/sell?similar=${l.id}`} variant="ghost" block>
-        Выставить похожую
-      </ButtonLink>
       {l.status !== "DRAFT" && <ListingStatsCard listingId={l.id} onBumped={refresh} />}
       {l.status === "BLOCKED" && (
         <div className="rounded-xl bg-danger-soft p-3 text-sm text-danger">
@@ -363,7 +355,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         />
 
         <div className="md:sticky md:top-24 md:self-start">
-          {/* Share, ♡ and report hang in the corner without stretching the title row, so the price follows the title closely. */}
+          {/* Share, ♡ and report (or delete, for the owner) hang in the corner without stretching the title row, so the price follows the title closely. */}
           <div className="relative pr-12">
             <h1 className="text-2xl font-semibold leading-tight tracking-tight">
             {auctionRunning && <Badge tone="warn" className="mb-2 block w-fit">Аукцион</Badge>}
@@ -376,6 +368,12 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               {!l.isOwner && (
                 <button aria-label={isFavorite ? "Убрать из избранного" : "В избранное"} aria-pressed={isFavorite} onClick={toggle} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
                   <IconHeart className={clsx("size-5", isFavorite && "text-heart")} filled={isFavorite} />
+                </button>
+              )}
+              {/* The owner deletes from here; not while a deal is open (the deal is settled in «Мои продажи»). */}
+              {l.isOwner && l.status !== "RESERVED" && (
+                <button aria-label="Удалить вещь" title="Удалить" onClick={async () => (await actions.remove(l.id)) && router.push("/wardrobe")} className="grid size-10 place-items-center rounded-full text-danger hover:bg-danger-soft">
+                  <IconTrash className="size-5" />
                 </button>
               )}
               {!l.isOwner && (
@@ -550,6 +548,17 @@ function IconFlag({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M5 21V4" />
       <path d="M5 4h11l-2 4 2 4H5" />
+    </svg>
+  );
+}
+
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 7h16" />
+      <path d="M9 7V4.5h6V7" />
+      <path d="M6.5 7l.8 12.5h9.4L17.5 7" />
+      <path d="M10 11v5M14 11v5" />
     </svg>
   );
 }

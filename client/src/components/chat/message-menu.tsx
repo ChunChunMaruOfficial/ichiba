@@ -187,8 +187,9 @@ function TouchMenu({
 }
 
 function Reactions({ reactions, onReact, onClose }: { reactions?: ChatReaction[]; onReact: (emoji: string) => void; onClose: () => void }) {
+  // As wide as its row: on desktop the actions card below takes the same width, so both edges line up.
   return (
-    <div className="flex w-max items-center gap-0.5 rounded-full bg-surface p-1 shadow-[var(--shadow-float)] ring-1 ring-line">
+    <div className="flex min-w-max items-center justify-between gap-0.5 rounded-full bg-surface p-1 shadow-[var(--shadow-float)] ring-1 ring-line">
       {REACTIONS.map((emoji) => {
         const mine = reactions?.some((r) => r.emoji === emoji && r.mine);
         return (
@@ -318,7 +319,8 @@ function MenuBody({
   return (
     <div
       data-closing={closing || undefined}
-      className={clsx("fade-in fixed inset-0 z-[70]", anchor.touch && "bg-[var(--scrim)] backdrop-blur-[2px]")}
+      // Above the lifted message (z-71), so the menu opened next to it is never covered by it.
+      className={clsx("fade-in fixed inset-0 z-[72]", anchor.touch && "bg-[var(--scrim)] backdrop-blur-[2px]")}
       onPointerDown={(e) => e.target === e.currentTarget && onClose()}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -333,7 +335,7 @@ function MenuBody({
         className="menu-pop fixed flex w-max min-w-56 max-w-[calc(100vw-16px)] flex-col gap-2"
       >
         {onReact && (
-          <div className="self-start">
+          <div>
             <Reactions reactions={reactions} onReact={onReact} onClose={onClose} />
           </div>
         )}

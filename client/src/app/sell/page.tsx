@@ -15,7 +15,7 @@ import { useMeta } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { type AiState, applySuggestionToEmpty, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, similarValues, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
+import { type AiState, applySuggestionToEmpty, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
 import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me } from "@/lib/types";
 
 type Step = 1 | 2 | 3;
@@ -27,27 +27,23 @@ export default function SellPage() {
     <RequireAuth reason="чтобы выставить вещь">
       {(me) => (
         <Suspense>
-          <SimilarLoader me={me} />
+          <DraftLoader me={me} />
         </Suspense>
       )}
     </RequireAuth>
   );
 }
 
-/** "/sell?similar=<id>": starts from one of the seller's listings ("Выставить похожую", eBay "Sell similar"). */
 /** "?draft=<id>" continues an unfinished listing in this same flow, with everything filled in so far. */
-function SimilarLoader({ me }: { me: Me }) {
+function DraftLoader({ me }: { me: Me }) {
   const params = useSearchParams();
-  const similar = params.get("similar");
   const draftParam = params.get("draft");
-  const ref = draftParam ?? similar;
-  const { data, error } = useSWR<ListingResponse>(ref ? `/listings/${ref}` : null, { revalidateOnFocus: false });
-  if (ref && !data && !error) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
+  const { data, error } = useSWR<ListingResponse>(draftParam ? `/listings/${draftParam}` : null, { revalidateOnFocus: false });
+  if (draftParam && !data && !error) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
   const own = data && !("unavailable" in data) && data.isOwner ? data : null;
-  const draft = draftParam && own?.status === "DRAFT" ? own : null;
-  const source = !draftParam ? own : null;
+  const draft = own?.status === "DRAFT" ? own : null;
   // "?new=…" remounts the form for "Добавить ещё" without a full reload.
-  return <Sell key={draft?.id ?? source?.id ?? params.get("new") ?? "new"} me={me} source={source} draft={draft} />;
+  return <Sell key={draft?.id ?? params.get("new") ?? "new"} me={me} draft={draft} />;
 }
 
 /** Shown on an empty /sell when an unfinished draft exists, so work isn't lost or duplicated. */
@@ -115,18 +111,17 @@ function AiStatus() {
   );
 }
 
-function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; draft: ListingDetail | null }) {
+function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
   const meta = useMeta();
   const router = useRouter();
   const toast = useToast();
   // A continued draft starts on the description step with its photos and fields in place.
   const [step, setStep] = useState<Step>(draft ? 2 : 1);
   const [photos, setPhotos] = useState<PhotoDraft[]>(() => (draft ? photosFromListing(draft) : []));
-  const [values, setValues] = useState<ListingValues>(() => (draft ? valuesFromListing(draft) : source ? similarValues(source) : emptyValues(me.city)));
+  const [values, setValues] = useState<ListingValues>(() => (draft ? valuesFromListing(draft) : emptyValues(me.city)));
   const [ai, setAi] = useState<AiState>(() => ((draft?.owner?.aiAttributes ?? {}) as AiState));
   const [aiModel, setAiModel] = useState<string>();
-  // A "similar" listing already has its description: AI autofill would overwrite it.
-  const [aiPhase, setAiPhase] = useState<"idle" | "running" | "done" | "failed" | "disabled">(source || draft ? "disabled" : "idle");
+  const [aiPhase, setAiPhase] = useState<"idle" | "running" | "done" | "failed" | "disabled">(draft ? "disabled" : "idle");
   const [aiFlags, setAiFlags] = useState<AiSuggestion["flags"] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [draftId, setDraftId] = useState<string | null>(draft?.id ?? null);
@@ -383,8 +378,8 @@ function Sell({ me, source, draft }: { me: Me; source: ListingDetail | null; dra
 
       {step === 1 && (
         <section key="s1">
-          <h1 className="rise mb-6 text-3xl font-bold tracking-tight md:text-4xl">{source ? "Похожая вещь: добавьте фото" : "Что продаём?"}</h1>
-          {!source && !photos.length && <DraftReminder me={me} />}
+          <h1 className="rise mb-6 text-3xl font-bold tracking-tight md:text-4xl">Что продаём?</h1>
+          {!photos.length && <DraftReminder me={me} />}
           <PhotoManager photos={photos} onChange={setPhotos} big error={errors.photos} />
         </section>
       )}
