@@ -429,17 +429,9 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               <span className="block text-xs text-muted">Замеры в разложенном виде</span>
             </p>
           )}
-          {!l.isOwner && !sold && !l.fit && <FitProfilePrompt hasProfile={l.fitProfile} signedIn={!!me} hasSize={!!l.size} />}
-
-
-          <div className="mt-6">{l.isOwner ? ownerPanel : buyerPanel}</div>
-
-          <p className="mt-5 text-sm text-ink-2">
-            {[l.city, l.deliveryOptions.map((d) => DELIVERY_LABEL[d]).join(", ")].filter(Boolean).join(" · ")}
-          </p>
-
+          {/* The description reads as part of the item's details: right under the list of characteristics. */}
           {l.description && (
-            <div className="mt-6">
+            <div className="mt-5">
               <p className={clsx("whitespace-pre-line text-[15px] leading-relaxed", !expanded && "line-clamp-5")}>{l.description}</p>
               {l.description.length > 280 && (
                 <button className="mt-1 text-sm font-medium text-ink-2 underline underline-offset-4" onClick={() => setExpanded((v) => !v)}>
@@ -448,6 +440,14 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               )}
             </div>
           )}
+          {!l.isOwner && !sold && !l.fit && <FitProfilePrompt hasProfile={l.fitProfile} signedIn={!!me} hasSize={!!l.size} />}
+
+
+          <div className="mt-6">{l.isOwner ? ownerPanel : buyerPanel}</div>
+
+          <p className="mt-5 text-sm text-ink-2">
+            {[l.city, l.deliveryOptions.map((d) => DELIVERY_LABEL[d]).join(", ")].filter(Boolean).join(" · ")}
+          </p>
 
           <p className="mt-6 text-xs text-muted">
             {l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"} · {l.viewsCount} просмотров · {l.favoritesCount} сохранений

@@ -1,6 +1,7 @@
 import { Controller, Get, Injectable, Logger, NotFoundException, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
-import type { Listing } from '../generated/prisma/client.js';
+import { median, nicePrice } from '../ai/ensemble/aggregate.js';
+import type { Listing, Prisma } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -86,6 +87,39 @@ export class StatsService {
     return tips;
   }
 
+  /**
+   * Price against similar items on the platform (same brand when there are enough, else the same category):
+   * a tip only when it is clearly off. Plain database median, no AI call, so the card stays fast.
+   */
+  private async marketTip(l: Listing): Promise<string | null> {
+    if (!l.price || !l.category || l.saleType !== 'FIXED') return null;
+    const base: Prisma.ListingWhereInput = { id: { not: l.id }, category: l.category, status: { in: ['PUBLISHED', 'RESERVED', 'SOLD'] }, price: { not: null } };
+    const prices = async (where: Prisma.ListingWhereInput) =>
+      (await this.prisma.listing.findMany({ where, select: { price: true }, orderBy: { publishedAt: 'desc' }, take: 200 })).map((r) => r.price!);
+    let comparable = l.brand ? await prices({ ...base, brand: { equals: l.brand, mode: 'insensitive' } }) : [];
+    if (comparable.length < 5) comparable = await prices(l.subcategory ? { ...base, subcategory: l.subcategory } : base);
+    const mid = comparable.length >= 5 ? median(comparable) : null;
+    if (!mid) return null;
+    if (l.price > mid * 1.25) return `Цена выше рынка: похожие вещи обычно стоят около ${nicePrice(mid)} BYN — так вещь продастся быстрее`;
+    if (l.price < mid * 0.7) return `Цена заметно ниже рынка (обычно около ${nicePrice(mid)} BYN) — можно поднять`;
+    return null;
+  }
+
+  /** What the seller can still fill in or improve on the item itself; shown on the item's own card. */
+  private contentTips(l: Listing, photos: number, hasVideo: boolean): string[] {
+    const tips: string[] = [];
+    if (photos < 3) tips.push('Добавьте ещё фото: общий вид, бирку и детали — по одному фото вещь сложно оценить');
+    if (l.defectsPresent && !l.defectsDescription?.trim()) tips.push('Опишите дефекты — честное описание снимает вопросы и споры');
+    if ((l.description ?? '').trim().length < 40) tips.push('Расскажите о вещи подробнее: посадка, ткань, сколько носили, почему продаёте');
+    if (!l.brand) tips.push('Укажите бренд — по нему ищут чаще всего');
+    if (!l.color || !l.material) tips.push(`Заполните ${!l.color && !l.material ? 'цвет и материал' : !l.color ? 'цвет' : 'материал'} — по ним фильтруют поиск`);
+    if (!l.originalPrice && l.saleType === 'FIXED') tips.push('Укажите цену новой вещи — покажем, сколько покупатель экономит');
+    if (!l.deliveryOptions.includes('DELIVERY')) tips.push('Добавьте доставку — тогда вещь смогут купить и из других городов');
+    if (!l.acceptsOffers && l.saleType === 'FIXED') tips.push('Включите «Предложить цену» — торг привлекает больше покупателей');
+    if (!hasVideo) tips.push('Снимите короткое видео — посадку на видео видно лучше, чем на фото');
+    return tips;
+  }
+
   async overview(sellerId: string, days: 7 | 30) {
     const today = minskDay();
     const to = new Date(today.getTime() + DAY_MS);
@@ -149,8 +183,15 @@ export class StatsService {
     if (!l || l.sellerId !== sellerId || l.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
     const to = new Date(minskDay().getTime() + DAY_MS);
     const from = new Date(to.getTime() - 30 * DAY_MS);
-    const { total, byDay } = await this.sums([listingId], from, to);
+    const [{ total, byDay }, photos, video, market] = await Promise.all([
+      this.sums([listingId], from, to),
+      this.prisma.photo.count({ where: { listingId } }),
+      this.prisma.video.count({ where: { listingId } }),
+      l.status === 'PUBLISHED' ? this.marketTip(l) : null,
+    ]);
     const next = nextBumpAt(l);
+    // Activity tips first, then the price, then what is missing on the item; a short list, most useful on top.
+    const tips = l.status === 'PUBLISHED' ? [...new Set([...this.tipsFor(l, total, 30), ...(market ? [market] : []), ...this.contentTips(l, photos, video > 0)])].slice(0, 5) : [];
     return {
       allTime: { views: l.viewsCount, favorites: l.favoritesCount },
       last30: total,
@@ -159,7 +200,7 @@ export class StatsService {
         return { day: day.toISOString().slice(0, 10), views: byDay.get(day.getTime())?.views ?? 0 };
       }),
       bump: next ? { nextAt: next, available: next.getTime() <= Date.now(), lastAt: l.lastBumpAt, count: l.bumpsCount } : null,
-      tips: this.tipsFor(l, total, 30),
+      tips,
     };
   }
 }

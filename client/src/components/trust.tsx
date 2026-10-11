@@ -190,17 +190,20 @@ export function ListingStatsCard({ listingId, onBumped }: { listingId: string; o
           </div>
         ))}
       </dl>
-      {data.tips.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1 text-ink-2">
-          {data.tips.map((tip) => (
-            <li key={tip}>💡 {tip}</li>
-          ))}
-        </ul>
-      )}
       {data.bump && (
         <div className="mt-3">
           <BumpButton listingId={listingId} bump={data.bump} block onDone={() => (void mutate(), onBumped())} />
           <p className="mt-1.5 text-center text-xs text-muted">Бесплатно, раз в 72 часа{data.bump.count ? ` · поднимали ${data.bump.count} раз` : ""}</p>
+        </div>
+      )}
+      {data.tips.length > 0 && (
+        <div className="mt-4 border-t border-line pt-3">
+          <p className="font-medium">Подсказки</p>
+          <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-ink-2 marker:text-shu">
+            {data.tips.map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
