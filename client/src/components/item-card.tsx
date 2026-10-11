@@ -111,7 +111,7 @@ function StatusMark({ card, className }: { card: Card; className?: string }) {
 function PriceTag({ price, previous, className }: { price: string; previous?: number | null; className?: string }) {
   return (
     <span className={clsx("pl-1.5 drop-shadow-[0_2px_5px_rgb(0_0_0/0.28)]", className)}>
-      <Nefuda longThread className="tabular text-[15px] font-bold leading-6">
+      <Nefuda className="tabular text-[15px] font-bold leading-6">
         <span className={previous ? "text-shu" : undefined}>{price}</span>
         {previous && <s className="ml-1.5 text-xs font-medium opacity-70">{previous}</s>}
       </Nefuda>
@@ -155,7 +155,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
         <Link href={`/item/${card.id}`} className="relative block overflow-hidden rounded-[18px]">
           <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
-          <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-2.5 transition-opacity md:group-hover:opacity-0" />
+          <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-0 transition-opacity md:group-hover:opacity-0" />
           <span className="transition-opacity md:group-hover:opacity-0">
             <CardMarks card={card} discount={shopDiscount} />
           </span>
