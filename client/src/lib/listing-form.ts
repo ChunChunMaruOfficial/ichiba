@@ -4,6 +4,8 @@ export interface PhotoDraft {
   key: string;
   id?: string;
   preview: string;
+  /** Best source for the photo editor: the picked file, or the large size of a stored photo. */
+  original?: string;
   status: "uploading" | "done" | "error";
   /** Upload progress 0…1 while uploading. */
   progress?: number;
@@ -85,7 +87,7 @@ export const emptyValues = (city: string | null): ListingValues => ({
 
 /** A saved listing's photos as form photos (already uploaded). */
 export const photosFromListing = (l: ListingDetail): PhotoDraft[] =>
-  l.photos.map((p) => ({ key: p.id, id: p.id, preview: p.urls.m, status: "done", isDefect: p.isDefect, width: p.width, height: p.height }));
+  l.photos.map((p) => ({ key: p.id, id: p.id, preview: p.urls.m, original: p.urls.l, status: "done", isDefect: p.isDefect, width: p.width, height: p.height }));
 
 export function valuesFromListing(l: ListingDetail): ListingValues {
   return {

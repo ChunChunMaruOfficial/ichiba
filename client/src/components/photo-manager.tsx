@@ -7,6 +7,7 @@ import { uploadPhoto } from "@/lib/upload";
 import type { PhotoDraft } from "@/lib/listing-form";
 import type { VideoView } from "@/lib/types";
 import { uploadVideo, VIDEO_ACCEPT } from "@/lib/video";
+import { PhotoEditor } from "./photo-editor";
 import { Furoshiki } from "./shop/furoshiki";
 import { IconCamera, IconChevronLeft, IconChevronRight, IconPlus, IconX, Spinner } from "./ui";
 
@@ -41,6 +42,7 @@ export function PhotoManager({
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [videoBusy, setVideoBusy] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PhotoDraft | null>(null);
   const takesVideo = !!onVideo && !video && !videoBusy;
 
   const addVideo = (file: File) => {
@@ -50,6 +52,23 @@ export function PhotoManager({
       .then((v) => onVideo?.(v))
       .catch((e) => setVideoError(e instanceof Error ? e.message : "Не удалось загрузить видео"))
       .finally(() => setVideoBusy(false));
+  };
+
+  /** Uploads a file into the draft `key` (a new tile, or an edited photo replacing its old version in place). */
+  const upload = (key: string, file: File) =>
+    uploadPhoto(file, (progress) => onChange((prev) => prev.map((p) => (p.key === key && p.status === "uploading" ? { ...p, progress } : p))))
+      .then((r) => onChange((prev) => prev.map((p) => (p.key === key ? { ...p, id: r.id, status: "done", progress: undefined, width: r.width, height: r.height } : p))))
+      .catch((e) =>
+        onChange((prev) =>
+          prev.map((p) => (p.key === key ? { ...p, status: "error", error: e instanceof ApiError ? (e.code === "TOO_SMALL" ? "Фото слишком маленькое" : e.message) : "Не загрузилось" } : p)),
+        ),
+      );
+
+  const replace = (old: PhotoDraft, file: File) => {
+    const key = `p${++seq}`;
+    const preview = URL.createObjectURL(file);
+    onChange((prev) => prev.map((p) => (p.key === old.key ? { key, preview, original: preview, status: "uploading", isDefect: p.isDefect } : p)));
+    void upload(key, file);
   };
 
   const add = (files: FileList | File[]) => {
@@ -65,14 +84,8 @@ export function PhotoManager({
         onChange((prev) => [...prev, { key, preview, status: "error", error: "Больше 15 МБ", isDefect: false }]);
         continue;
       }
-      onChange((prev) => [...prev, { key, preview, status: "uploading", isDefect: false }]);
-      uploadPhoto(file, (progress) => onChange((prev) => prev.map((p) => (p.key === key && p.status === "uploading" ? { ...p, progress } : p))))
-        .then((r) => onChange((prev) => prev.map((p) => (p.key === key ? { ...p, id: r.id, status: "done", progress: undefined, width: r.width, height: r.height } : p))))
-        .catch((e) =>
-          onChange((prev) =>
-            prev.map((p) => (p.key === key ? { ...p, status: "error", error: e instanceof ApiError ? (e.code === "TOO_SMALL" ? "Фото слишком маленькое" : e.message) : "Не загрузилось" } : p)),
-          ),
-        );
+      onChange((prev) => [...prev, { key, preview, original: preview, status: "uploading", isDefect: false }]);
+      void upload(key, file);
     }
   };
 
@@ -171,6 +184,14 @@ export function PhotoManager({
             <button type="button" aria-label="Удалить фото" onClick={() => onChange((prev) => prev.filter((x) => x.key !== p.key))} className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white">
               <IconX className="size-3.5" />
             </button>
+            {p.status === "done" && (
+              <button type="button" aria-label={`Редактировать фото ${i + 1}`} title="Обрезать, повернуть, поправить свет" onClick={() => setEditing(p)} className="absolute right-1 top-8 grid size-6 place-items-center rounded-full bg-black/60 text-white">
+                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 20h4L19 9l-4-4L4 16Z" />
+                  <path d="m13.5 6.5 4 4" />
+                </svg>
+              </button>
+            )}
             <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
               <button type="button" aria-label="Сдвинуть влево" disabled={i === 0} onClick={() => move(p.key, -1)} className="grid size-6 place-items-center rounded-full bg-white/90 disabled:invisible">
                 <IconChevronLeft className="size-3.5" />
@@ -207,6 +228,18 @@ export function PhotoManager({
       </ul>
       {error && <p className="mt-1 text-sm text-danger">{error}</p>}
       {videoError && <p className="mt-1 text-sm text-danger">{videoError}</p>}
+      {editing && (
+        <PhotoEditor
+          key={editing.key}
+          src={editing.original ?? editing.preview}
+          open
+          onClose={() => setEditing(null)}
+          onSave={(file) => {
+            replace(editing, file);
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
 }
