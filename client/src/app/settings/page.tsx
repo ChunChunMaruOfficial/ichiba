@@ -4,12 +4,14 @@ import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Avatar } from "@/components/avatar";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { tiersText } from "@/components/trust";
-import { Button, Chip, Field, Input, Modal, Textarea } from "@/components/ui";
+import { Button, Chip, Field, Input, Modal, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { uploadPhoto } from "@/lib/upload";
 import { DARK_THEME_ENABLED, getTheme, setTheme, type ThemeChoice } from "@/lib/theme";
 import type { BodyMeasurements, BundleTier, Me, PreferredSizes } from "@/lib/types";
 import { Select } from "@/components/select";
@@ -190,6 +192,52 @@ function ThemeSection() {
   );
 }
 
+/** Profile photo: shown on the seller card of every item and on wardrobe cards. */
+function AvatarPicker({ me }: { me: Me }) {
+  const toast = useToast();
+  const { refresh } = useSession();
+  const [busy, setBusy] = useState(false);
+  const set = async (avatarId: string | null, done: string) => {
+    await api("/users/me", { method: "PATCH", body: { avatarId } });
+    toast(done);
+    await refresh();
+  };
+  return (
+    <div className="flex items-center gap-4">
+      <Avatar username={me.username} avatar={me.avatar} ring className="size-20" />
+      <div className="flex flex-wrap gap-2">
+        <label className={clsx("btn-wa btn-wa-paper inline-flex h-9 cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-semibold", busy && "pointer-events-none opacity-60")}>
+          {busy && <Spinner />} {me.avatar ? "Сменить фото" : "Добавить фото"}
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              setBusy(true);
+              try {
+                const photo = await uploadPhoto(file, undefined, undefined, "avatar");
+                await set(photo.id, "Фото профиля обновлено");
+              } catch (err) {
+                toast(err instanceof ApiError ? err.message : "Не получилось загрузить фото", { tone: "error" });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </label>
+        {me.avatar && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => void set(null, "Фото убрано")}>
+            Убрать
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProfileSection({ me }: { me: Me }) {
   const meta = useMeta();
   const { saving, fields, save } = useSave();
@@ -205,6 +253,7 @@ function ProfileSection({ me }: { me: Me }) {
           void save({ city: city || null, bio: bio || null, phone: phone || null });
         }}
       >
+        <AvatarPicker me={me} />
         <Field label="Город" htmlFor="city" hint="Подставляется в новые вещи">
           <Select id="city" value={city} onChange={setCity} options={[{ value: "", label: "Не указан" }, ...(meta?.cities ?? []).map((c) => ({ value: c, label: c }))]} />
         </Field>

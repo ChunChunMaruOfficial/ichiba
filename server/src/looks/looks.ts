@@ -9,15 +9,14 @@ import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 /**
- * «Образы»: a seller puts 2–8 of their own items together into an outfit. Looks sit on the profile as round
- * highlights, open on their own page (with «Всё в корзину»), and an item page shows the looks it is part of.
+ * «Образы»: anyone puts 2–8 items from the whole site together into an outfit. Looks sit on their author's
+ * profile as round highlights, open on their own page (with «Всё в корзину»), and an item page shows the
+ * looks it is part of.
  */
 
 const MAX_LOOKS = 30;
-/** What visitors see inside a look; the owner also sees hidden and blocked items (never deleted or drafts). */
+/** What a look shows: items others can see; the viewer's own hidden items too. Never deleted ones or drafts. */
 const VISIBLE: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'SOLD'];
-const OWNER_VISIBLE: ListingStatus[] = [...VISIBLE, 'HIDDEN', 'BLOCKED'];
-const OWN_ALLOWED: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'HIDDEN', 'SOLD'];
 
 const LookDto = z.object({
   title: z.string().trim().min(1, 'Назовите образ').max(60, 'До 60 символов'),
@@ -32,9 +31,11 @@ export class LooksService {
   ) {}
 
   private async serialize(look: { id: string; title: string; userId: string; createdAt: Date; items: Array<{ listingId: string; position: number }> }, viewerId?: string) {
-    const statuses = viewerId === look.userId ? OWNER_VISIBLE : VISIBLE;
     const order = new Map(look.items.map((i) => [i.listingId, i.position]));
-    const rows = await this.prisma.listing.findMany({ where: { id: { in: [...order.keys()] }, status: { in: statuses } }, include: cardInclude });
+    const rows = await this.prisma.listing.findMany({
+      where: { id: { in: [...order.keys()] }, OR: [{ status: { in: VISIBLE } }, ...(viewerId ? [{ sellerId: viewerId, status: 'HIDDEN' as const }] : [])] },
+      include: cardInclude,
+    });
     rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
     const items = await this.listings.cards(rows, viewerId);
     const onSale = rows.filter((r) => r.status === 'PUBLISHED');
@@ -73,11 +74,28 @@ export class LooksService {
     return { items: out.filter((l) => l.items.length > 1) };
   }
 
+  /** Any item on the site that people can see, plus the author's own hidden ones. */
   private async checkItems(userId: string, ids: string[]) {
     const unique = [...new Set(ids)];
-    const own = await this.prisma.listing.count({ where: { id: { in: unique }, sellerId: userId, status: { in: OWN_ALLOWED } } });
-    if (own !== unique.length) throw new BadRequestException({ message: 'В образ можно добавить только свои опубликованные вещи' });
+    const ok = await this.prisma.listing.count({ where: { id: { in: unique }, OR: [{ status: { in: VISIBLE } }, { sellerId: userId, status: 'HIDDEN' }] } });
+    if (ok !== unique.length) throw new BadRequestException({ message: 'Некоторые вещи недоступны — уберите их из образа' });
     return unique;
+  }
+
+  /** «В образ» on an item page: the viewer's looks, to add the item to one of them. */
+  async mine(userId: string) {
+    const looks = await this.prisma.look.findMany({ where: { userId }, include: { items: true }, orderBy: { updatedAt: 'desc' } });
+    return { items: await Promise.all(looks.map((l) => this.serialize(l, userId))) };
+  }
+
+  async addItem(userId: string, id: string, listingId: string) {
+    await this.own(userId, id);
+    await this.checkItems(userId, [listingId]);
+    const count = await this.prisma.lookItem.count({ where: { lookId: id } });
+    if (count >= 8) throw new BadRequestException({ message: 'В образе уже 8 вещей' });
+    await this.prisma.lookItem.upsert({ where: { lookId_listingId: { lookId: id, listingId } }, create: { lookId: id, listingId, position: count }, update: {} });
+    await this.prisma.look.update({ where: { id }, data: { updatedAt: new Date() } });
+    return { ok: true };
   }
 
   async create(userId: string, dto: z.infer<typeof LookDto>) {
@@ -128,6 +146,12 @@ export class LooksController {
     return this.looks.byUser(username, user?.id);
   }
 
+  // Before looks/:id, or «mine» would be taken for an id.
+  @Get('looks/mine')
+  mine(@CurrentUser() user: AuthUser) {
+    return this.looks.mine(user.id);
+  }
+
   @Public()
   @Get('looks/:id')
   one(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: AuthUser) {
@@ -138,6 +162,11 @@ export class LooksController {
   @Get('listings/:id/looks')
   withListing(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: AuthUser) {
     return this.looks.withListing(id, user?.id);
+  }
+
+  @Post('looks/:id/items/:listingId')
+  addItem(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Param('listingId', ParseUUIDPipe) listingId: string) {
+    return this.looks.addItem(user.id, id, listingId);
   }
 
   @Post('looks')

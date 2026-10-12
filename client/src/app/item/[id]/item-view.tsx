@@ -15,7 +15,8 @@ import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { AuctionPanel, AuctionTimer } from "@/components/auction";
 import { AddToCollection } from "@/components/collections";
-import { LooksWithItem } from "@/components/looks";
+import { AddToLook, LooksWithItem } from "@/components/looks";
+import { Avatar } from "@/components/avatar";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
 import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
@@ -92,6 +93,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const router = useRouter();
   const meta = useMeta();
   const toast = useToast();
+  const [lookOpen, setLookOpen] = useState(false);
   // «Не интересно»: the item leaves this person's feeds and search; the toast offers to undo.
   const [hiddenForMe, setHiddenForMe] = useState(false);
   const setHidden = async (on: boolean) => {
@@ -384,6 +386,9 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                   <IconHeart className={clsx("size-5", isFavorite && "text-heart")} filled={isFavorite} />
                 </button>
               )}
+              <button aria-label="Добавить в образ" title="Добавить в образ" onClick={() => requireAuth(() => setLookOpen(true))} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
+                <IconLook className="size-5" />
+              </button>
               {/* The owner deletes from here; not while a deal is open (the deal is settled in «Мои продажи»). */}
               {l.isOwner && l.status !== "RESERVED" && (
                 <button aria-label="Удалить вещь" title="Удалить" onClick={async () => (await actions.remove(l.id)) && router.push("/wardrobe")} className="grid size-10 place-items-center rounded-full text-danger hover:bg-danger-soft">
@@ -484,29 +489,83 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         </div>
       </div>
 
-      {/* Seller wardrobe block */}
-      <section className="mt-16 grid grid-cols-1 gap-8 border-t border-line pt-10 md:mt-24 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-        <div>
-          <Link href={`/u/${seller.username}`} className="text-2xl font-semibold hover:underline">
-            {seller.username}
+      {/* The seller as a little profile card: photo, counts and their wardrobe in one piece, like opening their profile. */}
+      <section className="mt-16 overflow-hidden rounded-[28px] bg-surface shadow-[var(--shadow-paper)] ring-1 ring-line md:mt-24">
+        <div className="flex items-center gap-4 p-5 md:gap-6 md:p-7">
+          <Link href={`/u/${seller.username}`} aria-label={`Профиль @${seller.username}`} className="shrink-0 transition-transform hover:scale-[1.03]">
+            <Avatar username={seller.username} avatar={seller.avatar} ring className="size-16 md:size-24" />
           </Link>
-          <p className="mt-1 text-sm text-muted">
-            {[seller.city, `${items(seller.activeCount)} · ${seller.soldCount} продано`, `на платформе с ${new Date(seller.createdAt).getFullYear()}`].filter(Boolean).join(" · ")}
-          </p>
-          <RatingInline rating={seller.rating} username={seller.username} className="mt-3" />
-          <p className="mt-1 text-sm text-ink-2">{seller.completedDeals} {plural(seller.completedDeals, "завершённая сделка", "завершённые сделки", "завершённых сделок")}</p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <ButtonLink href={`/u/${seller.username}`} variant="secondary">
-              Смотреть гардероб
-            </ButtonLink>
+          <div className="min-w-0 flex-1">
+            <Link href={`/u/${seller.username}`} className="block truncate text-xl font-bold hover:underline md:text-2xl">
+              {seller.username}
+            </Link>
+            <p className="text-sm text-muted">{[seller.city, `на ichiba с ${new Date(seller.createdAt).getFullYear()}`].filter(Boolean).join(" · ")}</p>
+            <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
+              <div>
+                <dt className="sr-only">В продаже</dt>
+                <dd>
+                  <b className="tabular">{seller.activeCount}</b> {plural(seller.activeCount, "вещь", "вещи", "вещей")}
+                </dd>
+              </div>
+              <div>
+                <dt className="sr-only">Продано</dt>
+                <dd>
+                  <b className="tabular">{seller.soldCount}</b> продано
+                </dd>
+              </div>
+              <div>
+                <dt className="sr-only">Подписчики</dt>
+                <dd>
+                  <b className="tabular">{seller.followers}</b> {plural(seller.followers, "подписчик", "подписчика", "подписчиков")}
+                </dd>
+              </div>
+            </dl>
+            <RatingInline rating={seller.rating} username={seller.username} className="mt-1.5" />
+          </div>
+          <div className="hidden shrink-0 flex-col gap-2 md:flex">
             {!l.isOwner && <FollowButton seller={seller} onChange={(v) => setSeller((s) => ({ ...s, isFollowing: v, followers: s.followers + (v ? 1 : -1) }))} />}
+            <ButtonLink href={`/u/${seller.username}`} variant="secondary">
+              Весь гардероб
+            </ButtonLink>
           </div>
         </div>
+        {seller.bio && <p className="-mt-1 px-5 pb-4 text-[15px] leading-relaxed text-ink-2 md:px-7">{seller.bio}</p>}
         {related && related.fromSeller.length > 0 && (
-          <div className="min-w-0">
-            <CardRow items={related.fromSeller.slice(0, 6)} variant="feed" />
-          </div>
+          // Their wardrobe right inside the card, as a photo grid; the last tile leads to the rest.
+          <ul className="grid grid-cols-3 gap-0.5 md:grid-cols-6">
+            {related.fromSeller.slice(0, 5).map((c) => (
+              <li key={c.id}>
+                <Link href={`/item/${c.id}`} className="group relative block aspect-[4/5] overflow-hidden bg-skeleton">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {c.cover && <img src={c.cover.urls.m} alt={c.title} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />}
+                  <span className="absolute bottom-1.5 left-1.5 rounded-md bg-kraft/95 px-1.5 py-0.5 text-[11px] font-bold tabular text-kraft-ink shadow-sm">{formatPrice(c.price)}</span>
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link href={`/u/${seller.username}`} className="grid aspect-[4/5] place-items-center bg-paper text-center text-sm font-semibold text-ink-2 transition-colors hover:bg-ink/5 hover:text-ink">
+                {(() => {
+                  // In sale besides this item and the five shown.
+                  const rest = seller.activeCount - Math.min(5, related.fromSeller.length) - 1;
+                  return rest > 0 ? (
+                    <span>
+                      Ещё {rest}
+                      <span className="block text-xs font-normal text-muted">в гардеробе →</span>
+                    </span>
+                  ) : (
+                    <span>Весь гардероб →</span>
+                  );
+                })()}
+              </Link>
+            </li>
+          </ul>
         )}
+        <div className="flex gap-2 p-4 md:hidden [&>*]:flex-1">
+          {!l.isOwner && <FollowButton seller={seller} onChange={(v) => setSeller((s) => ({ ...s, isFollowing: v, followers: s.followers + (v ? 1 : -1) }))} />}
+          <ButtonLink href={`/u/${seller.username}`} variant="secondary">
+            Весь гардероб
+          </ButtonLink>
+        </div>
       </section>
 
       {related && related.similar.length > 0 && (
@@ -530,6 +589,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           onSent={(o) => void mutateOffer({ offer: o }, { revalidate: false })}
         />
       )}
+      {lookOpen && <AddToLook card={{ id: l.id, title: l.title, price: l.price, status: l.status, cover: l.photos[0] ? { urls: l.photos[0].urls, width: l.photos[0].width, height: l.photos[0].height } : null } as unknown as Card} open onClose={() => setLookOpen(false)} />}
       <ReportModal open={reportOpen} onClose={() => setReportOpen(false)} targetType="LISTING" targetId={l.id} title={l.title} />
       <AddToCollection listingId={l.id} open={collectionOpen} onClose={() => setCollectionOpen(false)} />
       {l.isOwner && <AppealModal open={appealOpen} onClose={() => setAppealOpen(false)} listingId={l.id} onDone={refresh} />}
@@ -569,6 +629,17 @@ function AppealModal({ open, onClose, listingId, onDone }: { open: boolean; onCl
         Отправить
       </Button>
     </Modal>
+  );
+}
+
+/** A hanger with a plus: «add to a look». */
+function IconLook({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 7.5a2 2 0 1 1 2-2c0 1-.8 1.5-2 2.3v1.2" />
+      <path d="m12 9-8.5 6.2A1 1 0 0 0 4 17h9" />
+      <path d="M18 14v6M15 17h6" />
+    </svg>
   );
 }
 
