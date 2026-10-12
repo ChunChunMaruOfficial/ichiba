@@ -1,4 +1,4 @@
-import { Body, Controller, Injectable, Patch } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Injectable, Patch } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { CITIES } from '../catalog/catalog.js';
@@ -8,6 +8,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { BundleTiersDto } from '../listings/bundle.js';
 import { BodyMeasurementsDto, SizesDto } from '../listings/fit.js';
 import { emailPrefsOf } from '../mail/mail.module.js';
+import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
@@ -38,6 +39,7 @@ export class UsersService {
           role: true,
           onboardedAt: true,
           createdAt: true,
+          avatar: { select: { key: true, provider: true } },
         },
       }),
       this.prisma.notification.count({ where: { userId, readAt: null } }),
@@ -50,9 +52,10 @@ export class UsersService {
       this.chat.unreadCount(userId),
       this.prisma.listing.count({ where: { sellerId: userId, status: { not: 'DELETED' } } }),
     ]);
-    const { emailVerifiedAt, emailPrefs, ...profile } = user;
+    const { emailVerifiedAt, emailPrefs, avatar, ...profile } = user;
     return {
       ...profile,
+      avatar: avatar ? photoUrls(avatar) : null,
       emailVerified: !!emailVerifiedAt,
       emailPrefs: emailPrefsOf(emailPrefs),
       bundleDiscounts: profile.bundleDiscounts ?? [],
@@ -76,6 +79,8 @@ const UpdateMeDto = z.object({
   bundleDiscounts: BundleTiersDto.optional(),
   emailPrefs: z.object({ deals: z.boolean() }).optional(),
   onboarded: z.boolean().optional(),
+  /** One of the user's own uploaded photos (?for=avatar), or null to remove it. */
+  avatarId: z.uuid().nullish(),
 });
 
 @Controller('users')
@@ -87,7 +92,11 @@ export class UsersController {
 
   @Patch('me')
   async update(@CurrentUser() user: AuthUser, @Body(new ZodPipe(UpdateMeDto)) dto: z.infer<typeof UpdateMeDto>) {
-    const { onboarded, sizes, bodyMeasurements, bundleDiscounts, emailPrefs, ...rest } = dto;
+    const { onboarded, sizes, bodyMeasurements, bundleDiscounts, emailPrefs, avatarId, ...rest } = dto;
+    if (avatarId) {
+      const photo = await this.prisma.photo.findUnique({ where: { id: avatarId }, select: { ownerId: true, listingId: true, messageId: true } });
+      if (!photo || photo.ownerId !== user.id || photo.listingId || photo.messageId) throw new BadRequestException({ message: 'Это фото нельзя поставить на аватар' });
+    }
     const json = (v: unknown) => (v ?? undefined) as Prisma.InputJsonValue | undefined;
     await this.prisma.user.update({
       where: { id: user.id },
@@ -98,6 +107,7 @@ export class UsersController {
         ...(bundleDiscounts !== undefined ? { bundleDiscounts: [...bundleDiscounts].sort((a, b) => a.minItems - b.minItems) } : {}),
         ...(emailPrefs !== undefined ? { emailPrefs } : {}),
         ...(onboarded ? { onboardedAt: new Date() } : {}),
+        ...(avatarId !== undefined ? { avatarId } : {}),
       },
     });
     return this.users.me(user.id);

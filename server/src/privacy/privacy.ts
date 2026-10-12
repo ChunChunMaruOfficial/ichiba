@@ -70,6 +70,7 @@ export class PrivacyService {
           phoneVerifiedAt: null,
           city: null,
           bio: null,
+          avatarId: null,
           sizes: Prisma.DbNull,
           bodyMeasurements: Prisma.DbNull,
           bundleDiscounts: Prisma.DbNull,

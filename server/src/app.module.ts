@@ -26,6 +26,7 @@ import { MailModule } from './mail/mail.module.js';
 import { FollowingController } from './follows/following.js';
 import { AdminDataController } from './moderation/admin-data.js';
 import { RatesController, RatesService } from './rates/rates.js';
+import { LooksController, LooksService } from './looks/looks.js';
 import { AdminController, AdminGuard, ReportsController } from './moderation/moderation.js';
 import { OffersController, OffersService } from './offers/offers.js';
 import { SwipeController } from './swipe/swipe.js';
@@ -88,6 +89,7 @@ import { UsersController, UsersService } from './users/users.service.js';
     AdminController,
     AdminDataController,
     RatesController,
+    LooksController,
     ReviewsController,
     StatsController,
     PrivacyController,
@@ -118,6 +120,7 @@ import { UsersController, UsersService } from './users/users.service.js';
     AdminGuard,
     MaintenanceService,
     RatesService,
+    LooksService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],

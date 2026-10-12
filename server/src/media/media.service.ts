@@ -28,11 +28,13 @@ export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const MIN_SIDE = 400;
 /** Chat photos are screenshots and quick snaps too: only tiny images are refused. */
 const CHAT_MIN_SIDE = 64;
-/** Where an upload goes: a listing (strict quality rules) or a chat message. */
-export type MediaPurpose = 'listing' | 'chat';
-const minSide = (purpose: MediaPurpose) => (purpose === 'chat' ? CHAT_MIN_SIDE : MIN_SIDE);
+/** Profile photos are shown small: 160 px is plenty. */
+const AVATAR_MIN_SIDE = 160;
+/** Where an upload goes: a listing (strict quality rules), a chat message or a profile photo. */
+export type MediaPurpose = 'listing' | 'chat' | 'avatar';
+const minSide = (purpose: MediaPurpose) => (purpose === 'chat' ? CHAT_MIN_SIDE : purpose === 'avatar' ? AVATAR_MIN_SIDE : MIN_SIDE);
 const tooSmall = (purpose: MediaPurpose) =>
-  purpose === 'chat' ? 'Фото слишком маленькое' : 'Фото слишком маленькое — нужно от 400 px по меньшей стороне';
+  purpose === 'listing' ? 'Фото слишком маленькое — нужно от 400 px по меньшей стороне' : 'Фото слишком маленькое';
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 
 export interface PhotoUrls {
@@ -237,7 +239,8 @@ export class MediaService implements OnModuleInit {
     const unused = { listingId: null, messageId: null, createdAt: { lt: new Date(Date.now() - olderThanMs) } };
     let removed = 0;
     let failed = 0;
-    const photos = await this.prisma.photo.findMany({ where: unused, select: { id: true, key: true, provider: true }, take: 500 });
+    // Profile photos belong to no listing or message but are in use.
+    const photos = await this.prisma.photo.findMany({ where: { ...unused, avatarOf: { is: null } }, select: { id: true, key: true, provider: true }, take: 500 });
     for (const p of photos) {
       try {
         const shared = await this.prisma.photo.count({ where: { key: p.key, id: { not: p.id } } });

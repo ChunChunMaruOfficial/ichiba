@@ -15,7 +15,7 @@ const CloudinaryPhotoDto = z.object({
 });
 
 /** `?for=chat` relaxes the listing-only rules (minimum photo size, 30 s video). */
-const purpose = (v?: string): MediaPurpose => (v === 'chat' ? 'chat' : 'listing');
+const purpose = (v?: string): MediaPurpose => (v === 'chat' || v === 'avatar' ? v : 'listing');
 
 @Controller('media')
 export class MediaController {

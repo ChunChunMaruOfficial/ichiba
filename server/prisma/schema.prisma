@@ -115,11 +115,15 @@ model User {
   /// Account deleted by its owner: personal data wiped, the row kept for counterparties' deal history.
   deletedAt         DateTime?
   onboardedAt       DateTime?
+  /// Profile photo (one of the user's photos); shown on the profile and wardrobe cards.
+  avatarId          String?   @unique
+  avatar            Photo?    @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   listings        Listing[]
-  photos          Photo[]
+  photos          Photo[]        @relation("PhotoOwner")
+  looks           Look[]
   favorites       Favorite[]
   following       Follow[]       @relation("follower")
   followers       Follow[]       @relation("seller")
@@ -233,6 +237,7 @@ model Listing {
   cartItems       CartItem[]
   threads         Thread[]
   collectionItems CollectionItem[]
+  lookItems       LookItem[]
   auctions        Auction[]
   video           Video?
 
@@ -253,7 +258,9 @@ enum PhotoProvider {
 model Photo {
   id        String        @id @default(uuid())
   ownerId   String
-  owner     User          @relation(fields: [ownerId], references: [id])
+  owner     User          @relation("PhotoOwner", fields: [ownerId], references: [id])
+  /// Set when this photo is someone's profile photo (kept by the orphan cleanup).
+  avatarOf  User?         @relation("UserAvatar")
   listingId String?
   listing   Listing?      @relation(fields: [listingId], references: [id], onDelete: SetNull)
   provider  PhotoProvider @default(LOCAL)
@@ -777,4 +784,28 @@ model EmailOutbox {
   createdAt DateTime  @default(now())
 
   @@index([status, sendAfter])
+}
+
+/// «Образ»: a seller puts several of their own items together into one outfit, shown on the profile.
+model Look {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     LookItem[]
+
+  @@index([userId, createdAt])
+}
+
+model LookItem {
+  lookId    String
+  look      Look    @relation(fields: [lookId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  position  Int     @default(0)
+
+  @@id([lookId, listingId])
+  @@index([listingId])
 }

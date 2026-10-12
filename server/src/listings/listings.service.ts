@@ -18,7 +18,7 @@ import { nextBumpAt, StatsService } from '../stats/stats.js';
 import { canonicalBrand } from '../catalog/brands.js';
 import { tiersOf } from './bundle.js';
 import { BodyMeasurements, fitHint, PreferredSizes } from './fit.js';
-import { hashDistance, MediaService, serializeVideo } from '../media/media.service.js';
+import { hashDistance, MediaService, photoUrls, serializeVideo } from '../media/media.service.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
 import type { ListingInputT, SearchQueryT } from './listings.dto.js';
 
@@ -612,7 +612,7 @@ export class ListingsService {
 
   async sellerSummary(sellerId: string, viewerId?: string) {
     const [user, active, sold, followers, following, completedDeals, rating] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true } }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, avatar: { select: { key: true, provider: true } } } }),
       this.prisma.listing.count({ where: { sellerId, status: { in: VISIBLE_IN_FEED } } }),
       this.prisma.listing.count({ where: { sellerId, status: 'SOLD' } }),
       this.prisma.follow.count({ where: { sellerId } }),
@@ -624,9 +624,10 @@ export class ListingsService {
       viewerId && viewerId !== sellerId
         ? !!(await this.prisma.follow.findUnique({ where: { followerId_sellerId: { followerId: viewerId, sellerId } } }))
         : false;
-    const { bundleDiscounts, ...profile } = user;
+    const { bundleDiscounts, avatar, ...profile } = user;
     return {
       ...profile,
+      avatar: avatar ? photoUrls(avatar) : null,
       activeCount: active,
       soldCount: sold,
       followers,
