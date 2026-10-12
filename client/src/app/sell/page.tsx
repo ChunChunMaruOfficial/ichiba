@@ -12,6 +12,7 @@ import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
 import { usePriceSuggestion } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
+import { IconTrash } from "@/components/chat/icons";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -128,7 +129,6 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState<ListingDetail | null>(null);
   const [scheduled, setScheduled] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const autoAdvanced = useRef(!!draft);
   const aiRun = useRef(0);
 
@@ -148,13 +148,11 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
         const existing = draftId ?? (creating.current ? await creating.current : null);
         if (existing) {
           await api(`/listings/${existing}`, { method: "PATCH", body: payload });
-          setSavedAt(new Date());
           return existing;
         }
         creating.current = api<ListingDetail>("/listings", { body: payload }).then((l) => l.id);
         const id = await creating.current;
         setDraftId(id);
-        setSavedAt(new Date());
         return id;
       } catch (e) {
         creating.current = null;
@@ -307,6 +305,15 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
     }
   };
 
+  /** Trash in the top bar: the draft (photos and fields) is deleted, not kept in the wardrobe. */
+  const discard = async () => {
+    if (!window.confirm("Удалить черновик? Фото и заполненные поля пропадут.")) return;
+    const id = draftId ?? (creating.current ? await creating.current : null);
+    if (id) await api(`/listings/${id}`, { method: "DELETE" }).catch(() => undefined);
+    toast("Черновик удалён");
+    router.push("/");
+  };
+
   const exit = async () => {
     if (!photos.length) return router.push("/");
     // Progress is autosaved; leaving just flushes the latest changes.
@@ -377,9 +384,13 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
           <IconX />
         </button>
         <StepIndicator step={step} onStep={goTo} />
-        <span className="w-10 text-right text-xs text-muted" aria-live="polite" title={savedAt ? `Черновик сохранён в ${savedAt.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}` : undefined}>
-          {savedAt && <IconCheck key={savedAt.getTime()} className="pop ml-auto size-4 text-ok" aria-label="Черновик сохранён" />}
-        </span>
+        {photos.length > 0 || draftId ? (
+          <button type="button" onClick={discard} aria-label="Удалить черновик" title="Удалить черновик" className="-mr-2 grid size-10 place-items-center rounded-full text-ink-2 hover:bg-danger-soft hover:text-danger">
+            <IconTrash className="size-5" />
+          </button>
+        ) : (
+          <span className="w-10" />
+        )}
       </div>
 
       {step === 1 && (

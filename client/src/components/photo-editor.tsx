@@ -121,6 +121,21 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
   const [saving, setSaving] = useState(false);
   const preview = useRef<HTMLCanvasElement>(null);
   const box = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  /** Free room for the photo, measured: CSS max-width + max-height on a canvas sizes its wrapper differently in Safari. */
+  const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      setRoom({ w: el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), h: el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -287,6 +302,13 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
     }
   };
 
+  // The photo's on-screen size: as large as the free room allows, its own proportions kept.
+  const fit = (() => {
+    if (!img || !room || room.w <= 0 || room.h <= 0) return null;
+    const { w, h } = frameSize(img, edit.quarter);
+    const k = Math.min(room.w / w, room.h / h, 1100 / Math.max(w, h));
+    return { w: Math.floor(w * k), h: Math.floor(h * k) };
+  })();
   const c = edit.crop;
   const cropped = c.x > 0.001 || c.y > 0.001 || c.w < 0.999 || c.h < 0.999;
   const changed = cropped || !!edit.quarter || !!edit.straighten || edit.flipH || edit.flipV || edit.strokes.length > 0;
@@ -309,7 +331,7 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
       </div>
 
       {/* The photo, as large as the screen allows; the dimmed part is what gets cut off. */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center p-4 sm:p-8">
+      <div ref={stage} className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5 sm:p-8">
         {failed ? (
           <p className="max-w-xs text-center text-ink-2">Не получилось открыть фото для редактирования. Попробуйте загрузить его заново.</p>
         ) : !img ? (
@@ -324,7 +346,7 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
             onPointerCancel={onUp}
             onLostPointerCapture={onUp}
           >
-            <canvas ref={preview} className="block max-h-[calc(100dvh-15rem)] max-w-[calc(100vw-2rem)] sm:max-w-[min(calc(100vw-4rem),1100px)]" />
+            <canvas ref={preview} className="block" style={fit ? { width: fit.w, height: fit.h } : { visibility: "hidden" }} />
             <div
               className="pointer-events-none absolute inset-0 bg-paper/70"
               style={{ clipPath: `polygon(0 0,100% 0,100% 100%,0 100%,0 0,${c.x * 100}% ${c.y * 100}%,${c.x * 100}% ${(c.y + c.h) * 100}%,${(c.x + c.w) * 100}% ${(c.y + c.h) * 100}%,${(c.x + c.w) * 100}% ${c.y * 100}%,${c.x * 100}% ${c.y * 100}%)` }}

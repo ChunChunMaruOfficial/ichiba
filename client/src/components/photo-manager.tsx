@@ -171,6 +171,13 @@ export function PhotoManager({
               <button type="button" aria-label={`Редактировать фото ${i + 1}`} title="Нажмите, чтобы обрезать, повернуть или нарисовать" onClick={() => setEditing(p)} className="block size-full cursor-pointer">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.preview} alt={`Фото ${i + 1}`} className="size-full object-contain" />
+                {/* A pencil in the corner says the photo can be edited by tapping it. */}
+                <span aria-hidden className="absolute right-1 top-8 grid size-6 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm">
+                  <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 20h4L19 9l-4-4L4 16Z" />
+                    <path d="m13.5 6.5 4 4" />
+                  </svg>
+                </span>
               </button>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
