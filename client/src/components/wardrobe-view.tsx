@@ -7,17 +7,20 @@ import clsx from "clsx";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import useSWR from "swr";
-import { plural } from "@/lib/labels";
+import useSWR, { useSWRConfig } from "swr";
+import { api, ApiError } from "@/lib/api";
+import { formatPrice, plural } from "@/lib/labels";
+import { uploadPhoto } from "@/lib/upload";
 import { useListingActions } from "@/lib/listing-actions";
 import { usePresence } from "@/lib/presence";
 import type { Card, Deal, Offer, SellerSummary } from "@/lib/types";
+import { Avatar } from "./avatar";
 import { DealCard } from "./deal-actions";
+import { LookEditor, LookHighlights } from "./looks";
 import { ReportModal } from "./report-modal";
 import { ReviewsSection } from "./reviews";
 import { BundleNote, RatingInline } from "./trust";
 import { OfferCard } from "./offer";
-import { ItemCard } from "./item-card";
 import { FollowButton } from "./sections";
 import { useSession } from "./session";
 import { useToast } from "./toast";
@@ -115,14 +118,22 @@ function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
   );
 }
 
+/** The wardrobe as a profile's photo grid: tight tiles, the price on a small tag, sold items dimmed. */
 function Grid({ items, owner, onDone }: { items: Card[]; owner: boolean; onDone: () => void }) {
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="-mx-4 grid grid-cols-3 gap-0.5 sm:mx-0 sm:gap-2 lg:grid-cols-5 lg:gap-3">
       {items.map((c) => (
         <div key={c.id} className="relative">
-          <ItemCard card={c} variant="grid" source="wardrobe" />
+          <Link href={c.status === "DRAFT" ? `/sell?draft=${c.id}` : `/item/${c.id}`} className="group relative block aspect-[4/5] overflow-hidden bg-skeleton sm:rounded-xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {c.cover ? <img src={c.cover.urls.m} alt={c.title} loading="lazy" className={clsx("size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]", (c.status === "SOLD" || c.status === "HIDDEN") && "opacity-55 grayscale-[35%]")} /> : <span className="grid size-full place-items-center text-xs text-muted">Нет фото</span>}
+            <span className="absolute bottom-1.5 left-1.5 rounded-md bg-kraft/95 px-1.5 py-0.5 text-[11px] font-bold tabular text-kraft-ink shadow-sm sm:bottom-2 sm:left-2 sm:text-xs">
+              {c.status === "SOLD" ? "Продано" : c.status === "DRAFT" ? "Черновик" : c.status === "HIDDEN" ? "Скрыто" : c.price == null ? "—" : formatPrice(c.price)}
+            </span>
+            {c.status === "RESERVED" && <span className="absolute left-1.5 top-1.5 rounded-md bg-ink/80 px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink sm:left-2 sm:top-2">Бронь</span>}
+          </Link>
           {owner && (
-            <div className="absolute right-2.5 top-2.5">
+            <div className="absolute right-1 top-1 sm:right-2 sm:top-2">
               <OwnerMenu card={c} onDone={onDone} />
             </div>
           )}
@@ -176,6 +187,46 @@ function ActionRequired({ onChange }: { onChange: () => void }) {
   );
 }
 
+/** The profile photo; the owner taps it to pick a new one (uploaded as ?for=avatar, then set on the profile). */
+function ProfilePhoto({ seller, owner, onChanged }: { seller: SellerSummary; owner: boolean; onChanged: () => void }) {
+  const toast = useToast();
+  const { refresh } = useSession();
+  const [busy, setBusy] = useState(false);
+  const face = <Avatar username={seller.username} avatar={seller.avatar} ring className="size-20 md:size-36" />;
+  if (!owner) return face;
+  return (
+    <label className="group relative shrink-0 cursor-pointer" title="Сменить фото профиля">
+      {face}
+      <span className="absolute bottom-0.5 right-0.5 grid size-7 place-items-center rounded-full bg-ink text-accent-ink shadow ring-2 ring-paper transition-transform group-hover:scale-110 md:bottom-2 md:right-2 md:size-9">
+        {busy ? <Spinner className="size-4" /> : <IconPlus className="size-4" />}
+      </span>
+      <input
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        aria-label="Сменить фото профиля"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          setBusy(true);
+          try {
+            const photo = await uploadPhoto(file, undefined, undefined, "avatar");
+            await api("/users/me", { method: "PATCH", body: { avatarId: photo.id } });
+            toast("Фото профиля обновлено");
+            onChanged();
+            void refresh();
+          } catch (err) {
+            toast(err instanceof ApiError ? err.message : "Не получилось загрузить фото", { tone: "error" });
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+    </label>
+  );
+}
+
 /** Seller Wardrobe and My Wardrobe share one template (frame 09); MVP is a 2D grid grouped by section. */
 export function WardrobeView({ username, initial }: { username: string; initial?: WardrobeData | null }) {
   const params = useSearchParams();
@@ -187,6 +238,8 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   const router = useRouter();
   const [reporting, setReporting] = useState(false);
   const [people, setPeople] = useState<"followers" | "following" | null>(null);
+  const [creatingLook, setCreatingLook] = useState(false);
+  const { mutate: globalMutate } = useSWRConfig();
   const setQuery = (next: { section?: string; sort?: string; tab?: string }) => {
     const sp = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(next)) {
@@ -241,6 +294,16 @@ export function WardrobeView({ username, initial }: { username: string; initial?
 
   const totalShown = data ? data.groups.reduce((n, g) => n + g.items.length, 0) : 0;
   const empty = data && data.counts.all === 0 && data.drafts.length === 0;
+  const actions =
+    s && owner ? (
+      !empty && (
+        <ButtonLink href="/sell" variant="shu">
+          <IconPlus className="size-4" /> Добавить вещь
+        </ButtonLink>
+      )
+    ) : s && me?.username !== s.username ? (
+      <FollowButton seller={s} onChange={(v) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false })} />
+    ) : null;
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
@@ -251,77 +314,67 @@ export function WardrobeView({ username, initial }: { username: string; initial?
           <Skeleton className="h-5 w-80" />
         </div>
       ) : (
-        // The seller's cover: aizome cloth, the nickname large, a brush label 箪笥 («wardrobe») at the side.
-        <header className="aizome aizome-fade-r relative flex flex-col gap-6 rounded-[28px] px-5 py-6 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
-          <div className="absolute right-3 top-3 flex md:right-5 md:top-5">
-            {owner && (
-              <Link href="/settings" aria-label="Настройки" title="Настройки" className="grid size-10 place-items-center rounded-full text-ink-2 transition-[color,background-color,transform] duration-300 hover:rotate-45 hover:bg-ink/10 hover:text-ink">
-                <IconSettings className="size-5" />
-              </Link>
-            )}
-            <button onClick={share} aria-label="Поделиться гардеробом" title="Поделиться" className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/10 hover:text-ink">
-              <IconShare className="size-5" />
-            </button>
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-4 pr-20 md:pr-0">
-              {/* A personal seal: the nickname's first letter, pressed in cinnabar. */}
-              <span aria-hidden className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-3xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
-                {s.username.slice(0, 1)}
-              </span>
-              <div className="min-w-0">
-                <h1 className="truncate text-4xl font-bold leading-[1.05] md:text-6xl">{s.username}</h1>
-                <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
-                  {s.city ? `${s.city} · ` : ""}на ichiba с {sinceLabel(s.createdAt)}
-                </p>
-              </div>
-            </div>
-            {/* The counts as three columns: easy to read at a glance, on a phone too. */}
-            <dl className="mt-6 grid max-w-md grid-cols-3 divide-x divide-[#f4efe6]/15 rounded-2xl bg-[#f4efe6]/[0.07] py-3 text-center ring-1 ring-[#f4efe6]/10">
-              <div>
-                <dt className="sr-only">Вещей в продаже</dt>
-                <dd className="tabular text-2xl font-bold leading-none">{s.activeCount}</dd>
-                <dd className="mt-1 text-xs text-ink-2">{plural(s.activeCount, "вещь", "вещи", "вещей")}</dd>
-              </div>
-              <div>
-                <dt className="sr-only">Продано</dt>
-                <dd className="tabular text-2xl font-bold leading-none">{s.soldCount}</dd>
-                <dd className="mt-1 text-xs text-ink-2">продано</dd>
-              </div>
-              <div>
-                <dt className="sr-only">Подписчики</dt>
-                <dd>
-                  <button className="group/f w-full" onClick={() => setPeople("followers")}>
-                    <span className="tabular block text-2xl font-bold leading-none">{s.followers}</span>
-                    <span className="mt-1 block text-xs text-ink-2 group-hover/f:text-ink group-hover/f:underline">{plural(s.followers, "подписчик", "подписчика", "подписчиков")}</span>
+        // A profile like on a social network: photo in a ring, the counts in a row, bio, actions, looks.
+        <header className="flex flex-col gap-4">
+          <div className="flex items-center gap-5 md:gap-10">
+            <ProfilePhoto seller={s} owner={owner} onChanged={() => mutate()} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1">
+                <h1 className="min-w-0 truncate text-2xl font-bold leading-tight md:text-4xl">{s.username}</h1>
+                <span className="ml-auto flex shrink-0">
+                  {owner && (
+                    <Link href="/settings" aria-label="Настройки" title="Настройки" className="grid size-10 place-items-center rounded-full text-ink-2 transition-[color,background-color,transform] duration-300 hover:rotate-45 hover:bg-ink/5 hover:text-ink">
+                      <IconSettings className="size-5" />
+                    </Link>
+                  )}
+                  <button onClick={share} aria-label="Поделиться гардеробом" title="Поделиться" className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5 hover:text-ink">
+                    <IconShare className="size-5" />
                   </button>
-                </dd>
+                </span>
               </div>
-            </dl>
-            <RatingInline rating={s.rating} username={s.username} className="mt-3" />
-            {s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>}
+              <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm md:mt-4 md:gap-x-8 md:text-base">
+                <div>
+                  <dt className="sr-only">Вещей в продаже</dt>
+                  <dd>
+                    <b className="tabular font-bold">{s.activeCount}</b> {plural(s.activeCount, "вещь", "вещи", "вещей")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="sr-only">Продано</dt>
+                  <dd>
+                    <b className="tabular font-bold">{s.soldCount}</b> продано
+                  </dd>
+                </div>
+                <div>
+                  <dt className="sr-only">Подписчики</dt>
+                  <dd>
+                    <button className="hover:underline" onClick={() => setPeople("followers")}>
+                      <b className="tabular font-bold">{s.followers}</b> {plural(s.followers, "подписчик", "подписчика", "подписчиков")}
+                    </button>
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 hidden flex-wrap gap-2 empty:hidden md:flex">{actions}</div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 empty:hidden max-md:[&>*]:flex-1">
-            {owner ? (
-              <>
-                {!empty && (
-                  <ButtonLink href="/sell" variant="shu">
-                    <IconPlus className="size-4" /> Добавить вещь
-                  </ButtonLink>
-                )}
-              </>
-            ) : (
-              me?.username !== s.username && <FollowButton seller={s} onChange={(v) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false })} />
-            )}
+          <div className="flex flex-col gap-1.5">
+            <p className="text-sm text-ink-2">
+              {s.city ? `${s.city} · ` : ""}на ichiba с {sinceLabel(s.createdAt)}
+            </p>
+            <RatingInline rating={s.rating} username={s.username} />
+            {s.bio && <p className="max-w-xl whitespace-pre-line text-[15px] leading-relaxed">{s.bio}</p>}
           </div>
+          <div className="flex gap-2 empty:hidden md:hidden [&>*]:flex-1">{actions}</div>
+          <LookHighlights username={s.username} owner={owner} onCreate={() => setCreatingLook(true)} />
         </header>
       )}
+      {owner && creatingLook && s && <LookEditor username={s.username} open onClose={() => setCreatingLook(false)} onSaved={() => void globalMutate(`/users/${s.username}/looks`)} />}
       {s && <ReportModal open={reporting} onClose={() => setReporting(false)} targetType="USER" targetId={s.username} title={`@${s.username}`} />}
       {s && <PeopleModal username={s.username} list={people} onClose={() => setPeople(null)} />}
 
       {s && !owner && s.bundleDiscounts.length > 0 && <BundleNote tiers={s.bundleDiscounts} username={s.username} className="mt-6 max-w-2xl" />}
 
-      <div className="mt-8">{owner && <ActionRequired onChange={() => mutate()} />}</div>
+      <div className="mt-6">{owner && <ActionRequired onChange={() => mutate()} />}</div>
 
       {tab === "reviews" ? (
         <div className="mt-8">

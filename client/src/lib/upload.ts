@@ -57,9 +57,9 @@ export function postForm(url: string, form: FormData, onProgress?: (share: numbe
  * (signed by our API, the secret never leaves the server), then the API checks and saves it. Without it,
  * the file is posted to the API as before. Either way the result is the same photo record.
  */
-export async function uploadPhoto(file: File, onProgress?: (share: number) => void, signal?: AbortSignal, purpose: "listing" | "chat" = "listing"): Promise<UploadedPhoto> {
+export async function uploadPhoto(file: File, onProgress?: (share: number) => void, signal?: AbortSignal, purpose: "listing" | "chat" | "avatar" = "listing"): Promise<UploadedPhoto> {
   // Chat photos skip the listing-only rules (minimum size).
-  const usage = purpose === "chat" ? "?for=chat" : "";
+  const usage = purpose === "listing" ? "" : `?for=${purpose}`;
   const ticket = await api<Ticket>("/media/photos/ticket", { method: "POST", signal });
 
   if (ticket.provider === "local") {

@@ -35,6 +35,7 @@ export type RequestStatus =
 export interface Me {
   id: string;
   username: string;
+  avatar?: PhotoUrls | null;
   email: string | null;
   phone: string | null;
   city: string | null;
@@ -158,6 +159,19 @@ export interface SellerSummary {
   isFollowing: boolean;
   rating: { avg: number; count: number } | null;
   bundleDiscounts: BundleTier[];
+  avatar?: PhotoUrls | null;
+}
+
+/** «Образ»: an outfit a seller put together from their own items. */
+export interface Look {
+  id: string;
+  title: string;
+  createdAt: string;
+  isOwner: boolean;
+  items: Card[];
+  total: number;
+  available: number;
+  owner?: { username: string; avatar: PhotoUrls | null };
 }
 
 export interface AiAttr {

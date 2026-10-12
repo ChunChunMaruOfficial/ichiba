@@ -15,6 +15,7 @@ import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { AuctionPanel, AuctionTimer } from "@/components/auction";
 import { AddToCollection } from "@/components/collections";
+import { LooksWithItem } from "@/components/looks";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
 import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
@@ -474,6 +475,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           <p className="mt-5 text-sm text-ink-2">
             {[l.city, l.deliveryOptions.map((d) => DELIVERY_LABEL[d]).join(", ")].filter(Boolean).join(" · ")}
           </p>
+
+          <LooksWithItem listingId={l.id} />
 
           <p className="mt-6 text-xs text-muted">
             {l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"} · {l.viewsCount} просмотров · {l.favoritesCount} сохранений
