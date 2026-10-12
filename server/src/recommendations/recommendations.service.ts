@@ -8,6 +8,8 @@ const SIGNAL_WEIGHTS = {
   favorite: 5,
   swipe_right: 5,
   swipe_left: -3,
+  /** «Не интересно» on the item page: the item leaves this person's feeds and search for good. */
+  not_interested: -6,
   cart: 6,
   request: 8,
   follow: 10,
@@ -32,7 +34,7 @@ export class RecommendationsService {
 
   /** "Для вас" appears after 5+ item views or any onboarding swipes (frame 06 STATES). */
   async hasProfile(userId: string) {
-    const n = await this.prisma.signal.count({ where: { userId, type: { in: ['view', 'favorite', 'swipe_right', 'swipe_left'] } } });
+    const n = await this.prisma.signal.count({ where: { userId, type: { in: ['view', 'favorite', 'swipe_right', 'swipe_left', 'not_interested'] } } });
     return n >= 5;
   }
 

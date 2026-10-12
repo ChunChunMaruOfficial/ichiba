@@ -52,6 +52,18 @@ export class ListingsController {
     return this.listings.get(id, user?.id, { trackView: render !== 'ssr' });
   }
 
+  /** «Не интересно»: hide the item from this person's feeds and search (DELETE brings it back). */
+  @Post('listings/:id/not-interested')
+  @HttpCode(200)
+  notInterested(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.listings.setNotInterested(user.id, id, true);
+  }
+
+  @Delete('listings/:id/not-interested')
+  interestedAgain(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.listings.setNotInterested(user.id, id, false);
+  }
+
   @Public()
   @Get('listings/:id/similar')
   similar(@Param('id', ParseUUIDPipe) id: string, @Query(new ZodPipe(PageQuery)) q: z.infer<typeof PageQuery>, @CurrentUser() user?: AuthUser) {

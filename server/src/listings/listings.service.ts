@@ -746,9 +746,22 @@ export class ListingsService {
 
   // ---------- read: discovery ----------
 
+  /** Items the viewer marked «Не интересно»: left out of their feeds and search. */
+  private async notInterested(viewerId?: string): Promise<Prisma.ListingWhereInput> {
+    if (!viewerId) return {};
+    const rows = await this.prisma.signal.findMany({ where: { userId: viewerId, type: 'not_interested', listingId: { not: null } }, select: { listingId: true } });
+    return rows.length ? { id: { notIn: rows.map((r) => r.listingId!) } } : {};
+  }
+
+  async setNotInterested(userId: string, listingId: string, on: boolean) {
+    await this.prisma.signal.deleteMany({ where: { userId, listingId, type: 'not_interested' } });
+    if (on) await this.recs.record(userId, 'not_interested', listingId);
+    return { ok: true };
+  }
+
   async feed(chip: string, offset: number, limit: number, viewerId?: string) {
     const effective = chip === 'for_you' && (!viewerId || !(await this.recs.hasProfile(viewerId))) ? 'new' : chip;
-    const where: Prisma.ListingWhereInput = { status: { in: VISIBLE_IN_FEED } };
+    const where: Prisma.ListingWhereInput = { status: { in: VISIBLE_IN_FEED }, ...(await this.notInterested(viewerId)) };
 
     if (effective === 'for_you' || effective === 'popular') {
       // Own items are excluded from personalised and popular feeds (frame 06).
@@ -855,7 +868,7 @@ export class ListingsService {
       const mine = [...(s.clothing ?? []), ...(s.shoes ?? []), ...(s.jeans ?? [])];
       if (mine.length) q = { ...q, size: [...new Set([...(q.size ?? []), ...mine])] };
     }
-    const where = this.searchWhere(q);
+    const where: Prisma.ListingWhereInput = { AND: [this.searchWhere(q), await this.notInterested(viewerId)] };
     let items;
     let total: number;
     if (q.sort === 'for_you' && viewerId) {

@@ -90,6 +90,18 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const router = useRouter();
   const meta = useMeta();
   const toast = useToast();
+  // «Не интересно»: the item leaves this person's feeds and search; the toast offers to undo.
+  const [hiddenForMe, setHiddenForMe] = useState(false);
+  const setHidden = async (on: boolean) => {
+    setHiddenForMe(on);
+    try {
+      await api(`/listings/${l.id}/not-interested`, { method: on ? "POST" : "DELETE" });
+      if (on) toast("Больше не покажем эту вещь в ленте", { action: { label: "Вернуть", onClick: () => void setHidden(false) } });
+    } catch {
+      setHiddenForMe(!on);
+      toast("Не получилось, попробуйте ещё раз", { tone: "error" });
+    }
+  };
   const { requireAuth } = useSession();
   const [photo, setPhoto] = useState(0);
   const [showMeasurements, setShowMeasurements] = useState(false);
@@ -381,6 +393,17 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                   <IconFlag className="size-5" />
                 </button>
               )}
+              {!l.isOwner && (
+                <button
+                  aria-label={hiddenForMe ? "Снова показывать" : "Не интересно"}
+                  title={hiddenForMe ? "Снова показывать в ленте" : "Не интересно — не показывать в ленте"}
+                  aria-pressed={hiddenForMe}
+                  onClick={() => requireAuth(() => void setHidden(!hiddenForMe))}
+                  className={clsx("grid size-10 place-items-center rounded-full hover:bg-ink/5", hiddenForMe ? "text-ink" : "text-ink-2")}
+                >
+                  <IconEyeOff className="size-5" />
+                </button>
+              )}
             </div>
           </div>
           {/* The price on a paper tag tied with a cinnabar thread (値札). */}
@@ -540,6 +563,16 @@ function AppealModal({ open, onClose, listingId, onDone }: { open: boolean; onCl
         Отправить
       </Button>
     </Modal>
+  );
+}
+
+function IconEyeOff({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.1A9.7 9.7 0 0 1 12 5c5 0 8.5 4.5 9.5 7a13 13 0 0 1-2.7 3.9M6.6 6.6C4.5 8 3.1 10.1 2.5 12c1 2.5 4.5 7 9.5 7 1.7 0 3.2-.5 4.5-1.3" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
   );
 }
 
