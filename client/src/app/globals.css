@@ -861,3 +861,43 @@ html[data-immersive] [data-chrome="main"] {
 @media (prefers-reduced-motion: reduce) {
   .tag-swing { animation: none; }
 }
+
+/* Header wordmark wave (logo.tsx): hover on desktop, tap on phones. Letters bob one after another, the two
+   cinnabar seals hop and turn over — after the logo of dioxoid. */
+.wm-letter,
+.wm-seal {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.wm-wave .wm-letter {
+  animation: wm-bob 0.6s cubic-bezier(0.33, 0, 0.2, 1) calc(var(--i) * 45ms) both;
+}
+.wm-wave .wm-seal {
+  animation: wm-hop 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) calc(0.12s + var(--i) * 170ms) both;
+}
+@keyframes wm-bob {
+  0%, 100% { translate: 0 0; }
+  35% { translate: 0 -14%; }
+}
+@keyframes wm-hop {
+  0% { translate: 0 0; rotate: 0deg; }
+  45% { translate: 0 -75%; }
+  100% { translate: 0 0; rotate: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wm-wave .wm-letter,
+  .wm-wave .wm-seal { animation: none; }
+}
+
+/* Bars that stick under the header (feed chips, search filters, wardrobe tabs). They follow the header with a
+   transform, not by animating `top`: that re-laid the page out on every frame and stuttered on phones. */
+.under-header {
+  position: sticky;
+  top: var(--header-h, 57px);
+  transform: translateY(calc(var(--header-offset, var(--header-h, 57px)) - var(--header-h, 57px)));
+  transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .under-header { transition: none; }
+}

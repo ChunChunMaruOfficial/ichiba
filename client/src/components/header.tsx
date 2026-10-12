@@ -17,9 +17,21 @@ import { useMeta, useSession } from "./session";
 import { IconBag, IconBell, IconChart, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconReceipt, IconSearch, IconSettings, IconUsers, IconX } from "./ui";
 
 function Logo({ className }: { className?: string }) {
+  // The wave (globals.css · .wm-wave) plays once per hover on desktop and per tap on phones.
+  const [wave, setWave] = useState(0);
+  const play = () => setWave((n) => n + 1);
   return (
-    <Link href="/" aria-label="ichiba — на главную" className={clsx("flex shrink-0 items-center text-ink", className)} onClick={() => window.scrollTo({ top: 0 })}>
-      <Wordmark className="h-[26px] w-auto md:h-[30px]" />
+    <Link
+      href="/"
+      aria-label="ichiba — на главную"
+      className={clsx("flex shrink-0 items-center text-ink", className)}
+      onClick={() => window.scrollTo({ top: 0 })}
+      onMouseEnter={() => matchMedia("(hover: hover)").matches && play()}
+      onTouchStart={play}
+    >
+      <span key={wave} className={clsx("flex", wave > 0 && "wm-wave")}>
+        <Wordmark className="h-[26px] w-auto md:h-[30px]" />
+      </span>
     </Link>
   );
 }
@@ -300,20 +312,30 @@ export function Header() {
     return () => ro.disconnect();
   }, []);
 
-  // Tucks away while scrolling down, comes back on the first scroll up (or near the top). A small threshold keeps
-  // it from twitching on trackpad jitter; open menus inside keep it shown.
+  // Tucks away while scrolling down, comes back when scrolling up. Movement is summed per direction, so finger
+  // jitter and momentum ticks don't flip it back and forth; the iOS rubber band past either end is ignored.
+  // Open menus inside keep it shown.
   useEffect(() => {
     let last = window.scrollY;
+    let travel = 0;
     let frame = 0;
     const onScroll = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const y = window.scrollY;
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        const dy = y - last;
+        last = y;
         const el = header.current;
-        if (y < 80 || (el && el.contains(document.activeElement) && document.activeElement !== document.body)) setHidden(false);
-        else if (y > last + 8) setHidden(true);
-        else if (y < last - 8) setHidden(false);
-        if (Math.abs(y - last) > 8 || y < 80) last = y;
+        if (y < 80 || (el && el.contains(document.activeElement) && document.activeElement !== document.body)) {
+          travel = 0;
+          setHidden(false);
+          return;
+        }
+        if (y < 0 || y > max - 2) return; // rubber band at the top or bottom
+        travel = Math.sign(dy) === Math.sign(travel) ? travel + dy : dy;
+        if (travel > 24) setHidden(true);
+        else if (travel < -32) setHidden(false);
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -339,7 +361,7 @@ export function Header() {
     <header
       ref={header}
       className={clsx(
-        "bg-washi sticky top-0 z-40 border-b border-line transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+        "bg-washi sticky top-0 z-40 border-b border-line will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
         hidden && "-translate-y-full",
         // A conversation on a phone or tablet is full screen, like a messenger: its own header has the way back.
         isThread(pathname) && "max-lg:hidden",
@@ -405,8 +427,18 @@ const isThread = (pathname: string) => /^\/messages\/.+/.test(pathname);
 /** The page area; on phones it keeps room at the bottom for the tab bar wherever the bar is shown. */
 export function Main({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // A short fade on every page change. Opacity only: a transform on <main> would carry the pages' fixed bars
+  // (the sell form's bottom bar) along with it. Chats switch inside their own shell, with a skeleton instead.
+  const main = useRef<HTMLElement>(null);
+  const prev = useRef(pathname);
+  useEffect(() => {
+    const from = prev.current;
+    prev.current = pathname;
+    if (from === pathname || (isThread(from) && isThread(pathname)) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    main.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+  }, [pathname]);
   return (
-    <main id="main" data-chrome="main" tabIndex={-1} className={clsx(!isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
+    <main ref={main} id="main" data-chrome="main" tabIndex={-1} className={clsx(!isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
       {children}
     </main>
   );
