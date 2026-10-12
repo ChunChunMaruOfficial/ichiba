@@ -145,6 +145,10 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
   );
 }
 
+/**
+ * Photo on its own over the blurred page. Phones: swipe sideways for the next photo, pull down to close (the photo
+ * follows the finger and the page shows through more as it goes). Tap or wheel zooms.
+ */
 function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Photo[]; index: number; onIndex: (i: number) => void; onClose: () => void; closing: boolean }) {
   const [zoom, setZoom] = useState(1);
   const [zoomFor, setZoomFor] = useState(index);
@@ -152,7 +156,9 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
     setZoomFor(index);
     setZoom(1);
   }
-  const touchX = useRef<number | null>(null);
+  const touch = useRef<{ x: number; y: number; t: number; axis: "x" | "y" | null } | null>(null);
+  const [pull, setPull] = useState(0);
+  const [dragging, setDragging] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -167,6 +173,8 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
     };
   }, [index, onIndex, onClose]);
   const p = photos[index];
+  // How far the photo is pulled down, 0…1: drives the backdrop's fade.
+  const share = Math.min(1, Math.max(0, pull) / 320);
 
   return (
     <div
@@ -174,36 +182,61 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
       aria-modal="true"
       aria-label="Просмотр фото"
       data-closing={closing || undefined}
-      className="fade-in fixed inset-0 z-[80] flex items-center justify-center bg-black"
+      className="fade-in fixed inset-0 z-[80] flex touch-none items-center justify-center"
       onWheel={(e) => setZoom((z) => Math.min(3, Math.max(1, z - e.deltaY * 0.002)))}
-      onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
+      onTouchStart={(e) => {
+        touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), axis: null };
+      }}
+      onTouchMove={(e) => {
+        const t = touch.current;
+        if (!t || zoom > 1 || e.touches.length > 1) return;
+        const dx = e.touches[0].clientX - t.x;
+        const dy = e.touches[0].clientY - t.y;
+        // The first clear direction wins: sideways pages, down closes.
+        if (!t.axis && Math.hypot(dx, dy) > 8) t.axis = Math.abs(dy) > Math.abs(dx) ? "y" : "x";
+        if (t.axis === "y") {
+          setDragging(true);
+          setPull(dy > 0 ? dy : dy / 4);
+        }
+      }}
       onTouchEnd={(e) => {
-        if (touchX.current == null || zoom > 1) return;
-        const dx = e.changedTouches[0].clientX - touchX.current;
+        const t = touch.current;
+        touch.current = null;
+        setDragging(false);
+        if (!t || zoom > 1) return setPull(0);
+        const dx = e.changedTouches[0].clientX - t.x;
+        const dy = e.changedTouches[0].clientY - t.y;
+        if (t.axis === "y") {
+          const speed = dy / Math.max(1, Date.now() - t.t);
+          if (dy > 110 || (dy > 40 && speed > 0.5)) onClose();
+          else setPull(0);
+          return;
+        }
         if (Math.abs(dx) > 50) onIndex(index + (dx < 0 ? 1 : -1));
-        touchX.current = null;
       }}
     >
+      {/* The page, blurred and washed in its own paper colour. */}
+      <div aria-hidden className="absolute inset-0 bg-paper/75 backdrop-blur-2xl" style={{ opacity: 1 - share * 0.7 }} onClick={onClose} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={p.urls.l}
         alt=""
         onClick={() => setZoom((z) => (z > 1 ? 1 : 2))}
-        className={clsx("max-h-full max-w-full object-contain transition-transform", zoom > 1 ? "cursor-zoom-out" : "cursor-zoom-in")}
-        style={{ transform: `scale(${zoom})` }}
+        className={clsx("relative max-h-full max-w-full object-contain shadow-[var(--shadow-float)]", !dragging && "transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]", zoom > 1 ? "cursor-zoom-out" : "cursor-zoom-in")}
+        style={{ transform: `translateY(${pull}px) scale(${zoom * (1 - share * 0.15)})` }}
       />
-      <button aria-label="Закрыть" onClick={onClose} className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20">
+      <button aria-label="Закрыть" onClick={onClose} className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] grid size-11 place-items-center rounded-full bg-surface/80 text-ink shadow-sm hover:bg-surface" style={{ opacity: 1 - share }}>
         <IconX />
       </button>
       {photos.length > 1 && (
         <>
-          <button aria-label="Предыдущее фото" onClick={() => onIndex(index - 1)} className="absolute left-4 top-1/2 hidden size-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 md:grid">
+          <button aria-label="Предыдущее фото" onClick={() => onIndex(index - 1)} className="absolute left-4 top-1/2 hidden size-12 -translate-y-1/2 place-items-center rounded-full bg-surface/80 text-ink shadow-sm hover:bg-surface md:grid">
             <IconChevronLeft />
           </button>
-          <button aria-label="Следующее фото" onClick={() => onIndex(index + 1)} className="absolute right-4 top-1/2 hidden size-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 md:grid">
+          <button aria-label="Следующее фото" onClick={() => onIndex(index + 1)} className="absolute right-4 top-1/2 hidden size-12 -translate-y-1/2 place-items-center rounded-full bg-surface/80 text-ink shadow-sm hover:bg-surface md:grid">
             <IconChevronRight />
           </button>
-          <span className="tabular absolute bottom-6 left-1/2 -translate-x-1/2 text-sm text-white/80">
+          <span className="tabular absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 rounded-full bg-surface/80 px-3 py-1 text-sm text-ink-2" style={{ opacity: 1 - share }}>
             {index + 1} / {photos.length}
           </span>
         </>
