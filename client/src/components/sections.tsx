@@ -1,5 +1,6 @@
 "use client";
 
+import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -130,12 +131,13 @@ export function FollowButton({ seller, onChange, size = "md" }: { seller: Pick<S
 }
 
 /** "Гардеробы" section: nickname, counts, 2×2 collage, follow (frame 06). */
-export function WardrobeCards({ wardrobes, onFollowChange }: { wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>; onFollowChange: (username: string, v: boolean) => void }) {
+/** Wardrobe cards: a 2×2 collage of the latest items, the nick and «Подписаться». A scrolling row, or a grid (`grid`). */
+export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>; onFollowChange: (username: string, v: boolean) => void; grid?: boolean }) {
   const router = useRouter();
   return (
-    <div className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6">
+    <div className={grid ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4" : "no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6"}>
       {wardrobes.map((w) => (
-        <div key={w.id} className="w-64 shrink-0 snap-start rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]">
+        <div key={w.id} className={clsx("rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", grid ? "min-w-0" : "w-64 shrink-0 snap-start")}>
           <button onClick={() => router.push(`/u/${w.username}`)} className="grid aspect-square w-full grid-cols-2 gap-1 overflow-hidden rounded-[16px]" aria-label={`Гардероб @${w.username}`}>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="overflow-hidden bg-skeleton">
@@ -143,12 +145,12 @@ export function WardrobeCards({ wardrobes, onFollowChange }: { wardrobes: Array<
               </div>
             ))}
           </button>
-          <div className="mt-3 flex items-center justify-between gap-2 px-1 pb-0.5">
+          <div className={clsx("mt-3 flex gap-2 px-1 pb-0.5", grid ? "flex-col max-sm:items-stretch sm:flex-row sm:items-center sm:justify-between" : "items-center justify-between")}>
             <div className="min-w-0">
               <Link href={`/u/${w.username}`} className="block truncate font-semibold hover:underline">
                 @{w.username}
               </Link>
-              <p className="text-xs text-muted">
+              <p className="truncate text-xs text-muted">
                 {itemsLabel(w.activeCount)} · {w.soldCount} продано
               </p>
             </div>

@@ -454,7 +454,7 @@ export function BottomNav() {
   return (
     <nav data-chrome="bottom-nav" aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none md:hidden">
       {item("/", "Главная", IconHome)}
-      {item("/search", "Поиск", IconSearch)}
+      {item("/wardrobes", "Гардеробы", IconUsers)}
       <button
         aria-label="Продать вещь"
         className="flex min-w-0 flex-1 basis-0 items-center justify-center py-1.5 text-ink"

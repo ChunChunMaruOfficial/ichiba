@@ -40,6 +40,12 @@ export class ListingsController {
   }
 
   @Public()
+  @Get('wardrobes')
+  wardrobes(@Query(new ZodPipe(PageQuery)) q: z.infer<typeof PageQuery>, @Query('q') text: string | undefined, @CurrentUser() user?: AuthUser) {
+    return this.listings.wardrobes(q.offset, q.limit, text, user?.id);
+  }
+
+  @Public()
   @Get('wardrobes/:username')
   wardrobe(@Param('username') username: string, @Query(new ZodPipe(WardrobeQuery)) q: z.infer<typeof WardrobeQuery>, @CurrentUser() user?: AuthUser) {
     return this.listings.wardrobe(username, user?.id, q.section, q.sort);

@@ -860,6 +860,27 @@ export class ListingsService {
     );
   }
 
+  /** «Гардеробы»: other people's wardrobes with something on sale, the most recently active first. */
+  async wardrobes(offset: number, limit: number, q: string | undefined, viewerId?: string) {
+    const where: Prisma.ListingWhereInput = {
+      status: 'PUBLISHED',
+      ...(viewerId ? { sellerId: { not: viewerId } } : {}),
+      ...(q?.trim() ? { seller: { username: { contains: q.trim().replace(/^@/, '').toLowerCase() } } } : {}),
+    };
+    const all = await this.prisma.listing.groupBy({ by: ['sellerId'], where, _max: { publishedAt: true }, orderBy: { _max: { publishedAt: 'desc' } } });
+    const page = all.slice(offset, offset + limit);
+    const items = await Promise.all(
+      page.map(async (t) => {
+        const [summary, latest] = await Promise.all([
+          this.sellerSummary(t.sellerId, viewerId),
+          this.prisma.listing.findMany({ where: { sellerId: t.sellerId, status: 'PUBLISHED' }, include: cardInclude, orderBy: { publishedAt: 'desc' }, take: 4 }),
+        ]);
+        return { ...summary, collage: latest.map((i) => serializeCard(i).cover) };
+      }),
+    );
+    return { items, total: all.length };
+  }
+
   async search(q: SearchQueryT, viewerId?: string) {
     // "Мой размер": the sizes the buyer saved in the profile.
     if (q.my_size === '1' && viewerId) {
