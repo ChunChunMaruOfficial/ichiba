@@ -175,9 +175,19 @@ export const Composer = forwardRef<
     onEditLast: () => void;
     onTyping: () => void;
     onLocation: () => void;
+    /** Keeps the unsent text on this device per conversation, so leaving the chat doesn't lose it. */
+    draftKey?: string;
   }
->(function Composer({ counterpart, replyTo, editing, attachments, onCancel, onSend, onEdit, onEditLast, onTyping, onLocation }, ref) {
-  const [draft, setDraft] = useState("");
+>(function Composer({ counterpart, replyTo, editing, attachments, onCancel, onSend, onEdit, onEditLast, onTyping, onLocation, draftKey }, ref) {
+  const storageKey = draftKey ? `ichiba:chat-draft:${draftKey}` : null;
+  const [draft, setDraft] = useState(() => {
+    if (!storageKey || typeof window === "undefined") return "";
+    try {
+      return localStorage.getItem(storageKey) ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [menu, setMenu] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
@@ -213,6 +223,17 @@ export const Composer = forwardRef<
     if (replyId) input.current?.focus();
   }, [replyId]);
 
+  // The unsent text (not an edit in progress) is written through to this device.
+  useEffect(() => {
+    if (!storageKey || editId) return;
+    try {
+      if (draft) localStorage.setItem(storageKey, draft);
+      else localStorage.removeItem(storageKey);
+    } catch {
+      /* storage blocked: the draft lives until the chat is closed */
+    }
+  }, [draft, storageKey, editId]);
+
   // Grow with the text up to ~6 lines.
   useEffect(() => {
     const el = input.current;
@@ -236,6 +257,8 @@ export const Composer = forwardRef<
     }
     onSend(body, attachments.take());
     setDraft("");
+    // Phones: keep the keyboard up for the next message.
+    input.current?.focus();
   };
 
   return (
@@ -410,6 +433,9 @@ export const Composer = forwardRef<
             aria-hidden={!showSend || undefined}
             aria-label={editing ? "Сохранить" : uploading ? "Отправить, когда загрузится" : "Отправить"}
             title={editing ? "Сохранить" : "Отправить"}
+            // Tapping send must not take focus from the field: that would close the phone keyboard.
+            onPointerDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
             className={clsx(
               "grid size-11 place-items-center rounded-full bg-accent text-accent-ink transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)] hover:bg-accent-hover active:scale-90 motion-reduce:transition-none",
               // Dimmed while it can't send yet (an upload failed); fully gone while there is nothing to send.

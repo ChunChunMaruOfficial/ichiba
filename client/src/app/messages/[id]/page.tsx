@@ -797,6 +797,7 @@ function Thread({ id }: { id: string }) {
         onEditLast={editLast}
         onTyping={notifyTyping}
         onLocation={() => setPicking(true)}
+        draftKey={id}
       />
 
       {dragging && (
