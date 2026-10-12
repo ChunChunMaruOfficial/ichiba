@@ -9,6 +9,7 @@ import { Gallery } from "@/components/gallery";
 import { LikersOfferButton } from "@/components/likers-offer";
 import { MEASURE_LABEL } from "@/components/measure-guide";
 import { CardRow, FollowButton, SectionHeader } from "@/components/sections";
+import { PriceConvert } from "@/components/price-convert";
 import { Nefuda } from "@/components/shop/nefuda";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
@@ -408,9 +409,11 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           </div>
           {/* The price on a paper tag tied with a cinnabar thread (値札). */}
           <p className={clsx("mt-4 flex items-center gap-3 pl-5", auctionRunning && "hidden")}>
-            <Nefuda className={clsx("tabular text-[28px] font-bold leading-tight", sold && "opacity-60")}>
-              <span className={clsx(l.previousPrice && l.price && l.previousPrice > l.price && "text-shu")}>{formatPrice(l.price)}</span>
-            </Nefuda>
+            <PriceConvert byn={sold ? null : l.price}>
+              <Nefuda className={clsx("tabular text-[28px] font-bold leading-tight", sold && "opacity-60")}>
+                <span className={clsx(l.previousPrice && l.price && l.previousPrice > l.price && "text-shu")}>{formatPrice(l.price)}</span>
+              </Nefuda>
+            </PriceConvert>
             {l.previousPrice && l.price && l.previousPrice > l.price && <s className="text-lg text-muted">{formatPrice(l.previousPrice)}</s>}
           </p>
           {discount > 0 && !auctionRunning && (
