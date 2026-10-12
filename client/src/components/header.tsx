@@ -458,7 +458,7 @@ export function BottomNav() {
   if (hidden) return null;
 
   const item = (href: string, label: string, Icon: typeof IconHome, opts: { auth?: boolean; badge?: number } = {}) => {
-    const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+    const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
     const content = (
       <>
         <span className="relative">
