@@ -312,12 +312,9 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             />
           )}
           {negotiable ? (
-            <>
-              <Button size="lg" block onClick={openOffer} disabled={!canOffer}>
-                Предложить цену
-              </Button>
-              <p className="-mt-1 text-sm text-muted">Цена договорная — предложите свою или спросите продавца в чате.</p>
-            </>
+            <Button size="lg" block onClick={openOffer} disabled={!canOffer}>
+              Предложить цену
+            </Button>
           ) : (
           <div className="flex gap-2">
             <Button size="lg" className="flex-1" onClick={buy} disabled={!canBuy}>

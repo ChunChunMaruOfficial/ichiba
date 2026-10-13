@@ -86,6 +86,7 @@ export class TgImportService implements OnApplicationBootstrap {
     if (!channel.posts.length) throw new Error('no posts read (channel private or t.me unreachable)');
     this.logger.log(`@${cfg.channel}: ${channel.posts.length} posts read${channel.complete ? '' : ' (incomplete)'}`);
     const userId = await this.ensureSeller(cfg, channel);
+    await this.foldRepeats(cfg, userId);
     const source = await this.prisma.tgSource.upsert({ where: { channel: cfg.channel }, create: { channel: cfg.channel, userId }, update: {} });
     if (!source.enabled) return;
 
@@ -214,21 +215,15 @@ export class TgImportService implements OnApplicationBootstrap {
     await record(post.id, ids.length ? 'IMPORTED' : 'FAILED', errors.join('; ').slice(0, 1000) || null, ids);
   }
 
-  /** One item → a published listing (plus linked copies for extra sizes); returns all listing ids. */
+  /** One item → one published listing; returns its id (as a list, like a post's listingIds). */
   private async createListing(cfg: TgSourceConfig, userId: string, item: ImportItem, publishedAt: Date | null, handChecked: boolean) {
     // A run cut short (deploy, restart) may have listed this item already, or left its draft behind.
     const title = item.title.slice(0, 80);
     for (const draft of await this.prisma.listing.findMany({ where: { sellerId: userId, title, status: 'DRAFT' }, select: { id: true } })) {
       await this.listings.remove(userId, draft.id);
     }
-    // The first listing of a multi-size item is its own group; its size copies are not looked at.
-    const earlier = (await this.prisma.listing.findMany({ where: { sellerId: userId, title, status: { notIn: ['DELETED', 'DRAFT'] } }, orderBy: { createdAt: 'asc' } })).find(
-      (l) => !l.groupId || l.groupId === l.id,
-    );
-    if (earlier) {
-      const copies = await this.prisma.listing.findMany({ where: { groupId: earlier.id, id: { not: earlier.id } }, select: { id: true } });
-      return [earlier.id, ...copies.map((c) => c.id)];
-    }
+    const earlier = await this.prisma.listing.findFirst({ where: { sellerId: userId, title, status: { notIn: ['DELETED', 'DRAFT'] } }, orderBy: { createdAt: 'asc' } });
+    if (earlier) return [earlier.id];
     const urls = [...new Set(item.photoUrls)].slice(0, 10);
     if (!urls.length) throw new Error('нет фото');
     const photos: { id: string; isDefect: boolean }[] = [];
@@ -254,11 +249,15 @@ export class TgImportService implements OnApplicationBootstrap {
 
     const shoes = item.category === 'shoes';
     const sizes = item.sizes ?? [];
-    const size = sizes.length
-      ? { sizeSystem: (shoes ? 'SHOE_EU' : 'ALPHA') as 'SHOE_EU' | 'ALPHA', sizeValue: sizes[0], extraSizes: sizes.slice(1) }
-      : sizeRequired(item.category)
-        ? { sizeSystem: 'OTHER' as const, sizeValue: 'Уточняйте', extraSizes: [] }
-        : { sizeSystem: null, sizeValue: null, extraSizes: [] };
+    // One listing per item: several sizes are written in one line («S, M, L»), not split into copies.
+    const size =
+      sizes.length === 1
+        ? { sizeSystem: (shoes ? 'SHOE_EU' : 'ALPHA') as 'SHOE_EU' | 'ALPHA', sizeValue: sizes[0] }
+        : sizes.length > 1
+          ? { sizeSystem: 'OTHER' as const, sizeValue: sizes.join(', ').slice(0, 20) }
+          : sizeRequired(item.category)
+            ? { sizeSystem: 'OTHER' as const, sizeValue: 'Уточняйте' }
+            : { sizeSystem: null, sizeValue: null };
 
     const input: ListingInputT = {
       photos,
@@ -288,8 +287,40 @@ export class TgImportService implements OnApplicationBootstrap {
       await this.listings.remove(userId, draft.id).catch(() => undefined);
       throw e;
     }
-    const copies = await this.prisma.listing.findMany({ where: { groupId: draft.id, id: { not: draft.id } }, select: { id: true } });
-    return [draft.id, ...copies.map((c) => c.id)];
+    return [draft.id];
+  }
+
+  /**
+   * One item = one card: size copies made by earlier imports are folded into their first listing (all sizes in one
+   * line), and listings repeating a title keep only the oldest. Items in a deal are left alone.
+   */
+  private async foldRepeats(cfg: TgSourceConfig, userId: string) {
+    const ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+    const rank = (v: string | null) => (ORDER.includes(v ?? '') ? ORDER.indexOf(v!) : 100 + Number(v ?? 0));
+    const live = await this.prisma.listing.findMany({
+      where: { sellerId: userId, status: { in: ['PUBLISHED', 'HIDDEN', 'RESERVED', 'SOLD'] } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, title: true, status: true, groupId: true, sizeValue: true },
+    });
+    let folded = 0;
+    const byTitle = new Map<string, typeof live>();
+    for (const l of live) byTitle.set(l.title, [...(byTitle.get(l.title) ?? []), l]);
+    for (const [, rows] of byTitle) {
+      if (rows.length < 2) continue;
+      const keep = rows.find((r) => r.status === 'RESERVED') ?? rows[0];
+      const sizes = [...new Set(rows.map((r) => r.sizeValue).filter((v): v is string => !!v && v !== 'Уточняйте'))].sort((a, b) => rank(a) - rank(b));
+      for (const r of rows) {
+        if (r.id === keep.id || r.status === 'RESERVED') continue;
+        await this.prisma.listing.update({ where: { id: r.id }, data: { status: 'DELETED' } });
+        await this.prisma.offer.updateMany({ where: { listingId: r.id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
+        folded++;
+      }
+      await this.prisma.listing.update({
+        where: { id: keep.id },
+        data: { groupId: null, extraSizes: [], ...(sizes.length > 1 ? { sizeSystem: 'OTHER', sizeValue: sizes.join(', ').slice(0, 20) } : {}) },
+      });
+    }
+    if (folded) this.logger.log(`@${cfg.channel}: ${folded} repeated listings folded`);
   }
 
   private async closeListings(userId: string, ids: string[], how: 'remove' | 'sold') {
