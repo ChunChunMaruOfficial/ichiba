@@ -5,7 +5,7 @@ import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
-import { RequireAuth } from "@/components/require-auth";
+import { guestCart, useGuestCart } from "@/lib/guest-cart";
 import { useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { ManekiNeko } from "@/components/shop/maneki-neko";
@@ -14,18 +14,34 @@ import { api, ApiError } from "@/lib/api";
 import { CONDITION_LABEL, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, items as itemsLabel, plural } from "@/lib/labels";
 import type { CartGroup, Deal, Me } from "@/lib/types";
 
+/** Guests have a cart too (kept in the browser); signing in is asked only at checkout. */
 export default function CartPage() {
-  return <RequireAuth reason="чтобы открыть корзину">{(me) => <Cart me={me} />}</RequireAuth>;
+  const { me, loading } = useSession();
+  if (loading) {
+    return (
+      <div className="mx-auto flex max-w-[1280px] flex-col gap-10 px-4 py-6 md:px-6 md:py-10">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-56 rounded-3xl" />
+      </div>
+    );
+  }
+  return <Cart me={me} />;
 }
 
 /** Cart (frame 12): grouped by seller, one buy request per seller, no quantities or coupons. */
-function Cart({ me }: { me: Me }) {
-  const { data, error, mutate } = useSWR<{ groups: CartGroup[]; count: number }>("/cart");
+function Cart({ me }: { me: Me | null }) {
+  const guestItems = useGuestCart();
+  const server = useSWR<{ groups: CartGroup[]; count: number }>(me ? "/cart" : null);
+  // A guest's cart: the browser keeps ids (and sizes), the API shows them grouped like a signed-in cart.
+  const guest = useSWR<{ groups: CartGroup[]; count: number }>(!me && guestItems.length ? ["/cart/preview", JSON.stringify(guestItems)] : null, () => api("/cart/preview", { body: { items: guestItems } }));
+  const { data: loaded, error, mutate } = me ? server : guest;
+  const data = me ? loaded : guestItems.length ? loaded : { groups: [], count: 0 };
   const { refresh } = useSession();
   const toast = useToast();
   const [sent, setSent] = useState<Deal[]>([]);
 
   const remove = async (listingId: string) => {
+    if (!me) return guestCart.remove(listingId);
     await mutate((d) => d && { ...d, groups: d.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.id !== listingId) })).filter((g) => g.items.length) }, { revalidate: false });
     try {
       await api(`/cart/${listingId}`, { method: "DELETE" });
@@ -90,10 +106,11 @@ function Cart({ me }: { me: Me }) {
   );
 }
 
-function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGroup; me: Me; index: number; onRemove: (id: string) => void; onSent: (d: Deal) => void }) {
+function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGroup; me: Me | null; index: number; onRemove: (id: string) => void; onSent: (d: Deal) => void }) {
+  const { requireAuth } = useSession();
   const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
-  const [phone, setPhone] = useState(me.phone ?? "");
+  const [phone, setPhone] = useState(me?.phone ?? "");
   const [comment, setComment] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -189,7 +206,8 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
             <span className="text-ink-2">Итого</span>
             <PriceTag>{formatPrice(g.total)}</PriceTag>
           </div>
-          <Button size="lg" block onClick={() => setOpen(true)}>
+          {/* A guest signs in here; their cart moves into the account and the page shows it as theirs. */}
+          <Button size="lg" block onClick={() => (me ? setOpen(true) : requireAuth(() => undefined))}>
             Запросить покупку · {itemsLabel(available.length)}
           </Button>
         </div>

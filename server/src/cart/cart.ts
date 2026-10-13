@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { z } from 'zod';
-import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { ZodPipe } from '../common/zod.js';
 import { applyDiscount, BundleTier, discountFor, nextTier, tiersOf } from '../listings/bundle.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
@@ -11,6 +12,8 @@ import { RecommendationsService } from '../recommendations/recommendations.servi
 const DELIVERY_ORDER = ['IN_PERSON', 'DELIVERY'] as const;
 /** «Несколько размеров»: the size goes into the cart with the item. */
 const AddDto = z.object({ size: z.string().trim().min(1).max(20).optional() });
+const PreviewDto = z.object({ items: z.array(z.object({ listingId: z.uuid(), size: z.string().trim().max(20).nullish() })).max(50) });
+const CART_INCLUDE = { ...cardInclude, seller: { select: { id: true, username: true, city: true, bundleDiscounts: true, brandVerifiedAt: true } } } satisfies Prisma.ListingInclude;
 
 /**
  * Cart groups items by seller: one buy request per seller (frame 12). No quantities or coupons —
@@ -26,16 +29,29 @@ export class CartController {
 
   @Get()
   async list(@CurrentUser() user: AuthUser) {
-    const rows = await this.prisma.cartItem.findMany({
-      where: { userId: user.id },
-      include: { listing: { include: { ...cardInclude, seller: { select: { id: true, username: true, city: true, bundleDiscounts: true } } } } },
-      orderBy: { addedAt: 'desc' },
-    });
+    const rows = await this.prisma.cartItem.findMany({ where: { userId: user.id }, include: { listing: { include: CART_INCLUDE } }, orderBy: { addedAt: 'desc' } });
+    return this.groups(rows);
+  }
+
+  /**
+   * A guest's cart lives in their browser; this shows it like a signed-in cart (grouped by seller, with bundle
+   * discounts). After sign-in the browser moves the items into the account.
+   */
+  @Public()
+  @Post('preview')
+  @HttpCode(200)
+  async preview(@Body(new ZodPipe(PreviewDto)) dto: z.infer<typeof PreviewDto>) {
+    const listings = await this.prisma.listing.findMany({ where: { id: { in: dto.items.map((i) => i.listingId) } }, include: CART_INCLUDE });
+    const byId = new Map(listings.map((l) => [l.id, l]));
+    return this.groups(dto.items.flatMap((i) => (byId.has(i.listingId) ? [{ listing: byId.get(i.listingId)!, size: i.size ?? null }] : [])));
+  }
+
+  private groups(rows: Array<{ listing: Prisma.ListingGetPayload<{ include: typeof CART_INCLUDE }>; size: string | null }>) {
     const groups = new Map<string, { seller: { id: string; username: string; city: string | null }; tiers: BundleTier[]; items: ReturnType<typeof serializeCard>[]; deliveryOptions: string[] }>();
     for (const r of rows) {
       const l = r.listing;
       if (l.status === 'DELETED') continue;
-      const { bundleDiscounts, ...seller } = l.seller;
+      const { bundleDiscounts, brandVerifiedAt: _brand, ...seller } = l.seller;
       const g = groups.get(l.sellerId) ?? { seller, tiers: tiersOf(bundleDiscounts), items: [], deliveryOptions: [...DELIVERY_ORDER] };
       // The size picked on a listing with several sizes replaces its «S · M · L».
       g.items.push({ ...serializeCard(l), ...(r.size ? { size: r.size } : {}) });

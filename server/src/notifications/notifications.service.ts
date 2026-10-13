@@ -39,7 +39,9 @@ export type NotificationType =
   | 'listing_scheduled_published'
   | 'listing_schedule_failed'
   | 'offer_likers'
-  | 'offer_auto_accepted';
+  | 'offer_auto_accepted'
+  | 'brand_approved'
+  | 'brand_rejected';
 
 /** In-app notifications, pushed live over SSE (frame 15). Email carries sign-in codes only. */
 @Injectable()

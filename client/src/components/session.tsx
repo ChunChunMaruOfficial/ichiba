@@ -1,5 +1,6 @@
 "use client";
 
+import { guestCart } from "@/lib/guest-cart";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -89,6 +90,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     },
     [user, openAuth],
   );
+
+  // Signed in with things in the guest cart: they move into the account (sizes too), then the cart is emptied.
+  useEffect(() => {
+    if (!userId) return;
+    const items = guestCart.items();
+    if (!items.length) return;
+    void (async () => {
+      for (const i of [...items].reverse()) {
+        await api(`/cart/${i.listingId}`, { body: { size: i.size ?? undefined } }).catch(() => undefined);
+      }
+      guestCart.clear();
+      void mutate();
+      void globalMutate("/cart");
+    })();
+  }, [userId, mutate, globalMutate]);
 
   // Real-time: notifications and chat over WebSocket / Pusher (frame 30). Counters refresh on every event.
   useEffect(() => {

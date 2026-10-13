@@ -454,6 +454,12 @@ html[data-immersive] [data-chrome="main"] {
   border-color: var(--ink);
   color: var(--ink);
 }
+.hanko-brand {
+  border-color: var(--shu);
+  background: var(--shu);
+  color: #f7f1e6;
+  box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.55);
+}
 .hanko-round {
   border-radius: 999px;
   padding: 7px;

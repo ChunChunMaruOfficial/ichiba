@@ -108,7 +108,8 @@ function StatusMark({ card, className }: { card: Card; className?: string }) {
   if (card.status === "SOLD") return <Hanko kind="sold" className={className} />;
   if (card.status === "RESERVED") return <Hanko kind="reserved" className={className} />;
   if (card.status !== "PUBLISHED") return <StatusBadge status={card.status} className={className} />;
-  return card.auction ? <AuctionTimer endsAt={card.auction.endsAt} className={className} /> : null;
+  if (card.auction) return <AuctionTimer endsAt={card.auction.endsAt} className={className} />;
+  return card.isBrand ? <Hanko kind="brand" className={className} /> : null;
 }
 
 /** Price on a paper tag tied on with a cinnabar thread (値札); a price cut shows the new price in cinnabar and the old one struck. */

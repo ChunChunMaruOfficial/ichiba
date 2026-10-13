@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePresence } from "@/lib/presence";
 import type { Gender, Meta } from "@/lib/types";
@@ -22,20 +22,46 @@ const categoryHref = (c: string, sub?: string, g: Audience = "") => `/search?cat
 const brandHref = (b: string, c?: string, g: Audience = "") => `/search?brand=${encodeURIComponent(b)}${c ? `&category=${c}` : ""}${genderQuery(g)}`;
 const forAudience = (categories: Category[], g: Audience) => (g ? categories.filter((c) => !c.genders || c.genders.includes(g)) : categories);
 
-/** "Все · Женщинам · Мужчинам" switch on top of the menu. */
+/** "Все · Женщинам · Мужчинам" switch on top of the menu; the white pill slides to the chosen tab. */
 function AudienceTabs({ meta, value, onChange }: { meta: Meta; value: Audience; onChange: (g: Audience) => void }) {
   const tabs: Array<[Audience, string]> = [["", "Все"], ...meta.genders.map((g) => [g.value, g.menu] as [Audience, string])];
+  const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
+  const active = tabs.findIndex(([g]) => g === value);
+  // Measured after layout (and again when the menu resizes), so the pill fits each label exactly.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = refs.current[active];
+      if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth });
+    };
+    measure();
+    const parent = refs.current[active]?.parentElement;
+    if (!parent) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, [active]);
   return (
-    <div role="tablist" aria-label="Для кого" className="flex gap-1 rounded-full bg-paper p-1">
-      {tabs.map(([g, label]) => (
+    <div role="tablist" aria-label="Для кого" className="relative flex gap-1 rounded-full bg-paper p-1">
+      {pill && (
+        <span
+          aria-hidden
+          className="absolute inset-y-1 rounded-full bg-surface shadow-sm transition-[left,width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+          style={{ left: pill.left, width: pill.width }}
+        />
+      )}
+      {tabs.map(([g, label], i) => (
         <button
           key={g || "all"}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
           type="button"
           role="tab"
           aria-selected={value === g}
           onClick={() => onChange(g)}
           onMouseEnter={() => onChange(g)}
-          className={clsx("flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm", value === g ? "bg-surface font-medium text-ink shadow-sm" : "text-ink-2 hover:text-ink")}
+          className={clsx("relative flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm transition-colors duration-300", value === g ? "font-medium text-ink" : "text-ink-2 hover:text-ink", !pill && value === g && "bg-surface shadow-sm")}
         >
           {label}
         </button>

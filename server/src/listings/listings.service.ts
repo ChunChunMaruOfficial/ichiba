@@ -576,7 +576,7 @@ export class ListingsService {
 
   async sellerSummary(sellerId: string, viewerId?: string) {
     const [user, active, sold, followers, following, completedDeals, rating] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, avatar: { select: { key: true, provider: true } } } }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true, avatar: { select: { key: true, provider: true } } } }),
       this.prisma.listing.count({ where: { sellerId, status: { in: VISIBLE_IN_FEED } } }),
       this.prisma.listing.count({ where: { sellerId, status: 'SOLD' } }),
       this.prisma.follow.count({ where: { sellerId } }),
@@ -588,8 +588,10 @@ export class ListingsService {
       viewerId && viewerId !== sellerId
         ? !!(await this.prisma.follow.findUnique({ where: { followerId_sellerId: { followerId: viewerId, sellerId } } }))
         : false;
-    const { bundleDiscounts, avatar, ...profile } = user;
+    const { bundleDiscounts, avatar, brandVerifiedAt, brandName, ...profile } = user;
     return {
+      /** «Бренд» status: the brand's name, or null. */
+      brand: brandVerifiedAt ? (brandName ?? user.username) : null,
       ...profile,
       avatar: avatar ? photoUrls(avatar) : null,
       activeCount: active,

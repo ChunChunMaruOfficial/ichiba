@@ -126,12 +126,14 @@ const HANKO = {
   sale: { kanji: "値下", ru: "скидка", ink: false },
   new: { kanji: "新", ru: "", ink: false },
   listed: { kanji: "出品", ru: "в продаже", ink: false },
+  /** «Бренд»: dyed cinnabar through, so it reads apart from «продано» (outlined in cinnabar). */
+  brand: { kanji: "銘柄", ru: "бренд", ink: false },
 } as const;
 
 export function Hanko({ kind, className }: { kind: keyof typeof HANKO; className?: string }) {
   const h = HANKO[kind];
   return (
-    <span role="img" aria-label={h.ru || "Новое"} className={clsx("hanko pointer-events-none select-none", h.ink && "hanko-ink", !h.ru && "hanko-round", className)}>
+    <span role="img" aria-label={h.ru || "Новое"} className={clsx("hanko pointer-events-none select-none", h.ink && "hanko-ink", kind === "brand" && "hanko-brand", !h.ru && "hanko-round", className)}>
       <span className="hanko-kanji" aria-hidden>
         {h.kanji}
       </span>

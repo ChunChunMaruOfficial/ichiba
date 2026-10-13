@@ -3,7 +3,7 @@ import { photoUrls, type StoredPhoto } from '../media/media.service.js';
 
 export const cardInclude = {
   photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 },
-  seller: { select: { id: true, username: true } },
+  seller: { select: { id: true, username: true, brandVerifiedAt: true } },
   video: { select: { id: true } },
   auctions: {
     where: { status: 'ACTIVE' },
@@ -47,6 +47,8 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     status: l.status,
     cover: cover ? { width: cover.width, height: cover.height, urls: photoUrls(cover) } : null,
     seller: { id: l.seller.id, username: l.seller.username },
+    /** The seller has the «Бренд» status: the card carries the brand seal. */
+    isBrand: !!l.seller.brandVerifiedAt,
     isFavorite: favoriteIds ? favoriteIds.has(l.id) : false,
     publishedAt: l.publishedAt,
     saleType: l.saleType,

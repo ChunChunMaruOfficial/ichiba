@@ -1,5 +1,6 @@
 "use client";
 
+import { guestCart, useGuestCart } from "@/lib/guest-cart";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,7 +21,7 @@ import { Avatar } from "@/components/avatar";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
 import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
-import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconBag, IconCheck, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, DealBadge, Hanko, EmptyState, ErrorState, Field, IconBag, IconCheck, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
@@ -122,6 +123,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [appealOpen, setAppealOpen] = useState(false);
   const [inCart, setInCart] = useState(l.inCart);
+  const guestItems = useGuestCart();
+  const shownInCart = me ? inCart : guestItems.some((i) => i.listingId === l.id);
 
   const color = meta?.colors.find((c) => c.value === l.color);
   const measurements = Object.entries(l.measurements ?? {}).filter(([, v]) => v);
@@ -161,7 +164,18 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         }
       },
     );
-  const toggleCart = () =>
+  const toggleCart = () => {
+    if (!me) {
+      // Guests keep the cart in the browser; it moves into the account when they sign in.
+      if (shownInCart) return guestCart.remove(l.id);
+      if (needSize()) return;
+      guestCart.add(l.id, pickedSize);
+      toast("В корзине", { action: { label: "Перейти", onClick: () => router.push("/cart") } });
+      return;
+    }
+    return toggleSignedIn();
+  };
+  const toggleSignedIn = () =>
     !(!inCart && needSize()) &&
     requireAuth(
       async () => {
@@ -352,10 +366,10 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             <Button size="lg" className="flex-1" onClick={buy} disabled={!canBuy}>
               Купить
             </Button>
-            {(canBuy || inCart) && (
-              <Button size="lg" variant="secondary" onClick={toggleCart} aria-pressed={inCart} aria-label={inCart ? "Убрать из корзины" : "Добавить в корзину"} title={inCart ? "Убрать из корзины" : "В корзину"}>
+            {(canBuy || shownInCart) && (
+              <Button size="lg" variant="secondary" onClick={toggleCart} aria-pressed={shownInCart} aria-label={shownInCart ? "Убрать из корзины" : "Добавить в корзину"} title={shownInCart ? "Убрать из корзины" : "В корзину"}>
                 <IconBag className="size-5" />
-                {inCart && <IconCheck className="-ml-1 size-4" />}
+                {shownInCart && <IconCheck className="-ml-1 size-4" />}
               </Button>
             )}
           </div>
@@ -417,6 +431,12 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             {auctionRunning && <Badge tone="warn" className="mb-2 block w-fit">Аукцион</Badge>}
             {l.title}
           </h1>
+            {l.seller.brand && (
+              <Link href={`/u/${l.seller.username}`} className="mt-3 inline-flex items-center gap-2.5 text-sm text-ink-2 hover:text-ink" title="Статус бренда подтверждён ichiba">
+                <Hanko kind="brand" className="origin-left scale-[0.8]" />
+                {l.seller.brand}
+              </Link>
+            )}
             <div className="absolute -right-2 -top-1.5 flex flex-col">
               <button aria-label="Поделиться" onClick={share} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
                 <IconShare />

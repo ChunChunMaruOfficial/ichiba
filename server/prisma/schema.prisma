@@ -116,6 +116,9 @@ model User {
   deletedAt         DateTime?
   /// Set by an admin: every listing of this account is kept hidden (not deleted) until an admin shows them again.
   listingsHiddenAt  DateTime?
+  /// «Бренд»: confirmed by an admin from a brand application; its items carry the brand seal.
+  brandVerifiedAt   DateTime?
+  brandName         String?
   onboardedAt       DateTime?
   /// Profile photo (one of the user's photos); shown on the profile and wardrobe cards.
   avatarId          String?   @unique
@@ -147,6 +150,7 @@ model User {
   reviewsReceived Review[]       @relation("reviewSeller")
   videos          Video[]
   tgSources       TgSource[]
+  brandApplications BrandApplication[]
   blockedAt       DateTime?
 }
 
@@ -856,4 +860,33 @@ model TgPost {
   updatedAt  DateTime @updatedAt
 
   @@unique([sourceId, postId])
+}
+
+/// A seller asks for the «Бренд» status from Settings; an admin reviews it in the admin panel.
+model BrandApplication {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brandName   String
+  /// IP | LLC | SELF_EMPLOYED | PERSON
+  legalForm   String
+  /// ИП or organisation name and УНП, when there is one.
+  legalName   String?
+  unp         String?
+  contactName String
+  email       String?
+  phone       String?
+  telegram    String?
+  /// Site, Instagram, Telegram channel …
+  links       String[]  @default([])
+  description String
+  /// PENDING | APPROVED | REJECTED
+  status      String    @default("PENDING")
+  adminNote   String?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId])
 }

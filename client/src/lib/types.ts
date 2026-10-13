@@ -107,6 +107,8 @@ export interface Card {
   cover: Cover | null;
   seller: { id: string; username: string };
   isFavorite: boolean;
+  /** The seller has the «Бренд» status. */
+  isBrand?: boolean;
   publishedAt: string | null;
   saleType?: "FIXED" | "AUCTION";
   auction?: { endsAt: string; currentBid: number | null; startPrice: number; bidsCount: number } | null;
@@ -150,6 +152,8 @@ export interface Photo {
 export interface SellerSummary {
   id: string;
   username: string;
+  /** «Бренд» status: the brand's name, or null. */
+  brand?: string | null;
   city: string | null;
   bio: string | null;
   createdAt: string;

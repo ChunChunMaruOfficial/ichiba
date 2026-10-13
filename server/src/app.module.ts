@@ -48,6 +48,7 @@ import { RequestsController } from './requests/requests.controller.js';
 import { RequestsService } from './requests/requests.service.js';
 import { UsersController, UsersService } from './users/users.service.js';
 import { TgPostParser } from './tg/parse.js';
+import { AdminBrandApplicationsController, BrandApplicationsController, BrandApplicationsService } from './brands/brand-applications.js';
 import { TgImportService } from './tg/tg-import.service.js';
 
 /** Single monolith (frame 28: no microservices); modules are grouped by controller/service pairs. */
@@ -96,6 +97,8 @@ import { TgImportService } from './tg/tg-import.service.js';
     StatsController,
     PrivacyController,
     MaintenanceController,
+    BrandApplicationsController,
+    AdminBrandApplicationsController,
   ],
   providers: [
     AuthService,
@@ -116,6 +119,7 @@ import { TgImportService } from './tg/tg-import.service.js';
     ListingsService,
     TgPostParser,
     TgImportService,
+    BrandApplicationsService,
     RecommendationsService,
     RequestsService,
     OffersService,

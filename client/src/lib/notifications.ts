@@ -25,6 +25,9 @@ export interface NotificationRow {
     reminder?: boolean;
     /** deal_completed: sizes sold from a «Несколько размеров» listing. */
     sizes?: string[];
+    /** brand_approved / brand_rejected */
+    brand?: string;
+    note?: string | null;
   };
   readAt: string | null;
   createdAt: string;
@@ -41,6 +44,8 @@ const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => strin
   request_expired: (p) => `Запрос на «${p.title}» отменён — не было ответа 48 часов`,
   deal_handed_over: (p) => `Продавец отметил «${p.title}» как переданную — подтвердите получение`,
   deal_in_transit: (p) => `«${p.title}» в пути${p.trackingNumber ? `, трек ${p.trackingNumber}` : ""}`,
+  brand_approved: (p) => `Статус бренда «${p.brand}» подтверждён — печать «Бренд» уже на ваших вещах`,
+  brand_rejected: (p) => `Заявка на статус бренда «${p.brand}» отклонена${p.note ? `: ${p.note}` : ""}`,
   deal_completed: (p) => `Сделка по «${p.title}» завершена${p.sizes?.length ? ` · продан размер ${p.sizes.join(", ")} — уберите его из наличия` : ""}`,
   price_drop: (p) => `Цена снижена: «${p.title}» — ${p.newPrice} BYN вместо ${p.oldPrice}`,
   item_reserved: (p) => `«${p.title}» из избранного зарезервирована`,

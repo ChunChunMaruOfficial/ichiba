@@ -18,7 +18,7 @@ import { Button, ButtonLink, IconChevronRight } from "./ui";
 /** The vertical brush label in cinnabar beside a title; it only decorates and repeats the Russian title. */
 export function KanjiLabel({ kanji, className }: { kanji: string; className?: string }) {
   return (
-    <span className={clsx("pt-1 font-brush text-[15px] leading-none tracking-[0.15em] text-shu [writing-mode:vertical-rl]", className)} aria-hidden>
+    <span className={clsx("shrink-0 font-brush text-[15px] leading-none tracking-[0.15em] text-shu [writing-mode:vertical-rl]", className)} aria-hidden>
       {kanji}
     </span>
   );
@@ -30,8 +30,9 @@ export function KanjiLabel({ kanji, className }: { kanji: string; className?: st
  */
 export function TitleWithKanji({ kanji, children, className }: { kanji: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={clsx("flex items-start gap-3", className)}>
-      <KanjiLabel kanji={kanji} className="md:pt-1.5" />
+    // The label stands centred on the heading, whatever its size or number of lines.
+    <div className={clsx("flex items-center gap-3", className)}>
+      <KanjiLabel kanji={kanji} />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -44,7 +45,7 @@ export function TitleWithKanji({ kanji, children, className }: { kanji: string; 
 export function SectionHeader({ title, count, href, linkLabel = "Все", kanji }: { title: string; count?: string; href?: string; linkLabel?: string; kanji?: string }) {
   return (
     <div className="mb-5 flex items-end justify-between gap-4">
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         {kanji && <KanjiLabel kanji={kanji} />}
         <h2 className="min-w-0 text-2xl font-bold leading-tight [overflow-wrap:anywhere] md:text-[28px]">
           {title}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useGuestCart } from "@/lib/guest-cart";
 import clsx from "clsx";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -403,9 +404,12 @@ export function Header() {
               </Link>
             </>
           ) : (
-            <button onClick={() => openAuth()} className="h-11 rounded-full px-4 text-[15px] font-semibold hover:bg-ink/5">
-              Войти
-            </button>
+            <>
+              <GuestCartLink />
+              <button onClick={() => openAuth()} className="h-11 rounded-full px-4 text-[15px] font-semibold hover:bg-ink/5">
+                Войти
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -499,5 +503,16 @@ export function BottomNav() {
       {item("/favorites", "Избранное", IconHeart, { auth: true })}
       {item("/wardrobe", "Гардероб", IconHanger, { auth: true, badge: me ? me.pendingSales + me.pendingOffers : 0 })}
     </nav>
+  );
+}
+
+/** A guest's cart lives in the browser; the link shows its count like the signed-in one. */
+function GuestCartLink() {
+  const count = useGuestCart().length;
+  return (
+    <Link href="/cart" aria-label={count ? `Корзина, вещей: ${count}` : "Корзина"} className="relative grid size-11 place-items-center rounded-full hover:bg-ink/5">
+      <IconBag />
+      {count > 0 && <span className="absolute right-1 top-1.5 grid min-w-4.5 place-items-center rounded-full bg-ink px-1 text-[11px] font-semibold leading-[18px] text-accent-ink">{count}</span>}
+    </Link>
   );
 }
