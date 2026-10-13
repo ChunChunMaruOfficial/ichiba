@@ -5,7 +5,7 @@ import { ZodPipe } from '../common/zod.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StatsService } from '../stats/stats.js';
-import { RecommendationsService } from '../recommendations/recommendations.service.js';
+import { RANK_SELECT, RecommendationsService } from '../recommendations/recommendations.service.js';
 
 const DAY = 24 * 3600 * 1000;
 
@@ -49,7 +49,7 @@ export class SwipeController {
     }
     const pool = await this.prisma.listing.findMany({
       where: { status: 'PUBLISHED', sellerId: user ? { not: user.id } : undefined, id: { notIn: exclude } },
-      select: { id: true, sellerId: true, category: true, brand: true, color: true, sizeValue: true, price: true, publishedAt: true },
+      select: RANK_SELECT,
       orderBy: { publishedAt: 'desc' },
       take: 500,
     });
@@ -59,8 +59,9 @@ export class SwipeController {
       ids = (await this.recs.rankForUser(user.id, pool)).slice(0, limit);
     } else {
       // Guests and cold start: most popular first, round-robin across categories so the deck feels varied.
-      const pop = await this.recs.popularity(pool.map((p) => p.id));
-      const sorted = [...pool].sort((a, b) => (pop.get(b.id) ?? 0) - (pop.get(a.id) ?? 0));
+      const order = await this.recs.rankPopular(pool);
+      const byId = new Map(pool.map((p) => [p.id, p]));
+      const sorted = order.map((id) => byId.get(id)!);
       const byCategory = new Map<string, string[]>();
       for (const p of sorted) byCategory.set(p.category ?? '', [...(byCategory.get(p.category ?? '') ?? []), p.id]);
       const queues = [...byCategory.values()];

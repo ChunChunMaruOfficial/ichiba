@@ -11,7 +11,7 @@ import {
 import type { Listing, ListingStatus, Prisma } from '../generated/prisma/client.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { RecommendationsService } from '../recommendations/recommendations.service.js';
+import { RANK_SELECT, RecommendationsService } from '../recommendations/recommendations.service.js';
 import { AUCTION_DURATIONS, auctionInclude, defaultStep, serializeAuction } from '../auctions/rules.js';
 import { ListingModerator, ModerationVerdict } from '../ai/moderation.js';
 import { nextBumpAt, StatsService } from '../stats/stats.js';
@@ -720,24 +720,19 @@ export class ListingsService {
   }
 
   async feed(chip: string, offset: number, limit: number, viewerId?: string) {
-    const effective = chip === 'for_you' && (!viewerId || !(await this.recs.hasProfile(viewerId))) ? 'new' : chip;
+    // Guests have no «Для вас»: they get «Новое». A signed-in person without a profile yet sees the popular items.
+    const effective = chip === 'for_you' && !viewerId ? 'new' : chip;
     const where: Prisma.ListingWhereInput = { status: { in: VISIBLE_IN_FEED }, ...(await this.notInterested(viewerId)) };
 
     if (effective === 'for_you' || effective === 'popular') {
       // Own items are excluded from personalised and popular feeds (frame 06).
       const pool = await this.prisma.listing.findMany({
         where: { ...where, sellerId: viewerId ? { not: viewerId } : undefined, status: 'PUBLISHED' },
-        select: { id: true, sellerId: true, category: true, brand: true, color: true, sizeValue: true, price: true, publishedAt: true },
+        select: RANK_SELECT,
         orderBy: { publishedAt: 'desc' },
         take: CANDIDATE_POOL,
       });
-      let ids: string[];
-      if (effective === 'for_you') {
-        ids = await this.recs.rankForUser(viewerId!, pool);
-      } else {
-        const pop = await this.recs.popularity(pool.map((p) => p.id));
-        ids = [...pool].sort((a, b) => (pop.get(b.id) ?? 0) - (pop.get(a.id) ?? 0)).map((p) => p.id);
-      }
+      const ids = effective === 'for_you' && (await this.recs.hasProfile(viewerId!)) ? await this.recs.rankForUser(viewerId!, pool) : await this.recs.rankPopular(pool);
       return { chip: effective, items: await this.cardsByIds(ids.slice(offset, offset + limit), viewerId), total: ids.length };
     }
 
@@ -776,7 +771,7 @@ export class ListingsService {
       this.feed('popular', 0, 16, viewerId),
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED } } }),
       this.prisma.listing.groupBy({ by: ['category'], where: { status: 'PUBLISHED' }, _count: true }),
-      viewerId ? this.recs.hasProfile(viewerId) : false,
+      !!viewerId,
     ]);
 
     const categories = await Promise.all(
@@ -855,7 +850,7 @@ export class ListingsService {
     if (q.sort === 'for_you' && viewerId) {
       const pool = await this.prisma.listing.findMany({
         where,
-        select: { id: true, sellerId: true, category: true, brand: true, color: true, sizeValue: true, price: true, publishedAt: true },
+        select: RANK_SELECT,
         orderBy: { publishedAt: 'desc' },
         take: CANDIDATE_POOL,
       });
@@ -879,7 +874,12 @@ export class ListingsService {
       total = count;
     }
 
-    if (viewerId && (q.size?.length || q.brand?.length) && q.offset === 0) await this.recs.record(viewerId, 'filter');
+    // What the person searches for shapes «Для вас» (the first page only, so scrolling doesn't count twice).
+    if (viewerId && q.offset === 0) {
+      const meta = { category: q.category, brand: q.brand, style: q.style, size: q.size, color: q.color };
+      const traits = Object.values(meta).some((v) => v?.length);
+      if (q.q?.trim() || traits) await this.recs.record(viewerId, q.q?.trim() ? 'search' : 'filter', undefined, meta);
+    }
 
     // Empty-state hint (frame 07): "без фильтра «M» — 23 вещи".
     let relax: { filter: string; label: string; count: number } | null = null;

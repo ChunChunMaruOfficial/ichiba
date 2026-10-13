@@ -353,9 +353,12 @@ model Signal {
   listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
   type      String
   weight    Int
+  /// search / filter: the traits looked for ({ category, brand, style, size, color }).
+  meta      Json?
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+  @@index([listingId, createdAt])
 }
 
 model BuyRequest {

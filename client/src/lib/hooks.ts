@@ -67,18 +67,24 @@ export function useInfiniteCards<P extends Page>(keyFor: (offset: number) => str
   return { ...swr, pages, items, total, done, loadingMore, loadMore: () => !done && !swr.isValidating && swr.setSize(swr.size + 1) };
 }
 
-/** Calls `onHit` when the sentinel scrolls near the viewport. */
+/**
+ * Calls `onHit` while the sentinel is near the viewport. A callback ref, so the observer attaches whenever the
+ * sentinel mounts (lists render it only after their first page), and it keeps asking after every render while the
+ * sentinel stays in view — a short page or a hit during revalidation never leaves the list stuck.
+ */
 export function useSentinel(onHit: () => void, enabled = true) {
-  const ref = useRef<HTMLDivElement>(null);
-  const cb = useRef(onHit);
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
   useEffect(() => {
-    cb.current = onHit;
-  });
-  useEffect(() => {
-    if (!enabled || !ref.current) return;
-    const io = new IntersectionObserver((entries) => entries[0].isIntersecting && cb.current(), { rootMargin: "800px 0px" });
-    io.observe(ref.current);
+    if (!node) return;
+    const io = new IntersectionObserver((entries) => setVisible(entries[0].isIntersecting), { rootMargin: "800px 0px" });
+    io.observe(node);
     return () => io.disconnect();
-  }, [enabled]);
-  return ref;
+  }, [node]);
+  // No deps on purpose: after each load the list re-renders, and if the end is still in view the next page is asked
+  // for (onHit itself ignores calls while a page is loading or when the list is done).
+  useEffect(() => {
+    if (visible && enabled) onHit();
+  });
+  return setNode;
 }
