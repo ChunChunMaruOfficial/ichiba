@@ -128,16 +128,18 @@ const ITEM_STEMS = [
   'лофер', 'сапог', 'сапожк', 'ботфорт', 'челси', 'мокасин', 'слипон', 'балетк', 'босонож', 'мюли', 'сабо', 'шлепан', 'сланц', 'угги', 'бутс', 'сумк', 'сумочк', 'рюкзак', 'шоппер', 'кросс-боди', 'клатч',
   'портфел', 'кошел', 'шапк', 'кепк', 'панам', 'бейсболк', 'берет', 'шляп', 'шарф', 'платок', 'палантин', 'снуд', 'ремен', 'ремн', 'пояс', 'украшен', 'серьг', 'серёж', 'сереж', 'кольц', 'браслет',
   'цепочк', 'колье', 'подвеск', 'кулон', 'бусы', 'очк', 'перчатк', 'варежк', 'галстук', 'бабочк', 'носк', 'топ', 'водолазк', 'джемпер', 'пуловер', 'бомбер', 'ветровк', 'парк', 'анорак', 'косух',
-  'дублен', 'шуб', 'туник', 'леггинс', 'лосин', 'легинс', 'боди', 'корсет', 'халат', 'пижам', 'купальн', 'кофт', 'кофточк', 'олимпийк', 'жилетк', 'часы', 'часик', 'визитниц', 'тапк', 'тапоч',
+  'дублен', 'шуб', 'туник', 'леггинс', 'лосин', 'легинс', 'боди', 'корсет', 'халат', 'пижам', 'купальн', 'кофт', 'кофточк', 'олимпийк', 'жилетк', 'часы', 'часик', 'визитниц', 'тапк', 'тапоч', 'брелок', 'брелк',
   'jacket', 'coat', 'parka', 'puffer', 'trench', 'vest', 'shirt', 'tee', 't-shirt', 'tshirt', 'polo', 'blouse', 'sweater', 'hoodie', 'sweatshirt', 'cardigan', 'trousers', 'pants', 'cargo', 'jogger',
   'jeans', 'denim', 'shorts', 'skirt', 'dress', 'jumpsuit', 'suit', 'blazer', 'sneaker', 'trainer', 'boot', 'shoe', 'sandal', 'loafer', 'heels', 'bag', 'backpack', 'tote', 'crossbody', 'clutch',
   'wallet', 'hat', 'cap', 'beanie', 'scarf', 'belt', 'ring', 'necklace', 'bracelet', 'earring', 'glasses', 'sunglasses', 'gloves', 'tie', 'socks', 'top', 'jumper', 'pullover', 'bomber', 'windbreaker',
-  'anorak', 'leggings', 'bodysuit', 'watch',
+  'anorak', 'leggings', 'bodysuit', 'watch', 'keychain',
 ];
 
 export function mentionsItem(text: string): boolean {
   const lower = text.toLowerCase().replace(/ё/g, 'е');
-  return lower.split(/[^a-zа-я-]+/).some((w) => w.length >= 2 && ITEM_STEMS.some((s) => w.startsWith(s)));
+  // «зип-худи», «t-shirt»: the whole word and each of its parts count.
+  const words = lower.split(/[^a-zа-я-]+/).flatMap((w) => [w, ...(w.includes('-') ? w.split('-') : [])]);
+  return words.some((w) => w.length >= 2 && ITEM_STEMS.some((s) => w.startsWith(s)));
 }
 
 // ---------- prohibited goods / counterfeit ----------

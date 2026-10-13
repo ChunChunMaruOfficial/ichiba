@@ -25,7 +25,7 @@ import type { ListingInputT, SearchQueryT } from './listings.dto.js';
 const VISIBLE_IN_FEED: ListingStatus[] = ['PUBLISHED', 'RESERVED'];
 const ACTIVE_REQUEST_STATUSES = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT', 'WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED'] as const;
 /** Fields frozen while a deal is in progress (frame 10 EDIT ITEM). */
-const LOCKED_WHEN_RESERVED = ['price', 'sizeValue', 'sizeSystem', 'condition', 'defectsPresent', 'defectsDescription'] as const;
+const LOCKED_WHEN_RESERVED = ['price', 'priceNegotiable', 'sizeValue', 'sizeSystem', 'condition', 'defectsPresent', 'defectsDescription'] as const;
 const CANDIDATE_POOL = 1000;
 /** Edits of these on a live listing are moderated again. */
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
@@ -136,6 +136,8 @@ export class ListingsService {
     if (aiAttributes !== undefined) data.aiAttributes = (aiAttributes ?? undefined) as Prisma.InputJsonValue | undefined;
     if (input.defectsPresent === false) data.defectsDescription = null;
     if (input.brand !== undefined) data.brand = canonicalBrand(input.brand);
+    // A negotiable price has no number, and nothing that compares against one.
+    if (input.priceNegotiable) Object.assign(data, { price: null, autoAcceptPrice: null, minOfferPrice: null, saleType: 'FIXED' });
     return data;
   }
 
@@ -189,7 +191,8 @@ export class ListingsService {
     if (!listing.condition) fields.condition = 'Выберите состояние';
     if (listing.defectsPresent == null) fields.defects = 'Укажите, есть ли дефекты';
     if (listing.defectsPresent && !listing.defectsDescription?.trim()) fields.defectsDescription = 'Опишите дефекты';
-    if (!listing.price) fields.price = 'Укажите цену';
+    if (!listing.price && !listing.priceNegotiable) fields.price = 'Укажите цену';
+    if (listing.priceNegotiable && listing.saleType === 'AUCTION') fields.price = 'На аукционе нужна стартовая цена';
     if (!listing.deliveryOptions.length) fields.deliveryOptions = 'Выберите способ передачи';
     if (listing.originalPrice != null && listing.price != null && listing.originalPrice <= listing.price) fields.originalPrice = 'Цена в магазине должна быть выше вашей';
     if (listing.saleType === 'AUCTION') {
@@ -231,6 +234,7 @@ export class ListingsService {
           sizeValue: size,
           condition: listing.condition,
           price: listing.price,
+          priceNegotiable: listing.priceNegotiable,
           originalPrice: listing.originalPrice,
           defectsPresent: listing.defectsPresent,
           defectsDescription: listing.defectsDescription,
@@ -247,8 +251,9 @@ export class ListingsService {
           styleTags: listing.styleTags,
           aiAttributes: listing.aiAttributes ?? undefined,
           aiModelVersion: listing.aiModelVersion,
-          publishedAt: now,
-          liftedAt: now,
+          // Same date as the item itself (a backdated import keeps its copies beside it).
+          publishedAt: listing.publishedAt ?? now,
+          liftedAt: listing.liftedAt ?? now,
         },
       });
       // Storage files are shared: rows point at the same keys, nothing is copied.
@@ -265,12 +270,16 @@ export class ListingsService {
 
   // ---------- lifecycle ----------
 
-  async publish(userId: string, id: string) {
+  /**
+   * `trustedPhotos`: the photos were checked by hand as different items (a shop import), so the photo half of the
+   * duplicate check is skipped; the text check and moderation still apply.
+   */
+  async publish(userId: string, id: string, opts: { trustedPhotos?: boolean } = {}) {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'PUBLISHED') return this.getForOwner(userId, id);
     if (!['DRAFT', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя опубликовать' });
 
-    const verdict = await this.checkPublishable(userId, listing);
+    const verdict = await this.checkPublishable(userId, listing, opts.trustedPhotos);
     await this.prisma.listing.update({
       where: { id },
       data: { status: 'PUBLISHED', publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date(), scheduledAt: null },
@@ -301,12 +310,12 @@ export class ListingsService {
   }
 
   /** Required fields, then automatic moderation (rules + AI ensemble); violations come back as field errors. */
-  private async checkPublishable(userId: string, listing: Listing) {
+  private async checkPublishable(userId: string, listing: Listing, trustedPhotos = false) {
     const keys = await this.moderationKeys(userId, listing.id);
     const photoCount = await this.prisma.photo.count({ where: { listingId: listing.id } });
     const fields = this.publishErrors(listing, photoCount);
     if (Object.keys(fields).length) throw new BadRequestException({ message: 'Заполните обязательные поля', fields });
-    const duplicate = await this.findDuplicate(listing);
+    const duplicate = await this.findDuplicate(listing, trustedPhotos);
     if (duplicate) {
       throw new BadRequestException({
         message: 'У вас уже есть такое объявление',
@@ -325,7 +334,7 @@ export class ListingsService {
    * feeds. A duplicate is one of their live or scheduled listings with a near-identical photo, or with the same
    * title, category and size. Copies in other sizes (same groupId) are the same item on purpose.
    */
-  private async findDuplicate(listing: Listing): Promise<{ id: string; title: string; by: 'photo' | 'text' } | null> {
+  private async findDuplicate(listing: Listing, skipPhotos = false): Promise<{ id: string; title: string; by: 'photo' | 'text' } | null> {
     const others = await this.prisma.listing.findMany({
       where: {
         sellerId: listing.sellerId,
@@ -342,7 +351,7 @@ export class ListingsService {
 
     const mine = await this.prisma.photo.findMany({ where: { listingId: listing.id }, select: { id: true, key: true, dhash: true } });
     const myHashes = (await Promise.all(mine.map((p) => this.media.dhash(p)))).filter((h): h is string => !!h);
-    if (!myHashes.length) return null;
+    if (skipPhotos || !myHashes.length) return null;
     for (const o of others) {
       for (const p of o.photos) {
         const h = await this.media.dhash(p);
@@ -541,6 +550,7 @@ export class ListingsService {
       status: listing.status,
       title: listing.title,
       price: listing.price,
+      priceNegotiable: listing.priceNegotiable,
       previousPrice: listing.previousPrice,
       originalPrice: listing.originalPrice,
       category: listing.category,
@@ -906,9 +916,9 @@ export class ListingsService {
     } else {
       const orderBy: Prisma.ListingOrderByWithRelationInput[] =
         q.sort === 'cheap'
-          ? [{ price: 'asc' }]
+          ? [{ price: { sort: 'asc', nulls: 'last' } }]
           : q.sort === 'expensive'
-            ? [{ price: 'desc' }]
+            ? [{ price: { sort: 'desc', nulls: 'last' } }]
             : q.sort === 'popular'
               ? [{ favoritesCount: 'desc' }, { viewsCount: 'desc' }]
               : [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }];

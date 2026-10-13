@@ -317,6 +317,7 @@ export function PriceFields({
   market,
 }: Pick<FieldsProps, "values" | "set" | "errors" | "locked"> & { auctionLocked?: boolean; market?: { recommended: number; low: number; high: number } | null }) {
   const auction = values.saleType === "AUCTION";
+  const negotiable = !auction && values.priceNegotiable;
   const price = Number(values.price) || 0;
   const autoStep = price ? Math.max(1, Math.round(price * 0.05)) : null;
   return (
@@ -331,6 +332,9 @@ export function PriceFields({
                   {auction ? "Стартовая цена" : "Цена"}
                   <span className="text-danger"> ★</span>
                 </span>
+                {negotiable ? (
+                  <span className="text-[0.5em] leading-[1.6]">Договорная</span>
+                ) : (
                 <span className="flex items-baseline gap-2">
                   <input
                     inputMode="numeric"
@@ -345,16 +349,33 @@ export function PriceFields({
                   />
                   <span className="text-[0.45em] opacity-70">BYN</span>
                 </span>
+                )}
               </span>
             </Nefuda>
           </label>
+          {!auction && (
+            <label className={clsx("flex items-center gap-2.5 pl-8 text-sm", (locked || auctionLocked) && "opacity-60")}>
+              <input
+                type="checkbox"
+                className="size-4 accent-[var(--accent)]"
+                disabled={locked || auctionLocked}
+                checked={values.priceNegotiable}
+                onChange={(e) => set({ priceNegotiable: e.target.checked, ...(e.target.checked ? { acceptsOffers: true } : {}) })}
+              />
+              <span>
+                Цена договорная
+                <span className="block text-xs text-muted">Покупатели предложат свою цену или напишут вам</span>
+              </span>
+            </label>
+          )}
           {errors.price ? (
             <p className="pl-8 text-sm text-danger">{errors.price}</p>
           ) : locked ? (
             <p className="pl-8 text-sm text-muted">Идёт сделка — цену нельзя изменить</p>
           ) : (
             market &&
-            !auctionLocked && (
+            !auctionLocked &&
+            !negotiable && (
               <p className="pop pl-8 text-sm text-muted">
                 Рыночная цена:{" "}
                 <button type="button" onClick={() => set({ price: String(market.recommended) })} className="tabular font-semibold text-ink underline decoration-dotted underline-offset-4 hover:text-indigo" title="Поставить эту цену">
@@ -409,7 +430,7 @@ export function PriceFields({
             </Field>
           </div>
         </div>
-      ) : (
+      ) : negotiable ? null : (
         <div className="rounded-2xl bg-surface p-4 md:p-5">
           <label className="flex items-center justify-between gap-4">
             <span>

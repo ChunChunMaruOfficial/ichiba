@@ -11,7 +11,7 @@ import { useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { Button, EmptyState, ErrorState, Skeleton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { formatPrice } from "@/lib/labels";
+import { formatPrice, listingPrice } from "@/lib/labels";
 import type { Look } from "@/lib/types";
 
 // The pieces lie on the page like clothes laid out on a table: each at its own slight angle.
@@ -100,7 +100,7 @@ export default function LookPage() {
                 {c.cover && <img src={c.cover.urls.m} alt={c.title} className={clsx("size-full object-cover", c.status !== "PUBLISHED" && "opacity-60")} />}
               </span>
               <span className="mt-3 block truncate font-medium">{c.title}</span>
-              <span className="block text-sm text-ink-2 tabular">{c.status === "SOLD" ? "Продано" : c.status === "RESERVED" ? "Забронировано" : formatPrice(c.price)}</span>
+              <span className="block text-sm text-ink-2 tabular">{c.status === "SOLD" ? "Продано" : c.status === "RESERVED" ? "Забронировано" : listingPrice(c)}</span>
             </Link>
           </li>
         ))}

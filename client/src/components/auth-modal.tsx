@@ -214,7 +214,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
       >
         {(step === "start" || step === "password" || step === "reset") && (
           <Field
-            label="Почта"
+            label={step === "password" ? "Почта или ник" : "Почта"}
             htmlFor="auth-login"
             error={fields.login}
             hint={step === "start" ? "Пришлём код на почту" : undefined}
@@ -229,8 +229,8 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
               value={login}
               onChange={(e) => setLogin(e.target.value)}
               error={fields.login}
-              type="email"
-              inputMode="email"
+              type={step === "password" ? "text" : "email"}
+              inputMode={step === "password" ? "text" : "email"}
               placeholder="you@mail.by"
             />
           </Field>

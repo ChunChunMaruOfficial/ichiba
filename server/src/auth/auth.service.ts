@@ -24,7 +24,7 @@ const MAX_CODE_ATTEMPTS = 5;
 const MAX_CODES_PER_HOUR = 5;
 const SIGNUP_TOKEN_TTL = '30m';
 /** Bump when the privacy policy changes materially; stored with each consent. */
-const PRIVACY_VERSION = '2026-10-11';
+export const PRIVACY_VERSION = '2026-10-11';
 /** Dev only: any 6-digit code passes verification. Never enabled in production. */
 export const DEV_ANY_CODE = process.env.AUTH_DEV_ANY_CODE === 'true' && process.env.NODE_ENV !== 'production';
 
@@ -249,6 +249,16 @@ export class AuthService {
   }
 
   async login(rawLogin: string, password: string) {
+    // Accounts made without an address (shops imported from Telegram) sign in with their nick and password.
+    const nick = rawLogin.trim().toLowerCase().replace(/^@/, '');
+    if (!nick.includes('@') && USERNAME_RE.test(nick)) {
+      const user = await this.prisma.user.findUnique({ where: { username: nick } });
+      if (!user?.passwordHash || user.email || user.phone || !(await bcrypt.compare(password, user.passwordHash))) {
+        throw new UnauthorizedException({ message: 'Неверный ник или пароль' });
+      }
+      if (user.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
+      return { user, isNew: false };
+    }
     const login = normalizeLogin(rawLogin);
     const user = await this.prisma.user.findUnique({ where: login.kind === 'email' ? { email: login.value } : { phone: login.value } });
     if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {

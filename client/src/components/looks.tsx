@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useDeferredValue, useState } from "react";
 import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
-import { formatPrice } from "@/lib/labels";
+import { formatPrice, listingPrice } from "@/lib/labels";
 import type { Card, Cover, Look } from "@/lib/types";
 import { useSession } from "./session";
 import { useToast } from "./toast";
@@ -158,7 +158,7 @@ export function LookEditor({ username, open, onClose, look, initial, onSaved }: 
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {c.cover && <img src={c.cover.urls.s} alt={c.title} className="size-full object-cover" />}
                     <span className={clsx("absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full text-xs font-bold", n >= 0 ? "bg-shu text-on-shu" : "bg-black/35 text-white")}>{n >= 0 ? n + 1 : ""}</span>
-                    <span className="absolute bottom-1.5 left-1.5 rounded bg-kraft/95 px-1 text-[10px] font-bold tabular text-kraft-ink">{formatPrice(c.price)}</span>
+                    <span className="absolute bottom-1.5 left-1.5 rounded bg-kraft/95 px-1 text-[10px] font-bold tabular text-kraft-ink">{listingPrice(c)}</span>
                   </button>
                 </li>
               );

@@ -93,6 +93,8 @@ export interface Card {
   id: string;
   title: string;
   price: number | null;
+  /** «Цена договорная»: no price, bought through an offer or a chat. */
+  priceNegotiable?: boolean;
   previousPrice: number | null;
   originalPrice?: number | null;
   hasVideo?: boolean;
@@ -186,6 +188,8 @@ export interface ListingDetail {
   status: ListingStatus;
   title: string;
   price: number | null;
+  /** «Цена договорная»: no price, bought through an offer or a chat. */
+  priceNegotiable?: boolean;
   previousPrice: number | null;
   originalPrice: number | null;
   category: string | null;

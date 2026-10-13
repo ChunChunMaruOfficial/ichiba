@@ -150,6 +150,7 @@ export class RequestsService {
     if (new Set(listings.map((l) => l.sellerId)).size > 1) throw new BadRequestException({ message: 'Один запрос — вещи одного продавца' });
     if (listings.some((l) => l.saleType === 'AUCTION')) throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
     if (listings.some((l) => l.status === 'RESERVED')) throw new ConflictException({ message: 'Пока вы оформляли, вещь зарезервировали', code: 'RESERVED' });
+    if (listings.some((l) => l.priceNegotiable)) throw new BadRequestException({ message: 'Цена договорная — предложите свою цену или напишите продавцу', code: 'NEGOTIABLE' });
     if (listings.some((l) => l.status !== 'PUBLISHED' || !l.price)) throw new ConflictException({ message: 'Вещь недоступна для покупки', code: 'UNAVAILABLE' });
     const allowed = listings.reduce<DeliveryMethod[]>((acc, l) => acc.filter((m) => l.deliveryOptions.includes(m)), DELIVERY_METHODS);
     this.validateDelivery(input, allowed);

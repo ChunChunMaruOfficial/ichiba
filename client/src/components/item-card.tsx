@@ -143,7 +143,7 @@ function CardMarks({ card, discount }: { card: Card; discount: number }) {
 export function ItemCard({ card, variant = "grid", source = "search", eager, uniform }: { card: Card; variant?: "feed" | "grid"; source?: "feed" | "search" | "wardrobe"; eager?: boolean; uniform?: boolean }) {
   const discounted = !card.auction && card.previousPrice && card.price && card.price < card.previousPrice;
   const shopDiscount = !card.auction && card.originalPrice && card.price && card.originalPrice > card.price ? Math.round((1 - card.price / card.originalPrice) * 100) : 0;
-  const price = card.auction ? auctionPrice(card.auction) : card.price == null ? "Без цены" : formatPrice(card.price);
+  const price = card.auction ? auctionPrice(card.auction) : card.priceNegotiable ? "Договорная" : card.price == null ? "Без цены" : formatPrice(card.price);
   const { me } = useSession();
   // One's own items (drafts included) can't be liked, and only live items have «Похожие».
   const mine = me?.id === card.seller.id;

@@ -32,6 +32,8 @@ export const ListingInput = z.object({
   city: z.enum(CITIES as [string, ...string[]]).nullish(),
   deliveryOptions: z.array(z.enum(['IN_PERSON', 'DELIVERY'])).optional(),
   acceptsOffers: z.boolean().optional(),
+  /** «Цена договорная»: no price; the listing is bought through an offer or a chat. */
+  priceNegotiable: z.boolean().optional(),
   saleType: z.enum(['FIXED', 'AUCTION']).optional(),
   auctionStep: z.number().int().min(1).max(10_000).nullish(),
   auctionReserve: z.number().int().min(1).max(100_000).nullish(),

@@ -23,7 +23,8 @@ export function OfferSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  listing: { id: string; title: string; price: number; cover?: string };
+  /** price is null for «Цена договорная»: the buyer names the first number. */
+  listing: { id: string; title: string; price: number | null; cover?: string };
   onSent: (o: Offer) => void;
 }) {
   const router = useRouter();
@@ -32,8 +33,9 @@ export function OfferSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const amount = Number(value);
-  const tooHigh = !!value && amount >= listing.price;
-  const tooLow = !!value && amount > 0 && amount < Math.ceil(listing.price * 0.3);
+  const listPrice = listing.price;
+  const tooHigh = listPrice != null && !!value && amount >= listPrice;
+  const tooLow = listPrice != null && !!value && amount > 0 && amount < Math.ceil(listPrice * 0.3);
 
   const submit = async () => {
     if (!value || !amount) return setError("Введите сумму");
@@ -62,7 +64,13 @@ export function OfferSheet({
         <div className="min-w-0">
           <p className="truncate font-medium">{listing.title}</p>
           <p className="text-sm text-ink-2">
-            Цена продавца: <b className="tabular text-ink">{formatPrice(listing.price)}</b>
+            {listPrice != null ? (
+              <>
+                Цена продавца: <b className="tabular text-ink">{formatPrice(listPrice)}</b>
+              </>
+            ) : (
+              "Цена договорная — назовите свою"
+            )}
           </p>
         </div>
       </div>
@@ -83,12 +91,13 @@ export function OfferSheet({
             value={value}
             onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 6))}
             className="tabular h-14 text-2xl font-semibold"
-            placeholder={String(Math.round(listing.price * 0.85))}
+            placeholder={listPrice != null ? String(Math.round(listPrice * 0.85)) : ""}
           />
         </Field>
+        {listPrice != null && (
         <div className="mt-3 flex flex-wrap gap-2">
           {QUICK.map((p) => {
-            const v = Math.round(listing.price * (1 - p / 100));
+            const v = Math.round(listPrice * (1 - p / 100));
             return (
               <Chip key={p} active={amount === v} onClick={() => setValue(String(v))}>
                 −{p}% ({v})
@@ -96,7 +105,8 @@ export function OfferSheet({
             );
           })}
         </div>
-        <OpeningHint listingId={listing.id} onPick={(v) => setValue(String(v))} />
+        )}
+        {listPrice != null && <OpeningHint listingId={listing.id} onPick={(v) => setValue(String(v))} />}
         {tooHigh && (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-accent-soft px-4 py-3 text-sm">
             Это не меньше цены — просто купите

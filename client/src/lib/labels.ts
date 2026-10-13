@@ -53,6 +53,8 @@ export const DEAL_STATUS: Record<RequestStatus, { buyer: string; seller: string;
 };
 
 export const formatPrice = (n: number | null | undefined) => (n == null ? "—" : `${n.toLocaleString("ru-RU")} BYN`);
+/** A listing's price as shown to buyers: «Договорная» when the seller left it open. */
+export const listingPrice = (l: { price: number | null; priceNegotiable?: boolean }) => (l.priceNegotiable ? "Договорная" : formatPrice(l.price));
 
 const rtf = new Intl.RelativeTimeFormat("ru", { numeric: "auto" });
 export function timeAgo(iso: string | null | undefined) {

@@ -24,7 +24,7 @@ import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, Ic
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
-import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice, items, plural, timeAgo } from "@/lib/labels";
+import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice, items, listingPrice, plural, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
 
@@ -134,6 +134,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const auctionRunning = l.saleType === "AUCTION" && auction?.status === "ACTIVE";
   const showAuction = !!auction && (auctionRunning || auction.status === "SOLD" || (auction.status === "NO_SALE" && auction.bidsCount > 0));
   const canBuy = !l.isOwner && l.status === "PUBLISHED" && !activeRequest && !auctionRunning;
+  // «Цена договорная»: no «Купить» — the buyer names a price or writes to the seller.
+  const negotiable = !!l.priceNegotiable;
 
   const buy = () => requireAuth(() => router.push(`/buy/${l.id}`));
   const openOffer = () => requireAuth(() => setOfferOpen(true));
@@ -164,7 +166,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
       },
     );
   const offerOpenNegotiation = offer && (offer.status === "PENDING" || offer.status === "ACCEPTED");
-  const canOffer = canBuy && l.acceptsOffers && !offerOpenNegotiation;
+  const canOffer = canBuy && (l.acceptsOffers || negotiable) && !offerOpenNegotiation;
   const share = async () => {
     const url = window.location.href;
     if (navigator.share) await navigator.share({ title: l.title, url }).catch(() => {});
@@ -309,6 +311,14 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               onNewOffer={openOffer}
             />
           )}
+          {negotiable ? (
+            <>
+              <Button size="lg" block onClick={openOffer} disabled={!canOffer}>
+                Предложить цену
+              </Button>
+              <p className="-mt-1 text-sm text-muted">Цена договорная — предложите свою или спросите продавца в чате.</p>
+            </>
+          ) : (
           <div className="flex gap-2">
             <Button size="lg" className="flex-1" onClick={buy} disabled={!canBuy}>
               Купить
@@ -320,7 +330,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               </Button>
             )}
           </div>
-          {canOffer && (
+          )}
+          {canOffer && !negotiable && (
             <Button size="lg" variant="secondary" block onClick={openOffer}>
               Предложить цену
             </Button>
@@ -417,7 +428,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           <p className={clsx("mt-4 flex items-center gap-3 pl-5", auctionRunning && "hidden")}>
             <PriceConvert byn={sold ? null : l.price}>
               <Nefuda className={clsx("tabular text-[28px] font-bold leading-tight", sold && "opacity-60")}>
-                <span className={clsx(l.previousPrice && l.price && l.previousPrice > l.price && "text-shu")}>{formatPrice(l.price)}</span>
+                <span className={clsx(l.previousPrice && l.price && l.previousPrice > l.price && "text-shu")}>{listingPrice(l)}</span>
               </Nefuda>
             </PriceConvert>
             {l.previousPrice && l.price && l.previousPrice > l.price && <s className="text-lg text-muted">{formatPrice(l.previousPrice)}</s>}
@@ -538,7 +549,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                 <Link href={`/item/${c.id}`} className="group relative block aspect-[4/5] overflow-hidden bg-skeleton">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {c.cover && <img src={c.cover.urls.m} alt={c.title} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />}
-                  <span className="absolute bottom-1.5 left-1.5 rounded-md bg-kraft/95 px-1.5 py-0.5 text-[11px] font-bold tabular text-kraft-ink shadow-sm">{formatPrice(c.price)}</span>
+                  <span className="absolute bottom-1.5 left-1.5 rounded-md bg-kraft/95 px-1.5 py-0.5 text-[11px] font-bold tabular text-kraft-ink shadow-sm">{listingPrice(c)}</span>
                 </Link>
               </li>
             ))}
@@ -581,7 +592,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         </section>
       )}
 
-      {l.price != null && (
+      {(l.price != null || negotiable) && (
         <OfferSheet
           open={offerOpen}
           onClose={() => setOfferOpen(false)}

@@ -130,11 +130,12 @@ export class OffersService {
     const listing = await this.prisma.listing.findUnique({ where: { id: listingId }, include: { seller: { select: { username: true } } } });
     if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
     if (listing.sellerId === buyerId) throw new BadRequestException({ message: 'Это ваша вещь' });
-    if (listing.status !== 'PUBLISHED' || !listing.price) throw new ConflictException({ message: 'Вещь недоступна', code: 'UNAVAILABLE' });
+    if (listing.status !== 'PUBLISHED' || (!listing.price && !listing.priceNegotiable)) throw new ConflictException({ message: 'Вещь недоступна', code: 'UNAVAILABLE' });
     if (listing.saleType === 'AUCTION') throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
     if (!listing.acceptsOffers) throw new BadRequestException({ message: 'Продавец не принимает предложения цены' });
-    if (amount >= listing.price) throw new BadRequestException({ message: 'Это не меньше цены — просто нажмите «Купить»', code: 'NOT_LOWER', fields: { amount: 'Это не меньше цены продавца' } });
-    if (amount < Math.ceil(listing.price * MIN_SHARE)) throw new BadRequestException({ message: 'Слишком низкое предложение', fields: { amount: 'Слишком низкое предложение' } });
+    // «Цена договорная»: the buyer names the first price, there is nothing to compare it with.
+    if (listing.price && amount >= listing.price) throw new BadRequestException({ message: 'Это не меньше цены — просто нажмите «Купить»', code: 'NOT_LOWER', fields: { amount: 'Это не меньше цены продавца' } });
+    if (listing.price && amount < Math.ceil(listing.price * MIN_SHARE)) throw new BadRequestException({ message: 'Слишком низкое предложение', fields: { amount: 'Слишком низкое предложение' } });
 
     const latest = await this.prisma.offer.findFirst({ where: { listingId, buyerId }, orderBy: { createdAt: 'desc' } });
     if (latest?.status === 'PENDING' && latest.expiresAt > new Date()) throw new ConflictException({ message: 'У вас уже есть активное предложение на эту вещь', offerId: latest.id });

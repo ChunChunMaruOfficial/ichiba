@@ -64,6 +64,7 @@ export class CartController {
     if (listing.sellerId === user.id) throw new BadRequestException({ message: 'Это ваша вещь' });
     if (listing.status !== 'PUBLISHED') throw new BadRequestException({ message: 'Вещь недоступна для покупки' });
     if (listing.saleType === 'AUCTION') throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
+    if (listing.priceNegotiable) throw new BadRequestException({ message: 'Цена договорная — предложите свою цену или напишите продавцу', code: 'NEGOTIABLE' });
     await this.prisma.cartItem.upsert({ where: { userId_listingId: { userId: user.id, listingId } }, create: { userId: user.id, listingId }, update: {} });
     await this.recs.record(user.id, 'cart', listingId);
     this.stats.track(listingId, 'carts');

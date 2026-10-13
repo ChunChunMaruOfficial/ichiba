@@ -7,7 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import { BlurBackdrop } from "./gallery";
-import { CONDITION_LABEL, formatPrice } from "@/lib/labels";
+import { CONDITION_LABEL, listingPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { useSession } from "./session";
 import { useToast } from "./toast";
@@ -215,7 +215,7 @@ export function SwipeDeck({
               <article
                 key={card.id}
                 aria-hidden={!isTop}
-                aria-label={isTop ? `${card.title}, ${formatPrice(card.price)}` : undefined}
+                aria-label={isTop ? `${card.title}, ${listingPrice(card)}` : undefined}
                 className={clsx(
                   "absolute inset-0 mx-auto flex flex-col overflow-hidden rounded-[28px] bg-surface shadow-[0_18px_40px_-18px_rgb(28_26_23/0.45)] will-change-transform",
                   isTop ? "z-20 cursor-grab touch-none select-none active:cursor-grabbing" : depth === 1 ? "z-10" : "z-0",
@@ -299,7 +299,7 @@ export function SwipeDeck({
                 </div>
                 <div className="flex items-end justify-between gap-3 px-5 pb-4 pt-3">
                   <div className="min-w-0">
-                    <p className="tabular text-2xl font-semibold leading-tight">{formatPrice(card.price)}</p>
+                    <p className="tabular text-2xl font-semibold leading-tight">{listingPrice(card)}</p>
                     <p className="truncate text-[15px]">{card.title}</p>
                     <p className="truncate text-sm text-muted">{[card.size, card.condition && CONDITION_LABEL[card.condition], `@${card.seller.username}`].filter(Boolean).join(" · ")}</p>
                   </div>

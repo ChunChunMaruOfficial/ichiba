@@ -32,6 +32,8 @@ export interface ListingValues {
   city: string | null;
   deliveryOptions: DeliveryMethod[];
   price: string;
+  /** «Цена договорная»: no number, buyers make an offer or write. */
+  priceNegotiable: boolean;
   acceptsOffers: boolean;
   minOfferPrice: string;
   styleTags: string[];
@@ -70,6 +72,7 @@ export const emptyValues = (city: string | null): ListingValues => ({
   city,
   deliveryOptions: ["IN_PERSON"],
   price: "",
+  priceNegotiable: false,
   acceptsOffers: false,
   minOfferPrice: "",
   styleTags: [],
@@ -107,6 +110,7 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
     city: l.city,
     deliveryOptions: l.deliveryOptions,
     price: l.price != null ? String(l.price) : "",
+    priceNegotiable: !!l.priceNegotiable,
     acceptsOffers: l.acceptsOffers,
     minOfferPrice: l.owner?.minOfferPrice != null ? String(l.owner.minOfferPrice) : "",
     styleTags: l.styleTags,
@@ -190,7 +194,7 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
     if (!values.title.trim()) e.title = "Укажите название";
     if (!values.deliveryOptions.length) e.deliveryOptions = "Выберите хотя бы один способ";
   }
-  if (step === "price" || step === "all") {
+  if ((step === "price" || step === "all") && !(values.priceNegotiable && values.saleType === "FIXED")) {
     const price = Number(values.price);
     if (!values.price || !Number.isInteger(price) || price < 1) e.price = "Укажите цену";
     if (values.saleType === "FIXED" && values.minOfferPrice && Number(values.minOfferPrice) >= price) e.minOfferPrice = "Минимальная цена должна быть меньше цены";
@@ -213,6 +217,7 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
 /** Payload for POST/PATCH /listings. */
 export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiState, aiModel?: string) {
   const num = (s: string) => (s.trim() ? Number(s) : null);
+  const negotiable = values.saleType === "FIXED" && values.priceNegotiable;
   const measurements = Object.fromEntries(Object.entries(values.measurements).map(([k, v]) => [k, v ? Number(v) : null]));
   return {
     photos: photos.filter((p) => p.status === "done" && p.id).map((p) => ({ id: p.id!, isDefect: p.isDefect })),
@@ -231,8 +236,9 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     description: values.description.trim() || null,
     city: values.city,
     deliveryOptions: values.deliveryOptions,
-    price: num(values.price),
-    acceptsOffers: values.saleType === "FIXED" && values.acceptsOffers,
+    price: negotiable ? null : num(values.price),
+    priceNegotiable: negotiable,
+    acceptsOffers: values.saleType === "FIXED" && (values.acceptsOffers || negotiable),
     minOfferPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.minOfferPrice) : null,
     autoAcceptPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.autoAcceptPrice) : null,
     originalPrice: num(values.originalPrice),

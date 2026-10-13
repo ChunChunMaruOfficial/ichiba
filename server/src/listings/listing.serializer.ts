@@ -33,6 +33,7 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     id: l.id,
     title: l.title,
     price: l.price,
+    priceNegotiable: l.priceNegotiable,
     previousPrice: l.previousPrice,
     originalPrice: l.originalPrice,
     hasVideo: !!l.video,

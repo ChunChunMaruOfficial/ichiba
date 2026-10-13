@@ -44,7 +44,7 @@ const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => strin
   item_reserved: (p) => `«${p.title}» из избранного зарезервирована`,
   item_sold: (p) => `«${p.title}» из избранного продана`,
   item_available: (p) => `«${p.title}» снова в продаже`,
-  offer_new: (p) => `@${p.buyer} предлагает ${p.amount} BYN за «${p.title}» вместо ${p.price}`,
+  offer_new: (p) => `@${p.buyer} предлагает ${p.amount} BYN за «${p.title}»${p.price != null ? ` вместо ${p.price}` : ""}`,
   offer_countered: (p) => `@${p.by} предлагает ${p.amount} BYN за «${p.title}»`,
   offer_accepted: (p) => `Предложение ${p.amount} BYN за «${p.title}» принято`,
   offer_declined: (p) => (p.auto ? `Продавец не готов продать «${p.title}» за ${p.amount} BYN` : `Предложение ${p.amount} BYN за «${p.title}» отклонено`),
