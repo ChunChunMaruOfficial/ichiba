@@ -46,8 +46,8 @@ export interface ListingValues {
   /** Price new in a shop. */
   originalPrice: string;
   autoAcceptPrice: string;
-  /** Other sizes of the same item, listed as copies on publish. */
-  extraSizes: string[];
+  /** «Несколько размеров»: every size in stock, in size order (empty for one size); the buyer picks one. */
+  sizes: string[];
   video: VideoView | null;
 }
 
@@ -84,7 +84,7 @@ export const emptyValues = (city: string | null): ListingValues => ({
   gender: null,
   originalPrice: "",
   autoAcceptPrice: "",
-  extraSizes: [],
+  sizes: [],
   video: null,
 });
 
@@ -122,7 +122,7 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
     gender: l.gender === "UNISEX" ? null : l.gender,
     originalPrice: l.originalPrice != null ? String(l.originalPrice) : "",
     autoAcceptPrice: l.owner?.autoAcceptPrice != null ? String(l.owner.autoAcceptPrice) : "",
-    extraSizes: l.owner?.extraSizes ?? [],
+    sizes: l.stockSizes ?? [],
     video: l.video,
   };
 }
@@ -218,6 +218,8 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
 export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiState, aiModel?: string) {
   const num = (s: string) => (s.trim() ? Number(s) : null);
   const negotiable = values.saleType === "FIXED" && values.priceNegotiable;
+  // Several sizes are a fixed-price thing (an auction sells one item).
+  const multi = values.saleType === "FIXED" && values.sizes.length > 1;
   const measurements = Object.fromEntries(Object.entries(values.measurements).map(([k, v]) => [k, v ? Number(v) : null]));
   return {
     photos: photos.filter((p) => p.status === "done" && p.id).map((p) => ({ id: p.id!, isDefect: p.isDefect })),
@@ -225,7 +227,8 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     category: values.category,
     subcategory: values.subcategory,
     sizeSystem: values.sizeValue ? values.sizeSystem : null,
-    sizeValue: values.sizeValue,
+    sizeValue: multi ? values.sizes[0] : values.sizeValue,
+    sizes: multi ? values.sizes : [],
     condition: values.condition,
     defectsPresent: values.defectsPresent,
     defectsDescription: values.defectsPresent ? values.defectsDescription.trim() : null,
@@ -243,7 +246,6 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     autoAcceptPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.autoAcceptPrice) : null,
     originalPrice: num(values.originalPrice),
     gender: values.gender,
-    extraSizes: values.saleType === "FIXED" && values.sizeValue ? values.extraSizes.filter((s) => s !== values.sizeValue) : [],
     videoId: values.video?.id ?? null,
     saleType: values.saleType,
     auctionStep: values.saleType === "AUCTION" ? num(values.auctionStep) : null,

@@ -137,8 +137,19 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   // «Цена договорная»: no «Купить» — the buyer names a price or writes to the seller.
   const negotiable = !!l.priceNegotiable;
 
-  const buy = () => requireAuth(() => router.push(`/buy/${l.id}`));
-  const openOffer = () => requireAuth(() => setOfferOpen(true));
+  // «Несколько размеров»: the buyer picks a size first; buying, the cart and offers carry it.
+  const stock = l.stockSizes ?? [];
+  const multiSize = stock.length > 1;
+  const [pickedSize, setPickedSize] = useState<string | null>(null);
+  const [sizeNudge, setSizeNudge] = useState(false);
+  const needSize = () => {
+    if (!multiSize || pickedSize) return false;
+    setSizeNudge(true);
+    toast("Выберите размер");
+    return true;
+  };
+  const buy = () => !needSize() && requireAuth(() => router.push(`/buy/${l.id}${pickedSize ? `?size=${encodeURIComponent(pickedSize)}` : ""}`));
+  const openOffer = () => !needSize() && requireAuth(() => setOfferOpen(true));
   const ask = () =>
     requireAuth(
       async () => {
@@ -151,12 +162,13 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
       },
     );
   const toggleCart = () =>
+    !(!inCart && needSize()) &&
     requireAuth(
       async () => {
         const next = !inCart;
         setInCart(next);
         try {
-          await api(`/cart/${l.id}`, { method: next ? "POST" : "DELETE" });
+          await api(`/cart/${l.id}`, next ? { body: { size: pickedSize ?? undefined } } : { method: "DELETE" });
           void refreshMe();
           if (next) toast("В корзине", { action: { label: "Перейти", onClick: () => router.push("/cart") } });
         } catch (e) {
@@ -180,7 +192,27 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const params: Array<[string, React.ReactNode]> = [
     ["Размер", l.size ? (
       <span>
-        {l.sizes ? (
+        {multiSize ? (
+          // One listing, several sizes in stock: the buyer picks one here.
+          <span role={l.isOwner ? undefined : "radiogroup"} aria-label="Размер" className={clsx("inline-flex flex-wrap gap-1.5 rounded-lg align-middle transition-shadow", sizeNudge && !pickedSize && "shadow-[0_0_0_2px_var(--danger)]")}>
+            {stock.map((s) =>
+              l.isOwner || sold ? (
+                <b key={s} className="rounded-lg border border-line-strong px-2.5 py-0.5 font-medium">{s}</b>
+              ) : (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={pickedSize === s}
+                  onClick={() => (setPickedSize(pickedSize === s ? null : s), setSizeNudge(false))}
+                  className={clsx("rounded-lg border px-2.5 py-0.5 transition-colors", pickedSize === s ? "border-ink bg-ink text-accent-ink" : "border-line-strong hover:border-ink")}
+                >
+                  {s}
+                </button>
+              ),
+            )}
+          </span>
+        ) : l.sizes ? (
           // Same item in several sizes: each size is its own listing.
           <span className="inline-flex flex-wrap gap-1.5 align-middle">
             {l.sizes.map((s) =>
@@ -594,6 +626,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           open={offerOpen}
           onClose={() => setOfferOpen(false)}
           listing={{ id: l.id, title: l.title, price: l.price, cover: l.photos[0]?.urls.s }}
+          size={pickedSize}
           onSent={(o) => void mutateOffer({ offer: o }, { revalidate: false })}
         />
       )}

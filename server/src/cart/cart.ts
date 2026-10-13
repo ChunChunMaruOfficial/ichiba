@@ -1,5 +1,7 @@
-import { BadRequestException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { ZodPipe } from '../common/zod.js';
 import { applyDiscount, BundleTier, discountFor, nextTier, tiersOf } from '../listings/bundle.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { StatsService } from '../stats/stats.js';
@@ -7,6 +9,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
 
 const DELIVERY_ORDER = ['IN_PERSON', 'DELIVERY'] as const;
+/** «Несколько размеров»: the size goes into the cart with the item. */
+const AddDto = z.object({ size: z.string().trim().min(1).max(20).optional() });
 
 /**
  * Cart groups items by seller: one buy request per seller (frame 12). No quantities or coupons —
@@ -33,7 +37,8 @@ export class CartController {
       if (l.status === 'DELETED') continue;
       const { bundleDiscounts, ...seller } = l.seller;
       const g = groups.get(l.sellerId) ?? { seller, tiers: tiersOf(bundleDiscounts), items: [], deliveryOptions: [...DELIVERY_ORDER] };
-      g.items.push(serializeCard(l));
+      // The size picked on a listing with several sizes replaces its «S · M · L».
+      g.items.push({ ...serializeCard(l), ...(r.size ? { size: r.size } : {}) });
       // Only methods every available item supports can be offered for the combined request.
       if (l.status === 'PUBLISHED') g.deliveryOptions = g.deliveryOptions.filter((m) => l.deliveryOptions.includes(m as (typeof DELIVERY_ORDER)[number]));
       groups.set(l.sellerId, g);
@@ -58,14 +63,17 @@ export class CartController {
   }
 
   @Post(':listingId')
-  async add(@CurrentUser() user: AuthUser, @Param('listingId', ParseUUIDPipe) listingId: string) {
+  async add(@CurrentUser() user: AuthUser, @Param('listingId', ParseUUIDPipe) listingId: string, @Body(new ZodPipe(AddDto)) dto: z.infer<typeof AddDto>) {
     const listing = await this.prisma.listing.findUnique({ where: { id: listingId } });
     if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
     if (listing.sellerId === user.id) throw new BadRequestException({ message: 'Это ваша вещь' });
     if (listing.status !== 'PUBLISHED') throw new BadRequestException({ message: 'Вещь недоступна для покупки' });
     if (listing.saleType === 'AUCTION') throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
     if (listing.priceNegotiable) throw new BadRequestException({ message: 'Цена договорная — предложите свою цену или напишите продавцу', code: 'NEGOTIABLE' });
-    await this.prisma.cartItem.upsert({ where: { userId_listingId: { userId: user.id, listingId } }, create: { userId: user.id, listingId }, update: {} });
+    const multi = listing.sizes.length > 1;
+    if (multi && (!dto.size || !listing.sizes.includes(dto.size))) throw new BadRequestException({ message: 'Выберите размер', code: 'SIZE' });
+    const size = multi ? dto.size : null;
+    await this.prisma.cartItem.upsert({ where: { userId_listingId: { userId: user.id, listingId } }, create: { userId: user.id, listingId, size }, update: { size } });
     await this.recs.record(user.id, 'cart', listingId);
     this.stats.track(listingId, 'carts');
     return { inCart: true, count: await this.prisma.cartItem.count({ where: { userId: user.id } }) };

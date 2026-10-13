@@ -219,6 +219,8 @@ export interface ListingDetail {
   blockedReason: string | null;
   photos: Photo[];
   video: VideoView | null;
+  /** «Несколько размеров»: every size in stock on this one listing (empty for one size). */
+  stockSizes?: string[];
   /** Other sizes of the same item; null when it's listed in one size. */
   sizes: Array<{ id: string; size: string | null; available: boolean; current: boolean }> | null;
   seller: SellerSummary;
@@ -242,7 +244,6 @@ export interface ListingDetail {
     auctionBuyNow: number | null;
     minOfferPrice: number | null;
     autoAcceptPrice: number | null;
-    extraSizes: string[];
     scheduledAt: string | null;
     likersOfferAt: string | null;
     aiAttributes: Record<string, AiAttr> | null;

@@ -14,7 +14,8 @@ export const cardInclude = {
 
 export type CardListing = Prisma.ListingGetPayload<{ include: typeof cardInclude }>;
 
-const sizeLabel = (l: { sizeValue: string | null }) => l.sizeValue ?? null;
+/** «S · M · L» for a listing with several sizes in stock. */
+const sizeLabel = (l: { sizeValue: string | null; sizes: string[] }) => (l.sizes.length > 1 ? l.sizes.join(' · ') : l.sizeValue);
 
 export const serializePhoto = (p: StoredPhoto & { id: string; width: number; height: number; isCover: boolean; isDefect: boolean; order: number }) => ({
   id: p.id,

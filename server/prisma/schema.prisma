@@ -224,6 +224,9 @@ model Listing {
   groupId            String?
   /// Other sizes to list as separate copies when the draft is published.
   extraSizes         String[]         @default([])
+  /// «Несколько размеров»: every size in stock (2+), sizeValue is the first. The buyer picks one; the seller
+  /// takes a sold size off by hand. Such a listing is never reserved or sold as a whole by a deal.
+  sizes              String[]         @default([])
   /// Last "скидка лайкнувшим" mailing, for the cooldown.
   likersOfferAt      DateTime?
   soldAt             DateTime?
@@ -401,6 +404,8 @@ model BuyRequestItem {
   listingId String
   listing   Listing    @relation(fields: [listingId], references: [id])
   price     Int
+  /// The size the buyer picked on a «Несколько размеров» listing.
+  size      String?
 
   @@id([requestId, listingId])
   @@index([listingId])
@@ -457,6 +462,8 @@ model Offer {
   seller    User        @relation("offerSeller", fields: [sellerId], references: [id])
   round     Int
   amount    Int
+  /// The size the buyer picked on a «Несколько размеров» listing (kept through counter-offers).
+  size      String?
   from      OfferSide
   status    OfferStatus @default(PENDING)
   /// Set on the accepted round: the buy request it turned into.
@@ -477,6 +484,8 @@ model CartItem {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   listingId String
   listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  /// The size picked on a «Несколько размеров» listing.
+  size      String?
   addedAt   DateTime @default(now())
 
   @@id([userId, listingId])

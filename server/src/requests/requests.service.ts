@@ -37,7 +37,12 @@ export interface DeliveryInput {
 export interface CreateRequestInput extends DeliveryInput {
   listingIds: string[];
   source: RequestSource;
+  /** «Купить» on a «Несколько размеров» listing: the size picked, by listing id (the cart keeps its own). */
+  sizes?: Record<string, string>;
 }
+
+/** «Несколько размеров»: one listing with several sizes, never reserved or sold as a whole by a deal. */
+const multiSize = (l: { sizes: string[] }) => l.sizes.length > 1;
 
 @Injectable()
 export class RequestsService {
@@ -73,7 +78,8 @@ export class RequestsService {
     const role = r.buyerId === viewerId ? 'buyer' : 'seller';
     const accepted = AFTER_ACCEPT.includes(r.status);
     const counterpart = role === 'buyer' ? r.seller : r.buyer;
-    const items = r.items.map((i) => ({ ...serializeCard(i.listing), dealPrice: i.price }));
+    // The size the buyer picked replaces the listing's «S · M · L».
+    const items = r.items.map((i) => ({ ...serializeCard(i.listing), ...(i.size ? { size: i.size } : {}), dealPrice: i.price }));
     return {
       id: r.id,
       number: r.number,
@@ -154,6 +160,14 @@ export class RequestsService {
     if (listings.some((l) => l.status !== 'PUBLISHED' || !l.price)) throw new ConflictException({ message: 'Вещь недоступна для покупки', code: 'UNAVAILABLE' });
     const allowed = listings.reduce<DeliveryMethod[]>((acc, l) => acc.filter((m) => l.deliveryOptions.includes(m)), DELIVERY_METHODS);
     this.validateDelivery(input, allowed);
+    const picked: Record<string, string | null> =
+      input.source === 'CART'
+        ? Object.fromEntries((await this.prisma.cartItem.findMany({ where: { userId: buyerId, listingId: { in: ids } } })).map((c) => [c.listingId, c.size]))
+        : (input.sizes ?? {});
+    for (const l of listings.filter(multiSize)) {
+      const size = picked[l.id];
+      if (!size || !l.sizes.includes(size)) throw new BadRequestException({ message: `Выберите размер: ${l.title}`, code: 'SIZE', fields: { size: 'Выберите размер' } });
+    }
 
     const existing = await this.prisma.buyRequest.findFirst({
       where: { buyerId, status: { in: ACTIVE_REQUEST }, items: { some: { listingId: { in: ids } } } },
@@ -180,7 +194,7 @@ export class RequestsService {
         buyerComment: input.buyerComment?.trim() || null,
         status: 'PENDING_SELLER',
         expiresAt: new Date(Date.now() + REPLY_MS),
-        items: { create: listings.map((l, i) => ({ listingId: l.id, price: priced.itemPrices[i] })) },
+        items: { create: listings.map((l, i) => ({ listingId: l.id, price: priced.itemPrices[i], size: multiSize(l) ? picked[l.id] : null })) },
         events: { create: [{ status: 'CREATED', byUserId: buyerId }, { status: 'PENDING_SELLER', byUserId: buyerId }] },
       },
       include: requestInclude,
@@ -202,9 +216,12 @@ export class RequestsService {
    * Accepted offer → deal at the agreed price in ACCEPTED: the item is reserved for the buyer, who then
    * picks how to receive it (frame 13 SELLER OFFER SCREEN). Runs inside the offer's transaction.
    */
-  async createFromOffer(tx: Prisma.TransactionClient, offer: { listingId: string; buyerId: string; sellerId: string; amount: number; acceptedBy: string }) {
+  async createFromOffer(tx: Prisma.TransactionClient, offer: { listingId: string; buyerId: string; sellerId: string; amount: number; acceptedBy: string; size?: string | null }) {
     const listing = await tx.listing.findUniqueOrThrow({ where: { id: offer.listingId } });
-    const reserved = await tx.listing.updateMany({ where: { id: listing.id, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
+    // Several sizes: the listing stays on sale for the other sizes; the seller takes the sold one off by hand.
+    const reserved = multiSize(listing)
+      ? { count: listing.status === 'PUBLISHED' ? 1 : 0 }
+      : await tx.listing.updateMany({ where: { id: listing.id, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
     if (!reserved.count) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
     return tx.buyRequest.create({
       data: {
@@ -215,7 +232,7 @@ export class RequestsService {
         deliveryMethod: listing.deliveryOptions[0] ?? 'IN_PERSON',
         status: 'ACCEPTED',
         expiresAt: new Date(Date.now() + REPLY_MS),
-        items: { create: [{ listingId: listing.id, price: offer.amount }] },
+        items: { create: [{ listingId: listing.id, price: offer.amount, size: multiSize(listing) ? (offer.size ?? null) : null }] },
         events: { create: [{ status: 'CREATED', byUserId: offer.buyerId }, { status: 'ACCEPTED', byUserId: offer.acceptedBy }] },
       },
     });
@@ -223,8 +240,11 @@ export class RequestsService {
 
   /** After an accepted offer, competing requests are declined and watchers told the item is reserved. */
   async afterOfferAccepted(requestId: string, listingId: string, buyerId: string, title: string) {
-    await this.listings.declinePendingRequests(listingId, 'Уже продано', requestId);
-    await this.listings.notifyWatchers(listingId, 'item_reserved', title, buyerId);
+    const listing = await this.prisma.listing.findUnique({ where: { id: listingId }, select: { sizes: true } });
+    if (listing && !multiSize(listing)) {
+      await this.listings.declinePendingRequests(listingId, 'Уже продано', requestId);
+      await this.listings.notifyWatchers(listingId, 'item_reserved', title, buyerId);
+    }
     await this.linkThreads(requestId, buyerId, [listingId]);
   }
 
@@ -278,10 +298,14 @@ export class RequestsService {
     if (r.sellerId !== sellerId) throw new ForbiddenException({ message: 'Это действие недоступно' });
     if (r.status !== 'PENDING_SELLER') throw new ConflictException({ message: 'Статус сделки уже изменился — обновите страницу' });
     const listingIds = r.items.map((i) => i.listingId);
+    // Several sizes: such a listing stays on sale (other sizes, other buyers); only one-of-a-kind items are reserved.
+    const single = r.items.filter((i) => !multiSize(i.listing)).map((i) => i.listingId);
+    const multi = r.items.filter((i) => multiSize(i.listing)).map((i) => i.listingId);
 
     await this.prisma.$transaction(async (tx) => {
-      const reserved = await tx.listing.updateMany({ where: { id: { in: listingIds }, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
-      if (reserved.count !== listingIds.length) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
+      const reserved = await tx.listing.updateMany({ where: { id: { in: single }, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
+      const onSale = await tx.listing.count({ where: { id: { in: multi }, status: 'PUBLISHED' } });
+      if (reserved.count + onSale !== listingIds.length) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
       const moved = await tx.buyRequest.updateMany({ where: { id, status: 'PENDING_SELLER' }, data: { status: 'WAITING_HANDOVER', expiresAt: null } });
       if (!moved.count) throw new ConflictException({ message: 'Статус сделки уже изменился — обновите страницу' });
       await tx.buyRequestEvent.createMany({
@@ -291,11 +315,11 @@ export class RequestsService {
         ],
       });
       // Pending offers on these items are void now.
-      await tx.offer.updateMany({ where: { listingId: { in: listingIds }, status: 'PENDING' }, data: { status: 'CANCELLED' } });
+      await tx.offer.updateMany({ where: { listingId: { in: single }, status: 'PENDING' }, data: { status: 'CANCELLED' } });
     });
 
     const title = r.items[0]?.listing.title ?? '';
-    for (const listingId of listingIds) {
+    for (const listingId of single) {
       await this.listings.declinePendingRequests(listingId, 'Уже продано', id);
       await this.listings.notifyWatchers(listingId, 'item_reserved', title, r.buyerId);
     }
@@ -310,7 +334,7 @@ export class RequestsService {
   }
 
   private async release(r: RequestRow) {
-    for (const item of r.items) {
+    for (const item of r.items.filter((i) => !multiSize(i.listing))) {
       // A released auction item returns as a fixed-price listing.
       await this.prisma.listing.updateMany({ where: { id: item.listingId, status: 'RESERVED' }, data: { status: 'PUBLISHED', saleType: 'FIXED' } });
       await this.listings.notifyWatchers(item.listingId, 'item_available', item.listing.title);
@@ -353,8 +377,10 @@ export class RequestsService {
   /** "Я получил вещь": RECEIVED immediately rolls into COMPLETED and the item becomes SOLD. */
   async received(buyerId: string, id: string) {
     const { r } = await this.transition(id, buyerId, { role: 'buyer', from: ['WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT'], to: 'RECEIVED' });
-    await this.complete(id, r.items.map((i) => i.listingId), buyerId);
-    await this.notifications.notify(r.sellerId, 'deal_completed', { requestId: id, title: r.items[0]?.listing.title });
+    await this.complete(id, r.items, r.buyerId, buyerId);
+    // A size sold from a «Несколько размеров» listing: the seller takes it off by hand, so remind them.
+    const sizes = r.items.filter((i) => i.size).map((i) => i.size);
+    await this.notifications.notify(r.sellerId, 'deal_completed', { requestId: id, title: r.items[0]?.listing.title, sizes });
     return this.get(id, buyerId);
   }
 
@@ -364,14 +390,17 @@ export class RequestsService {
     return this.get(id, actorId);
   }
 
-  private async complete(id: string, listingIds: string[], byUserId: string | null) {
+  /** One-of-a-kind items become SOLD; a «Несколько размеров» listing stays on sale — the seller takes the size off. */
+  private async complete(id: string, items: { listingId: string; listing: { sizes: string[] } }[], buyerId: string, byUserId: string | null) {
+    const single = items.filter((i) => !multiSize(i.listing)).map((i) => i.listingId);
+    const multi = items.filter((i) => multiSize(i.listing)).map((i) => i.listingId);
     await this.prisma.$transaction([
       this.prisma.buyRequest.update({
         where: { id },
         data: { status: 'COMPLETED', completedAt: new Date(), events: { create: { status: 'COMPLETED', byUserId } } },
       }),
-      this.prisma.listing.updateMany({ where: { id: { in: listingIds } }, data: { status: 'SOLD', soldAt: new Date() } }),
-      this.prisma.cartItem.deleteMany({ where: { listingId: { in: listingIds } } }),
+      this.prisma.listing.updateMany({ where: { id: { in: single } }, data: { status: 'SOLD', soldAt: new Date() } }),
+      this.prisma.cartItem.deleteMany({ where: { OR: [{ listingId: { in: single } }, { listingId: { in: multi }, userId: buyerId }] } }),
     ]);
     // Ask the buyer to rate the seller (reviews: buyer → seller only).
     const r = await this.prisma.buyRequest.findUnique({ where: { id }, select: { buyerId: true, seller: { select: { username: true } }, items: { take: 1, select: { listing: { select: { id: true, title: true } } } } } });
@@ -398,9 +427,9 @@ export class RequestsService {
 
     const stale = await this.prisma.buyRequest.findMany({
       where: { status: { in: ['HANDED_OVER', 'IN_TRANSIT'] }, handedOverAt: { lt: new Date(Date.now() - AUTO_COMPLETE_MS) } },
-      include: { items: true },
+      include: { items: { include: { listing: { select: { sizes: true } } } } },
     });
-    for (const r of stale) await this.complete(r.id, r.items.map((i) => i.listingId), null);
+    for (const r of stale) await this.complete(r.id, r.items, r.buyerId, null);
     if (expired.length || stale.length) this.logger.log(`sweep: ${expired.length} expired, ${stale.length} auto-completed`);
   }
 

@@ -136,6 +136,15 @@ export class ListingsService {
     if (aiAttributes !== undefined) data.aiAttributes = (aiAttributes ?? undefined) as Prisma.InputJsonValue | undefined;
     if (input.defectsPresent === false) data.defectsDescription = null;
     if (input.brand !== undefined) data.brand = canonicalBrand(input.brand);
+    // «Несколько размеров»: one listing holds every size; the first is its sizeValue. Older clients still send
+    // extraSizes (they used to become copies) — those are folded in the same way.
+    const sizes = input.sizes ?? (input.extraSizes?.length && input.sizeValue ? [input.sizeValue, ...input.extraSizes] : undefined);
+    if (sizes !== undefined) {
+      const list = [...new Set(sizes.map((x) => x.trim()).filter(Boolean))].slice(0, 15);
+      data.sizes = list.length > 1 ? list : [];
+      if (list.length) data.sizeValue = list[0];
+    }
+    if (input.extraSizes !== undefined) data.extraSizes = [];
     // A negotiable price has no number, and nothing that compares against one.
     if (input.priceNegotiable) Object.assign(data, { price: null, autoAcceptPrice: null, minOfferPrice: null, saleType: 'FIXED' });
     return data;
@@ -200,72 +209,12 @@ export class ListingsService {
       if (listing.auctionReserve != null && listing.price != null && listing.auctionReserve < listing.price) fields.auctionReserve = 'Резерв не может быть ниже стартовой цены';
       if (listing.auctionBuyNow != null && listing.price != null && listing.auctionBuyNow <= listing.price) fields.auctionBuyNow = 'Цена «Купить сейчас» должна быть выше стартовой';
       else if (listing.auctionBuyNow != null && listing.auctionReserve != null && listing.auctionBuyNow < listing.auctionReserve) fields.auctionBuyNow = 'Цена «Купить сейчас» не может быть ниже резерва';
-      if (listing.extraSizes.length) fields.extraSizes = 'Несколько размеров можно выставить только с фиксированной ценой';
+      if (listing.sizes.length > 1) fields.size = 'Несколько размеров можно выставить только с фиксированной ценой';
     } else if (listing.acceptsOffers && listing.autoAcceptPrice != null && listing.price != null) {
       if (listing.autoAcceptPrice >= listing.price) fields.autoAcceptPrice = 'Должно быть ниже цены — по цене покупают без торга';
       else if (listing.minOfferPrice != null && listing.autoAcceptPrice <= listing.minOfferPrice) fields.autoAcceptPrice = 'Должно быть выше порога автоотказа';
     }
     return fields;
-  }
-
-  /**
-   * "Несколько размеров" (Avito multi-listing): every extra size becomes its own listing with the same
-   * photos, text and price, linked by groupId, so buying, deals and reviews stay one item = one listing.
-   */
-  private async publishSizeCopies(listing: Listing, verdict: ModerationVerdict) {
-    const sizes = [...new Set(listing.extraSizes.map((s) => s.trim()).filter((s) => s && s !== listing.sizeValue))].slice(0, 10);
-    if (!sizes.length) return;
-    const groupId = listing.groupId ?? listing.id;
-    const [photos, video] = await Promise.all([
-      this.prisma.photo.findMany({ where: { listingId: listing.id }, orderBy: { order: 'asc' } }),
-      this.prisma.video.findUnique({ where: { listingId: listing.id } }),
-    ]);
-    const now = new Date();
-    for (const size of sizes) {
-      const copy = await this.prisma.listing.create({
-        data: {
-          sellerId: listing.sellerId,
-          status: 'PUBLISHED',
-          groupId,
-          title: listing.title,
-          category: listing.category,
-          subcategory: listing.subcategory,
-          sizeSystem: listing.sizeSystem,
-          sizeValue: size,
-          condition: listing.condition,
-          price: listing.price,
-          priceNegotiable: listing.priceNegotiable,
-          originalPrice: listing.originalPrice,
-          defectsPresent: listing.defectsPresent,
-          defectsDescription: listing.defectsDescription,
-          brand: listing.brand,
-          color: listing.color,
-          material: listing.material,
-          description: listing.description,
-          city: listing.city,
-          deliveryOptions: listing.deliveryOptions,
-          acceptsOffers: listing.acceptsOffers,
-          minOfferPrice: listing.minOfferPrice,
-          autoAcceptPrice: listing.autoAcceptPrice,
-          gender: listing.gender,
-          styleTags: listing.styleTags,
-          aiAttributes: listing.aiAttributes ?? undefined,
-          aiModelVersion: listing.aiModelVersion,
-          // Same date as the item itself (a backdated import keeps its copies beside it).
-          publishedAt: listing.publishedAt ?? now,
-          liftedAt: listing.liftedAt ?? now,
-        },
-      });
-      // Storage files are shared: rows point at the same keys, nothing is copied.
-      await this.prisma.photo.createMany({
-        data: photos.map((p) => ({ ownerId: p.ownerId, listingId: copy.id, provider: p.provider, key: p.key, url: p.url, version: p.version, format: p.format, bytes: p.bytes, width: p.width, height: p.height, order: p.order, isCover: p.isCover, isDefect: p.isDefect, quality: p.quality ?? undefined })),
-      });
-      if (video) {
-        await this.prisma.video.create({ data: { ownerId: video.ownerId, listingId: copy.id, key: video.key, ext: video.ext, mime: video.mime, width: video.width, height: video.height, durationMs: video.durationMs } });
-      }
-      await this.moderator.record(copy, verdict);
-    }
-    await this.prisma.listing.update({ where: { id: listing.id }, data: { groupId, extraSizes: [] } });
   }
 
   // ---------- lifecycle ----------
@@ -285,7 +234,6 @@ export class ListingsService {
       data: { status: 'PUBLISHED', publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date(), scheduledAt: null },
     });
     await this.moderator.record(listing, verdict);
-    if (listing.saleType === 'FIXED') await this.publishSizeCopies(listing, verdict);
     // Auction clock starts at publication (decision D16).
     if (listing.saleType === 'AUCTION' && !(await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } }))) {
       await this.prisma.auction.create({
@@ -553,6 +501,8 @@ export class ListingsService {
       priceNegotiable: listing.priceNegotiable,
       previousPrice: listing.previousPrice,
       originalPrice: listing.originalPrice,
+      /** «Несколько размеров»: every size in stock (empty for a one-size listing). */
+      stockSizes: listing.sizes,
       category: listing.category,
       categoryLabel: category?.label ?? null,
       subcategory: listing.subcategory,
@@ -606,7 +556,6 @@ export class ListingsService {
             auctionBuyNow: listing.auctionBuyNow,
             minOfferPrice: listing.minOfferPrice,
             autoAcceptPrice: listing.autoAcceptPrice,
-            extraSizes: listing.extraSizes,
             scheduledAt: listing.scheduledAt,
             likersOfferAt: listing.likersOfferAt,
             aiAttributes: listing.aiAttributes,
@@ -991,7 +940,7 @@ export class ListingsService {
       const neutral = { OR: [{ gender: null }, { gender: 'UNISEX' as const }], ...(womenOnly.length ? { category: { notIn: womenOnly } } : {}) };
       if (g.length) and.push({ OR: [{ gender: { in: g } }, neutral] });
     }
-    if (q.size?.length) and.push({ sizeValue: { in: q.size } });
+    if (q.size?.length) and.push({ OR: [{ sizeValue: { in: q.size } }, { sizes: { hasSome: q.size } }] });
     if (q.condition?.length) and.push({ condition: { in: q.condition as ('GOOD' | 'LIKE_NEW')[] } });
     if (q.color?.length) and.push({ color: { in: q.color } });
     if (q.brand?.length) and.push({ OR: q.brand.map((b) => ({ brand: { equals: canonicalBrand(b) ?? b, mode: 'insensitive' as const } })) });

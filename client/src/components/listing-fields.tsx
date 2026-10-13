@@ -99,6 +99,22 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
   const activeSystem = values.sizeSystem && systems.includes(values.sizeSystem) ? values.sizeSystem : systems[0];
   const sizeList = (s: Exclude<SizeSystem, "OTHER">) => meta.sizes[s];
   const [otherSize, setOtherSize] = useState(values.sizeSystem === "OTHER");
+  // «Несколько размеров»: chips pick several sizes of one listing; the buyer chooses one when buying.
+  const [multi, setMulti] = useState(values.sizes.length > 1);
+  const pick = (system: Exclude<SizeSystem, "OTHER">, s: string) => {
+    setOtherSize(false);
+    if (!multi) return set({ sizeSystem: system, sizeValue: s, sizes: [] });
+    const order = sizeList(system);
+    const next = (values.sizes.includes(s) ? values.sizes.filter((x) => x !== s) : [...values.sizes, s]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    set({ sizeSystem: system, sizes: next, sizeValue: next[0] ?? null });
+  };
+  const toggleMulti = () => {
+    const on = !multi;
+    setMulti(on);
+    setOtherSize(false);
+    if (on) set({ sizes: values.sizeValue && values.sizeSystem !== "OTHER" ? [values.sizeValue] : [] });
+    else set({ sizes: [], sizeValue: values.sizes[0] ?? values.sizeValue });
+  };
 
   return (
     <>
@@ -107,7 +123,7 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
           {systems.length > 1 && (
             <div className="flex gap-4 text-sm">
               {systems.map((s) => (
-                <button key={s} type="button" disabled={locked} onClick={() => (setOtherSize(false), set({ sizeSystem: s, sizeValue: null }))} className={clsx(activeSystem === s && !otherSize ? "font-semibold underline underline-offset-4" : "text-ink-2")}>
+                <button key={s} type="button" disabled={locked} onClick={() => (setOtherSize(false), set({ sizeSystem: s, sizeValue: null, sizes: [] }))} className={clsx(activeSystem === s && !otherSize ? "font-semibold underline underline-offset-4" : "text-ink-2")}>
                   {SIZE_SYSTEM_LABEL[s]}
                 </button>
               ))}
@@ -117,14 +133,27 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
             {activeSystem &&
               activeSystem !== "OTHER" &&
               sizeList(activeSystem).map((s) => (
-                <Chip key={s} disabled={locked} active={!otherSize && values.sizeValue === s} onClick={() => (setOtherSize(false), set({ sizeSystem: activeSystem, sizeValue: s, extraSizes: values.extraSizes.filter((x) => x !== s) }))} className="min-w-12 justify-center">
+                <Chip key={s} disabled={locked} active={!otherSize && (multi ? values.sizes.includes(s) : values.sizeValue === s)} onClick={() => pick(activeSystem, s)} className="min-w-12 justify-center">
                   {s}
                 </Chip>
               ))}
-            <Chip disabled={locked} active={otherSize} onClick={() => (setOtherSize(true), set({ sizeSystem: "OTHER", sizeValue: null }))}>
-              Другой
-            </Chip>
+            {!multi && (
+              <Chip disabled={locked} active={otherSize} onClick={() => (setOtherSize(true), set({ sizeSystem: "OTHER", sizeValue: null, sizes: [] }))}>
+                Другой
+              </Chip>
+            )}
           </div>
+          {activeSystem && activeSystem !== "OTHER" && (
+            <label className={clsx("mt-1 flex items-center gap-2.5 text-sm", locked && "opacity-60")}>
+              <input type="checkbox" className="size-4 accent-[var(--accent)]" disabled={locked} checked={multi} onChange={toggleMulti} />
+              <span>
+                Несколько размеров
+                <span className="block text-xs text-muted">
+                  {multi ? (values.sizes.length > 1 ? `В наличии: ${values.sizes.join(" · ")} — покупатель выберет свой. Размер закончился — снимите его здесь` : "Отметьте все размеры, что есть в наличии") : "Одна модель в разных размерах — одним объявлением"}
+                </span>
+              </span>
+            </label>
+          )}
           {otherSize && <Input aria-label="Свой размер" placeholder="Например, 44 RU или One size" disabled={locked} value={values.sizeValue ?? ""} onChange={(e) => set({ sizeSystem: "OTHER", sizeValue: e.target.value || null })} className="max-w-xs" />}
         </Field>
       ) : (

@@ -45,6 +45,8 @@ export const ListingInput = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'UNISEX']).nullish(),
   /** Other sizes of the same item, listed as separate copies on publish. */
   extraSizes: z.array(z.string().trim().min(1).max(20)).max(10).optional(),
+  /** «Несколько размеров»: every size in stock; the buyer picks one. */
+  sizes: z.array(z.string().trim().min(1).max(20)).max(15).optional(),
   videoId: z.uuid().nullish(),
   styleTags: z.array(z.string().max(30)).max(3).optional(),
   aiAttributes: z.record(z.string(), aiField).nullish(),

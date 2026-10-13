@@ -19,10 +19,13 @@ export function OfferSheet({
   open,
   onClose,
   listing,
+  size,
   onSent,
 }: {
   open: boolean;
   onClose: () => void;
+  /** «Несколько размеров»: the size the offer is for. */
+  size?: string | null;
   /** price is null for «Цена договорная»: the buyer names the first number. */
   listing: { id: string; title: string; price: number | null; cover?: string };
   onSent: (o: Offer) => void;
@@ -42,7 +45,7 @@ export function OfferSheet({
     setBusy(true);
     setError(null);
     try {
-      const o = await api<Offer>("/offers", { body: { listingId: listing.id, amount } });
+      const o = await api<Offer>("/offers", { body: { listingId: listing.id, amount, size: size ?? undefined } });
       if (o.status === "DECLINED") toast(`Продавец не готов продать за ${amount} BYN — попробуйте другую цену позже`, { tone: "error" });
       else toast(`Предложение ${amount} BYN отправлено`);
       onSent(o);
@@ -62,7 +65,10 @@ export function OfferSheet({
           <img src={listing.cover} alt="" width={56} height={70} className="h-[70px] w-14 rounded-lg object-contain" />
         )}
         <div className="min-w-0">
-          <p className="truncate font-medium">{listing.title}</p>
+          <p className="truncate font-medium">
+            {listing.title}
+            {size && <span className="ml-1.5 text-ink-2">· {size}</span>}
+          </p>
           <p className="text-sm text-ink-2">
             {listPrice != null ? (
               <>

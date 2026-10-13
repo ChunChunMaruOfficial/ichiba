@@ -66,6 +66,7 @@ export class OffersService {
       role,
       round: o.round,
       amount: o.amount,
+      size: o.size,
       from: o.from,
       status: pending || o.status !== 'PENDING' ? o.status : 'EXPIRED',
       expiresAt: o.expiresAt,
@@ -126,13 +127,16 @@ export class OffersService {
     return { suggestion: await this.negotiation.opening(listing) };
   }
 
-  async create(buyerId: string, listingId: string, amount: number) {
+  async create(buyerId: string, listingId: string, amount: number, size?: string) {
     const listing = await this.prisma.listing.findUnique({ where: { id: listingId }, include: { seller: { select: { username: true } } } });
     if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
     if (listing.sellerId === buyerId) throw new BadRequestException({ message: 'Это ваша вещь' });
     if (listing.status !== 'PUBLISHED' || (!listing.price && !listing.priceNegotiable)) throw new ConflictException({ message: 'Вещь недоступна', code: 'UNAVAILABLE' });
     if (listing.saleType === 'AUCTION') throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
     if (!listing.acceptsOffers) throw new BadRequestException({ message: 'Продавец не принимает предложения цены' });
+    // «Несколько размеров»: the offer is for one size the buyer picked.
+    const multi = listing.sizes.length > 1;
+    if (multi && (!size || !listing.sizes.includes(size))) throw new BadRequestException({ message: 'Выберите размер', code: 'SIZE', fields: { size: 'Выберите размер' } });
     // «Цена договорная»: the buyer names the first price, there is nothing to compare it with.
     if (listing.price && amount >= listing.price) throw new BadRequestException({ message: 'Это не меньше цены — просто нажмите «Купить»', code: 'NOT_LOWER', fields: { amount: 'Это не меньше цены продавца' } });
     if (listing.price && amount < Math.ceil(listing.price * MIN_SHARE)) throw new BadRequestException({ message: 'Слишком низкое предложение', fields: { amount: 'Слишком низкое предложение' } });
@@ -152,6 +156,7 @@ export class OffersService {
         sellerId: listing.sellerId,
         round: 1,
         amount,
+        size: multi ? size : null,
         from: 'BUYER',
         status: autoDecline ? 'DECLINED' : 'PENDING',
         expiresAt: new Date(Date.now() + OFFER_TTL_MS),
@@ -198,6 +203,7 @@ export class OffersService {
           sellerId: o.sellerId,
           round: o.round + 1,
           amount,
+          size: o.size,
           from: role === 'seller' ? 'SELLER' : 'BUYER',
           expiresAt: new Date(Date.now() + OFFER_TTL_MS),
         },
@@ -219,10 +225,10 @@ export class OffersService {
     const request = await this.prisma.$transaction(async (tx) => {
       const moved = await tx.offer.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'ACCEPTED' } });
       if (!moved.count) throw new ConflictException({ message: 'Предложение уже неактуально' });
-      const r = await this.requests.createFromOffer(tx, { listingId: o.listingId, buyerId: o.buyerId, sellerId: o.sellerId, amount: o.amount, acceptedBy: actorId });
+      const r = await this.requests.createFromOffer(tx, { listingId: o.listingId, buyerId: o.buyerId, sellerId: o.sellerId, amount: o.amount, acceptedBy: actorId, size: o.size });
       await tx.offer.update({ where: { id }, data: { requestId: r.id } });
-      // Other buyers' open offers on this item are void.
-      await tx.offer.updateMany({ where: { listingId: o.listingId, status: 'PENDING', id: { not: id } }, data: { status: 'CANCELLED' } });
+      // Other buyers' open offers on this item are void (a listing with several sizes stays on sale).
+      if (o.listing.sizes.length <= 1) await tx.offer.updateMany({ where: { listingId: o.listingId, status: 'PENDING', id: { not: id } }, data: { status: 'CANCELLED' } });
       return r;
     });
     await this.requests.afterOfferAccepted(request.id, o.listingId, o.buyerId, o.listing.title);
@@ -338,7 +344,7 @@ export class OffersService {
 }
 
 const AmountDto = z.object({ amount: z.coerce.number().int('Целое число').min(1, 'Введите сумму') });
-const CreateDto = AmountDto.extend({ listingId: z.uuid() });
+const CreateDto = AmountDto.extend({ listingId: z.uuid(), size: z.string().trim().min(1).max(20).optional() });
 
 @Controller('offers')
 export class OffersController {
@@ -347,7 +353,7 @@ export class OffersController {
   @Post()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(CreateDto)) dto: z.infer<typeof CreateDto>) {
-    return this.offers.create(user.id, dto.listingId, dto.amount);
+    return this.offers.create(user.id, dto.listingId, dto.amount, dto.size);
   }
 
   @Get()

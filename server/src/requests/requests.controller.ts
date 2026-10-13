@@ -15,6 +15,8 @@ const DeliveryDto = z.object({
 const CreateDto = DeliveryDto.extend({
   listingId: z.uuid().optional(),
   listingIds: z.array(z.uuid()).min(1).max(20).optional(),
+  /** «Купить» on a listing with several sizes: the size picked. */
+  size: z.string().trim().min(1).max(20).optional(),
 }).refine((d) => d.listingId || d.listingIds?.length, { message: 'Не выбрана вещь', path: ['listingId'] });
 
 const ReasonDto = z.object({ reason: z.string().max(300).nullish() });
@@ -28,8 +30,13 @@ export class RequestsController {
   @Post('requests')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(CreateDto)) dto: z.infer<typeof CreateDto>) {
-    const { listingId, listingIds, ...delivery } = dto;
-    return this.requests.create(user.id, { ...delivery, listingIds: listingIds ?? [listingId!], source: listingIds ? 'CART' : 'BUY' });
+    const { listingId, listingIds, size, ...delivery } = dto;
+    return this.requests.create(user.id, {
+      ...delivery,
+      listingIds: listingIds ?? [listingId!],
+      source: listingIds ? 'CART' : 'BUY',
+      sizes: listingId && size ? { [listingId]: size } : undefined,
+    });
   }
 
   @Post('requests/:id/confirm-delivery')

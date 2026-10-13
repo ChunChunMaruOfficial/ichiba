@@ -249,15 +249,12 @@ export class TgImportService implements OnApplicationBootstrap {
 
     const shoes = item.category === 'shoes';
     const sizes = item.sizes ?? [];
-    // One listing per item: several sizes are written in one line («S, M, L»), not split into copies.
-    const size =
-      sizes.length === 1
-        ? { sizeSystem: (shoes ? 'SHOE_EU' : 'ALPHA') as 'SHOE_EU' | 'ALPHA', sizeValue: sizes[0] }
-        : sizes.length > 1
-          ? { sizeSystem: 'OTHER' as const, sizeValue: sizes.join(', ').slice(0, 20) }
-          : sizeRequired(item.category)
-            ? { sizeSystem: 'OTHER' as const, sizeValue: 'Уточняйте' }
-            : { sizeSystem: null, sizeValue: null };
+    // One listing per item; several sizes are its «Несколько размеров» (the buyer picks one).
+    const size = sizes.length
+      ? { sizeSystem: (shoes ? 'SHOE_EU' : 'ALPHA') as 'SHOE_EU' | 'ALPHA', sizeValue: sizes[0], sizes }
+      : sizeRequired(item.category)
+        ? { sizeSystem: 'OTHER' as const, sizeValue: 'Уточняйте' }
+        : { sizeSystem: null, sizeValue: null };
 
     const input: ListingInputT = {
       photos,
@@ -291,8 +288,8 @@ export class TgImportService implements OnApplicationBootstrap {
   }
 
   /**
-   * One item = one card: size copies made by earlier imports are folded into their first listing (all sizes in one
-   * line), and listings repeating a title keep only the oldest. Items in a deal are left alone.
+   * One item = one card: size copies made by earlier imports are folded into their first listing (as its
+   * «Несколько размеров»), and listings repeating a title keep only the oldest. Items in a deal are left alone.
    */
   private async foldRepeats(cfg: TgSourceConfig, userId: string) {
     const ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
@@ -300,15 +297,24 @@ export class TgImportService implements OnApplicationBootstrap {
     const live = await this.prisma.listing.findMany({
       where: { sellerId: userId, status: { in: ['PUBLISHED', 'HIDDEN', 'RESERVED', 'SOLD'] } },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, title: true, status: true, groupId: true, sizeValue: true },
+      select: { id: true, title: true, status: true, groupId: true, sizeValue: true, sizeSystem: true, sizes: true },
     });
     let folded = 0;
     const byTitle = new Map<string, typeof live>();
     for (const l of live) byTitle.set(l.title, [...(byTitle.get(l.title) ?? []), l]);
+    // A first fix wrote several sizes as one line («S, M, L»): such listings get them as real sizes.
+    for (const l of live) {
+      if (l.sizeSystem === 'OTHER' && l.sizeValue?.includes(', ') && !l.sizes.length) {
+        const list = l.sizeValue.split(', ');
+        await this.prisma.listing.update({ where: { id: l.id }, data: { sizeSystem: 'ALPHA', sizeValue: list[0], sizes: list } });
+        Object.assign(l, { sizeSystem: 'ALPHA', sizeValue: list[0], sizes: list });
+        folded++;
+      }
+    }
     for (const [, rows] of byTitle) {
       if (rows.length < 2) continue;
       const keep = rows.find((r) => r.status === 'RESERVED') ?? rows[0];
-      const sizes = [...new Set(rows.map((r) => r.sizeValue).filter((v): v is string => !!v && v !== 'Уточняйте'))].sort((a, b) => rank(a) - rank(b));
+      const sizes = [...new Set(rows.flatMap((r) => (r.sizes.length ? r.sizes : [r.sizeValue])).filter((v): v is string => !!v && v !== 'Уточняйте'))].sort((a, b) => rank(a) - rank(b));
       for (const r of rows) {
         if (r.id === keep.id || r.status === 'RESERVED') continue;
         await this.prisma.listing.update({ where: { id: r.id }, data: { status: 'DELETED' } });
@@ -317,7 +323,7 @@ export class TgImportService implements OnApplicationBootstrap {
       }
       await this.prisma.listing.update({
         where: { id: keep.id },
-        data: { groupId: null, extraSizes: [], ...(sizes.length > 1 ? { sizeSystem: 'OTHER', sizeValue: sizes.join(', ').slice(0, 20) } : {}) },
+        data: { groupId: null, extraSizes: [], ...(sizes.length > 1 ? { sizeValue: sizes[0], sizes } : {}) },
       });
     }
     if (folded) this.logger.log(`@${cfg.channel}: ${folded} repeated listings folded`);

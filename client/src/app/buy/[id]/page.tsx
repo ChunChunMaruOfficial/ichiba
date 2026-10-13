@@ -28,7 +28,10 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
   const router = useRouter();
   const { data, error: loadError, mutate } = useSWR<ListingResponse>(`/listings/${id}`);
   // After an accepted offer the deal already exists (ACCEPTED): the buyer only picks delivery (frame 13).
-  const requestId = useSearchParams().get("request");
+  const params = useSearchParams();
+  const requestId = params.get("request");
+  /** «Несколько размеров»: the size picked on the item page. */
+  const size = params.get("size");
   const { data: agreed } = useSWR<Deal>(requestId ? `/requests/${requestId}` : null);
   const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
@@ -111,7 +114,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
         router.push(deal.threadId ? `/messages/${deal.threadId}` : `/deals/${deal.id}`);
         return;
       }
-      const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...body } });
+      const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...(size ? { size } : {}), ...body } });
       setSent(deal);
     } catch (e) {
       if (e instanceof ApiError) {
@@ -192,7 +195,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
             </div>
             <div className="min-w-0">
               <p className="font-medium">{l.title}</p>
-              <p className="mt-1 text-sm text-ink-2">{[l.size && `Размер ${l.size}`, l.condition && CONDITION_LABEL[l.condition]].filter(Boolean).join(" · ")}</p>
+              <p className="mt-1 text-sm text-ink-2">{[(size ?? l.size) && `Размер ${size ?? l.size}`, l.condition && CONDITION_LABEL[l.condition]].filter(Boolean).join(" · ")}</p>
               <p className="mt-1 text-sm text-muted">@{l.seller.username}</p>
             </div>
           </Link>
