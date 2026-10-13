@@ -1,5 +1,6 @@
 "use client";
 
+import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,6 +35,7 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
   const { requireAuth, refresh } = useSession();
   const router = useRouter();
   const toast = useToast();
+  const { confirm } = useDialog();
   const { label, urgent, over } = useCountdown(a.endsAt);
   const [value, setValue] = useState("");
   const [mode, setMode] = useState<"bid" | "auto">("bid");
@@ -73,7 +75,7 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
   const buyNow = () =>
     requireAuth(
       async () => {
-        if (!window.confirm(`Купить «${title}» сейчас за ${a.buyNowPrice} BYN? Аукцион завершится, вещь зарезервируют за вами.`)) return;
+        if (!(await confirm({ title: `Купить за ${a.buyNowPrice} BYN?`, message: `«${title}» — аукцион завершится, вещь зарезервируют за вами.`, confirmLabel: "Купить сейчас" }))) return;
         setBuying(true);
         try {
           const r = await api<{ requestId: string; auction: AuctionView }>(`/auctions/${a.id}/buy-now`, { method: "POST" });
@@ -250,7 +252,7 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
           variant="ghost"
           loading={cancelling}
           onClick={async () => {
-            if (!window.confirm("Отменить аукцион? Вещь останется в продаже по стартовой цене.")) return;
+            if (!(await confirm({ title: "Отменить аукцион?", message: "Вещь останется в продаже по стартовой цене.", confirmLabel: "Отменить аукцион", cancelLabel: "Не отменять", danger: true }))) return;
             setCancelling(true);
             try {
               await api(`/auctions/${a.id}/cancel`, { method: "POST" });

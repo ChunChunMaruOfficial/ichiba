@@ -1,5 +1,6 @@
 "use client";
 
+import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ export default function LookPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const { confirm } = useDialog();
   const { requireAuth, refresh } = useSession();
   const { data, error, mutate } = useSWR<Look>(`/looks/${id}`);
   const [editing, setEditing] = useState(false);
@@ -58,7 +60,7 @@ export default function LookPage() {
     });
 
   const remove = async () => {
-    if (!window.confirm("Удалить образ? Вещи останутся в гардеробе.")) return;
+    if (!(await confirm({ title: "Удалить образ?", message: "Вещи останутся в гардеробе.", confirmLabel: "Удалить", danger: true }))) return;
     await api(`/looks/${id}`, { method: "DELETE" });
     toast("Образ удалён");
     router.push(data.owner ? `/u/${data.owner.username}` : "/");

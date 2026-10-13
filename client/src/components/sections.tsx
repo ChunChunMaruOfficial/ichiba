@@ -1,5 +1,6 @@
 "use client";
 
+import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -105,6 +106,7 @@ function CoverImg({ cover, alt }: { cover: Cover | null; alt: string }) {
 export function FollowButton({ seller, onChange, size = "md" }: { seller: Pick<SellerSummary, "username" | "isFollowing">; onChange?: (v: boolean) => void; size?: "sm" | "md" }) {
   const { requireAuth } = useSession();
   const toast = useToast();
+  const { confirm } = useDialog();
   return (
     <Button
       size={size}
@@ -113,7 +115,7 @@ export function FollowButton({ seller, onChange, size = "md" }: { seller: Pick<S
         requireAuth(
           async () => {
             const next = !seller.isFollowing;
-            if (!next && !window.confirm(`Отписаться от @${seller.username}?`)) return;
+            if (!next && !(await confirm({ title: `Отписаться от @${seller.username}?`, message: "Новые вещи продавца перестанут приходить в уведомления и в «Подписки».", confirmLabel: "Отписаться" }))) return;
             onChange?.(next);
             try {
               await api(`/follows/${seller.username}`, { method: next ? "POST" : "DELETE" });

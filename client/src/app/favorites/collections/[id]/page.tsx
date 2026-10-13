@@ -1,5 +1,6 @@
 "use client";
 
+import { useDialog } from "@/components/dialog";
 import { Omamori } from "@/components/shop/omamori";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -25,6 +26,7 @@ function Collection({ id }: { id: string }) {
   const [name, setName] = useState("");
   const router = useRouter();
   const toast = useToast();
+  const { confirm } = useDialog();
 
   if (error) return error instanceof ApiError && error.status === 404 ? <EmptyState title="Коллекция не найдена" /> : <ErrorState message="Не удалось загрузить коллекцию" onRetry={() => mutate()} />;
 
@@ -70,7 +72,7 @@ function Collection({ id }: { id: string }) {
           variant="ghost"
           className="text-danger"
           onClick={async () => {
-            if (!window.confirm("Удалить коллекцию? Вещи останутся в избранном.")) return;
+            if (!(await confirm({ title: "Удалить коллекцию?", message: "Вещи останутся в избранном.", confirmLabel: "Удалить", danger: true }))) return;
             await api(`/collections/${id}`, { method: "DELETE" });
             toast("Коллекция удалена");
             router.push("/favorites?tab=collections");

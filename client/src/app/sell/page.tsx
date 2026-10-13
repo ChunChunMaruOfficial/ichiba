@@ -1,5 +1,6 @@
 "use client";
 
+import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -116,6 +117,7 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
   const meta = useMeta();
   const router = useRouter();
   const toast = useToast();
+  const { confirm } = useDialog();
   // A continued draft starts on the description step with its photos and fields in place.
   const [step, setStep] = useState<Step>(draft ? 2 : 1);
   const [photos, setPhotos] = useState<PhotoDraft[]>(() => (draft ? photosFromListing(draft) : []));
@@ -307,7 +309,7 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
 
   /** Trash in the top bar: the draft (photos and fields) is deleted, not kept in the wardrobe. */
   const discard = async () => {
-    if (!window.confirm("Удалить черновик? Фото и заполненные поля пропадут.")) return;
+    if (!(await confirm({ title: "Удалить черновик?", message: "Фото и заполненные поля пропадут.", confirmLabel: "Удалить", danger: true }))) return;
     const id = draftId ?? (creating.current ? await creating.current : null);
     if (id) await api(`/listings/${id}`, { method: "DELETE" }).catch(() => undefined);
     toast("Черновик удалён");

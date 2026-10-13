@@ -1,5 +1,6 @@
 "use client";
 
+import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
@@ -141,6 +142,7 @@ export default function AdminUsersPage() {
 function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
   const { data, error, mutate } = useSWR<Detail>(`/admin/users/${id}`);
   const toast = useToast();
+  const { prompt } = useDialog();
   const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string> | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -300,8 +302,8 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
               <Button
                 variant="secondary"
                 loading={busy === "block"}
-                onClick={() => {
-                  const reason = window.prompt("Причина блокировки (видна только в журнале):");
+                onClick={async () => {
+                  const reason = await prompt({ title: `Заблокировать @${u.username}?`, message: "Вещи пользователя скроются, войти он не сможет.", label: "Причина (видна только в журнале)", multiline: true, confirmLabel: "Заблокировать", danger: true });
                   if (reason && reason.trim().length >= 3) void run("block", () => api(`/admin/users/${id}/block`, { body: { reason } }), "Заблокирован, его вещи скрыты");
                 }}
               >
@@ -312,8 +314,8 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
               <Button
                 variant="danger"
                 loading={busy === "delete"}
-                onClick={() => {
-                  if (window.prompt(`Удаление необратимо: контакты и профиль сотрутся. Введите ник ${u.username}, чтобы подтвердить:`) === u.username) {
+                onClick={async () => {
+                  if ((await prompt({ title: "Удалить аккаунт?", message: "Удаление необратимо: контакты и профиль сотрутся.", label: `Введите ник ${u.username}, чтобы подтвердить`, placeholder: u.username, mustEqual: u.username, confirmLabel: "Удалить навсегда", danger: true })) === u.username) {
                     void run("delete", () => api(`/admin/users/${id}`, { method: "DELETE" }), "Аккаунт удалён");
                   }
                 }}

@@ -18,7 +18,8 @@ import { ReportModal } from "./report-modal";
 import { ReviewsSection } from "./reviews";
 import { BundleNote, RatingInline } from "./trust";
 import { OfferCard } from "./offer";
-import { ItemCard } from "./item-card";
+import { Avatar } from "./avatar";
+import { Masonry, MasonrySkeleton } from "./masonry";
 import { FollowButton } from "./sections";
 import { useSession } from "./session";
 import { useToast } from "./toast";
@@ -116,21 +117,9 @@ function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
   );
 }
 
+/** Items laid like bricks, as in the home feed; the owner gets a menu on each card. */
 function Grid({ items, owner, onDone }: { items: Card[]; owner: boolean; onDone: () => void }) {
-  return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
-      {items.map((c) => (
-        <div key={c.id} className="relative">
-          <ItemCard card={c} variant="grid" source="wardrobe" />
-          {owner && (
-            <div className="absolute right-2.5 top-2.5">
-              <OwnerMenu card={c} onDone={onDone} />
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
+  return <Masonry items={items} variant="feed" source="wardrobe" overlay={owner ? (c) => <OwnerMenu card={c} onDone={onDone} /> : undefined} />;
 }
 
 function ActionRequired({ onChange }: { onChange: () => void }) {
@@ -256,7 +245,10 @@ export function WardrobeView({ username, initial }: { username: string; initial?
       ) : (
         // The seller's cover: aizome cloth, the nickname large, a brush label 箪笥 («wardrobe») at the side.
         <header className="aizome aizome-fade-r relative flex flex-col gap-6 rounded-[28px] px-5 py-6 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
-          <div className="absolute right-3 top-3 flex md:right-5 md:top-5">
+          <div className="absolute right-3 top-3 flex items-center gap-2 md:right-5 md:top-5">
+            {!owner && me?.username !== s.username && (
+              <FollowButton seller={s} onChange={(v) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false })} />
+            )}
             {owner && (
               <Link href="/settings" aria-label="Настройки" title="Настройки" className="grid size-10 place-items-center rounded-full text-ink-2 transition-[color,background-color,transform] duration-300 hover:rotate-45 hover:bg-ink/10 hover:text-ink">
                 <IconSettings className="size-5" />
@@ -268,10 +260,14 @@ export function WardrobeView({ username, initial }: { username: string; initial?
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-4 pr-20 md:pr-0">
-              {/* A personal seal: the nickname's first letter, pressed in cinnabar. */}
-              <span aria-hidden className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-3xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
-                {s.username.slice(0, 1)}
-              </span>
+              {s.avatar ? (
+                <Avatar username={s.username} avatar={s.avatar} ring className="size-16 md:size-20" />
+              ) : (
+                // No photo: a personal seal, the nickname's first letter pressed in cinnabar.
+                <span aria-hidden className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-3xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
+                  {s.username.slice(0, 1)}
+                </span>
+              )}
               <div className="min-w-0">
                 <h1 className="truncate text-4xl font-bold leading-[1.05] md:text-6xl">{s.username}</h1>
                 <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
@@ -313,9 +309,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                   </ButtonLink>
                 )}
               </>
-            ) : (
-              me?.username !== s.username && <FollowButton seller={s} onChange={(v) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false })} />
-            )}
+            ) : null}
           </div>
         </header>
       )}
@@ -361,10 +355,8 @@ export function WardrobeView({ username, initial }: { username: string; initial?
           </div>
 
           {!data ? (
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-              {Array.from({ length: 10 }, (_, i) => (
-                <Skeleton key={i} className="aspect-[4/5] rounded-2xl" />
-              ))}
+            <div className="mt-4">
+              <MasonrySkeleton count={10} />
             </div>
           ) : section === "all" ? (
             <div className="mt-4 flex flex-col gap-14">

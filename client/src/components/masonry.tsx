@@ -32,12 +32,15 @@ export function Masonry({
   source,
   breakpoints = DEFAULT_BREAKPOINTS,
   gap = 16,
+  overlay,
 }: {
   items: Card[];
   variant?: "feed" | "grid";
   source?: "feed" | "search" | "wardrobe";
   breakpoints?: [number, number][];
   gap?: number;
+  /** Extra control pinned to a card's top-right corner (the owner's menu in a wardrobe). */
+  overlay?: (card: Card) => React.ReactNode;
 }) {
   const { ref, cols } = useColumns(breakpoints);
   const columns: Array<{ items: Card[]; h: number }> = Array.from({ length: cols }, () => ({ items: [], h: 0 }));
@@ -54,7 +57,14 @@ export function Masonry({
       {columns.map((c, i) => (
         <div key={i} className="flex min-w-0 flex-1 flex-col" style={{ gap: variant === "grid" ? gap * 1.5 : gap }}>
           {c.items.map((item, j) => (
-            <ItemCard key={item.id} card={item} variant={variant} source={source} eager={j < 2} />
+            overlay ? (
+              <div key={item.id} className="relative">
+                <ItemCard card={item} variant={variant} source={source} eager={j < 2} />
+                <div className="absolute right-2.5 top-2.5">{overlay(item)}</div>
+              </div>
+            ) : (
+              <ItemCard key={item.id} card={item} variant={variant} source={source} eager={j < 2} />
+            )
           ))}
         </div>
       ))}

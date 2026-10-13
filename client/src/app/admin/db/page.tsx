@@ -1,5 +1,6 @@
 "use client";
 
+import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useDeferredValue, useState } from "react";
@@ -190,6 +191,7 @@ function DbBrowser() {
 
 function RowEditor({ table, columns, row, onClose, onSaved }: { table: string; columns: Column[]; row: Row; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
+  const { confirm } = useDialog();
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(columns.map((c) => [c.name, toText(row[c.name], c)])));
   const [busy, setBusy] = useState<"save" | "delete" | null>(null);
   const [fieldError, setFieldError] = useState<Record<string, string>>({});
@@ -225,7 +227,7 @@ function RowEditor({ table, columns, row, onClose, onSaved }: { table: string; c
   };
 
   const remove = async () => {
-    if (!window.confirm(`Удалить строку из ${table}? Это необратимо.`)) return;
+    if (!(await confirm({ title: `Удалить строку из ${table}?`, message: "Это необратимо.", confirmLabel: "Удалить", danger: true }))) return;
     setBusy("delete");
     try {
       await api(`/admin/db/${encodeURIComponent(table)}`, { method: "DELETE", body: { key } });
