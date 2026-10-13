@@ -9,3 +9,6 @@ server/storage
 server/_mails.jsonl
 *.tsbuildinfo
 dump.rdb
+
+# Passwords of shop accounts imported from Telegram (kept only on this machine)
+tg-accounts.local.json

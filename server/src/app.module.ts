@@ -47,6 +47,8 @@ import { RecommendationsService } from './recommendations/recommendations.servic
 import { RequestsController } from './requests/requests.controller.js';
 import { RequestsService } from './requests/requests.service.js';
 import { UsersController, UsersService } from './users/users.service.js';
+import { TgPostParser } from './tg/parse.js';
+import { TgImportService } from './tg/tg-import.service.js';
 
 /** Single monolith (frame 28: no microservices); modules are grouped by controller/service pairs. */
 @Module({
@@ -112,6 +114,8 @@ import { UsersController, UsersService } from './users/users.service.js';
     StatsService,
     ReviewsService,
     ListingsService,
+    TgPostParser,
+    TgImportService,
     RecommendationsService,
     RequestsService,
     OffersService,

@@ -144,6 +144,7 @@ model User {
   reviewsWritten  Review[]       @relation("reviewAuthor")
   reviewsReceived Review[]       @relation("reviewSeller")
   videos          Video[]
+  tgSources       TgSource[]
   blockedAt       DateTime?
 }
 
@@ -188,6 +189,8 @@ model Listing {
   city               String?
   deliveryOptions    DeliveryMethod[]
   acceptsOffers      Boolean          @default(true)
+  /// «Цена договорная»: published without a price; buyers write or make an offer instead of buying outright.
+  priceNegotiable    Boolean          @default(false)
   saleType           SaleType         @default(FIXED)
   /// Auction settings, applied when the listing is published (decision D16).
   auctionStep        Int?
@@ -808,4 +811,33 @@ model LookItem {
 
   @@id([lookId, listingId])
   @@index([listingId])
+}
+
+/// A public Telegram channel whose posts are imported as one seller's listings and kept in sync.
+model TgSource {
+  id         String    @id @default(uuid())
+  /// Channel username without @, as in t.me/<channel>.
+  channel    String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled    Boolean   @default(true)
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+  posts      TgPost[]
+}
+
+/// One channel post: which listings it became, or why it was skipped, so a sync never parses it twice.
+model TgPost {
+  id         String   @id @default(uuid())
+  sourceId   String
+  source     TgSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  postId     Int
+  /// IMPORTED | SKIPPED | FAILED | REMOVED (the post was deleted from the channel)
+  status     String
+  reason     String?
+  listingIds String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([sourceId, postId])
 }
