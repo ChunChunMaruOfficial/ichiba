@@ -180,7 +180,7 @@ function HomeFeed() {
                   <CategoryTiles categories={home.data.categories} />
                 </section>
               )}
-              {rest.length > 0 && <SectionHeader title="Ещё вещи" />}
+              {rest.length > 0 && <SectionHeader kanji="品々" title="Ещё вещи" />}
             </div>
           )}
 

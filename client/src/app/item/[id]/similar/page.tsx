@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import { UmeBranch } from "@/components/shop/ume-branch";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -21,7 +22,9 @@ export default function SimilarPage() {
       <Link href={`/item/${id}`} className="text-sm text-ink-2 hover:text-ink">
         ← К вещи
       </Link>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">Похожие</h1>
+      <TitleWithKanji kanji="類似" className="mt-3">
+        <h1 className="text-3xl font-semibold tracking-tight">Похожие</h1>
+      </TitleWithKanji>
       {source && <p className="mt-1 text-muted">на «{source.title}»</p>}
       <div className="mt-6">
         {!list.data ? (

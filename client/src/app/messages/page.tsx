@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import { RequireAuth } from "@/components/require-auth";
 import { Chochin } from "@/components/shop/chochin";
 import { ThreadList } from "@/components/thread-list";
@@ -12,7 +13,9 @@ export default function MessagesPage() {
 function Threads() {
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Сообщения</h1>
+      <TitleWithKanji kanji="便り">
+        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Сообщения</h1>
+      </TitleWithKanji>
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <ThreadList />
         <div className="hidden min-h-[60vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-line-strong text-center lg:flex">

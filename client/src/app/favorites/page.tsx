@@ -7,7 +7,7 @@ import useSWR from "swr";
 import { CollectionTile, NewCollectionModal } from "@/components/collections";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { RequireAuth } from "@/components/require-auth";
-import { WardrobeCards } from "@/components/sections";
+import { WardrobeCards, TitleWithKanji } from "@/components/sections";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconPlus, Skeleton } from "@/components/ui";
 import { plural } from "@/lib/labels";
 import type { Card, CollectionSummary, Cover, SellerSummary } from "@/lib/types";
@@ -49,9 +49,11 @@ function Favorites() {
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">
-        Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
-      </h1>
+      <TitleWithKanji kanji="好み">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
+        </h1>
+      </TitleWithKanji>
       <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="tablist">
         {TABS.map(([key, label]) => (
           <Chip key={key} role="tab" aria-selected={tab === key} active={tab === key} onClick={() => setTab(key)}>

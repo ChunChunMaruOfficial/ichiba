@@ -610,13 +610,13 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
 
       {related && related.similar.length > 0 && (
         <section className="mt-16">
-          <SectionHeader title="Похожие вещи" href={`/item/${l.id}/similar`} />
+          <SectionHeader kanji="類似" title="Похожие вещи" href={`/item/${l.id}/similar`} />
           <CardRow items={related.similar} />
         </section>
       )}
       {related && related.forYou.length > 0 && (
         <section className="mt-16">
-          <SectionHeader title="Возможно, вам понравится" />
+          <SectionHeader kanji="お薦め" title="Возможно, вам понравится" />
           <CardRow items={related.forYou} />
         </section>
       )}

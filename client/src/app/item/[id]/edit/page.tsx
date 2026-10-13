@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -148,7 +149,9 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
       <Link href={`/item/${listing.id}`} className="text-sm text-ink-2 hover:text-ink">
         ← К вещи
       </Link>
-      <h1 className="rise mt-3 text-3xl font-bold tracking-tight md:text-4xl">{draft ? "Черновик" : "Редактировать вещь"}</h1>
+      <TitleWithKanji kanji="編集" className="mt-3">
+        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">{draft ? "Черновик" : "Редактировать вещь"}</h1>
+      </TitleWithKanji>
       {locked && <p className="rise mt-4 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Идёт сделка — цену, размер, состояние и дефекты менять нельзя.</p>}
       {draft && scheduledAt && (
         <p className="rise mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">

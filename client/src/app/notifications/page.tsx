@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import { Chochin } from "@/components/shop/chochin";
 import clsx from "clsx";
 import Link from "next/link";
@@ -40,7 +41,9 @@ function Notifications() {
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Уведомления</h1>
+        <TitleWithKanji kanji="知らせ">
+          <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Уведомления</h1>
+        </TitleWithKanji>
         {unread && (
           <Button
             variant="ghost"

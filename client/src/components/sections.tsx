@@ -15,6 +15,28 @@ import { useSession } from "./session";
 import { useToast } from "./toast";
 import { Button, ButtonLink, IconChevronRight } from "./ui";
 
+/** The vertical brush label in cinnabar beside a title; it only decorates and repeats the Russian title. */
+export function KanjiLabel({ kanji, className }: { kanji: string; className?: string }) {
+  return (
+    <span className={clsx("pt-1 font-brush text-[15px] leading-none tracking-[0.15em] text-shu [writing-mode:vertical-rl]", className)} aria-hidden>
+      {kanji}
+    </span>
+  );
+}
+
+/**
+ * A page title with its brush label (新着 new arrivals, 箪笥 wardrobes …), so every page opens like the home sections.
+ * The heading itself is passed in, keeping each page's own size and spacing.
+ */
+export function TitleWithKanji({ kanji, children, className }: { kanji: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={clsx("flex items-start gap-3", className)}>
+      <KanjiLabel kanji={kanji} className="md:pt-1.5" />
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
 /**
  * Section title in Spectral with an optional vertical brush label (design/brand · SectionHeading). The kanji only
  * decorates and repeats the Russian title: 新着 new arrivals, 人気 popular, 箪笥 wardrobes, 市場 market.
@@ -23,11 +45,7 @@ export function SectionHeader({ title, count, href, linkLabel = "Все", kanji 
   return (
     <div className="mb-5 flex items-end justify-between gap-4">
       <div className="flex min-w-0 items-start gap-3">
-        {kanji && (
-          <span className="pt-1 font-brush text-[15px] leading-none tracking-[0.15em] text-shu [writing-mode:vertical-rl]" aria-hidden>
-            {kanji}
-          </span>
-        )}
+        {kanji && <KanjiLabel kanji={kanji} />}
         <h2 className="min-w-0 text-2xl font-bold leading-tight [overflow-wrap:anywhere] md:text-[28px]">
           {title}
           {count && <span className="ml-2 font-sans text-sm font-normal tracking-normal text-muted">{count}</span>}

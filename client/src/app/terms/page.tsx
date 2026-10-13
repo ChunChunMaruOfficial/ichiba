@@ -1,3 +1,4 @@
+import { TitleWithKanji } from "@/components/sections";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL, operatorLine } from "@/lib/legal";
@@ -44,7 +45,9 @@ export default function TermsPage() {
     <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-6 md:py-12">
       <header className="max-w-3xl">
         <p className="text-sm text-muted">Редакция от {LEGAL.updated}</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">Пользовательское соглашение</h1>
+        <TitleWithKanji kanji="規約" className="mt-1">
+          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Пользовательское соглашение</h1>
+        </TitleWithKanji>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-2">Правила, по которым работает маркетплейс ichiba. Регистрируясь или пользуясь сайтом, вы их принимаете.</p>
       </header>
 

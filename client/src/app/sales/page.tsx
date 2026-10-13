@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import { Furoshiki } from "@/components/shop/furoshiki";
 import { Daruma } from "@/components/shop/daruma";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -53,7 +54,9 @@ function Sales() {
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Продажи</h1>
+        <TitleWithKanji kanji="商い">
+          <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Продажи</h1>
+        </TitleWithKanji>
         <ButtonLink href="/sales/stats" variant="secondary" size="sm">
           Статистика
         </ButtonLink>

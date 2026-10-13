@@ -1,3 +1,4 @@
+import { TitleWithKanji } from "@/components/sections";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL, operatorLine } from "@/lib/legal";
@@ -53,7 +54,9 @@ export default function PrivacyPage() {
     <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-6 md:py-12">
       <header className="max-w-3xl">
         <p className="text-sm text-muted">Редакция от {LEGAL.updated}</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">Политика конфиденциальности</h1>
+        <TitleWithKanji kanji="保護" className="mt-1">
+          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Политика конфиденциальности</h1>
+        </TitleWithKanji>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
           Здесь простым языком описано, какие данные о вас собирает маркетплейс ichiba, зачем они нужны, кому мы их передаём и как вы можете ими управлять. Политика составлена в соответствии с Законом Республики Беларусь от 7 мая 2021 г. № 99-З «О защите персональных данных».
         </p>

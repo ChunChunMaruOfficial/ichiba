@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import { Furoshiki } from "@/components/shop/furoshiki";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -56,7 +57,9 @@ function Purchases() {
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Мои покупки</h1>
+      <TitleWithKanji kanji="買物">
+        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Мои покупки</h1>
+      </TitleWithKanji>
       <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="group" aria-label="Показать только">
         {FILTERS.map(([key, label]) => {
           const n = count(key);

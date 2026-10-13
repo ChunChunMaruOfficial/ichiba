@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -116,7 +117,9 @@ function Settings({ me }: { me: Me }) {
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
       <div className="mb-8">
-        <h1 className="rise text-4xl font-bold">Настройки</h1>
+        <TitleWithKanji kanji="設定">
+          <h1 className="rise text-4xl font-bold">Настройки</h1>
+        </TitleWithKanji>
         <p className="rise mt-1 text-muted">
           @{me.username}
           {me.email ? ` · ${me.email}` : ""}

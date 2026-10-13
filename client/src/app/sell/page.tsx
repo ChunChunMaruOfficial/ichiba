@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
@@ -397,7 +398,9 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
 
       {step === 1 && (
         <section key="s1">
-          <h1 className="rise mb-6 text-3xl font-bold tracking-tight md:text-4xl">Что продаём?</h1>
+          <TitleWithKanji kanji="出品" className="mb-6">
+            <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Что продаём?</h1>
+          </TitleWithKanji>
           {!photos.length && <DraftReminder me={me} />}
           <PhotoManager photos={photos} onChange={setPhotos} big error={errors.photos} />
         </section>

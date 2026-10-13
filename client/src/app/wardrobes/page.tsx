@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
-import { WardrobeCards } from "@/components/sections";
+import { WardrobeCards, TitleWithKanji } from "@/components/sections";
 import { useSession } from "@/components/session";
 import { EmptyState, ErrorState, IconSearch, IconX, Skeleton, Spinner } from "@/components/ui";
 import { qs } from "@/lib/api";
@@ -23,7 +23,9 @@ export default function WardrobesPage() {
     <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-6 md:py-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Гардеробы</h1>
+          <TitleWithKanji kanji="箪笥">
+            <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Гардеробы</h1>
+          </TitleWithKanji>
           <p className="mt-1 text-ink-2">Загляните к другим — у каждого свой стиль</p>
         </div>
         {me && (

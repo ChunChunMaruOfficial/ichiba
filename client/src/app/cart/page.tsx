@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
@@ -39,9 +40,11 @@ function Cart({ me }: { me: Me }) {
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">
-        Корзина{data && data.count > 0 && <span className="ml-2 text-xl font-normal text-muted">· {itemsLabel(data.count)}</span>}
-      </h1>
+      <TitleWithKanji kanji="買物籠">
+        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">
+          Корзина{data && data.count > 0 && <span className="ml-2 text-xl font-normal text-muted">· {itemsLabel(data.count)}</span>}
+        </h1>
+      </TitleWithKanji>
       {data && data.groups.length > 1 && <p className="mt-2 text-ink-2">Вещи от {data.groups.length} {plural(data.groups.length, "продавца", "продавцов", "продавцов")} — запросы уйдут каждому отдельно.</p>}
 
       {sent.length > 0 && (

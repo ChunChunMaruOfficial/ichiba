@@ -1,5 +1,6 @@
 "use client";
 
+import { TitleWithKanji } from "@/components/sections";
 import { Daruma } from "@/components/shop/daruma";
 import clsx from "clsx";
 import Link from "next/link";
@@ -37,7 +38,9 @@ function Stats() {
         ← Мои продажи
       </Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Статистика</h1>
+        <TitleWithKanji kanji="統計">
+          <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">Статистика</h1>
+        </TitleWithKanji>
         <div className="flex gap-2" role="group" aria-label="Период">
           {([7, 30] as const).map((d) => (
             <Chip key={d} active={days === d} onClick={() => setDays(d)}>

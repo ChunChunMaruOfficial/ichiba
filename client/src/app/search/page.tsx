@@ -7,7 +7,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { useBrandSuggestions } from "@/components/brand-picker";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
-import { CardRow, CategoryTiles, SectionHeader } from "@/components/sections";
+import { CardRow, CategoryTiles, SectionHeader, TitleWithKanji } from "@/components/sections";
 import { useMeta, useSession } from "@/components/session";
 import { Button, Chip, EmptyState, ErrorState, IconFilter, IconSearch, IconSparkle, IconX, Input, SheetHandle, Spinner, useSheetDrag } from "@/components/ui";
 import { api, qs } from "@/lib/api";
@@ -253,12 +253,12 @@ function SearchLanding({ meta }: { meta: Meta }) {
     <div className="flex flex-col gap-12 py-6">
       {home.data && home.data.categories.length > 0 && (
         <section>
-          <SectionHeader title="Популярные категории" />
+          <SectionHeader kanji="分類" title="Популярные категории" />
           <CategoryTiles categories={home.data.categories} />
         </section>
       )}
       <section>
-        <SectionHeader title="Популярные бренды" />
+        <SectionHeader kanji="銘柄" title="Популярные бренды" />
         <div className="flex flex-wrap gap-2">
           {meta.brands.slice(0, 10).map((b) => (
             <Link key={b} href={`/search?brand=${encodeURIComponent(b)}`} className="rounded-full border border-line-strong bg-surface px-4 py-2 text-sm hover:border-ink">
@@ -445,7 +445,7 @@ function SearchView() {
               </EmptyState>
               {fresh.data && fresh.data.items.length > 0 && (
                 <section className="pb-12">
-                  <SectionHeader title="Посмотрите новинки" href="/?chip=new" />
+                  <SectionHeader kanji="新着" title="Посмотрите новинки" href="/?chip=new" />
                   <CardRow items={fresh.data.items} />
                 </section>
               )}
@@ -478,7 +478,9 @@ function PhotoResults({ id }: { id: string }) {
           <img src={result.preview} alt="Ваше фото" className="size-16 shrink-0 rounded-xl object-cover" />
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Поиск по фото</h1>
+          <TitleWithKanji kanji="写真">
+            <h1 className="text-2xl font-semibold tracking-tight">Поиск по фото</h1>
+          </TitleWithKanji>
           {result?.label && <p className="mt-0.5 truncate text-ink-2">Похоже на: {result.label}</p>}
         </div>
         <PhotoSearchButton className="h-10 rounded-full px-4 text-sm font-semibold shadow-[inset_0_0_0_1px_var(--line-strong)] hover:bg-ink/5">
