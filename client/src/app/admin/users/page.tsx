@@ -26,7 +26,7 @@ interface Row {
 }
 
 interface Detail {
-  user: Record<string, unknown> & { id: string; username: string; email: string | null; phone: string | null; city: string | null; bio: string | null; role: "USER" | "ADMIN"; blockedAt: string | null; deletedAt: string | null; hasPassword: boolean };
+  user: Record<string, unknown> & { id: string; username: string; email: string | null; phone: string | null; city: string | null; bio: string | null; role: "USER" | "ADMIN"; blockedAt: string | null; deletedAt: string | null; listingsHiddenAt: string | null; hasPassword: boolean };
   stats: { listings: Record<string, number>; asBuyer: number; asSeller: number; reportsAgainst: number };
   recentListings: Array<{ id: string; title: string; status: string; price: number; updatedAt: string }>;
   actions: Array<{ id: string; action: string; reason: string | null; at: string }>;
@@ -142,7 +142,7 @@ export default function AdminUsersPage() {
 function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
   const { data, error, mutate } = useSWR<Detail>(`/admin/users/${id}`);
   const toast = useToast();
-  const { prompt } = useDialog();
+  const { prompt, confirm } = useDialog();
   const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string> | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -211,6 +211,7 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
             {typeof u.googleSub === "string" && <>· <span>Google</span></>}
             {typeof u.telegramId === "string" && <>· <span>Telegram</span></>}
             {u.blockedAt && <>· <span className="text-danger">заблокирован {date(u.blockedAt)}</span></>}
+            {u.listingsHiddenAt && <>· <span className="text-warn">объявления скрыты {date(u.listingsHiddenAt)}</span></>}
             {u.deletedAt && <>· <span>удалён {date(u.deletedAt)}</span></>}
           </div>
 
@@ -294,6 +295,28 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
             <Link href={dbLink("User", { id: u.id })} className="mr-auto text-sm text-ink-2 hover:underline">
               Открыть строку в базе →
             </Link>
+            {u.listingsHiddenAt ? (
+              <Button variant="secondary" loading={busy === "listings"} onClick={() => run("listings", () => api(`/admin/users/${id}/show-listings`, { method: "POST" }), "Объявления снова видны")}>
+                Показать объявления
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                loading={busy === "listings"}
+                onClick={async () => {
+                  if (
+                    await confirm({
+                      title: `Скрыть объявления @${u.username}?`,
+                      message: "Все вещи в продаже пропадут из ленты и поиска, но не удалятся. Аккаунт продолжит работать, сделки в процессе завершатся. Новые вещи тоже будут скрыты, пока вы не покажете объявления снова.",
+                      confirmLabel: "Скрыть объявления",
+                    })
+                  )
+                    void run("listings", () => api(`/admin/users/${id}/hide-listings`, { method: "POST" }), "Объявления скрыты");
+                }}
+              >
+                Скрыть объявления
+              </Button>
+            )}
             {u.blockedAt ? (
               <Button variant="secondary" loading={busy === "block"} onClick={() => run("block", () => api(`/admin/users/${id}/unblock`, { method: "POST" }), "Разблокирован. Скрытые вещи остались скрытыми")}>
                 Разблокировать

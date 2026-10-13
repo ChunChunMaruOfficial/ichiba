@@ -1,5 +1,6 @@
 "use client";
 
+import { BlurBackdrop } from "./blur-backdrop";
 import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePresence } from "@/lib/presence";
@@ -85,9 +86,10 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
           {onVideo ? (
             <VideoSlide video={video} className="mx-auto max-h-[80vh] w-full" />
           ) : (
-            <button className="block w-full cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
+            <button className="relative block w-full cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
+              <BlurBackdrop key={`b-${current.id}`} src={current.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img key={current.id} src={current.urls.l} alt={title} className="fade-in mx-auto max-h-[80vh] w-full object-contain" style={{ aspectRatio: `${current.width} / ${current.height}` }} />
+              <img key={current.id} src={current.urls.l} alt={title} className="fade-in relative mx-auto max-h-[80vh] w-full object-contain" style={{ aspectRatio: `${current.width} / ${current.height}` }} />
             </button>
           )}
           {overlay}
@@ -246,7 +248,5 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
 }
 
 /** The same photo, blurred, filling the frame around a photo shown whole (as Instagram and Telegram do). */
-export function BlurBackdrop({ src }: { src: string }) {
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="" aria-hidden className="absolute inset-0 size-full scale-110 object-cover opacity-60 blur-2xl" />;
-}
+
+export { BlurBackdrop };

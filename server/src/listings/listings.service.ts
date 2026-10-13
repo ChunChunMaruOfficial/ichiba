@@ -227,13 +227,18 @@ export class ListingsService {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'PUBLISHED') return this.getForOwner(userId, id);
     if (!['DRAFT', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя опубликовать' });
+    if (listing.hiddenByAdmin) throw new ConflictException({ message: 'Объявления этого аккаунта скрыты администрацией' });
 
     const verdict = await this.checkPublishable(userId, listing, opts.trustedPhotos);
+    // An account whose listings an admin hid: new items (the shop import too) are saved hidden as well.
+    const seller = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { listingsHiddenAt: true } });
+    const hidden = !!seller.listingsHiddenAt;
     await this.prisma.listing.update({
       where: { id },
-      data: { status: 'PUBLISHED', publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date(), scheduledAt: null },
+      data: { status: hidden ? 'HIDDEN' : 'PUBLISHED', hiddenByAdmin: hidden, publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date(), scheduledAt: null },
     });
     await this.moderator.record(listing, verdict);
+    if (hidden) return this.getForOwner(userId, id);
     // Auction clock starts at publication (decision D16).
     if (listing.saleType === 'AUCTION' && !(await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } }))) {
       await this.prisma.auction.create({

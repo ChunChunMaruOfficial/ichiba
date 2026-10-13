@@ -114,6 +114,8 @@ model User {
   privacyVersion    String?
   /// Account deleted by its owner: personal data wiped, the row kept for counterparties' deal history.
   deletedAt         DateTime?
+  /// Set by an admin: every listing of this account is kept hidden (not deleted) until an admin shows them again.
+  listingsHiddenAt  DateTime?
   onboardedAt       DateTime?
   /// Profile photo (one of the user's photos); shown on the profile and wardrobe cards.
   avatarId          String?   @unique
@@ -191,6 +193,8 @@ model Listing {
   acceptsOffers      Boolean          @default(true)
   /// «Цена договорная»: published without a price; buyers write or make an offer instead of buying outright.
   priceNegotiable    Boolean          @default(false)
+  /// Hidden by an admin together with the rest of the account's listings; only an admin brings it back.
+  hiddenByAdmin      Boolean          @default(false)
   saleType           SaleType         @default(FIXED)
   /// Auction settings, applied when the listing is published (decision D16).
   auctionStep        Int?

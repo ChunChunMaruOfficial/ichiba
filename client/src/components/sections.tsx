@@ -1,5 +1,6 @@
 "use client";
 
+import { BlurBackdrop } from "./blur-backdrop";
 import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
@@ -96,8 +97,11 @@ export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: 
 
 function CoverImg({ cover, alt }: { cover: Cover | null; alt: string }) {
   return cover ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={cover.urls.s} alt={alt} loading="lazy" className="size-full object-contain" />
+    <span className="relative block size-full overflow-hidden">
+      <BlurBackdrop src={cover.urls.s} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={cover.urls.s} alt={alt} loading="lazy" className="relative size-full object-contain" />
+    </span>
   ) : (
     <div className="size-full bg-skeleton" />
   );

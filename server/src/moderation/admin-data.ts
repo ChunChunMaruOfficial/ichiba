@@ -154,6 +154,31 @@ export class AdminDataController {
     return { ok: true };
   }
 
+  /**
+   * Hide every listing of an account without deleting or blocking it: on-sale items go hidden (marked as hidden by an
+   * admin, so the owner can't bring them back), items in a deal finish it, and new ones are saved hidden too.
+   */
+  @Post('users/:id/hide-listings')
+  @HttpCode(200)
+  async hideListings(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    await this.prisma.user.update({ where: { id }, data: { listingsHiddenAt: new Date() } });
+    const { count } = await this.prisma.listing.updateMany({ where: { sellerId: id, status: 'PUBLISHED' }, data: { status: 'HIDDEN', hiddenByAdmin: true } });
+    await this.prisma.cartItem.deleteMany({ where: { listing: { sellerId: id, hiddenByAdmin: true } } });
+    await this.log(admin.id, 'USER', id, 'hide_listings', `${count}`);
+    return { ok: true, hidden: count };
+  }
+
+  /** Brings back exactly what an admin hid; listings the owner hid themselves stay hidden. */
+  @Post('users/:id/show-listings')
+  @HttpCode(200)
+  async showListings(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    await this.prisma.user.update({ where: { id }, data: { listingsHiddenAt: null } });
+    const { count } = await this.prisma.listing.updateMany({ where: { sellerId: id, hiddenByAdmin: true, status: 'HIDDEN' }, data: { status: 'PUBLISHED', hiddenByAdmin: false } });
+    await this.prisma.listing.updateMany({ where: { sellerId: id, hiddenByAdmin: true }, data: { hiddenByAdmin: false } });
+    await this.log(admin.id, 'USER', id, 'show_listings', `${count}`);
+    return { ok: true, shown: count };
+  }
+
   /** Same erasure as "delete my account": deals and chats stay for the other side, anonymised. */
   @Delete('users/:id')
   async deleteUser(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {

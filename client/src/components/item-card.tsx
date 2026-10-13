@@ -1,5 +1,6 @@
 "use client";
 
+import { BlurBackdrop } from "./blur-backdrop";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,9 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
   const ratio = card.cover && !uniform ? `${card.cover.width} / ${card.cover.height}` : "4 / 5";
   return (
     <div className={clsx("relative overflow-hidden bg-skeleton", className)} style={{ aspectRatio: ratio }}>
+      {/* A fixed frame (rows) leaves bands around the photo: they get its own blurred colours. Masonry keeps the
+          photo's shape, so there is nothing to fill. */}
+      {uniform && card.cover && !failed && <BlurBackdrop src={card.cover.urls.s} />}
       {card.cover && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- variants are pre-sized WebP from our own storage
         <img
