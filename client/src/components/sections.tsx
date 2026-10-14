@@ -73,7 +73,7 @@ export function SellBand() {
     ["三", "Договоритесь с покупателем", "Ответьте на вопросы, примите предложение, отправьте Белпочтой или встретьтесь"],
   ];
   return (
-    <section className="aizome aizome-fade-r grid grid-cols-1 gap-10 rounded-[28px] px-6 pb-10 pt-28 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-14 md:px-12 md:pb-14 md:pt-36">
+    <section className="reveal aizome aizome-fade-r grid grid-cols-1 gap-10 rounded-[28px] px-6 pb-10 pt-28 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-14 md:px-12 md:pb-14 md:pt-36">
       {/* The shop is open: a washi noren with the crest and いちば hangs from the band's top edge. */}
       <Noren className="absolute left-1/2 top-0 w-[280px] -translate-x-1/2 md:left-12 md:w-[340px] md:translate-x-0" cloth="#f4efe6" ink="#1f3354" />
       <Chochin className="absolute right-10 top-0 hidden h-40 lg:block" delay={-1.4} />
@@ -102,6 +102,44 @@ export function SellBand() {
 }
 
 /**
+ * «Ваш бренд — на ichiba»: the band for Belarusian brands on the home page, the same aizome cloth and brush numerals
+ * as the sellers' band on «Вторичка». It leads to the brand application in Settings.
+ */
+export function BrandBand() {
+  const steps: Array<[string, string, string]> = [
+    ["一", "Оставьте заявку", "Название бренда, УНП и ссылки — в настройках профиля, это пара минут"],
+    ["二", "Мы проверим", "Убедимся, что вы бренд или официальный магазин, и поставим печать «Бренд»"],
+    ["三", "Ваша витрина на главной", "Вещи бренда стоят только рядом с брендами — без вторички по соседству"],
+  ];
+  return (
+    <section className="reveal aizome aizome-fade-r grid grid-cols-1 gap-10 rounded-[28px] px-6 pb-10 pt-28 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-14 md:px-12 md:pb-14 md:pt-36">
+      <Noren className="absolute left-1/2 top-0 w-[280px] -translate-x-1/2 md:left-12 md:w-[340px] md:translate-x-0" cloth="#f4efe6" ink="#1f3354" />
+      <Chochin className="absolute right-10 top-0 hidden h-40 lg:block" delay={-1.4} />
+      <div>
+        <h2 className="text-4xl font-bold leading-[1.05] md:text-5xl">Белорусские бренды — на одной витрине</h2>
+        <p className="mt-4 max-w-md text-[17px] leading-relaxed text-ink-2">Делаете одежду или официально продаёте бренд? Откройте свою витрину на ichiba — рядом только такие же, как вы.</p>
+        <ButtonLink href="/settings#brand" variant="shu" size="lg" className="mt-7">
+          Стать брендом ichiba
+        </ButtonLink>
+      </div>
+      <ol className="flex flex-col gap-6 self-center">
+        {steps.map(([n, title, text]) => (
+          <li key={n} className="flex items-start gap-5">
+            <span aria-hidden className="w-9 shrink-0 text-center font-brush text-4xl leading-none text-shu">
+              {n}
+            </span>
+            <div className="border-b border-line pb-5">
+              <p className="text-xl font-bold">{title}</p>
+              <p className="mt-1 text-[15px] text-ink-2">{text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/**
  * A horizontal row that bleeds to the screen edges but snaps cards to the page gutter (scroll-padding), so the first
  * and the snapped card keep the same 16/24 px margin as everything else on the page.
  */
@@ -110,8 +148,8 @@ const ROW = "no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px
 /** Horizontal row of photos (sections on Home, recommendations on Product), all cropped to one height. */
 export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: "feed" | "grid" }) {
   return (
-    // pt: the brand seal hangs above the cards' top edge and a scrolling row would clip it.
-    <div className={clsx(ROW, "pt-3")}>
+    // pb: the brand seal hangs below the photo's corner and a scrolling row would clip it.
+    <div className={clsx(ROW, "pb-4")}>
       {items.map((c) => (
         <div key={c.id} className="w-[44vw] shrink-0 snap-start sm:w-56">
           <ItemCard card={c} variant={variant} uniform />
@@ -169,7 +207,7 @@ export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: 
   return (
     <div className={grid ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4" : ROW}>
       {wardrobes.map((w) => (
-        <div key={w.id} className={clsx("rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", grid ? "min-w-0" : "w-64 shrink-0 snap-start")}>
+        <div key={w.id} className={clsx("reveal rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", grid ? "min-w-0" : "w-64 shrink-0 snap-start")}>
           <button onClick={() => router.push(`/u/${w.username}`)} className="grid aspect-square w-full grid-cols-2 gap-1 overflow-hidden rounded-[16px]" aria-label={`Гардероб @${w.username}`}>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="overflow-hidden bg-skeleton">
@@ -198,7 +236,7 @@ export function CategoryTiles({ categories }: { categories: Array<{ slug: string
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {categories.map((c) => (
-        <Link key={c.slug} href={`/search?category=${c.slug}`} className="group relative aspect-[4/5] overflow-hidden rounded-[18px] bg-skeleton">
+        <Link key={c.slug} href={`/search?category=${c.slug}`} className="reveal group relative aspect-[4/5] overflow-hidden rounded-[18px] bg-skeleton">
           <div className="absolute inset-0 transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-105">
             <CoverImg cover={c.cover} alt="" />
           </div>

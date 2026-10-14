@@ -299,6 +299,7 @@ export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const showMobileSearch = pathname === "/";
+  const resaleZone = pathname.startsWith("/resale") || pathname.startsWith("/wardrobes");
   const header = useRef<HTMLElement>(null);
   const [hidden, setHidden] = useState(false);
 
@@ -388,6 +389,8 @@ export function Header() {
           <SearchBox className="mx-auto hidden w-full min-w-0 max-w-[560px] md:block" />
         </Suspense>
         <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
+          {/* «Продать вещь» is the second-hand market's call; the brands' showcase doesn't sell people's closets. */}
+          {resaleZone && (
           <button
             onClick={() => requireAuth(() => router.push("/sell"))}
             aria-label="Продать вещь"
@@ -395,6 +398,7 @@ export function Header() {
           >
             <IconPlus className="size-4.5" /> <span className="hidden lg:inline">Продать вещь</span>
           </button>
+          )}
           {loading ? (
             <span className="h-11 w-24" />
           ) : me ? (
@@ -477,7 +481,8 @@ export function BottomNav() {
     const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
     const content = (
       <>
-        <span className="relative">
+        {/* Keyed on active: the tab you land on hops once. */}
+        <span key={String(active)} className={clsx("relative", active && "tab-hop")}>
           <Icon className="size-6" filled={active && Icon === IconHeart} />
           {!!opts.badge && <span className="absolute -right-2 -top-1 rounded-full bg-shu px-1 text-[10px] font-semibold leading-4 text-on-shu">{opts.badge}</span>}
         </span>

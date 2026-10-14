@@ -112,9 +112,18 @@ function StatusMark({ card, className }: { card: Card; className?: string }) {
   return null;
 }
 
-/** The brand seal hangs off the photo's top-left corner, so it sits outside the photo's clipping frame. */
+const hasSeal = (card: Card) => card.isBrand && card.status === "PUBLISHED" && !card.auction;
+
+/**
+ * The brand seal is pressed over the photo's bottom-right corner and hangs past it, so it sits outside the photo's
+ * clipping frame. It steps aside while the desktop hover panel / «Купить» covers that corner.
+ */
 function CardSeal({ card }: { card: Card }) {
-  return card.isBrand && card.status === "PUBLISHED" && !card.auction ? <BrandSeal className="absolute -left-1.5 -top-2.5 z-10" /> : null;
+  return hasSeal(card) ? (
+    <span className="pointer-events-none absolute -bottom-3 -right-2 z-10 transition-opacity md:group-focus-within:opacity-0 md:group-hover:opacity-0">
+      <BrandSeal />
+    </span>
+  ) : null;
 }
 
 /** Price on a paper tag tied on with a cinnabar thread (値札); a price cut shows the new price in cinnabar and the old one struck. */
@@ -137,7 +146,8 @@ function PriceTag({ price, previous, className }: { price: string; previous?: nu
 function CardMarks({ card, discount }: { card: Card; discount: number }) {
   if (!discount && !card.hasVideo) return null;
   return (
-    <span className="pointer-events-none absolute bottom-2.5 right-2.5 flex gap-1">
+    // The brand seal takes the corner: the marks stand to its left.
+    <span className={clsx("pointer-events-none absolute bottom-2.5 flex gap-1", hasSeal(card) ? "right-14" : "right-2.5")}>
       {card.hasVideo && (
         <span className="on-photo grid size-7 place-items-center rounded-full text-ink" title="Есть видео">
           <svg viewBox="0 0 24 24" className="ml-0.5 size-3.5" fill="currentColor" aria-label="Есть видео">
@@ -161,7 +171,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
 
   if (variant === "feed") {
     return (
-      <article className="group relative">
+      <article className="reveal group relative">
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
         <Link href={`/item/${card.id}`} className="relative block overflow-hidden rounded-[18px]">
           <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
@@ -192,7 +202,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
             </Link>
           )}
         </div>
-        <p className="card-info -mx-1 mt-1 truncate rounded-lg px-1.5 py-0.5 text-[13px] text-ink-2 md:hidden">
+        <p className={clsx("card-info -mx-1 mt-1 truncate rounded-lg px-1.5 py-0.5 text-[13px] text-ink-2 md:hidden", hasSeal(card) && "pr-10")}>
           {card.title}
           {card.size && <span className="text-muted"> · {card.size}</span>}
         </p>
@@ -201,7 +211,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
   }
 
   return (
-    <article className="group relative">
+    <article className="reveal group relative">
       <div className="relative">
         <Link href={`/item/${card.id}`} className="block overflow-hidden rounded-[18px]" tabIndex={-1} aria-hidden>
           <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
@@ -221,7 +231,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
       {/* Frosted so the text stays readable over the footer's sakura (and anything else behind the page). */}
       <div className="card-info -mx-1 mt-1.5 rounded-xl px-1.5 pb-1 pt-0.5">
         <Link href={`/item/${card.id}`} className="block">
-          <div className="px-0.5">
+          <div className={clsx("px-0.5", hasSeal(card) && "pr-10")}>
             <p className="tabular text-[15px] font-bold">
               <span className={discounted ? "text-shu" : undefined}>{price}</span>
               {discounted && <s className="ml-1.5 text-sm font-normal text-muted">{card.previousPrice}</s>}

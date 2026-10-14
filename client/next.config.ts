@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // One address for the site: www.ichiba.by goes to ichiba.by (ichiba.site is redirected by Cloudflare itself).
+  async redirects() {
+    return [{ source: "/:path*", has: [{ type: "host", value: "www.ichiba.by" }], destination: "https://ichiba.by/:path*", permanent: true }];
+  },
   // The browser talks to /api on the same origin, so the session cookie is first-party.
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_URL}/:path*` }];

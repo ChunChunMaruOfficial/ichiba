@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useLayoutEffect, useState } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
-import { CardRow, CategoryTiles, SectionHeader, SellBand, WardrobeCards } from "@/components/sections";
+import { BrandBand, CategoryTiles, SectionHeader, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
 import { Noren } from "@/components/shop/noren";
 import { SwipeDeck } from "@/components/swipe-deck";
@@ -15,10 +15,8 @@ import type { Card, Cover, SellerSummary } from "@/lib/types";
 interface HomeData {
   totalVisible: number;
   brandsVisible: number;
-  resaleToday: number;
-  /** The newest from private sellers: the «Вторичка» row under the brands' feed. */
-  resale: Card[];
-  wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>;
+  /** The brands with the most on sale, as wardrobe cards. */
+  brands: Array<SellerSummary & { collage: (Cover | null)[] }>;
   categories: Array<{ slug: string; label: string; count: number; cover: Cover | null }>;
   forYouAvailable: boolean;
 }
@@ -153,26 +151,20 @@ function HomeFeed() {
 
           {isDefaultChip && home.data && !smallCatalog && (
             <div className="flex flex-col gap-16 py-12 md:gap-24 md:py-16">
-              {home.data.resale.length > 0 && (
-                <section>
-                  <SectionHeader kanji="古着" title="Вторичка" count={home.data.resaleToday ? `сегодня: ${home.data.resaleToday}` : undefined} href="/resale" />
-                  <CardRow items={home.data.resale} />
-                </section>
-              )}
-              {!me?.isSeller && <SellBand />}
-              {home.data.wardrobes.length > 0 && (
-                <section>
-                  <SectionHeader kanji="箪笥" title="Гардеробы" />
+              {home.data.brands.length > 0 && (
+                <section className="reveal">
+                  <SectionHeader kanji="銘柄" title="Бренды" />
                   <WardrobeCards
-                    wardrobes={home.data.wardrobes}
+                    wardrobes={home.data.brands}
                     onFollowChange={(username, v) =>
-                      home.mutate((d) => d && { ...d, wardrobes: d.wardrobes.map((w) => (w.username === username ? { ...w, isFollowing: v, followers: w.followers + (v ? 1 : -1) } : w)) }, { revalidate: false })
+                      home.mutate((d) => d && { ...d, brands: d.brands.map((w) => (w.username === username ? { ...w, isFollowing: v, followers: w.followers + (v ? 1 : -1) } : w)) }, { revalidate: false })
                     }
                   />
                 </section>
               )}
+              {!me?.isSeller && <BrandBand />}
               {home.data.categories.length > 0 && (
-                <section>
+                <section className="reveal">
                   <SectionHeader kanji="市場" title="Категории" />
                   <CategoryTiles categories={home.data.categories} />
                 </section>

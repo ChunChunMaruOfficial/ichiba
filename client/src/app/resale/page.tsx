@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
-import { SectionHeader, TitleWithKanji, WardrobeCards } from "@/components/sections";
+import { SectionHeader, SellBand, TitleWithKanji, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
@@ -53,6 +53,13 @@ function ResaleFeed() {
           <SectionHeader kanji="箪笥" title="Гардеробы" href="/wardrobes" />
           <WardrobeCards wardrobes={wardrobes.data.items} onFollowChange={() => void wardrobes.mutate()} />
         </section>
+      )}
+
+      {/* «Продайте то, что не носите» belongs here, not among the brands on the home page. */}
+      {!sessionLoading && !me?.isSeller && (
+        <div className="mt-12">
+          <SellBand />
+        </div>
       )}
 
       <div className="under-header z-30 -mx-4 mt-6 bg-washi px-4 pb-3 pt-4 md:-mx-6 md:px-6">

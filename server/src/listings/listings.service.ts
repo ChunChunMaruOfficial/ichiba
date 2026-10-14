@@ -775,15 +775,11 @@ export class ListingsService {
   }
 
   /**
-   * Data for the home page. The feed above is the brands' (market=brands); the sections under it are the second-hand
-   * market: «Вторичка» (new from private sellers), their wardrobes, and the categories.
+   * Data for the home page, the brands' showcase: the feed above is market=brands, under it the brands themselves and
+   * the categories. The second-hand market lives on its own page (/resale) and isn't mixed in here.
    */
   async home(viewerId?: string) {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const [resale, resaleToday, totalVisible, brandsVisible, categoryCounts, forYouAvailable] = await Promise.all([
-      this.feed('new', 0, 16, viewerId, 'resale'),
-      this.prisma.listing.count({ where: { status: 'PUBLISHED', publishedAt: { gte: startOfDay }, ...marketWhere('resale') } }),
+    const [totalVisible, brandsVisible, categoryCounts, forYouAvailable] = await Promise.all([
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED } } }),
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED }, ...marketWhere('brands') } }),
       this.prisma.listing.groupBy({ by: ['category'], where: { status: 'PUBLISHED' }, _count: true }),
@@ -804,19 +800,17 @@ export class ListingsService {
     return {
       totalVisible,
       brandsVisible,
-      resaleToday,
-      resale: resale.items,
-      wardrobes: await this.topWardrobes(viewerId),
+      brands: await this.topWardrobes(viewerId, 'brands'),
       categories,
       forYouAvailable,
     };
   }
 
-  private async topWardrobes(viewerId?: string) {
+  /** The sellers with the most on sale, each with a collage of their latest items (home: the brands). */
+  private async topWardrobes(viewerId: string | undefined, market: Market) {
     const top = await this.prisma.listing.groupBy({
       by: ['sellerId'],
-      // The home page shows them under «Вторичка»: private sellers only, brands have the feed above.
-      where: { status: 'PUBLISHED', sellerId: viewerId ? { not: viewerId } : undefined, ...marketWhere('resale') },
+      where: { status: 'PUBLISHED', sellerId: viewerId ? { not: viewerId } : undefined, ...marketWhere(market) },
       _count: true,
       orderBy: { _count: { sellerId: 'desc' } },
       take: 6,
