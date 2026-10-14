@@ -7,6 +7,8 @@ const UA = 'Mozilla/5.0 (compatible; ichiba-shop-import/1.0)';
 
 interface PayloadMedia {
   url?: string | null;
+  /** Smaller copies the CMS made (some cropped to a frame), by name: product, heroMobile, card… */
+  sizes?: Record<string, { url?: string | null; width?: number | null } | null> | null;
 }
 
 export interface PayloadProduct {
@@ -46,10 +48,35 @@ export async function fetchProducts(origin: string): Promise<PayloadProduct[]> {
   return all;
 }
 
-export async function download(url: string): Promise<Buffer> {
-  const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(60_000) });
+export async function download(url: string, timeoutMs = 60_000): Promise<Buffer> {
+  const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
+}
+
+/**
+ * A photo by its candidates in order (the original, then the CMS's own smaller copy): a shop that serves
+ * multi-megabyte originals slowly still gives each item all its photos. The original gets a second, longer try.
+ */
+export async function downloadFirst(urls: string[]): Promise<Buffer> {
+  let last: unknown;
+  for (const [i, url] of urls.entries()) {
+    for (const timeout of i === 0 ? [60_000, 120_000] : [60_000]) {
+      try {
+        return await download(url, timeout);
+      } catch (e) {
+        last = e;
+      }
+    }
+  }
+  throw last instanceof Error ? last : new Error('photo not downloaded');
+}
+
+/** The original first, then the largest copy that keeps the whole photo (not a fixed-frame crop) or the 800 px one. */
+export function photoCandidates(media: PayloadMedia | null | undefined): string[] {
+  if (!media?.url) return [];
+  const copy = media.sizes?.product?.url ?? media.sizes?.heroMobile?.url;
+  return [media.url, ...(copy ? [copy] : [])];
 }
 
 /** Plain text of a Lexical rich-text value: paragraphs on their own lines, at most one empty line between them. */

@@ -49,6 +49,8 @@ let products = process.env.SHOP_FIXTURE
       product(5, 'BIG BOX', { price: 4900 }),
       product(6, 'T-SHIRT "MESSY LINES" WHITE', { hidden: true, stock: [{ size: 'S', quantity: 3 }] }),
       product(7, 'SHORTS "I <3REDHEAD" CAMO', { stock: [{ size: 'S', quantity: 0 }] }),
+      // The original of the second photo never answers: its 800 px copy is taken instead.
+      product(8, 'HAT “FLAIM”', { images: [img('8-a.jpeg'), { image: { url: '/api/media/file/broken.jpeg', sizes: { product: { url: '/api/media/file/8-b-800x1000.jpeg' } } } }] }),
     ];
 
 // Distinct product shots, so nothing looks like a duplicate; the logo is a wide SVG like the real one.
@@ -61,6 +63,10 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/logo.svg') {
     res.setHeader('content-type', 'image/svg+xml');
     return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="60"><text x="10" y="45" font-size="40">REDHEAD</text></svg>');
+  }
+  if (url.pathname === '/api/media/file/broken.jpeg') {
+    res.statusCode = 503;
+    return res.end();
   }
   if (url.pathname.startsWith('/api/media/file/')) {
     let h = 0;
@@ -111,6 +117,10 @@ if (!process.env.SHOP_FIXTURE) {
   const key = byTitle(rows, /Брелок/);
   ok(key?.sizeValue === null && /В наличии: pink\./.test(key.description), 'keychain: colours in the text, no size');
   ok(!byTitle(rows, /BOX/), 'mystery box skipped');
+  const flaim = byTitle(rows, /FLAIM/);
+  ok(flaim?.photos.length === 2, 'a photo whose original fails comes from the shop\'s smaller copy');
+  // A photo lost on the way (the shop timed out) is topped up by the next sync.
+  await prisma.photo.updateMany({ where: { listingId: flaim.id, order: 1 }, data: { listingId: null } });
 
   // The shop changes: a price drop, a sold-out item, a deleted item, a product shown again.
   products = products
@@ -118,6 +128,7 @@ if (!process.env.SHOP_FIXTURE) {
     .map((p) => (p.id === 1 ? { ...p, price: 1490 } : p.id === 2 ? { ...p, stock: p.stock.map((s) => ({ ...s, quantity: 0 })), inStock: false } : p.id === 6 ? { ...p, hidden: false } : p));
   await shop.syncSource(cfg);
   rows = await listings();
+  ok(byTitle(rows, /FLAIM/)?.photos.length === 2, 'missing photos topped up on the next sync');
   ok(byTitle(rows, /CAMO$/)?.price === 53 && byTitle(rows, /CAMO$/)?.previousPrice === 64, 'price change copied (a price drop)');
   ok(byTitle(rows, /Бомбер/)?.status === 'HIDDEN', 'sold out → hidden');
   ok(byTitle(rows, /Шуба/)?.status === 'DELETED', 'gone from the shop → removed');

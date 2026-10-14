@@ -9,7 +9,7 @@ import { ListingsService } from '../listings/listings.service.js';
 import { MediaService } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { type Rates, RatesService } from '../rates/rates.js';
-import { download, fetchProducts, lexicalText, type PayloadProduct } from './payload.js';
+import { download, downloadFirst, fetchProducts, lexicalText, type PayloadProduct, photoCandidates } from './payload.js';
 import { colorFromName, listingTitle, materialFrom, SHOP_SOURCES, type ShopKind, type ShopSourceConfig, tidySize } from './sources.js';
 
 /**
@@ -41,7 +41,8 @@ interface Offer {
   description: string;
   material?: string;
   color?: string;
-  photoUrls: string[];
+  /** Each photo as its download candidates (photoCandidates), in the shop's order. */
+  photos: string[][];
   isNew: boolean;
   /** What a later sync compares to notice a change in the shop (prices in the shop's currency, not BYN). */
   fingerprint: string;
@@ -163,6 +164,14 @@ export class ShopImportService implements OnApplicationBootstrap {
           // A run cut short left the draft: finish it.
           await this.listings.publish(userId, live.id, { trustedPhotos: true });
         }
+        // Photos the shop was too slow to give last time: the listing gets the full set once it can be fetched.
+        if (live.status !== 'RESERVED' && (await this.prisma.photo.count({ where: { listingId: live.id } })) < offer.photos.length) {
+          const { photos } = await this.uploadPhotos(cfg, userId, offer);
+          if (photos.length === offer.photos.length) {
+            await this.listings.update(userId, live.id, { photos });
+            stats.updated++;
+          }
+        }
         if (row!.fingerprint !== offer.fingerprint && live.status !== 'RESERVED') {
           await this.listings.update(userId, live.id, this.priceAndSizes(offer));
           stats.updated++;
@@ -224,8 +233,11 @@ export class ShopImportService implements OnApplicationBootstrap {
     const shipping = p.shippingText?.trim() ? `${p.shippingText.trim().charAt(0).toUpperCase()}${p.shippingText.trim().slice(1)}.`.replace(/\.\.$/, '.') : '';
     const description = [text, variants, shipping, cfg.footer].filter(Boolean).join('\n\n').slice(0, 2000);
 
-    const urls = (p.images ?? []).map((i) => i.image?.url).filter((u): u is string => !!u);
-    if (p.sizeChart?.url) urls.push(p.sizeChart.url);
+    const seen = new Set<string>();
+    const photos = [...(p.images ?? []).map((i) => i.image), p.sizeChart]
+      .map((m) => photoCandidates(m).map((u) => new URL(u, cfg.origin).href))
+      .filter((c) => c.length && !seen.has(c[0]) && seen.add(c[0]))
+      .slice(0, 10);
 
     return {
       kind,
@@ -237,7 +249,7 @@ export class ShopImportService implements OnApplicationBootstrap {
       description,
       material: materialFrom(text),
       color: colorFromName(p.name_ru),
-      photoUrls: [...new Set(urls.map((u) => new URL(u, cfg.origin).href))].slice(0, 10),
+      photos,
       isNew: !!p.isNew,
       fingerprint: JSON.stringify([p.price, p.oldPrice ?? null, sizes]),
     };
@@ -296,14 +308,14 @@ export class ShopImportService implements OnApplicationBootstrap {
     return user.id;
   }
 
-  /** One product → one published listing; returns its id. */
-  private async createListing(cfg: ShopSourceConfig, userId: string, offer: Offer, publishedAt: Date | null) {
-    if (!offer.photoUrls.length) throw new Error('нет фото');
+  /** The product's photos uploaded in its order; a photo that can't be fetched is left out (and topped up later). */
+  private async uploadPhotos(cfg: ShopSourceConfig, userId: string, offer: Offer) {
+    if (!offer.photos.length) throw new Error('нет фото');
     const photos: { id: string; isDefect: boolean }[] = [];
     let cover: Buffer | null = null;
-    for (const url of offer.photoUrls) {
+    for (const candidates of offer.photos) {
       try {
-        const buffer = await download(url);
+        const buffer = await downloadFirst(candidates);
         cover ??= buffer;
         photos.push({ id: (await this.media.upload(userId, jpegFile(buffer, 'photo.jpg'))).id, isDefect: false });
       } catch (e) {
@@ -312,6 +324,16 @@ export class ShopImportService implements OnApplicationBootstrap {
       }
     }
     if (!photos.length) throw new Error('ни одно фото не загрузилось');
+    return { photos, cover };
+  }
+
+  /** One product → one published listing; returns its id. */
+  private async createListing(cfg: ShopSourceConfig, userId: string, offer: Offer, publishedAt: Date | null) {
+    // A run cut short (a deploy, a restart) may have left this item's draft behind.
+    for (const draft of await this.prisma.listing.findMany({ where: { sellerId: userId, title: offer.title, status: 'DRAFT' }, select: { id: true } })) {
+      await this.listings.remove(userId, draft.id);
+    }
+    const { photos, cover } = await this.uploadPhotos(cfg, userId, offer);
 
     let color = offer.color;
     let styleTags: string[] = [];
