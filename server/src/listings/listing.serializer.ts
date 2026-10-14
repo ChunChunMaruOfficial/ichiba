@@ -49,6 +49,8 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     seller: { id: l.seller.id, username: l.seller.username },
     /** The seller has the «Бренд» status: the card carries the brand seal. */
     isBrand: !!l.seller.brandVerifiedAt,
+    /** The seals the brand chose for this item, in order; none for private sellers. */
+    labels: l.seller.brandVerifiedAt ? l.labels : [],
     isFavorite: favoriteIds ? favoriteIds.has(l.id) : false,
     publishedAt: l.publishedAt,
     saleType: l.saleType,

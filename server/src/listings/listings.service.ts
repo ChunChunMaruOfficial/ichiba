@@ -20,7 +20,7 @@ import { tiersOf } from './bundle.js';
 import { BodyMeasurements, fitHint, PreferredSizes } from './fit.js';
 import { hashDistance, MediaService, photoUrls, serializeVideo } from '../media/media.service.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
-import type { ListingInputT, SearchQueryT } from './listings.dto.js';
+import { LISTING_LABELS, type ListingInputT, type SearchQueryT } from './listings.dto.js';
 
 const VISIBLE_IN_FEED: ListingStatus[] = ['PUBLISHED', 'RESERVED'];
 const ACTIVE_REQUEST_STATUSES = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT', 'WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED'] as const;
@@ -77,9 +77,11 @@ export class ListingsService {
   // ---------- create / edit ----------
 
   async create(userId: string, input: ListingInputT) {
-    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { city: true } });
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { city: true, brandVerifiedAt: true } });
+    const data = this.toData(input);
+    if (!me?.brandVerifiedAt) delete data.labels;
     const listing = await this.prisma.listing.create({
-      data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...this.toData(input) },
+      data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...data },
     });
     if (input.photos) await this.attachPhotos(userId, listing.id, input.photos);
     if (input.videoId !== undefined) await this.attachVideo(userId, listing.id, input.videoId);
@@ -90,6 +92,8 @@ export class ListingsService {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'BLOCKED') throw new ForbiddenException({ message: 'Вещь заблокирована модератором' });
     const data = this.toData(input);
+    // Seals are a brand's tool; anyone else's choice is ignored.
+    if (data.labels !== undefined && !(await this.prisma.user.findUnique({ where: { id: userId }, select: { brandVerifiedAt: true } }))?.brandVerifiedAt) delete data.labels;
 
     const runningAuction = await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } });
     if (runningAuction) {
@@ -151,6 +155,8 @@ export class ListingsService {
       if (list.length) data.sizeValue = list[0];
     }
     if (input.extraSizes !== undefined) data.extraSizes = [];
+    // Seals keep one order on every card, whatever order they were ticked in.
+    if (input.labels) data.labels = LISTING_LABELS.filter((l) => input.labels!.includes(l));
     // A negotiable price has no number, and nothing that compares against one.
     if (input.priceNegotiable) Object.assign(data, { price: null, autoAcceptPrice: null, minOfferPrice: null, saleType: 'FIXED' });
     return data;
@@ -512,6 +518,7 @@ export class ListingsService {
       priceNegotiable: listing.priceNegotiable,
       previousPrice: listing.previousPrice,
       originalPrice: listing.originalPrice,
+      labels: listing.labels,
       /** «Несколько размеров»: every size in stock (empty for a one-size listing). */
       stockSizes: listing.sizes,
       category: listing.category,

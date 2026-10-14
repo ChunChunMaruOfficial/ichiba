@@ -1,4 +1,4 @@
-import type { AiAttr, AiSuggestion, Condition, DeliveryMethod, Gender, ListingDetail, MeasurementKey, Meta, SizeSystem, VideoView } from "./types";
+import type { AiAttr, AiSuggestion, Condition, DeliveryMethod, Gender, ListingDetail, ListingLabel, MeasurementKey, Meta, SizeSystem, VideoView } from "./types";
 
 export interface PhotoDraft {
   key: string;
@@ -45,6 +45,8 @@ export interface ListingValues {
   gender: Gender | null;
   /** Price new in a shop. */
   originalPrice: string;
+  /** Seals on the card (brands only). */
+  labels: ListingLabel[];
   autoAcceptPrice: string;
   /** «Несколько размеров»: every size in stock, in size order (empty for one size); the buyer picks one. */
   sizes: string[];
@@ -83,6 +85,7 @@ export const emptyValues = (city: string | null): ListingValues => ({
   auctionBuyNow: "",
   gender: null,
   originalPrice: "",
+  labels: [],
   autoAcceptPrice: "",
   sizes: [],
   video: null,
@@ -121,6 +124,7 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
     auctionBuyNow: l.owner?.auctionBuyNow != null ? String(l.owner.auctionBuyNow) : "",
     gender: l.gender === "UNISEX" ? null : l.gender,
     originalPrice: l.originalPrice != null ? String(l.originalPrice) : "",
+    labels: l.labels ?? [],
     autoAcceptPrice: l.owner?.autoAcceptPrice != null ? String(l.owner.autoAcceptPrice) : "",
     sizes: l.stockSizes ?? [],
     video: l.video,
@@ -245,6 +249,7 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     minOfferPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.minOfferPrice) : null,
     autoAcceptPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.autoAcceptPrice) : null,
     originalPrice: num(values.originalPrice),
+    labels: values.labels,
     gender: values.gender,
     videoId: values.video?.id ?? null,
     saleType: values.saleType,

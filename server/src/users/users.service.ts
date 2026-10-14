@@ -39,6 +39,7 @@ export class UsersService {
           role: true,
           onboardedAt: true,
           createdAt: true,
+          brandVerifiedAt: true,
           avatar: { select: { key: true, provider: true } },
         },
       }),
@@ -52,7 +53,7 @@ export class UsersService {
       this.chat.unreadCount(userId),
       this.prisma.listing.count({ where: { sellerId: userId, status: { not: 'DELETED' } } }),
     ]);
-    const { emailVerifiedAt, emailPrefs, avatar, ...profile } = user;
+    const { emailVerifiedAt, emailPrefs, avatar, brandVerifiedAt, ...profile } = user;
     return {
       ...profile,
       avatar: avatar ? photoUrls(avatar) : null,
@@ -66,6 +67,8 @@ export class UsersService {
       unreadMessages,
       /** Has listed anything (drafts included): seller tools in the menu only make sense then. */
       isSeller: listings > 0,
+      /** Brand status: the sell form offers the seals («Бренд», «Новинка»…) only then. */
+      isBrand: !!brandVerifiedAt,
     };
   }
 }

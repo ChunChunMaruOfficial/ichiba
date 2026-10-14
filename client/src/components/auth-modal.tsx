@@ -174,7 +174,9 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
     "reset-confirm": "Новый пароль",
   }[step];
 
-  const submit = { start: sendCode, code: () => checkCode(), profile: completeSignup, password: passwordLogin, reset: requestReset, "reset-confirm": confirmReset }[step];
+  // One field takes an email or a nickname: an email gets a one-time code, a nickname signs in with its password.
+  const byName = step === "start" && login.trim() !== "" && !login.includes("@");
+  const submit = byName ? passwordLogin : { start: sendCode, code: () => checkCode(), profile: completeSignup, password: passwordLogin, reset: requestReset, "reset-confirm": confirmReset }[step];
   const generalError = error && !Object.keys(fields).length;
 
   return (
@@ -198,7 +200,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
           )}
           <div className="my-5 flex items-center gap-3 text-xs text-muted">
             <span className="h-px flex-1 bg-line" />
-            или по почте
+            или по почте и юзернейму
             <span className="h-px flex-1 bg-line" />
           </div>
         </>
@@ -214,10 +216,9 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
       >
         {(step === "start" || step === "password" || step === "reset") && (
           <Field
-            label={step === "password" ? "Почта или ник" : "Почта"}
+            label={step === "reset" ? "Почта" : "Почта или юзернейм"}
             htmlFor="auth-login"
             error={fields.login}
-            hint={step === "start" ? "Пришлём код на почту" : undefined}
           >
             <Input
               id="auth-login"
@@ -229,9 +230,9 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
               value={login}
               onChange={(e) => setLogin(e.target.value)}
               error={fields.login}
-              type={step === "password" ? "text" : "email"}
-              inputMode={step === "password" ? "text" : "email"}
-              placeholder="you@mail.by"
+              type={step === "reset" ? "email" : "text"}
+              inputMode={step === "reset" ? "email" : "text"}
+              placeholder={step === "reset" ? "you@mail.by" : "you@mail.by или ник"}
             />
           </Field>
         )}
@@ -297,7 +298,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
           </>
         )}
 
-        {(step === "password" || step === "reset-confirm") && (
+        {(step === "password" || step === "reset-confirm" || byName) && (
           <>
             {step === "reset-confirm" && (
               <Field label={`Код из письма на ${target}`} htmlFor="auth-code" error={fields.code}>
@@ -310,7 +311,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
                   id="auth-password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  autoComplete={step === "password" ? "current-password" : "new-password"}
+                  autoComplete={step === "reset-confirm" ? "new-password" : "current-password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   error={fields.password}
@@ -331,7 +332,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
         )}
 
         <Button type="submit" size="lg" block loading={busy} disabled={step === "code" && code.length < 6}>
-          {{ start: "Получить код", code: "Продолжить", profile: "Создать аккаунт", password: "Войти", reset: "Получить код", "reset-confirm": "Сохранить и войти" }[step]}
+          {byName ? "Войти" : { start: "Получить код", code: "Продолжить", profile: "Создать аккаунт", password: "Войти", reset: "Получить код", "reset-confirm": "Сохранить и войти" }[step]}
         </Button>
 
         {(step === "code" || step === "reset-confirm") && providers?.devAnyCode && <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-sm text-warn">Режим разработки: подойдёт любой код из 6 цифр, например 000000.</p>}
@@ -407,7 +408,7 @@ function GoogleButton({ clientId, onToken }: { clientId: string; onToken: (t: st
     };
   }, [clientId]);
   return (
-    <div className="relative flex-1 overflow-hidden rounded-full">
+    <div className="group relative flex-1 overflow-hidden rounded-full">
       <SocialFace label="Google">
         <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
           <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.8Z" />
@@ -433,7 +434,7 @@ function TelegramButton({ botId, onAuth }: { botId: string; onAuth: (u: Telegram
     <button
       type="button"
       disabled={!ready}
-      className="flex-1 rounded-full disabled:opacity-60"
+      className="group flex-1 rounded-full disabled:opacity-60"
       onClick={() => window.Telegram?.Login.auth({ bot_id: botId, request_access: "write", lang: "ru" }, (user) => user && onAuth(user))}
     >
       <SocialFace label="Telegram">
@@ -446,10 +447,13 @@ function TelegramButton({ botId, onAuth }: { botId: string; onAuth: (u: Telegram
   );
 }
 
-/** Shared look of the social sign-in buttons: a paper pill with the service's logo and name. */
+/**
+ * Shared look of the social sign-in buttons: a paper pill with the service's logo and name. The hover border comes
+ * from the button's wrapper (`group`): on Google the transparent real button lies on top and takes the hover itself.
+ */
 function SocialFace({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <span className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line bg-surface text-[15px] font-semibold text-ink transition-colors hover:border-ink-2">
+    <span className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line bg-surface text-[15px] font-semibold text-ink transition-colors group-hover:border-ink-2">
       {children}
       {label}
     </span>

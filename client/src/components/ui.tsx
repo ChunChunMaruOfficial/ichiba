@@ -128,20 +128,40 @@ const HANKO = {
   listed: { kanji: "出品", ru: "в продаже", ink: false },
 } as const;
 
+/** The seals a brand puts on its items (server: listings.dto LISTING_LABELS), with their kanji and word. */
+export const SEALS = {
+  brand: { kanji: "銘柄", ru: "бренд", label: "Бренд" },
+  new: { kanji: "新作", ru: "новинка", label: "Новинка" },
+  hit: { kanji: "人気", ru: "хит", label: "Хит" },
+  original: { kanji: "正規", ru: "оригинал", label: "Оригинал" },
+} as const;
+export type SealKind = keyof typeof SEALS;
+
 /**
- * «Бренд»: a real seal pressed in cinnabar ink — a tall stamp with two columns read right to left, 銘柄 by brush and
- * «бренд» standing letter under letter, paper-coloured, framed by a thin inner line, its ink worn in speckles.
- * Set askew; on cards it hangs off the photo's corner.
+ * A seal pressed in ink (globals.css .seal): each kind its own shape and colour — «бренд» tall cinnabar, «новинка»
+ * wide sumi black, «хит» round indigo, «оригинал» cinnabar on white. `tilt` sets its lean; `stuck` adds a strip of
+ * tape, as if stuck on by hand.
  */
-export function BrandSeal({ className }: { className?: string }) {
+export function Seal({ kind, className, tilt, stuck }: { kind: SealKind; className?: string; tilt?: number; stuck?: boolean }) {
+  const s = SEALS[kind];
   return (
-    <span role="img" aria-label="Бренд" title="Статус бренда подтверждён ichiba" className={clsx("seal-brand pointer-events-none select-none", className)}>
-      <span className="seal-brand-face" aria-hidden>
-        <span className="seal-brand-kanji">銘柄</span>
-        <span className="seal-brand-ru">бренд</span>
+    <span
+      role="img"
+      aria-label={s.label}
+      className={clsx("seal pointer-events-none select-none", stuck && "seal-stuck", className)}
+      style={tilt != null ? ({ "--seal-tilt": `${tilt}deg` } as React.CSSProperties) : undefined}
+    >
+      <span className={`seal-face seal-face-${kind}`} aria-hidden>
+        <span className="seal-kanji">{s.kanji}</span>
+        <span className="seal-ru">{s.ru}</span>
       </span>
     </span>
   );
+}
+
+/** «Бренд» on a profile, the brand application and the brands' band. */
+export function BrandSeal({ className }: { className?: string }) {
+  return <Seal kind="brand" className={className} />;
 }
 
 export function Hanko({ kind, className }: { kind: keyof typeof HANKO; className?: string }) {

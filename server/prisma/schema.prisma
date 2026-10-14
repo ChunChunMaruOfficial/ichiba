@@ -116,7 +116,7 @@ model User {
   deletedAt         DateTime?
   /// Set by an admin: every listing of this account is kept hidden (not deleted) until an admin shows them again.
   listingsHiddenAt  DateTime?
-  /// «Бренд»: confirmed by an admin from a brand application; its items carry the brand seal.
+  /// «Бренд»: confirmed by an admin from a brand application; it can put seals on its items (Listing.labels).
   brandVerifiedAt   DateTime?
   brandName         String?
   onboardedAt       DateTime?
@@ -224,6 +224,8 @@ model Listing {
   auctionBuyNow      Int?
   /// Price new in a shop, shown as "−70% от новой".
   originalPrice      Int?
+  /// Seals a brand puts on the item's card: brand, new, hit, original (listings.dto LISTING_LABELS).
+  labels             String[]           @default([])
   /// Offers at or above this are accepted automatically (minOfferPrice is the auto-decline floor).
   autoAcceptPrice    Int?
   /// Draft to publish automatically at this time.

@@ -8,7 +8,7 @@ import type { Meta, SizeSystem } from "@/lib/types";
 import { BrandPicker } from "./brand-picker";
 import { MeasureFields, measureKind } from "./measure-guide";
 import { Nefuda } from "./shop/nefuda";
-import { Button, Chip, Field, IconSparkle, Input, OptionCard, Textarea } from "./ui";
+import { Button, Chip, Field, IconSparkle, Input, OptionCard, Seal, SEALS, type SealKind, Textarea } from "./ui";
 import { Select } from "./select";
 
 /** Condition as the rank stamp of a Japanese second-hand shop: 新 new, 美 as new, 良 good, 並 ordinary wear. */
@@ -482,5 +482,49 @@ export function PriceFields({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * «Печати» (brands only): which seals go on the item's card — бренд, новинка, хит, оригинал. Each tile shows the seal
+ * itself; picked, it is pressed in and the tile is inked. Several can go together; they stand in a row on the card.
+ */
+export function LabelFields({ values, set }: Pick<FieldsProps, "values" | "set">) {
+  const toggle = (k: SealKind) => set({ labels: values.labels.includes(k) ? values.labels.filter((x) => x !== k) : [...values.labels, k] });
+  const hints: Record<SealKind, string> = {
+    brand: "Вещь вашего бренда",
+    new: "Свежая коллекция или дроп",
+    hit: "То, что берут чаще всего",
+    original: "Подлинник с бирками",
+  };
+  return (
+    <Field label="Печати на карточке" hint="Можно несколько или ни одной — они встанут в ряд в углу фото">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {(Object.keys(SEALS) as SealKind[]).map((k) => {
+          const on = values.labels.includes(k);
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(k)}
+              className={clsx(
+                "flex flex-col items-center gap-3 rounded-[18px] border bg-surface px-3 pb-3 pt-4 text-center transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5",
+                on ? "border-ink shadow-[0_6px_16px_-10px_rgb(0_0_0/0.5)]" : "border-line",
+              )}
+            >
+              <span className={clsx("grid h-16 place-items-center transition-[filter,opacity] duration-300", !on && "opacity-45 grayscale")}>
+                {/* Keyed on «on»: picking it presses the seal in again. */}
+                <Seal key={String(on)} kind={k} />
+              </span>
+              <span>
+                <span className="block text-[15px] font-semibold">{SEALS[k].label}</span>
+                <span className="mt-0.5 block text-xs text-ink-2">{hints[k]}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </Field>
   );
 }

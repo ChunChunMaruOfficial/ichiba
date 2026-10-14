@@ -12,7 +12,7 @@ import { AuctionTimer, auctionPrice } from "./auction";
 import { scheduleLabel } from "./schedule-picker";
 import { useSession } from "./session";
 import { Nefuda } from "./shop/nefuda";
-import { BrandSeal, Hanko, IconHeart, StatusBadge } from "./ui";
+import { Hanko, IconHeart, Seal, StatusBadge } from "./ui";
 
 /** Photo that fades in when loaded and keeps its real aspect ratio (no forced crop). */
 function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: boolean }) {
@@ -112,17 +112,23 @@ function StatusMark({ card, className }: { card: Card; className?: string }) {
   return null;
 }
 
-const hasSeal = (card: Card) => card.isBrand && card.status === "PUBLISHED" && !card.auction;
+const seals = (card: Card) => (card.status === "PUBLISHED" && !card.auction ? (card.labels ?? []) : []);
+const hasSeal = (card: Card) => seals(card).length > 0;
+/** Each seal in a row leans its own way, like stamps pressed one after another. */
+const TILTS = [7, -4, 5, -6];
 
 /**
- * The brand seal in the photo's bottom-right corner. In rows (`grid`) it is pressed over the corner and hangs past it;
- * in the home feed it stays inside the photo's top-right corner (clear of the price tag), stuck on askew with a strip
- * of tape. It steps aside while the desktop hover panel / «Купить» covers the photo.
+ * The seals the brand chose, in a row. In rows (`grid`) they are pressed over the photo's bottom-right corner and
+ * hang past it; in the home feed they stay inside its top-right corner (clear of the price tag), stuck on askew with
+ * faint tape. They step aside while the desktop hover panel / «Купить» covers the photo.
  */
 function CardSeal({ card, stuck }: { card: Card; stuck?: boolean }) {
-  return hasSeal(card) ? (
-    <span className={clsx("pointer-events-none absolute z-10 transition-opacity md:group-focus-within:opacity-0 md:group-hover:opacity-0", stuck ? "right-3 top-3.5" : "-bottom-3 -right-2")}>
-      <BrandSeal className={stuck ? "seal-brand-stuck" : undefined} />
+  const list = seals(card);
+  return list.length ? (
+    <span className={clsx("pointer-events-none absolute z-10 flex flex-row-reverse items-start gap-1 transition-opacity md:group-focus-within:opacity-0 md:group-hover:opacity-0", stuck ? "right-3 top-3.5" : "-bottom-3 -right-2 items-end")}>
+      {list.map((kind, i) => (
+        <Seal key={kind} kind={kind} stuck={stuck} tilt={stuck ? TILTS[i % TILTS.length] : -TILTS[i % TILTS.length]} />
+      ))}
     </span>
   ) : null;
 }
@@ -144,11 +150,11 @@ function PriceTag({ price, previous, className }: { price: string; previous?: nu
  * (frame 06). `grid` (Search, Favorites, Wardrobe) always shows price, size, title, condition, seller (frame 07).
  */
 /** "−70%" against the shop price, and a play mark when the listing has a video. */
-function CardMarks({ card, discount }: { card: Card; discount: number }) {
+function CardMarks({ card, discount, sealsBelow }: { card: Card; discount: number; sealsBelow?: boolean }) {
   if (!discount && !card.hasVideo) return null;
   return (
-    // The brand seal takes the corner: the marks stand to its left.
-    <span className={clsx("pointer-events-none absolute bottom-2.5 flex gap-1", hasSeal(card) ? "right-16" : "right-2.5")}>
+    // Where the seals take the bottom-right corner (rows), the marks move to the left one.
+    <span className={clsx("pointer-events-none absolute bottom-2.5 flex gap-1", sealsBelow && hasSeal(card) ? "left-2.5" : "right-2.5")}>
       {card.hasVideo && (
         <span className="on-photo grid size-7 place-items-center rounded-full text-ink" title="Есть видео">
           <svg viewBox="0 0 24 24" className="ml-0.5 size-3.5" fill="currentColor" aria-label="Есть видео">
@@ -221,7 +227,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         <CardSeal card={card} />
         {!mine && <HeartButton card={card} source={source} className="absolute right-2.5 top-2.5" />}
         <span className="transition-opacity md:group-hover:opacity-0">
-          <CardMarks card={card} discount={shopDiscount} />
+          <CardMarks card={card} discount={shopDiscount} sealsBelow />
         </span>
         {!mine && (
           <div className="absolute inset-x-2.5 bottom-2.5 hidden translate-y-1 opacity-0 transition-[opacity,transform] group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 md:flex">

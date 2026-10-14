@@ -369,7 +369,10 @@ export function Header() {
         isThread(pathname) && "max-lg:hidden",
       )}
     >
-      <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 md:h-16 md:gap-4 md:px-6">
+      {/* Desktop: three columns with equal sides, so the search box stands in the very middle of the page whatever
+          sits left and right of it. Phones: one row. */}
+      <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 md:grid md:h-16 md:grid-cols-[1fr_minmax(0,560px)_1fr] md:gap-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-3 md:gap-4">
         <MobileCatalog />
         <Logo />
         <CatalogButton anchor={header} />
@@ -385,10 +388,11 @@ export function Header() {
           {/* Tablets: the header is tight, the icon alone says it. */}
           <span className="hidden lg:inline">Вторичка</span>
         </Link>
-        <Suspense fallback={<div className="hidden flex-1 md:block" />}>
-          <SearchBox className="mx-auto hidden w-full min-w-0 max-w-[560px] md:block" />
+        </div>
+        <Suspense fallback={<div className="hidden md:block" />}>
+          <SearchBox className="hidden w-full min-w-0 md:block" />
         </Suspense>
-        <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0 md:justify-self-end">
           {/* «Продать вещь» is the second-hand market's call; the brands' showcase doesn't sell people's closets. */}
           {resaleZone && (
           <button

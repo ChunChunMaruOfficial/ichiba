@@ -455,78 +455,146 @@ html[data-immersive] [data-chrome="main"] {
   color: var(--ink);
 }
 /*
- * «Бренд» seal (components/ui BrandSeal): a tall cinnabar stamp, two columns read right to left — 銘柄 by brush and
- * «БРЕНД» letter under letter — in paper colour, a thin inner frame like a carved border, the ink worn in speckles
- * (a noise mask). The outer span carries the tilt, the press and the shadow (a mask would cut the shadow off).
+ * Seals 判 (components/ui Seal) a brand puts on its items, each its own shape and ink so a row of them reads at a
+ * glance: «бренд» a tall cinnabar stamp, «новинка» a wide one in sumi ink, «хит» a round indigo seal, «оригинал»
+ * cinnabar lines on white paper. Kanji by brush, the Russian word small; the ink worn in speckles (a noise mask).
+ * The outer span carries the tilt, the press and the shadow (a mask would cut the shadow off).
  */
-.seal-brand {
+.seal {
   --seal-tilt: -5deg;
   position: relative;
   display: inline-block;
   transform: rotate(var(--seal-tilt));
-  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.32));
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.3));
   animation: seal-press 520ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
 }
-.seal-brand-face {
+.seal-face {
+  --seal-ink: #b5121b;
+  --seal-paper: #fbf3e6;
   display: flex;
-  flex-direction: row-reverse;
   align-items: center;
-  gap: 3px;
-  padding: 6px 5px 6px 4px;
-  border-radius: 3px 5px 4px 3px;
-  background: #b5121b;
-  color: #fbf3e6;
-  box-shadow: inset 0 0 0 2px #b5121b, inset 0 0 0 3px rgb(251 243 230 / 0.85);
+  background: var(--seal-ink);
+  color: var(--seal-paper);
+  line-height: 1;
+  box-shadow: inset 0 0 0 2px var(--seal-ink), inset 0 0 0 3px color-mix(in srgb, var(--seal-paper) 85%, transparent);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -3.4 0 0 0 2.75'/%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 64px 64px;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -3.4 0 0 0 2.75'/%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 64px 64px;
 }
-.seal-brand-kanji {
+.seal-kanji {
   font-family: var(--font-brush);
-  font-size: 19px;
   line-height: 1;
+}
+.seal-ru {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* 銘柄 бренд: tall, two columns read right to left, «БРЕНД» letter under letter. */
+.seal-face-brand {
+  flex-direction: row-reverse;
+  gap: 3px;
+  padding: 6px 5px 6px 4px;
+  border-radius: 3px 5px 4px 3px;
+}
+.seal-face-brand .seal-kanji {
+  font-size: 19px;
   letter-spacing: 0.08em;
   writing-mode: vertical-rl;
 }
-.seal-brand-ru {
+.seal-face-brand .seal-ru {
   padding-right: 3px;
-  border-right: 1px solid rgb(251 243 230 / 0.6);
-  font-family: var(--font-sans);
+  border-right: 1px solid color-mix(in srgb, var(--seal-paper) 60%, transparent);
   font-size: 9px;
-  font-weight: 800;
-  line-height: 1;
   /* Upright letters in vertical text advance by the font's full line box; pull them together. */
   letter-spacing: -3px;
-  text-transform: uppercase;
   writing-mode: vertical-rl;
   text-orientation: upright;
 }
+
+/* 新作 новинка: wide, sumi ink, the word under the kanji. */
+.seal-face-new {
+  --seal-ink: #1f1c18;
+  --seal-paper: #f4efe6;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 7px 5px;
+  border-radius: 4px 3px 5px 3px;
+}
+.seal-face-new .seal-kanji {
+  font-size: 17px;
+  letter-spacing: 0.06em;
+}
+.seal-face-new .seal-ru {
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
+}
+
+/* 人気 хит: a round indigo seal, a second ring inside, kanji stacked over the word. */
+.seal-face-hit {
+  --seal-ink: #1f3354;
+  --seal-paper: #f4efe6;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  width: 50px;
+  height: 50px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 2.5px var(--seal-ink), inset 0 0 0 3.5px color-mix(in srgb, var(--seal-paper) 85%, transparent);
+}
+.seal-face-hit .seal-kanji {
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  writing-mode: vertical-rl;
+}
+.seal-face-hit .seal-ru {
+  font-size: 7.5px;
+  letter-spacing: 0.12em;
+}
+
+/* 正規 оригинал: cinnabar lines on white paper (朱文), a double frame, the word spaced out underneath. */
+.seal-face-original {
+  --seal-ink: #fbf6ec;
+  --seal-paper: #b5121b;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 6px 5px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1.5px var(--seal-paper), inset 0 0 0 3px var(--seal-ink), inset 0 0 0 3.8px var(--seal-paper);
+}
+.seal-face-original .seal-kanji {
+  font-size: 17px;
+  letter-spacing: 0.1em;
+}
+.seal-face-original .seal-ru {
+  font-size: 6.5px;
+  letter-spacing: 0.08em;
+}
+
 @keyframes seal-press {
   0% { opacity: 0; transform: scale(1.9) rotate(calc(var(--seal-tilt) - 7deg)); }
   60% { opacity: 1; transform: scale(0.94) rotate(calc(var(--seal-tilt) + 1deg)); }
   100% { opacity: 1; transform: scale(1) rotate(var(--seal-tilt)); }
 }
 /*
- * Stuck on by hand (home feed): leaning the other way, a strip of torn washi tape across its top. The tape is on the
- * outer span, so the ink's speckle mask doesn't eat it.
+ * Stuck on by hand (home feed): each leans its own way, a faint strip of torn washi tape across its top. The tape is
+ * on the outer span, so the ink's speckle mask doesn't eat it.
  */
-.seal-brand-stuck {
-  --seal-tilt: 7deg;
-}
-.seal-brand-stuck::before {
+.seal-stuck::before {
   content: "";
   position: absolute;
   z-index: 1;
-  top: -5px;
+  top: -4px;
   left: 50%;
-  width: 30px;
-  height: 11px;
+  width: 26px;
+  height: 9px;
   transform: translateX(-46%) rotate(-11deg);
-  background: rgb(243 236 220 / 0.82);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  background: rgb(243 236 220 / 0.42);
   clip-path: polygon(0 12%, 6% 0, 12% 14%, 19% 2%, 81% 0, 88% 12%, 94% 2%, 100% 10%, 100% 88%, 94% 100%, 87% 86%, 80% 100%, 20% 98%, 13% 86%, 6% 100%, 0 90%);
 }
 @media (prefers-reduced-motion: reduce) {
-  .seal-brand { animation: none; }
+  .seal { animation: none; }
 }
 .hanko-round {
   border-radius: 999px;

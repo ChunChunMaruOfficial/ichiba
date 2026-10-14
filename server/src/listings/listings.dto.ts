@@ -11,6 +11,9 @@ const aiField = z.object({
 const measurement = z.number().positive().max(300).nullish();
 
 /** Draft payload: every field optional; completeness is checked on publish. */
+/** The seals a brand can put on an item: 銘柄 бренд, 新作 новинка, 人気 хит, 正規 оригинал. */
+export const LISTING_LABELS = ['brand', 'new', 'hit', 'original'] as const;
+
 export const ListingInput = z.object({
   photos: z.array(z.object({ id: z.uuid(), isDefect: z.boolean().default(false) })).max(10).optional(),
   title: z.string().trim().max(80, 'До 80 символов').optional(),
@@ -42,6 +45,8 @@ export const ListingInput = z.object({
   minOfferPrice: z.number().int().min(1).nullish(),
   autoAcceptPrice: z.number().int().min(1).max(100_000).nullish(),
   originalPrice: z.number().int().min(1).max(1_000_000).nullish(),
+  /** Seals a brand chooses for the item (shown on its card); ignored for sellers without the brand status. */
+  labels: z.array(z.enum(LISTING_LABELS)).max(LISTING_LABELS.length).optional(),
   gender: z.enum(['MALE', 'FEMALE', 'UNISEX']).nullish(),
   /** Other sizes of the same item, listed as separate copies on publish. */
   extraSizes: z.array(z.string().trim().min(1).max(20)).max(10).optional(),

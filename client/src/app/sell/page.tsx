@@ -8,12 +8,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { FormSection } from "@/components/form-section";
-import { DetailFields, HandoverFields, ItemFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
+import { DetailFields, HandoverFields, ItemFields, LabelFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
 import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
 import { usePriceSuggestion } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
-import { useMeta } from "@/components/session";
+import { useMeta, useSession } from "@/components/session";
 import { IconTrash } from "@/components/chat/icons";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, IconX, Spinner } from "@/components/ui";
@@ -26,6 +26,7 @@ type Step = 1 | 2 | 3;
 const STEPS = ["Информация", "Цена"];
 
 export default function SellPage() {
+  const { me } = useSession();
   return (
     <RequireAuth reason="чтобы выставить вещь">
       {(me) => (
@@ -435,6 +436,11 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
           <FormSection kanji="値" title="Цена и формат продажи" index={0}>
             <PriceFields values={values} set={set} errors={errors} market={market} />
           </FormSection>
+          {me?.isBrand && (
+            <FormSection kanji="判" title="Печати" index={1}>
+              <LabelFields values={values} set={set} />
+            </FormSection>
+          )}
         </div>
       )}
 

@@ -6,12 +6,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { FormSection } from "@/components/form-section";
-import { DetailFields, HandoverFields, ItemFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
+import { DetailFields, HandoverFields, ItemFields, LabelFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
 import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
 import { usePriceSuggestion } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
-import { useMeta } from "@/components/session";
+import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -48,6 +48,7 @@ function DraftRedirect({ id }: { id: string }) {
 }
 
 function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => void }) {
+  const { me } = useSession();
   const meta = useMeta()!;
   const router = useRouter();
   const toast = useToast();
@@ -175,6 +176,11 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
         <FormSection kanji="値" title="Цена" index={3}>
           <PriceFields values={values} set={set} errors={errors} locked={locked} auctionLocked={listing.auction?.status === "ACTIVE"} market={market} />
         </FormSection>
+        {me?.isBrand && (
+          <FormSection kanji="判" title="Печати" index={4}>
+            <LabelFields values={values} set={set} />
+          </FormSection>
+        )}
         <FormSection kanji="詳" title="Детали" index={4}>
           <DetailFields {...fieldProps} />
         </FormSection>

@@ -55,6 +55,8 @@ export interface Me {
   unreadMessages: number;
   /** Has listed anything: seller tools are shown only then. */
   isSeller: boolean;
+  /** Brand status: the sell form offers the seals then. */
+  isBrand?: boolean;
 }
 
 export interface PreferredSizes {
@@ -109,6 +111,8 @@ export interface Card {
   isFavorite: boolean;
   /** The seller has the «Бренд» status. */
   isBrand?: boolean;
+  /** Seals the brand chose for the item: brand, new, hit, original. */
+  labels?: Array<"brand" | "new" | "hit" | "original">;
   publishedAt: string | null;
   saleType?: "FIXED" | "AUCTION";
   auction?: { endsAt: string; currentBid: number | null; startPrice: number; bidsCount: number } | null;
@@ -187,10 +191,14 @@ export interface AiAttr {
   edited_by_user: boolean;
 }
 
+export type ListingLabel = "brand" | "new" | "hit" | "original";
+
 export interface ListingDetail {
   id: string;
   status: ListingStatus;
   title: string;
+  /** Seals the brand chose for the item. */
+  labels?: ListingLabel[];
   price: number | null;
   /** «Цена договорная»: no price, bought through an offer or a chat. */
   priceNegotiable?: boolean;
