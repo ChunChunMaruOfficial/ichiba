@@ -19,6 +19,13 @@ function PlayBadge() {
   );
 }
 
+/** The desktop frame of the main photo: shaped like the widest photo (within sane bounds), at most 80vh tall. */
+export function desktopFrame(photos: Array<{ width: number; height: number }>): React.CSSProperties {
+  const widest = photos.length ? Math.max(...photos.map((p) => p.width / p.height)) : 0.8;
+  const aspect = Math.min(Math.max(widest, 0.6), 2);
+  return { aspectRatio: aspect, width: `min(100%, calc(80vh * ${aspect}))` };
+}
+
 /** Marks the cover as the place a card's photo flies to and from (photo-flight.tsx); its size, for before it loads. */
 const flyProps = (p: Photo) => ({ "data-fly-target": "", "data-fly-w": p.width, "data-fly-h": p.height });
 
@@ -83,16 +90,17 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
         )}
       </div>
 
-      {/* Desktop: main photo + thumbnails */}
+      {/* Desktop: main photo + thumbnails. One frame for every photo, shaped like the widest of them and at most
+          80% of the screen tall, so the photos don't sit between bands they don't need. */}
       <div className="hidden md:block">
-        <div className="group relative overflow-hidden rounded-3xl bg-skeleton">
+        <div className="group relative mx-auto overflow-hidden rounded-3xl bg-skeleton" style={desktopFrame(photos)}>
           {onVideo ? (
-            <VideoSlide video={video} className="mx-auto max-h-[80vh] w-full" />
+            <VideoSlide video={video} className="absolute inset-0 size-full" />
           ) : (
-            <button className="relative block w-full cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
+            <button className="absolute inset-0 block cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
               <BlurBackdrop key={`b-${current.id}`} src={current.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img key={current.id} src={current.urls.l} alt={title} className="fade-in relative mx-auto max-h-[80vh] w-full object-contain" style={{ aspectRatio: `${current.width} / ${current.height}` }} {...(index === 0 && flyProps(current))} />
+              <img key={current.id} src={current.urls.l} alt={title} className="fade-in relative size-full object-contain" {...(index === 0 && flyProps(current))} />
             </button>
           )}
           {overlay}
@@ -114,7 +122,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
           )}
         </div>
         {count > 1 && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mx-auto mt-3 flex flex-wrap gap-2" style={{ width: desktopFrame(photos).width }}>
             {photos.map((p, i) => (
               <button
                 key={p.id}

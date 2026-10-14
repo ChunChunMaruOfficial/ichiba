@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useLayoutEffect, useState } from "react";
 import { BlurBackdrop } from "@/components/blur-backdrop";
+import { desktopFrame } from "@/components/gallery";
 import { flyingPhoto } from "@/components/photo-flight";
 import { Skeleton } from "@/components/ui";
 
@@ -46,17 +47,12 @@ export default function ItemLoading() {
           </div>
           {/* Desktop: the main photo's frame and the thumbnails under it. */}
           <div className="hidden md:block">
-            <div className="relative overflow-hidden rounded-3xl bg-skeleton">
-              {photo ? (
-                <div className="relative w-full">
-                  <ArrivingBackdrop src={photo.src} />
-                  <div className="relative mx-auto max-h-[80vh] w-full" style={{ aspectRatio: `${photo.width} / ${photo.height}` }} {...fly} />
-                </div>
-              ) : (
-                <div className="aspect-[4/5]" />
-              )}
+            {/* The gallery's frame as far as the flying photo tells (the gallery shapes it by its widest photo). */}
+            <div className="relative mx-auto overflow-hidden rounded-3xl bg-skeleton" style={desktopFrame(photo ? [photo] : [])}>
+              {photo && <ArrivingBackdrop src={photo.src} />}
+              {photo && <div className="absolute inset-0" {...fly} />}
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mx-auto mt-3 flex gap-2" style={{ width: desktopFrame(photo ? [photo] : []).width }}>
               {[0, 1, 2, 3].map((i) => (
                 <Skeleton key={i} className="size-18 rounded-xl" />
               ))}
