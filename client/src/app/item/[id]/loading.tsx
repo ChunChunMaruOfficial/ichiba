@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { flyingPhoto } from "@/components/photo-flight";
 import { Skeleton } from "@/components/ui";
 
@@ -16,8 +16,12 @@ export default function ItemLoading() {
   const fly = photo && { "data-fly-target": "", "data-fly-w": photo.width, "data-fly-h": photo.height };
   // The phone carousel's frame is shaped like the cover within sane bounds (gallery.tsx).
   const frame = photo ? Math.min(Math.max(photo.width / photo.height, 0.6), 1.5) : 0.8;
+  // The page opens at its top, and before the first paint: the shell is short, so the browser would otherwise
+  // keep the old scroll as far as it goes (the photo's frame off screen).
+  useLayoutEffect(() => window.scrollTo(0, 0), []);
   return (
-    <div className="mx-auto max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16">
+    // Taller than the screen, so the footer (and the branch over it) stays below until the page itself is in.
+    <div className="mx-auto min-h-[140dvh] max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16">
       {/* The breadcrumbs' line. */}
       <div className="mb-4 hidden h-5 md:block" />
       <div className="grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">

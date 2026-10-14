@@ -245,9 +245,9 @@ h1, h2 {
   animation: fade-in 150ms ease-out both;
 }
 
-/* The item page after a card's photo flew in (photo-flight.tsx): all but the gallery fades in a beat later. */
-.flight-in > :not(.flight-keep),
-.flight-in > .flight-keep > :not(:first-child) {
+/* The item page after a card's photo flew in (photo-flight.tsx): it fades in whole, a beat after the photo landed
+   (the photo itself stays under the flying layer until this is over). */
+.flight-in > * {
   animation: fade-in 280ms 90ms ease-out both;
 }
 

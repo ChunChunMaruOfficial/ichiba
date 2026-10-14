@@ -109,8 +109,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   };
   const { requireAuth } = useSession();
   const [photo, setPhoto] = useState(0);
-  // Opened by a card's photo flying in (photo-flight.tsx): everything but the gallery fades in a beat after it.
-  const [flightIn] = useState(() => typeof document !== "undefined" && "photoFlight" in document.documentElement.dataset);
+  // Opened by a card's photo flying in (photo-flight.tsx): the page fades in a beat after the photo.
+  const [flightIn] = useState(() => typeof document !== "undefined" && document.documentElement.dataset.photoFlight === "open");
   const [showMeasurements, setShowMeasurements] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [seller, setSeller] = useState(l.seller);
@@ -408,7 +408,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         {l.subcategoryLabel && <> / <span className="text-ink-2">{l.subcategoryLabel}</span></>}
       </nav>
 
-      <div className="flight-keep grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">
         <Gallery
           photos={l.photos}
           video={l.video}

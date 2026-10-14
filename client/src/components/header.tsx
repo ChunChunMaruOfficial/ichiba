@@ -459,11 +459,11 @@ export function Main({ children }: { children: React.ReactNode }) {
     const from = prev.current;
     prev.current = pathname;
     if (from === pathname || (isThread(from) && isThread(pathname)) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    // While a photo flies (photo-flight.tsx), the text comes a moment after it; an item page it flies into fades
-    // in its own text around the photo, so <main> stays put there.
-    const flying = "photoFlight" in document.documentElement.dataset;
-    if (flying && pathname.startsWith("/item/")) return;
-    main.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: flying ? 280 : 220, delay: flying ? 150 : 0, fill: "backwards", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+    // An item page a card's photo flies into (photo-flight.tsx) fades in by itself, around the photo; a list the
+    // photo flies back into starts half there, so the screen is never empty behind the photo.
+    const flight = document.documentElement.dataset.photoFlight;
+    if (flight === "open" && pathname.startsWith("/item/")) return;
+    main.current?.animate([{ opacity: flight === "back" ? 0.35 : 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
   }, [pathname]);
   return (
     <main ref={main} id="main" data-chrome="main" tabIndex={-1} className={clsx(!isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>

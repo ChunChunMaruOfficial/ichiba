@@ -1,19 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Card } from "@/lib/types";
 import { ItemCard } from "./item-card";
 import { Skeleton } from "./ui";
 
+/** Columns for a list this wide: the last breakpoint it reaches. */
+const columnsFor = (breakpoints: [number, number][], width: number) => breakpoints.filter(([min]) => width >= min).at(-1)?.[1] ?? breakpoints[0][1];
+
 function useColumns(breakpoints: [number, number][]) {
   const ref = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(breakpoints[0][1]);
+  // Measured before the first paint: otherwise a list shown again (back, a tab switch) is painted in the default
+  // columns first and then rearranged under the reader's eyes.
+  useLayoutEffect(() => {
+    const w = ref.current?.getBoundingClientRect().width;
+    if (w) setCols(columnsFor(breakpoints, w));
+  }, [breakpoints]);
   useEffect(() => {
     if (!ref.current) return;
-    const ro = new ResizeObserver(([e]) => {
-      const w = e.contentRect.width;
-      setCols(breakpoints.filter(([min]) => w >= min).at(-1)?.[1] ?? breakpoints[0][1]);
-    });
+    const ro = new ResizeObserver(([e]) => setCols(columnsFor(breakpoints, e.contentRect.width)));
     ro.observe(ref.current);
     return () => ro.disconnect();
   }, [breakpoints]);
