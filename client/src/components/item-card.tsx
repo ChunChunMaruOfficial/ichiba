@@ -15,7 +15,7 @@ import { Nefuda } from "./shop/nefuda";
 import { Hanko, IconHeart, Seal, StatusBadge } from "./ui";
 
 /** Photo that fades in when loaded and keeps its real aspect ratio (no forced crop). */
-function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: boolean }) {
+function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: number }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const img = useRef<HTMLImageElement>(null);
@@ -26,8 +26,9 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
     const t = setTimeout(() => (el.naturalWidth ? setLoaded(true) : setFailed(true)), 0);
     return () => clearTimeout(t);
   }, []);
-  // Masonry keeps each photo's own shape; rows (`uniform`) use one 4:5 frame and fit the whole photo inside it.
-  const ratio = card.cover && !uniform ? `${card.cover.width} / ${card.cover.height}` : "4 / 5";
+  // Masonry keeps each photo's own shape; rows (`uniform`: the row's height-to-width) use one frame, as tall as
+  // the row's tallest photo, and fit the whole photo inside it.
+  const ratio = uniform ? `1 / ${uniform}` : card.cover ? `${card.cover.width} / ${card.cover.height}` : "4 / 5";
   return (
     <div className={clsx("relative overflow-hidden bg-skeleton", className)} style={{ aspectRatio: ratio }}>
       {/* A fixed frame (rows) leaves bands around the photo: they get its own blurred colours. Masonry keeps the
@@ -167,7 +168,7 @@ function CardMarks({ card, discount, sealsBelow }: { card: Card; discount: numbe
   );
 }
 
-export function ItemCard({ card, variant = "grid", source = "search", eager, uniform }: { card: Card; variant?: "feed" | "grid"; source?: "feed" | "search" | "wardrobe"; eager?: boolean; uniform?: boolean }) {
+export function ItemCard({ card, variant = "grid", source = "search", eager, uniform }: { card: Card; variant?: "feed" | "grid"; source?: "feed" | "search" | "wardrobe"; eager?: boolean; uniform?: number }) {
   const discounted = !card.auction && card.previousPrice && card.price && card.price < card.previousPrice;
   const shopDiscount = !card.auction && card.originalPrice && card.price && card.originalPrice > card.price ? Math.round((1 - card.price / card.originalPrice) * 100) : 0;
   const price = card.auction ? auctionPrice(card.auction) : card.priceNegotiable ? "Договорная" : card.price == null ? "Без цены" : formatPrice(card.price);

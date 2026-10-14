@@ -107,14 +107,17 @@ export function SellBand() {
  */
 const ROW = "no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:scroll-px-6 md:px-6";
 
-/** Horizontal row of photos (sections on Home, recommendations on Product), all cropped to one height. */
+/** Horizontal row of photos (sections on Home, recommendations on Product), all in one frame as tall as the tallest. */
 export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: "feed" | "grid" }) {
+  // One frame for the whole row, as tall as its tallest photo (height to width), so no photo gets bands it doesn't
+  // need; within sane bounds, so one very tall or very wide photo doesn't squeeze the rest.
+  const frame = Math.min(Math.max(...items.map((c) => (c.cover ? c.cover.height / c.cover.width : 1.25)), 0.6), 1.6);
   return (
     // pb: the brand seal hangs below the photo's corner and a scrolling row would clip it.
     <div className={clsx(ROW, "pb-4")}>
       {items.map((c) => (
         <div key={c.id} className="w-[44vw] shrink-0 snap-start sm:w-56">
-          <ItemCard card={c} variant={variant} uniform />
+          <ItemCard card={c} variant={variant} uniform={frame} />
         </div>
       ))}
     </div>
