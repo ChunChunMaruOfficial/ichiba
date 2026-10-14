@@ -186,13 +186,14 @@ function CoverImg({ cover, alt }: { cover: Cover | null; alt: string }) {
   );
 }
 
-export function FollowButton({ seller, onChange, size = "md" }: { seller: Pick<SellerSummary, "username" | "isFollowing">; onChange?: (v: boolean) => void; size?: "sm" | "md" }) {
+export function FollowButton({ seller, onChange, size = "md", block }: { seller: Pick<SellerSummary, "username" | "isFollowing">; onChange?: (v: boolean) => void; size?: "sm" | "md"; block?: boolean }) {
   const { requireAuth } = useSession();
   const toast = useToast();
   const { confirm } = useDialog();
   return (
     <Button
       size={size}
+      block={block}
       variant={seller.isFollowing ? "secondary" : "primary"}
       onClick={() =>
         requireAuth(

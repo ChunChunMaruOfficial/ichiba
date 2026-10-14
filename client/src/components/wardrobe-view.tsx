@@ -23,7 +23,7 @@ import { Masonry, MasonrySkeleton } from "./masonry";
 import { FollowButton } from "./sections";
 import { useSession } from "./session";
 import { useToast } from "./toast";
-import { ButtonLink, Chip, EmptyState, ErrorState, BrandSeal, IconMore, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
+import { ButtonLink, Chip, EmptyState, ErrorState, IconMore, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
 import { Select } from "./select";
 
 export interface WardrobeData {
@@ -222,6 +222,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
 
   const s = data?.seller;
   const owner = !!data?.isOwner;
+  const onFollow = (v: boolean) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false });
   const share = async () => {
     const url = `${window.location.origin}/u/${username}`;
     if (navigator.share) await navigator.share({ title: `Гардероб @${username}`, url }).catch(() => {});
@@ -246,8 +247,11 @@ export function WardrobeView({ username, initial }: { username: string; initial?
         // The seller's cover: aizome cloth, the nickname large, a brush label 箪笥 («wardrobe») at the side.
         <header className="aizome aizome-fade-r relative flex flex-col gap-6 rounded-[28px] px-5 py-6 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
           <div className="absolute right-3 top-3 flex items-center gap-2 md:right-5 md:top-5">
+            {/* Desktop: beside «Поделиться»; phones get it full width at the bottom of the cover. */}
             {!owner && me?.username !== s.username && (
-              <FollowButton seller={s} onChange={(v) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false })} />
+              <span className="hidden md:inline-flex">
+                <FollowButton seller={s} onChange={onFollow} />
+              </span>
             )}
             {owner && (
               <Link href="/settings" aria-label="Настройки" title="Настройки" className="grid size-10 place-items-center rounded-full text-ink-2 transition-[color,background-color,transform] duration-300 hover:rotate-45 hover:bg-ink/10 hover:text-ink">
@@ -259,7 +263,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </button>
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-4 pr-20 md:pr-0">
+            <div className="flex items-center gap-4 pr-10 md:pr-0">
               {s.avatar ? (
                 <Avatar username={s.username} avatar={s.avatar} ring className="size-16 md:size-20" />
               ) : (
@@ -271,7 +275,6 @@ export function WardrobeView({ username, initial }: { username: string; initial?
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-3">
                   <h1 className="truncate text-4xl font-bold leading-[1.05] md:text-6xl">{s.username}</h1>
-                  {s.brand && <BrandSeal className="shrink-0" />}
                 </div>
                 <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
                   {s.city ? `${s.city} · ` : ""}на ichiba с {sinceLabel(s.createdAt)}
@@ -304,6 +307,11 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             {s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>}
           </div>
           <div className="flex flex-wrap gap-2 empty:hidden max-md:[&>*]:flex-1">
+            {!owner && me?.username !== s.username && (
+              <span className="md:hidden">
+                <FollowButton seller={s} onChange={onFollow} block />
+              </span>
+            )}
             {owner ? (
               <>
                 {!empty && (

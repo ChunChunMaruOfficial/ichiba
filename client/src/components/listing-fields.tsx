@@ -487,10 +487,10 @@ export function PriceFields({
 
 /**
  * «Печати» (brands only): which seals go on the item's card — бренд, новинка, хит, оригинал. Each tile shows the seal
- * itself; picked, it is pressed in and the tile is inked. Several can go together; they stand in a row on the card.
+ * itself; picked, it is pressed in and the tile is inked. One at most: tap it again to take it off.
  */
 export function LabelFields({ values, set }: Pick<FieldsProps, "values" | "set">) {
-  const toggle = (k: SealKind) => set({ labels: values.labels.includes(k) ? values.labels.filter((x) => x !== k) : [...values.labels, k] });
+  const toggle = (k: SealKind) => set({ labels: values.labels.includes(k) ? [] : [k] });
   const hints: Record<SealKind, string> = {
     brand: "Вещь вашего бренда",
     new: "Свежая коллекция или дроп",
@@ -498,7 +498,7 @@ export function LabelFields({ values, set }: Pick<FieldsProps, "values" | "set">
     original: "Подлинник с бирками",
   };
   return (
-    <Field label="Печати на карточке" hint="Можно несколько или ни одной — они встанут в ряд в углу фото">
+    <Field label="Печати на карточке" hint="Одна печать в углу фото — или без неё">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(Object.keys(SEALS) as SealKind[]).map((k) => {
           const on = values.labels.includes(k);
