@@ -13,7 +13,7 @@ import { Chochin } from "./shop/chochin";
 import { Noren } from "./shop/noren";
 import { useSession } from "./session";
 import { useToast } from "./toast";
-import { BrandSeal, Button, ButtonLink, IconChevronRight } from "./ui";
+import { Button, ButtonLink, IconChevronRight } from "./ui";
 
 /** The vertical brush label in cinnabar beside a title; it only decorates and repeats the Russian title. */
 export function KanjiLabel({ kanji, className }: { kanji: string; className?: string }) {
@@ -93,59 +93,6 @@ export function SellBand() {
             <div className="border-b border-line pb-5">
               <p className="text-xl font-bold">{title}</p>
               <p className="mt-1 text-[15px] text-ink-2">{text}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-/**
- * «Поставьте свою печать»: the call to brands on the home page. Unlike the sellers' indigo band on
- * «Вторичка», it is washi paper in a double hairline frame, like a label sewn into a garment: a big brand seal is
- * pressed in as it scrolls into view, and the three steps stand as cards joined by a cinnabar thread.
- */
-export function BrandBand() {
-  const steps: Array<[string, string, string]> = [
-    ["一", "Заявка", "Название, УНП и ссылки на бренд в настройках профиля"],
-    ["二", "Проверка", "Подтверждаем, что вы бренд или его официальный магазин"],
-    ["三", "Витрина", "Печать «Бренд» на каждой вещи и место на главной"],
-  ];
-  return (
-    <section className="reveal relative overflow-hidden rounded-[28px] bg-surface px-6 py-10 shadow-[inset_0_0_0_1px_var(--line-strong),inset_0_0_0_6px_var(--surface),inset_0_0_0_7px_var(--line)] md:px-12 md:py-14">
-      {/* A huge faint 銘 by brush behind it all, cropped by the frame. */}
-      <span aria-hidden className="pointer-events-none absolute -bottom-16 -right-6 select-none font-brush text-[260px] leading-none text-shu opacity-[0.06] md:text-[340px]">
-        銘
-      </span>
-      {/* Phones: the seal above the text, which then has the full width; wider screens: side by side. */}
-      <div className="relative grid grid-cols-1 items-start gap-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-10">
-        {/* The seal scaled up; its box is sized by hand to the scaled stamp. */}
-        <span className="block h-[100px] w-[72px] md:h-[150px] md:w-[106px]">
-          <BrandSeal className="origin-top-left scale-[1.8] md:scale-[2.7]" />
-        </span>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-shu">Для брендов</p>
-          <h2 className="mt-2 text-3xl font-bold leading-[1.08] md:text-5xl">Поставьте свою печать</h2>
-          <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">
-            Современные бренды и их официальные магазины получают на ichiba печать «Бренд» и собственную витрину на главной странице.
-          </p>
-          <ButtonLink href="/settings#brand" size="lg" className="mt-7">
-            Получить печать
-          </ButtonLink>
-        </div>
-      </div>
-      <ol className="relative mt-10 grid gap-3 md:mt-12 md:grid-cols-3 md:gap-5">
-        {/* The cinnabar thread the cards hang on (desktop: across, phones: down). */}
-        <span aria-hidden className="absolute bottom-6 left-[27px] top-6 w-px border-l border-dashed border-shu/50 md:inset-x-10 md:bottom-auto md:left-10 md:top-[27px] md:h-px md:w-auto md:border-l-0 md:border-t" />
-        {steps.map(([n, title, text], i) => (
-          <li key={n} className="reveal relative flex items-start gap-4 rounded-[20px] bg-paper p-4 shadow-[inset_0_0_0_1px_var(--line)] md:flex-col md:gap-3 md:p-5" style={{ animationRange: `entry ${i * 8}% entry ${55 + i * 8}%` }}>
-            <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-full bg-shu font-brush text-[13px] leading-none text-on-shu shadow-[0_0_0_4px_var(--paper)]">
-              {n}
-            </span>
-            <div>
-              <p className="text-lg font-bold">{title}</p>
-              <p className="mt-0.5 text-[15px] text-ink-2">{text}</p>
             </div>
           </li>
         ))}

@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useLayoutEffect, useState } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
-import { BrandBand, CategoryTiles, SectionHeader, WardrobeCards } from "@/components/sections";
+import { CategoryTiles, SectionHeader, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
 import { Noren } from "@/components/shop/noren";
 import { SwipeDeck } from "@/components/swipe-deck";
@@ -162,7 +162,6 @@ function HomeFeed() {
                   />
                 </section>
               )}
-              {!me?.isSeller && <BrandBand />}
               {home.data.categories.length > 0 && (
                 <section className="reveal">
                   <SectionHeader kanji="市場" title="Категории" />
