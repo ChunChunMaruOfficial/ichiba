@@ -3,6 +3,7 @@ import { Spectral, Yuji_Syuku } from "next/font/google";
 import { CookieNotice } from "@/components/cookie-notice";
 import { Footer } from "@/components/footer";
 import { BottomNav, Header, Main } from "@/components/header";
+import { PhotoFlight } from "@/components/photo-flight";
 import { Providers } from "@/components/providers";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Footer />
           <BottomNav />
           <CookieNotice />
+          <PhotoFlight />
         </Providers>
       </body>
     </html>

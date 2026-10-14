@@ -19,6 +19,9 @@ function PlayBadge() {
   );
 }
 
+/** Marks the cover as the place a card's photo flies to and from (photo-flight.tsx); its size, for before it loads. */
+const flyProps = (p: Photo) => ({ "data-fly-target": "", "data-fly-w": p.width, "data-fly-h": p.height });
+
 /**
  * Product gallery: main photo + thumbnails (desktop), swipe carousel (mobile), fullscreen viewer (frame 08).
  * A listing video, if any, is the last slide.
@@ -61,7 +64,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
             <button key={p.id} className="relative w-full shrink-0 snap-center overflow-hidden bg-skeleton" style={{ aspectRatio: frame }} onClick={() => setFullscreen(true)} aria-label={`Фото ${i + 1} из ${count}, открыть во весь экран`}>
               <BlurBackdrop src={p.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.urls.l} alt={i === 0 ? title : ""} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} />
+              <img src={p.urls.l} alt={i === 0 ? title : ""} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} {...(i === 0 && flyProps(p))} />
             </button>
           ))}
           {video && (
@@ -89,7 +92,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
             <button className="relative block w-full cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
               <BlurBackdrop key={`b-${current.id}`} src={current.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img key={current.id} src={current.urls.l} alt={title} className="fade-in relative mx-auto max-h-[80vh] w-full object-contain" style={{ aspectRatio: `${current.width} / ${current.height}` }} />
+              <img key={current.id} src={current.urls.l} alt={title} className="fade-in relative mx-auto max-h-[80vh] w-full object-contain" style={{ aspectRatio: `${current.width} / ${current.height}` }} {...(index === 0 && flyProps(current))} />
             </button>
           )}
           {overlay}
