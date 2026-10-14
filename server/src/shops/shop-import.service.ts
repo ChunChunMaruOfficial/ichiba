@@ -344,7 +344,7 @@ export class ShopImportService implements OnApplicationBootstrap {
       originalPrice: offer.originalPrice,
       acceptsOffers: true,
       gender: offer.kind.gender ?? null,
-      labels: offer.isNew ? ['brand', 'new', 'original'] : ['brand', 'original'],
+      labels: [offer.isNew ? 'new' : 'brand'],
       styleTags,
     };
     const draft = await this.listings.create(userId, input);
