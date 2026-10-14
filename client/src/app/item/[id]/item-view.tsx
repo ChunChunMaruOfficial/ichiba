@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
+import { BuyButton, CartButton } from "@/components/buy-buttons";
 import { DeliveryLabel } from "@/components/delivery-label";
 import { Gallery } from "@/components/gallery";
 import { LikersOfferButton } from "@/components/likers-offer";
@@ -22,7 +23,7 @@ import { Avatar } from "@/components/avatar";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
 import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
-import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconBag, IconCheck, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
@@ -373,16 +374,9 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               Предложить цену
             </Button>
           ) : (
-          <div className="flex gap-2">
-            <Button size="lg" className="flex-1" onClick={buy} disabled={!canBuy}>
-              Купить
-            </Button>
-            {(canBuy || shownInCart) && (
-              <Button size="lg" variant="secondary" onClick={toggleCart} aria-pressed={shownInCart} aria-label={shownInCart ? "Убрать из корзины" : "Добавить в корзину"} title={shownInCart ? "Убрать из корзины" : "В корзину"}>
-                <IconBag className="size-5" />
-                {shownInCart && <IconCheck className="-ml-1 size-4" />}
-              </Button>
-            )}
+          <div className="grid auto-cols-fr grid-flow-col gap-2">
+            <BuyButton onClick={buy} disabled={!canBuy} />
+            {(canBuy || shownInCart) && <CartButton inCart={shownInCart} onClick={toggleCart} />}
           </div>
           )}
           {/* Brands sell at their price: no haggling under «Купить» (a priceless item is still bought by an offer). */}
