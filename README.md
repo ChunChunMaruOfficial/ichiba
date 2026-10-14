@@ -37,6 +37,7 @@ GMAIL_CLIENT_ID=…  GMAIL_CLIENT_SECRET=…  GMAIL_REFRESH_TOKEN=…  SMTP_FROM
 TELEGRAM_BOT_TOKEN=…  TELEGRAM_BOT_USERNAME=…               # вход через Telegram (@BotFather, /setdomain)
 CLOUDINARY_CLOUD_NAME=…  CLOUDINARY_API_KEY=…  CLOUDINARY_API_SECRET=…   # иначе фото лежат на volume
 GEMINI_API_KEY=…  MISTRAL_API_KEY=…  ZAI_API_KEY=…                       # по желанию, ИИ
+TG_PASSWORD_HASHES='{"nenetstore":"$2b$10$…"}'   SHOP_PASSWORD_HASHES='{"iloveredhead":"$2b$10$…"}'   # пароли аккаунтов зеркалируемых магазинов (bcrypt)
 ```
 
 **client → Variables:**

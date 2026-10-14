@@ -150,6 +150,7 @@ model User {
   reviewsReceived Review[]       @relation("reviewSeller")
   videos          Video[]
   tgSources       TgSource[]
+  shopSources     ShopSource[]
   brandApplications BrandApplication[]
   blockedAt       DateTime?
 }
@@ -862,6 +863,38 @@ model TgPost {
   updatedAt  DateTime @updatedAt
 
   @@unique([sourceId, postId])
+}
+
+/// A brand's own web shop whose catalogue is mirrored as one seller's listings and kept in sync.
+model ShopSource {
+  id         String        @id @default(uuid())
+  /// Key of the shop in src/shops/sources.ts (also the seller's nick).
+  key        String        @unique
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled    Boolean       @default(true)
+  lastSyncAt DateTime?
+  createdAt  DateTime      @default(now())
+  products   ShopProduct[]
+}
+
+/// One product of the shop: its listing, and the state last copied to it, so a sync only changes what changed.
+model ShopProduct {
+  id          String     @id @default(uuid())
+  sourceId    String
+  source      ShopSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /// The product's id in the shop.
+  productId   String
+  /// LISTED | OUT (hidden by the sync: sold out or hidden in the shop) | SKIPPED | FAILED | REMOVED (gone from the shop)
+  status      String
+  reason      String?
+  listingId   String?
+  /// Price, old price and sizes as last listed; a change in the shop updates the listing.
+  fingerprint String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([sourceId, productId])
 }
 
 /// A seller asks for the «Бренд» status from Settings; an admin reviews it in the admin panel.
