@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
+import { marketWhere } from '../listings/listings.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StatsService } from '../stats/stats.js';
 import { RANK_SELECT, RecommendationsService } from '../recommendations/recommendations.service.js';
@@ -29,11 +30,19 @@ export class SwipeController {
 
   /**
    * Open to guests: they get popular items mixed across categories (no account needed to browse).
-   * `skip` carries ids a guest already swiped left, kept in their browser.
+   * `skip` carries ids a guest already swiped left, kept in their browser. `market`: the home page swipes brands,
+   * «Вторичка» swipes private sellers; without it (onboarding) the deck takes both.
    */
   @Public()
   @Get('deck')
-  async deck(@Query('limit') limitRaw = '20', @Query('context') context = 'swipe_mode', @Query('skip') skipRaw = '', @CurrentUser() user?: AuthUser) {
+  async deck(
+    @Query('limit') limitRaw = '20',
+    @Query('context') context = 'swipe_mode',
+    @Query('skip') skipRaw = '',
+    @Query('market') marketRaw = '',
+    @CurrentUser() user?: AuthUser,
+  ) {
+    const market = marketRaw === 'brands' || marketRaw === 'resale' ? marketRaw : undefined;
     const limit = Math.min(Number(limitRaw) || 20, 40);
     const skip = skipRaw.split(',').filter((id) => /^[0-9a-f-]{36}$/.test(id)).slice(0, 300);
     let exclude = skip;
@@ -48,7 +57,7 @@ export class SwipeController {
       exclude = [...new Set([...skip, ...swiped.map((s) => s.listingId!), ...favs.map((f) => f.listingId)].filter(Boolean))];
     }
     const pool = await this.prisma.listing.findMany({
-      where: { status: 'PUBLISHED', sellerId: user ? { not: user.id } : undefined, id: { notIn: exclude } },
+      where: { status: 'PUBLISHED', sellerId: user ? { not: user.id } : undefined, id: { notIn: exclude }, ...marketWhere(market) },
       select: RANK_SELECT,
       orderBy: { publishedAt: 'desc' },
       take: 500,

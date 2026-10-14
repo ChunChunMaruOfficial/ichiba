@@ -13,7 +13,7 @@ import { Chochin } from "./shop/chochin";
 import { Noren } from "./shop/noren";
 import { useSession } from "./session";
 import { useToast } from "./toast";
-import { Button, ButtonLink, IconChevronRight } from "./ui";
+import { BrandSeal, Button, ButtonLink, IconChevronRight } from "./ui";
 
 /** The vertical brush label in cinnabar beside a title; it only decorates and repeats the Russian title. */
 export function KanjiLabel({ kanji, className }: { kanji: string; className?: string }) {
@@ -102,35 +102,50 @@ export function SellBand() {
 }
 
 /**
- * «Ваш бренд — на ichiba»: the band for Belarusian brands on the home page, the same aizome cloth and brush numerals
- * as the sellers' band on «Вторичка». It leads to the brand application in Settings.
+ * «Поставьте свою печать»: the call to brands on the home page. Unlike the sellers' indigo band on
+ * «Вторичка», it is washi paper in a double hairline frame, like a label sewn into a garment: a big brand seal is
+ * pressed in as it scrolls into view, and the three steps stand as cards joined by a cinnabar thread.
  */
 export function BrandBand() {
   const steps: Array<[string, string, string]> = [
-    ["一", "Оставьте заявку", "Название бренда, УНП и ссылки — в настройках профиля, это пара минут"],
-    ["二", "Мы проверим", "Убедимся, что вы бренд или официальный магазин, и поставим печать «Бренд»"],
-    ["三", "Ваша витрина на главной", "Вещи бренда стоят только рядом с брендами — без вторички по соседству"],
+    ["一", "Заявка", "Название, УНП и ссылки на бренд в настройках профиля"],
+    ["二", "Проверка", "Подтверждаем, что вы бренд или его официальный магазин"],
+    ["三", "Витрина", "Печать «Бренд» на каждой вещи и место на главной"],
   ];
   return (
-    <section className="reveal aizome aizome-fade-r grid grid-cols-1 gap-10 rounded-[28px] px-6 pb-10 pt-28 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-14 md:px-12 md:pb-14 md:pt-36">
-      <Noren className="absolute left-1/2 top-0 w-[280px] -translate-x-1/2 md:left-12 md:w-[340px] md:translate-x-0" cloth="#f4efe6" ink="#1f3354" />
-      <Chochin className="absolute right-10 top-0 hidden h-40 lg:block" delay={-1.4} />
-      <div>
-        <h2 className="text-4xl font-bold leading-[1.05] md:text-5xl">Белорусские бренды — на одной витрине</h2>
-        <p className="mt-4 max-w-md text-[17px] leading-relaxed text-ink-2">Делаете одежду или официально продаёте бренд? Откройте свою витрину на ichiba — рядом только такие же, как вы.</p>
-        <ButtonLink href="/settings#brand" variant="shu" size="lg" className="mt-7">
-          Стать брендом ichiba
-        </ButtonLink>
+    <section className="reveal relative overflow-hidden rounded-[28px] bg-surface px-6 py-10 shadow-[inset_0_0_0_1px_var(--line-strong),inset_0_0_0_6px_var(--surface),inset_0_0_0_7px_var(--line)] md:px-12 md:py-14">
+      {/* A huge faint 銘 by brush behind it all, cropped by the frame. */}
+      <span aria-hidden className="pointer-events-none absolute -bottom-16 -right-6 select-none font-brush text-[260px] leading-none text-shu opacity-[0.06] md:text-[340px]">
+        銘
+      </span>
+      {/* Phones: the seal above the text, which then has the full width; wider screens: side by side. */}
+      <div className="relative grid grid-cols-1 items-start gap-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-10">
+        {/* The seal scaled up; its box is sized by hand to the scaled stamp. */}
+        <span className="block h-[100px] w-[72px] md:h-[150px] md:w-[106px]">
+          <BrandSeal className="origin-top-left scale-[1.8] md:scale-[2.7]" />
+        </span>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-shu">Для брендов</p>
+          <h2 className="mt-2 text-3xl font-bold leading-[1.08] md:text-5xl">Поставьте свою печать</h2>
+          <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">
+            Современные бренды и их официальные магазины получают на ichiba печать «Бренд» и собственную витрину на главной странице.
+          </p>
+          <ButtonLink href="/settings#brand" size="lg" className="mt-7">
+            Получить печать
+          </ButtonLink>
+        </div>
       </div>
-      <ol className="flex flex-col gap-6 self-center">
-        {steps.map(([n, title, text]) => (
-          <li key={n} className="flex items-start gap-5">
-            <span aria-hidden className="w-9 shrink-0 text-center font-brush text-4xl leading-none text-shu">
+      <ol className="relative mt-10 grid gap-3 md:mt-12 md:grid-cols-3 md:gap-5">
+        {/* The cinnabar thread the cards hang on (desktop: across, phones: down). */}
+        <span aria-hidden className="absolute bottom-6 left-[27px] top-6 w-px border-l border-dashed border-shu/50 md:inset-x-10 md:bottom-auto md:left-10 md:top-[27px] md:h-px md:w-auto md:border-l-0 md:border-t" />
+        {steps.map(([n, title, text], i) => (
+          <li key={n} className="reveal relative flex items-start gap-4 rounded-[20px] bg-paper p-4 shadow-[inset_0_0_0_1px_var(--line)] md:flex-col md:gap-3 md:p-5" style={{ animationRange: `entry ${i * 8}% entry ${55 + i * 8}%` }}>
+            <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-full bg-shu font-brush text-[13px] leading-none text-on-shu shadow-[0_0_0_4px_var(--paper)]">
               {n}
             </span>
-            <div className="border-b border-line pb-5">
-              <p className="text-xl font-bold">{title}</p>
-              <p className="mt-1 text-[15px] text-ink-2">{text}</p>
+            <div>
+              <p className="text-lg font-bold">{title}</p>
+              <p className="mt-0.5 text-[15px] text-ink-2">{text}</p>
             </div>
           </li>
         ))}

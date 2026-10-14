@@ -115,13 +115,14 @@ function StatusMark({ card, className }: { card: Card; className?: string }) {
 const hasSeal = (card: Card) => card.isBrand && card.status === "PUBLISHED" && !card.auction;
 
 /**
- * The brand seal is pressed over the photo's bottom-right corner and hangs past it, so it sits outside the photo's
- * clipping frame. It steps aside while the desktop hover panel / «Купить» covers that corner.
+ * The brand seal in the photo's bottom-right corner. In rows (`grid`) it is pressed over the corner and hangs past it;
+ * in the home feed it stays inside the photo's top-right corner (clear of the price tag), stuck on askew with a strip
+ * of tape. It steps aside while the desktop hover panel / «Купить» covers the photo.
  */
-function CardSeal({ card }: { card: Card }) {
+function CardSeal({ card, stuck }: { card: Card; stuck?: boolean }) {
   return hasSeal(card) ? (
-    <span className="pointer-events-none absolute -bottom-3 -right-2 z-10 transition-opacity md:group-focus-within:opacity-0 md:group-hover:opacity-0">
-      <BrandSeal />
+    <span className={clsx("pointer-events-none absolute z-10 transition-opacity md:group-focus-within:opacity-0 md:group-hover:opacity-0", stuck ? "right-3 top-3.5" : "-bottom-3 -right-2")}>
+      <BrandSeal className={stuck ? "seal-brand-stuck" : undefined} />
     </span>
   ) : null;
 }
@@ -147,7 +148,7 @@ function CardMarks({ card, discount }: { card: Card; discount: number }) {
   if (!discount && !card.hasVideo) return null;
   return (
     // The brand seal takes the corner: the marks stand to its left.
-    <span className={clsx("pointer-events-none absolute bottom-2.5 flex gap-1", hasSeal(card) ? "right-14" : "right-2.5")}>
+    <span className={clsx("pointer-events-none absolute bottom-2.5 flex gap-1", hasSeal(card) ? "right-16" : "right-2.5")}>
       {card.hasVideo && (
         <span className="on-photo grid size-7 place-items-center rounded-full text-ink" title="Есть видео">
           <svg viewBox="0 0 24 24" className="ml-0.5 size-3.5" fill="currentColor" aria-label="Есть видео">
@@ -180,8 +181,8 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
             <CardMarks card={card} discount={shopDiscount} />
           </span>
           <StatusMark card={card} className="absolute left-3 top-3" />
+          <CardSeal card={card} stuck />
         </Link>
-        <CardSeal card={card} />
         {/* Desktop hover / keyboard focus panel */}
         <div className="panel pointer-events-none absolute inset-x-2 bottom-2 hidden translate-y-1 rounded-[20px] p-3 opacity-0 transition-[opacity,transform] duration-200 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:block">
           <p className="truncate text-sm font-medium">{card.title}</p>
@@ -202,7 +203,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
             </Link>
           )}
         </div>
-        <p className={clsx("card-info -mx-1 mt-1 truncate rounded-lg px-1.5 py-0.5 text-[13px] text-ink-2 md:hidden", hasSeal(card) && "pr-10")}>
+        <p className="card-info -mx-1 mt-1 truncate rounded-lg px-1.5 py-0.5 text-[13px] text-ink-2 md:hidden">
           {card.title}
           {card.size && <span className="text-muted"> · {card.size}</span>}
         </p>

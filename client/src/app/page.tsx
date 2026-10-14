@@ -52,7 +52,7 @@ function HomeFeed() {
   // «Свайп» mode (decision D2): one item at a time, right = ♡, left = не моё.
   const setMode = (mode: "feed" | "swipe") => router.replace(mode === "swipe" ? "/?mode=swipe" : "/", { scroll: false });
   // Nothing left to swipe: the switch disappears and only the feed stays.
-  const swipeProbe = useSWR<{ items: Card[] }>(sessionLoading ? null : "/swipe/deck?context=swipe_mode&limit=1", { revalidateOnFocus: false });
+  const swipeProbe = useSWR<{ items: Card[] }>(sessionLoading ? null : "/swipe/deck?context=swipe_mode&market=brands&limit=1", { revalidateOnFocus: false });
   const [swipeEmpty, setSwipeEmpty] = useState(false);
   const noSwipe = swipeEmpty || swipeProbe.data?.items.length === 0;
   const swipeMode = params.get("mode") === "swipe" && !noSwipe;
@@ -114,7 +114,7 @@ function HomeFeed() {
 
       {swipeMode ? (
         <div className="py-6">
-          <SwipeDeck context="swipe_mode" limit={30} onEmpty={onSwipeEmpty} />
+          <SwipeDeck context="swipe_mode" market="brands" limit={30} onEmpty={onSwipeEmpty} />
         </div>
       ) : home.error || feed.error ? (
         <ErrorState message="Не удалось загрузить вещи" onRetry={() => (home.mutate(), feed.mutate())} />

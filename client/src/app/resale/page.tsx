@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useCallback, useLayoutEffect, useState } from "react";
 import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { SectionHeader, SellBand, TitleWithKanji, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
+import { SwipeDeck } from "@/components/swipe-deck";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import type { Card, Cover, SellerSummary } from "@/lib/types";
@@ -39,6 +40,59 @@ function ResaleFeed() {
   const wardrobes = useSWR<{ items: Wardrobe[] }>("/wardrobes?limit=10");
   const chips = CHIPS.filter(([key]) => key !== "for_you" || me);
 
+  // «Свайп» here deals only second-hand items, as the home page's deals only brands.
+  const setMode = (mode: "feed" | "swipe") => router.replace(mode === "swipe" ? "/resale?mode=swipe" : "/resale", { scroll: false });
+  const swipeProbe = useSWR<{ items: Card[] }>(sessionLoading ? null : "/swipe/deck?context=swipe_mode&market=resale&limit=1", { revalidateOnFocus: false });
+  const [swipeEmpty, setSwipeEmpty] = useState(false);
+  const noSwipe = swipeEmpty || swipeProbe.data?.items.length === 0;
+  const swipeMode = params.get("mode") === "swipe" && !noSwipe;
+  const onSwipeEmpty = useCallback(() => {
+    setSwipeEmpty(true);
+    router.replace("/resale", { scroll: false });
+  }, [router]);
+  // Swiping takes the whole screen, as on the home page (globals.css, html[data-immersive]).
+  useLayoutEffect(() => {
+    if (!swipeMode) return;
+    const root = document.documentElement;
+    root.dataset.immersive = "";
+    window.scrollTo(0, 0);
+    return () => {
+      delete root.dataset.immersive;
+    };
+  }, [swipeMode]);
+
+  const modeSwitch = !noSwipe && (
+    <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
+      {(
+        [
+          ["feed", "Лента"],
+          ["swipe", "Свайп"],
+        ] as const
+      ).map(([m, label]) => (
+        <button
+          key={m}
+          role="radio"
+          aria-checked={(m === "swipe") === swipeMode}
+          onClick={() => setMode(m)}
+          className={`h-8 rounded-full px-3.5 font-medium transition-colors ${(m === "swipe") === swipeMode ? "bg-ink text-accent-ink" : "text-ink-2 hover:text-ink"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (swipeMode) {
+    return (
+      <div className="mx-auto max-w-[1440px] px-4 md:px-6">
+        <div className="flex pt-4">{modeSwitch}</div>
+        <div className="py-6">
+          <SwipeDeck context="swipe_mode" market="resale" limit={30} onEmpty={onSwipeEmpty} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       <div className="pt-6 md:pt-10">
@@ -64,6 +118,7 @@ function ResaleFeed() {
 
       <div className="under-header z-30 -mx-4 mt-6 bg-washi px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         <div className="no-scrollbar -mx-4 -my-2 flex items-center gap-2 overflow-x-auto px-4 py-2 md:-mx-6 md:px-6">
+          {modeSwitch && <div className="mr-1">{modeSwitch}</div>}
           {chips.map(([key, label]) => (
             <Chip key={key} active={chip === key} onClick={() => setChip(key)}>
               {label}

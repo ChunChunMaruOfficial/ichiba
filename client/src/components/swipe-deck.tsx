@@ -64,15 +64,20 @@ function useFitHeight() {
  * Tinder-style deck (decision D2). Drag or flick the top card, or use the buttons / ← → / Backspace.
  * Right = ♡ (asks guests to sign in), left = "не моё", ↶ brings the last card back.
  */
-/** `onEmpty`: called instead of showing the "nothing left" screen when the deck has no card to show. */
+/**
+ * `onEmpty`: called instead of showing the "nothing left" screen when the deck has no card to show.
+ * `market`: brands (home) or the second-hand market («Вторичка»); the two are never shuffled into one deck.
+ */
 export function SwipeDeck({
   context,
+  market,
   limit = 20,
   onSwipe,
   onDone,
   onEmpty,
 }: {
   context: "onboarding" | "swipe_mode";
+  market?: "brands" | "resale";
   limit?: number;
   onSwipe?: (count: number) => void;
   onDone?: () => void;
@@ -82,7 +87,7 @@ export function SwipeDeck({
   const router = useRouter();
   const toast = useToast();
   const [skips] = useState(() => (typeof window === "undefined" ? [] : readSkips()));
-  const deckKey = `/swipe/deck?context=${context}&limit=${limit}${!me && skips.length ? `&skip=${skips.join(",")}` : ""}`;
+  const deckKey = `/swipe/deck?context=${context}${market ? `&market=${market}` : ""}&limit=${limit}${!me && skips.length ? `&skip=${skips.join(",")}` : ""}`;
   const { data, mutate, isLoading } = useSWR<{ items: Card[] }>(deckKey, { revalidateOnFocus: false });
 
   const [index, setIndex] = useState(0);

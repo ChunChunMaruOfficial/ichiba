@@ -460,8 +460,10 @@ html[data-immersive] [data-chrome="main"] {
  * (a noise mask). The outer span carries the tilt, the press and the shadow (a mask would cut the shadow off).
  */
 .seal-brand {
+  --seal-tilt: -5deg;
+  position: relative;
   display: inline-block;
-  transform: rotate(-5deg);
+  transform: rotate(var(--seal-tilt));
   filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.32));
   animation: seal-press 520ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
 }
@@ -499,9 +501,29 @@ html[data-immersive] [data-chrome="main"] {
   text-orientation: upright;
 }
 @keyframes seal-press {
-  0% { opacity: 0; transform: scale(1.9) rotate(-12deg); }
-  60% { opacity: 1; transform: scale(0.94) rotate(-4deg); }
-  100% { opacity: 1; transform: scale(1) rotate(-5deg); }
+  0% { opacity: 0; transform: scale(1.9) rotate(calc(var(--seal-tilt) - 7deg)); }
+  60% { opacity: 1; transform: scale(0.94) rotate(calc(var(--seal-tilt) + 1deg)); }
+  100% { opacity: 1; transform: scale(1) rotate(var(--seal-tilt)); }
+}
+/*
+ * Stuck on by hand (home feed): leaning the other way, a strip of torn washi tape across its top. The tape is on the
+ * outer span, so the ink's speckle mask doesn't eat it.
+ */
+.seal-brand-stuck {
+  --seal-tilt: 7deg;
+}
+.seal-brand-stuck::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: -5px;
+  left: 50%;
+  width: 30px;
+  height: 11px;
+  transform: translateX(-46%) rotate(-11deg);
+  background: rgb(243 236 220 / 0.82);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  clip-path: polygon(0 12%, 6% 0, 12% 14%, 19% 2%, 81% 0, 88% 12%, 94% 2%, 100% 10%, 100% 88%, 94% 100%, 87% 86%, 80% 100%, 20% 98%, 13% 86%, 6% 100%, 0 90%);
 }
 @media (prefers-reduced-motion: reduce) {
   .seal-brand { animation: none; }

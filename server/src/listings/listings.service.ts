@@ -30,10 +30,10 @@ const CANDIDATE_POOL = 1000;
 /** Edits of these on a live listing are moderated again. */
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
 
-type Market = 'brands' | 'resale';
+export type Market = 'brands' | 'resale';
 
 /** Brands (sellers whose brand status an admin confirmed) and the second-hand market are shown apart. */
-const marketWhere = (market?: Market): Prisma.ListingWhereInput =>
+export const marketWhere = (market?: Market): Prisma.ListingWhereInput =>
   market === 'brands' ? { seller: { brandVerifiedAt: { not: null } } } : market === 'resale' ? { seller: { brandVerifiedAt: null } } : {};
 
 @Injectable()
