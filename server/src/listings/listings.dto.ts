@@ -45,8 +45,8 @@ export const ListingInput = z.object({
   minOfferPrice: z.number().int().min(1).nullish(),
   autoAcceptPrice: z.number().int().min(1).max(100_000).nullish(),
   originalPrice: z.number().int().min(1).max(1_000_000).nullish(),
-  /** Seals a brand chooses for the item (shown on its card); ignored for sellers without the brand status. */
-  labels: z.array(z.enum(LISTING_LABELS)).max(LISTING_LABELS.length).optional(),
+  /** The seal a brand chooses for the item (one at most, shown on its card); ignored for non-brands. */
+  labels: z.array(z.enum(LISTING_LABELS)).max(1, 'Одна печать на вещь').optional(),
   gender: z.enum(['MALE', 'FEMALE', 'UNISEX']).nullish(),
   /** Other sizes of the same item, listed as separate copies on publish. */
   extraSizes: z.array(z.string().trim().min(1).max(20)).max(10).optional(),
