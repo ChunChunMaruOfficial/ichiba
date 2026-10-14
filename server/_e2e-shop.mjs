@@ -110,6 +110,7 @@ if (!process.env.SHOP_FIXTURE) {
   const hat = byTitle(rows, /CAMO$/);
   ok(hat?.title === 'Шапка «I<3REDHEAD» CAMO' && hat.price === 64 && hat.originalPrice === 82 && hat.material === 'Хлопок, акрил', 'hat: title, BYN price, old price, material');
   ok(hat?.publishedAt < new Date(Date.now() - 86400_000), 'first import keeps the product date');
+  ok(hat?.labels.length === 0, 'no «бренд» seal put on by the import');
   const bomber = byTitle(rows, /Бомбер/);
   ok(bomber?.title === 'Бомбер I LOVE REDHEAD BLACK' && bomber.sizes.join() === 'S,XL' && bomber.sizeSystem === 'ALPHA' && bomber.color === 'black' && bomber.labels.join() === 'new', 'bomber: brand in title, sizes in stock, colour, «новинка»');
   const coat = byTitle(rows, /Шуба/);

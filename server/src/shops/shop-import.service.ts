@@ -367,7 +367,8 @@ export class ShopImportService implements OnApplicationBootstrap {
       originalPrice: offer.originalPrice,
       acceptsOffers: true,
       gender: offer.kind.gender ?? null,
-      labels: [offer.isNew ? 'new' : 'brand'],
+      // «новинка» for the shop's new products; no «бренд» seal by default (the brand may add it on ichiba).
+      labels: offer.isNew ? ['new'] : [],
       styleTags,
     };
     const draft = await this.listings.create(userId, input);
