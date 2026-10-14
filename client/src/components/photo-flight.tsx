@@ -37,13 +37,13 @@ let flight: {
   at: Box;
   radius: string;
   /** The photo's own size, for the loading shell's frame. */
-  photo: { width: number; height: number };
+  photo: { width: number; height: number; src: string };
   /** The photo the layer stands in for; shown again when the flight ends. */
   source: HTMLElement;
   /** The landing place the layer currently covers. */
   target: HTMLElement | null;
   /** The page under the photo fading out before the item page comes (opening only). */
-  pageFade: Animation | null;
+  pageFade: Animation[];
   timer: ReturnType<typeof setTimeout>;
 } | null = null;
 
@@ -141,7 +141,8 @@ function lift(id: string, dir: "open" | "back", source: HTMLImageElement) {
   layer.animate([{ transform: "none", boxShadow: "none" }, { transform: mapTo(from, at), boxShadow: SHADOW }], { duration: 140, easing: EASE, fill: "forwards" });
   // A navigation that never comes (cancelled, failed) must not leave the photo hanging over the page.
   const timer = setTimeout(fadeAway, 3000);
-  flight = { id, dir, layer, at, radius, photo: photoSize(source), source, target: null, pageFade: null, timer };
+  flight = { id, dir, layer, at, radius, photo: { ...photoSize(source), src: layer.src }, source, target: null, pageFade: [], timer };
+  lockScroll();
   return true;
 }
 
@@ -152,7 +153,8 @@ function land() {
   flight.layer.remove();
   flight.source.style.visibility = "";
   if (flight.target) flight.target.style.visibility = "";
-  flight.pageFade?.cancel();
+  for (const a of flight.pageFade) a.cancel();
+  unlockScroll();
   delete document.documentElement.dataset.photoFlight;
   flight = null;
 }
@@ -177,6 +179,29 @@ function move(f: NonNullable<typeof flight>, to: Box, radius: string, duration: 
     ],
     { duration, easing: EASE, fill: "forwards" },
   );
+}
+
+/** The page under the photo fades out: its content and the footer (which would otherwise stay, alone). */
+function fadePage(timing: { duration: number; easing: string }) {
+  return [document.getElementById("main"), document.querySelector("footer")]
+    .filter((el): el is HTMLElement => !!el)
+    .map((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { ...timing, fill: "forwards" }));
+}
+
+/**
+ * No scrolling while the photo flies and the page settles: the reader's swipe would move the page under the photo
+ * and the photo would land off its place. Scroll by code (the shell's reset, the restored scroll) still works.
+ */
+const SCROLL_KEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown"]);
+const stopScroll = (e: Event) => {
+  if (e instanceof KeyboardEvent && !SCROLL_KEYS.has(e.key)) return;
+  e.preventDefault();
+};
+function lockScroll() {
+  for (const type of ["wheel", "touchmove", "keydown"]) addEventListener(type, stopScroll, { passive: false, capture: true });
+}
+function unlockScroll() {
+  for (const type of ["wheel", "touchmove", "keydown"]) removeEventListener(type, stopScroll, { capture: true });
 }
 
 /** Glides the layer onto `target`; then hands over to it, or waits on the loading shell for the real photo. */
@@ -303,7 +328,7 @@ export function PhotoFlight() {
       // The page under the photo fades out first, then the navigation starts (the link itself is held back).
       e.preventDefault();
       const f = flight!;
-      f.pageFade = document.getElementById("main")?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_OUT, easing: "ease-out", fill: "forwards" }) ?? null;
+      f.pageFade = fadePage({ duration: FADE_OUT, easing: "ease-out" });
       setTimeout(() => flight === f && router.push(a.pathname + a.search), FADE_OUT - 20);
     };
     // Back (or forward) from an item page: the gallery photo flies to its card, if the next page has one.
@@ -334,7 +359,7 @@ export function PhotoFlight() {
       // moment to come back, and when it is in, the photo settles on the card itself.
       const f = flight!;
       // Slower than on the way in: it is still fading when the list comes back, so there is never an empty page.
-      f.pageFade = document.getElementById("main")?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: "ease-in", fill: "forwards" }) ?? null;
+      f.pageFade = fadePage({ duration: 320, easing: "ease-in" });
       if (lastCard?.id === id && visible(lastCard.box)) move(f, lastCard.box, lastCard.radius, DURATION);
     };
     const stopScrollMemory = startScrollMemory();
@@ -359,13 +384,13 @@ export function PhotoFlight() {
     if (f.dir === "open") {
       if (pathname !== `/item/${f.id}`) return land();
       // The shell is in: the page area is visible again (the shell is empty but for the photo's frame).
-      f.pageFade?.cancel();
-      f.pageFade = null;
+      for (const a of f.pageFade) a.cancel();
+      f.pageFade = [];
       seek(landingPlace, 90);
     } else {
       if (pathname === `/item/${f.id}`) return land();
-      f.pageFade?.cancel();
-      f.pageFade = null;
+      for (const a of f.pageFade) a.cancel();
+      f.pageFade = [];
       // Two frames for the restored scroll position, then the card itself.
       seek(
         () => {

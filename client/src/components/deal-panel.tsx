@@ -6,9 +6,10 @@ import { useState } from "react";
 import { DealActions } from "@/components/deal-actions";
 import { DealReview } from "@/components/reviews";
 import { useToast } from "@/components/toast";
+import { DeliveryLabel } from "@/components/delivery-label";
 import { Button, ButtonLink, DealBadge, Field, IconCheck, IconChevronDown, Modal, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { DELIVERY_LABEL, formatDateTime, formatPrice } from "@/lib/labels";
+import { formatDateTime, formatPrice } from "@/lib/labels";
 import type { Deal, RequestStatus } from "@/lib/types";
 
 /*
@@ -181,7 +182,7 @@ export function DealPanel({ deal, onChange }: { deal: Deal; onChange: (d?: Deal)
               <span className="text-muted"> · оплата при получении</span>
             </p>
             <p className="text-muted">
-              {DELIVERY_LABEL[deal.deliveryMethod]}
+              <DeliveryLabel method={deal.deliveryMethod} />
               {deal.deliveryPoint ? ` · ${deal.deliveryPoint}` : deal.sellerCity ? ` · ${deal.sellerCity}` : ""}
             </p>
           </div>

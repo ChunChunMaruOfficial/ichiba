@@ -480,6 +480,7 @@ export const IconPin = icon(<><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0
 export const IconLocate = icon(<><circle cx="12" cy="12" r="6.5" /><circle cx="12" cy="12" r="2" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" /></>);
 export const IconHome = icon(<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1Z" />);
 export const IconHanger = icon(<><path d="M12 7.5a2 2 0 1 1 2-2c0 1-.8 1.5-2 2.3v1.2" /><path d="m12 9-8.5 6.2A1 1 0 0 0 4 17h16a1 1 0 0 0 .5-1.8Z" /></>);
+export const IconTruck = icon(<><path d="M2.5 6.5h11v9.5h-11Z" /><path d="M13.5 9.5h4l3 3.5v3h-7" /><circle cx="6.5" cy="17.5" r="1.8" /><circle cx="17" cy="17.5" r="1.8" /></>);
 export const IconBag = icon(<><path d="M5 8h14l-1 12H6Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></>);
 export const IconX = icon(<path d="M6 6l12 12M18 6 6 18" />);
 export const IconChevronLeft = icon(<path d="m15 5-7 7 7 7" />);

@@ -1,5 +1,6 @@
 "use client";
 
+import { DeliveryLabel } from "./delivery-label";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -328,7 +329,7 @@ export function HandoverFields({ values, set, errors, meta }: FieldsProps) {
             ] as const
           ).map(([v, label]) => (
             <Chip key={v} active={values.deliveryOptions.includes(v)} onClick={() => set({ deliveryOptions: values.deliveryOptions.includes(v) ? values.deliveryOptions.filter((x) => x !== v) : [...values.deliveryOptions, v] })}>
-              {label}
+              {v === "DELIVERY" ? <DeliveryLabel method="DELIVERY" /> : label}
             </Chip>
           ))}
         </div>

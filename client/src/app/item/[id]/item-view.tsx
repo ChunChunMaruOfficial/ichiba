@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
+import { DeliveryLabel } from "@/components/delivery-label";
 import { Gallery } from "@/components/gallery";
 import { LikersOfferButton } from "@/components/likers-offer";
 import { MEASURE_LABEL } from "@/components/measure-guide";
@@ -25,7 +26,7 @@ import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, Ic
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
-import { CONDITION_LABEL, DELIVERY_LABEL, formatPrice, items, listingPrice, plural, timeAgo } from "@/lib/labels";
+import { CONDITION_LABEL, formatPrice, items, listingPrice, plural, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
 
@@ -85,9 +86,8 @@ export function ItemView({ id, initial }: { id: string; initial?: ListingRespons
     );
   }
 
-  // The server-rendered copy is anonymous; when the viewer's own copy arrives, remount once so local state
-  // (♡, cart, auction panel) starts from the personal data.
-  return <Product key={live.data ? "live" : "ssr"} listing={data} related={related.data} refresh={() => mutate()} />;
+  // The server-rendered copy is anonymous; the viewer's own copy, when it arrives, updates the page in place.
+  return <Product listing={data} related={related.data} refresh={() => mutate()} />;
 }
 
 function Product({ listing: l, related, refresh }: { listing: ListingDetail; related?: { similar: Card[]; fromSeller: Card[]; forYou: Card[] }; refresh: () => void }) {
@@ -109,7 +109,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   };
   const { requireAuth } = useSession();
   const [photo, setPhoto] = useState(0);
-  // Opened by a card's photo flying in (photo-flight.tsx): the page fades in a beat after the photo.
+  // Opened by a card's photo flying in (photo-flight.tsx): the text fades in over the shell's skeletons.
   const [flightIn] = useState(() => typeof document !== "undefined" && document.documentElement.dataset.photoFlight === "open");
   const [showMeasurements, setShowMeasurements] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -136,6 +136,15 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const activeRequest = l.myRequest && !["COMPLETED"].includes(l.myRequest.status);
   // Local copy so a bid updates the panel instantly.
   const [auction, setAuction] = useState(l.auction);
+  // A fresh copy of the listing (the viewer's own after the anonymous server one, or after a refresh) resets the
+  // state taken from it, in place: remounting the page would replay its entrance and reload the gallery.
+  const [shown, setShown] = useState(l);
+  if (shown !== l) {
+    setShown(l);
+    setSeller(l.seller);
+    setInCart(l.inCart);
+    setAuction(l.auction);
+  }
   const auctionRunning = l.saleType === "AUCTION" && auction?.status === "ACTIVE";
   const showAuction = !!auction && (auctionRunning || auction.status === "SOLD" || (auction.status === "NO_SALE" && auction.bidsCount > 0));
   const canBuy = !l.isOwner && l.status === "PUBLISHED" && !activeRequest && !auctionRunning;
@@ -376,7 +385,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             )}
           </div>
           )}
-          {canOffer && !negotiable && (
+          {/* Brands sell at their price: no haggling under «Купить» (a priceless item is still bought by an offer). */}
+          {canOffer && !negotiable && !l.seller.brand && (
             <Button size="lg" variant="secondary" block onClick={openOffer}>
               Предложить цену
             </Button>
@@ -408,7 +418,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         {l.subcategoryLabel && <> / <span className="text-ink-2">{l.subcategoryLabel}</span></>}
       </nav>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">
+      <div className="flight-keep grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">
         <Gallery
           photos={l.photos}
           video={l.video}
@@ -534,7 +544,14 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           <div className="mt-6">{l.isOwner ? ownerPanel : buyerPanel}</div>
 
           <p className="mt-5 text-sm text-ink-2">
-            {[l.city, l.deliveryOptions.map((d) => DELIVERY_LABEL[d]).join(", ")].filter(Boolean).join(" · ")}
+            {l.city}
+            {l.city && l.deliveryOptions.length > 0 && " · "}
+            {l.deliveryOptions.map((d, i) => (
+              <span key={d}>
+                {i > 0 && ", "}
+                <DeliveryLabel method={d} />
+              </span>
+            ))}
           </p>
 
           <LooksWithItem listingId={l.id} />

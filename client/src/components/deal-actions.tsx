@@ -4,10 +4,11 @@ import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { DELIVERY_LABEL, formatPrice, timeAgo } from "@/lib/labels";
+import { formatPrice, timeAgo } from "@/lib/labels";
 import type { Deal } from "@/lib/types";
 import { useSession } from "./session";
 import { useToast } from "./toast";
+import { DeliveryLabel } from "./delivery-label";
 import { Button, ButtonLink, DealBadge, Field, Input, Modal } from "./ui";
 
 const DECLINE_REASONS = ["Уже продано", "Передумал продавать", "Не подходит способ получения", "Другое"];
@@ -235,7 +236,7 @@ export function DealCard({ deal, onChange, plain }: { deal: Deal; onChange: (d: 
           )}
         </p>
         <p className="text-xs text-muted">
-          {DELIVERY_LABEL[deal.deliveryMethod]}
+          <DeliveryLabel method={deal.deliveryMethod} />
           {deal.sellerCity ? `, ${deal.sellerCity}` : ""} · {timeAgo(deal.createdAt)}
         </p>
         {/* Quick actions answer right here; they must not also open the chat. */}

@@ -62,8 +62,9 @@ export function restoreScroll(rendered: () => boolean) {
   const root = document.documentElement;
   const until = performance.now() + 1000;
   let done = false;
-  const stop = () => {
-    if (done) return;
+  const stop = (e?: Event) => {
+    // A swipe the photo flight holds back (its scroll lock) is not the reader taking over.
+    if (done || e?.defaultPrevented) return;
     done = true;
     mutations.disconnect();
     sizes.disconnect();
@@ -86,7 +87,7 @@ export function restoreScroll(rendered: () => boolean) {
   addEventListener("wheel", stop, { passive: true });
   addEventListener("touchstart", stop, { passive: true });
   addEventListener("keydown", stop);
-  setTimeout(stop, 1000);
+  setTimeout(() => stop(), 1000);
   apply();
 }
 

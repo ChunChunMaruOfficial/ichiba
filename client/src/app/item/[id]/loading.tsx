@@ -2,13 +2,24 @@
 
 import { useParams } from "next/navigation";
 import { useLayoutEffect, useState } from "react";
+import { BlurBackdrop } from "@/components/blur-backdrop";
 import { flyingPhoto } from "@/components/photo-flight";
 import { Skeleton } from "@/components/ui";
 
+/** The gallery's blurred backdrop, shown only as the photo lands: a blur of it under a photo still in flight reads as a second photo. */
+function ArrivingBackdrop({ src }: { src: string }) {
+  return (
+    <span className="shell-backdrop absolute inset-0">
+      <BlurBackdrop src={src} />
+    </span>
+  );
+}
+
 /**
- * The item page while the server prepares it, shown the moment a card is tapped. When the card's photo is flying
- * in (photo-flight.tsx), the shell holds only the gallery's frame, sized for that photo exactly as the gallery will
- * be, so the photo lands at once and the page fades in around it; otherwise it is the usual skeleton.
+ * The item page while the server prepares it, shown the moment a card is tapped. Laid out like the page itself:
+ * the gallery's frame and the text as skeletons. When the card's photo is flying in (photo-flight.tsx), the frame
+ * is sized for that photo exactly as the gallery will be, with the same blurred backdrop, so the photo lands at once
+ * and the real gallery takes its place unnoticed; the text then fades in over the skeletons.
  */
 export default function ItemLoading() {
   const { id } = useParams<{ id: string }>();
@@ -21,26 +32,53 @@ export default function ItemLoading() {
   useLayoutEffect(() => window.scrollTo(0, 0), []);
   return (
     // Taller than the screen, so the footer (and the branch over it) stays below until the page itself is in.
-    <div className="mx-auto min-h-[140dvh] max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16">
+    <div className="mx-auto min-h-[140dvh] max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16" aria-busy aria-label="Загружаем вещь">
       {/* The breadcrumbs' line. */}
       <div className="mb-4 hidden h-5 md:block" />
       <div className="grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">
         <div>
+          {/* Phones: the carousel's frame. */}
           <div className="-mx-4 md:hidden">
-            <div className={photo ? "w-full" : "w-full bg-skeleton"} style={{ aspectRatio: frame }} {...fly} />
+            <div className="relative w-full overflow-hidden bg-skeleton" style={{ aspectRatio: frame }}>
+              {photo && <ArrivingBackdrop src={photo.src} />}
+              {photo && <div className="relative size-full" {...fly} />}
+            </div>
           </div>
-          <div className="hidden overflow-hidden rounded-3xl md:block">
-            {photo ? <div className="mx-auto max-h-[80vh] w-full" style={{ aspectRatio: `${photo.width} / ${photo.height}` }} {...fly} /> : <Skeleton className="aspect-[4/5] rounded-3xl" />}
+          {/* Desktop: the main photo's frame and the thumbnails under it. */}
+          <div className="hidden md:block">
+            <div className="relative overflow-hidden rounded-3xl bg-skeleton">
+              {photo ? (
+                <div className="relative w-full">
+                  <ArrivingBackdrop src={photo.src} />
+                  <div className="relative mx-auto max-h-[80vh] w-full" style={{ aspectRatio: `${photo.width} / ${photo.height}` }} {...fly} />
+                </div>
+              ) : (
+                <div className="aspect-[4/5]" />
+              )}
+            </div>
+            <div className="mt-3 flex gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="size-18 rounded-xl" />
+              ))}
+            </div>
           </div>
         </div>
-        {!photo && (
-          <div className="flex flex-col gap-4">
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-10 w-1/3" />
-            <Skeleton className="h-5 w-1/2" />
-            <Skeleton className="mt-4 h-13 w-full rounded-xl" />
+        {/* The text: title, price tag, details, the buttons. */}
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-4/5" />
+          <Skeleton className="h-7 w-1/2" />
+          <Skeleton className="mt-2 h-11 w-36 rounded-lg" />
+          <div className="mt-3 flex gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-9 w-12 rounded-lg" />
+            ))}
           </div>
-        )}
+          {[0.55, 0.45, 0.6, 0.4, 0.5].map((w, i) => (
+            <Skeleton key={i} className="h-4" style={{ width: `${w * 100}%` }} />
+          ))}
+          <Skeleton className="mt-4 h-13 w-full rounded-full" />
+          <Skeleton className="h-12 w-full rounded-full" />
+        </div>
       </div>
     </div>
   );
