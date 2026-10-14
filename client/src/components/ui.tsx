@@ -126,14 +126,28 @@ const HANKO = {
   sale: { kanji: "値下", ru: "скидка", ink: false },
   new: { kanji: "新", ru: "", ink: false },
   listed: { kanji: "出品", ru: "в продаже", ink: false },
-  /** «Бренд»: dyed cinnabar through, so it reads apart from «продано» (outlined in cinnabar). */
-  brand: { kanji: "銘柄", ru: "бренд", ink: false },
 } as const;
+
+/**
+ * «Бренд»: a real seal pressed in cinnabar ink — a tall stamp with two columns read right to left, 銘柄 by brush and
+ * «бренд» standing letter under letter, paper-coloured, framed by a thin inner line, its ink worn in speckles.
+ * Set askew; on cards it hangs off the photo's corner.
+ */
+export function BrandSeal({ className }: { className?: string }) {
+  return (
+    <span role="img" aria-label="Бренд" title="Статус бренда подтверждён ichiba" className={clsx("seal-brand pointer-events-none select-none", className)}>
+      <span className="seal-brand-face" aria-hidden>
+        <span className="seal-brand-kanji">銘柄</span>
+        <span className="seal-brand-ru">бренд</span>
+      </span>
+    </span>
+  );
+}
 
 export function Hanko({ kind, className }: { kind: keyof typeof HANKO; className?: string }) {
   const h = HANKO[kind];
   return (
-    <span role="img" aria-label={h.ru || "Новое"} className={clsx("hanko pointer-events-none select-none", h.ink && "hanko-ink", kind === "brand" && "hanko-brand", !h.ru && "hanko-round", className)}>
+    <span role="img" aria-label={h.ru || "Новое"} className={clsx("hanko pointer-events-none select-none", h.ink && "hanko-ink", !h.ru && "hanko-round", className)}>
       <span className="hanko-kanji" aria-hidden>
         {h.kanji}
       </span>
@@ -461,5 +475,7 @@ export const IconSparkle = icon(<path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.9L12 18.5l
 export const IconMessage = icon(<path d="M5 5h14v10H9l-4 4Z" />);
 export const IconReceipt = icon(<><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z" /><path d="M9 8h6M9 12h6" /></>);
 export const IconChart = icon(<><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>);
+/** A price tag on a string: «Вторичка», the second-hand market. */
+export const IconTag = icon(<><path d="M3.5 12.6V4.5a1 1 0 0 1 1-1h8.1a1 1 0 0 1 .7.3l7.3 7.3a1 1 0 0 1 0 1.4l-8.1 8.1a1 1 0 0 1-1.4 0l-7.3-7.3a1 1 0 0 1-.3-.7Z" /><circle cx="8.2" cy="8.2" r="1.4" /></>);
 export const IconUsers = icon(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></>);
 export const IconSettings = icon(<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>);

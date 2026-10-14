@@ -101,10 +101,17 @@ export function SellBand() {
   );
 }
 
+/**
+ * A horizontal row that bleeds to the screen edges but snaps cards to the page gutter (scroll-padding), so the first
+ * and the snapped card keep the same 16/24 px margin as everything else on the page.
+ */
+const ROW = "no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:scroll-px-6 md:px-6";
+
 /** Horizontal row of photos (sections on Home, recommendations on Product), all cropped to one height. */
 export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: "feed" | "grid" }) {
   return (
-    <div className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6">
+    // pt: the brand seal hangs above the cards' top edge and a scrolling row would clip it.
+    <div className={clsx(ROW, "pt-3")}>
       {items.map((c) => (
         <div key={c.id} className="w-[44vw] shrink-0 snap-start sm:w-56">
           <ItemCard card={c} variant={variant} uniform />
@@ -160,7 +167,7 @@ export function FollowButton({ seller, onChange, size = "md" }: { seller: Pick<S
 export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>; onFollowChange: (username: string, v: boolean) => void; grid?: boolean }) {
   const router = useRouter();
   return (
-    <div className={grid ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4" : "no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6"}>
+    <div className={grid ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4" : ROW}>
       {wardrobes.map((w) => (
         <div key={w.id} className={clsx("rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", grid ? "min-w-0" : "w-64 shrink-0 snap-start")}>
           <button onClick={() => router.push(`/u/${w.username}`)} className="grid aspect-square w-full grid-cols-2 gap-1 overflow-hidden rounded-[16px]" aria-label={`Гардероб @${w.username}`}>

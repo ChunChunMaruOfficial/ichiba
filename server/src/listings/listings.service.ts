@@ -30,6 +30,12 @@ const CANDIDATE_POOL = 1000;
 /** Edits of these on a live listing are moderated again. */
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
 
+type Market = 'brands' | 'resale';
+
+/** Brands (sellers whose brand status an admin confirmed) and the second-hand market are shown apart. */
+const marketWhere = (market?: Market): Prisma.ListingWhereInput =>
+  market === 'brands' ? { seller: { brandVerifiedAt: { not: null } } } : market === 'resale' ? { seller: { brandVerifiedAt: null } } : {};
+
 @Injectable()
 export class ListingsService {
   constructor(
@@ -726,10 +732,10 @@ export class ListingsService {
     return { ok: true };
   }
 
-  async feed(chip: string, offset: number, limit: number, viewerId?: string) {
+  async feed(chip: string, offset: number, limit: number, viewerId?: string, market?: Market) {
     // Guests have no «Для вас»: they get «Новое». A signed-in person without a profile yet sees the popular items.
     const effective = chip === 'for_you' && !viewerId ? 'new' : chip;
-    const where: Prisma.ListingWhereInput = { status: { in: VISIBLE_IN_FEED }, ...(await this.notInterested(viewerId)) };
+    const where: Prisma.ListingWhereInput = { status: { in: VISIBLE_IN_FEED }, ...marketWhere(market), ...(await this.notInterested(viewerId)) };
 
     if (effective === 'for_you' || effective === 'popular') {
       // Own items are excluded from personalised and popular feeds (frame 06).
@@ -744,10 +750,10 @@ export class ListingsService {
     }
 
     if (effective === 'auctions') {
-      const auctionWhere: Prisma.ListingWhereInput = { status: 'PUBLISHED', auctions: { some: { status: 'ACTIVE' } } };
+      const auctionWhere: Prisma.ListingWhereInput = { status: 'PUBLISHED', ...marketWhere(market), auctions: { some: { status: 'ACTIVE' } } };
       const [rows, total] = await Promise.all([
         this.prisma.auction.findMany({
-          where: { status: 'ACTIVE', listing: { status: 'PUBLISHED' } },
+          where: { status: 'ACTIVE', listing: { status: 'PUBLISHED', ...marketWhere(market) } },
           orderBy: { endsAt: 'asc' },
           skip: offset,
           take: limit,
@@ -768,15 +774,18 @@ export class ListingsService {
     return { chip: effective, items: await this.cards(rows, viewerId), total };
   }
 
-  /** Data for the sections under the feed: Новинки, Популярное, Гардеробы, Категории. */
+  /**
+   * Data for the home page. The feed above is the brands' (market=brands); the sections under it are the second-hand
+   * market: «Вторичка» (new from private sellers), their wardrobes, and the categories.
+   */
   async home(viewerId?: string) {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const [fresh, newToday, popular, totalVisible, categoryCounts, forYouAvailable] = await Promise.all([
-      this.feed('new', 0, 16, viewerId),
-      this.prisma.listing.count({ where: { status: 'PUBLISHED', publishedAt: { gte: startOfDay } } }),
-      this.feed('popular', 0, 16, viewerId),
+    const [resale, resaleToday, totalVisible, brandsVisible, categoryCounts, forYouAvailable] = await Promise.all([
+      this.feed('new', 0, 16, viewerId, 'resale'),
+      this.prisma.listing.count({ where: { status: 'PUBLISHED', publishedAt: { gte: startOfDay }, ...marketWhere('resale') } }),
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED } } }),
+      this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED }, ...marketWhere('brands') } }),
       this.prisma.listing.groupBy({ by: ['category'], where: { status: 'PUBLISHED' }, _count: true }),
       !!viewerId,
     ]);
@@ -794,9 +803,9 @@ export class ListingsService {
 
     return {
       totalVisible,
-      newToday,
-      fresh: fresh.items,
-      popular: popular.items,
+      brandsVisible,
+      resaleToday,
+      resale: resale.items,
       wardrobes: await this.topWardrobes(viewerId),
       categories,
       forYouAvailable,
@@ -806,7 +815,8 @@ export class ListingsService {
   private async topWardrobes(viewerId?: string) {
     const top = await this.prisma.listing.groupBy({
       by: ['sellerId'],
-      where: { status: 'PUBLISHED', sellerId: viewerId ? { not: viewerId } : undefined },
+      // The home page shows them under «Вторичка»: private sellers only, brands have the feed above.
+      where: { status: 'PUBLISHED', sellerId: viewerId ? { not: viewerId } : undefined, ...marketWhere('resale') },
       _count: true,
       orderBy: { _count: { sellerId: 'desc' } },
       take: 6,
@@ -826,6 +836,8 @@ export class ListingsService {
   async wardrobes(offset: number, limit: number, q: string | undefined, viewerId?: string) {
     const where: Prisma.ListingWhereInput = {
       status: 'PUBLISHED',
+      // Wardrobes are the second-hand market's people; brands stand on the home page.
+      ...marketWhere('resale'),
       ...(viewerId ? { sellerId: { not: viewerId } } : {}),
       ...(q?.trim() ? { seller: { username: { contains: q.trim().replace(/^@/, '').toLowerCase() } } } : {}),
     };
@@ -851,7 +863,7 @@ export class ListingsService {
       const mine = [...(s.clothing ?? []), ...(s.shoes ?? []), ...(s.jeans ?? [])];
       if (mine.length) q = { ...q, size: [...new Set([...(q.size ?? []), ...mine])] };
     }
-    const where: Prisma.ListingWhereInput = { AND: [this.searchWhere(q), await this.notInterested(viewerId)] };
+    const where: Prisma.ListingWhereInput = { AND: [this.searchWhere(q), marketWhere(q.market), await this.notInterested(viewerId)] };
     let items;
     let total: number;
     if (q.sort === 'for_you' && viewerId) {

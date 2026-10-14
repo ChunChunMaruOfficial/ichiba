@@ -15,7 +15,7 @@ import { CatalogButton, MobileCatalog } from "./catalog-nav";
 import { Wordmark } from "./logo";
 import { PhotoSearchButton } from "./photo-search-button";
 import { useMeta, useSession } from "./session";
-import { IconBag, IconBell, IconChart, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconReceipt, IconSearch, IconSettings, IconUsers, IconX } from "./ui";
+import { IconBag, IconBell, IconChart, IconHanger, IconHeart, IconHome, IconMessage, IconPlus, IconReceipt, IconSearch, IconSettings, IconTag, IconUsers, IconX } from "./ui";
 
 function Logo({ className }: { className?: string }) {
   // The wave (globals.css · .wm-wave) plays once per hover on desktop and per tap on phones.
@@ -372,6 +372,18 @@ export function Header() {
         <MobileCatalog />
         <Logo />
         <CatalogButton anchor={header} />
+        <Link
+          href="/resale"
+          aria-label="Вторичка"
+          className={clsx(
+            "hidden h-11 shrink-0 items-center gap-2 rounded-full px-3 text-[15px] font-semibold transition-colors md:inline-flex lg:px-4",
+            pathname.startsWith("/resale") ? "bg-ink text-accent-ink" : "bg-surface shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]",
+          )}
+        >
+          <IconTag className="size-5" />
+          {/* Tablets: the header is tight, the icon alone says it. */}
+          <span className="hidden lg:inline">Вторичка</span>
+        </Link>
         <Suspense fallback={<div className="hidden flex-1 md:block" />}>
           <SearchBox className="mx-auto hidden w-full min-w-0 max-w-[560px] md:block" />
         </Suspense>
@@ -490,7 +502,8 @@ export function BottomNav() {
   return (
     <nav data-chrome="bottom-nav" aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none md:hidden">
       {item("/", "Главная", IconHome)}
-      {item("/wardrobes", "Гардеробы", IconUsers)}
+      {/* The second-hand market has its own page; the home page is the brands' showcase. */}
+      {item("/resale", "Вторичка", IconTag)}
       <button
         aria-label="Продать вещь"
         className="flex min-w-0 flex-1 basis-0 items-center justify-center py-1.5 text-ink"

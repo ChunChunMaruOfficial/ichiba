@@ -12,7 +12,7 @@ import { AuctionTimer, auctionPrice } from "./auction";
 import { scheduleLabel } from "./schedule-picker";
 import { useSession } from "./session";
 import { Nefuda } from "./shop/nefuda";
-import { Hanko, IconHeart, StatusBadge } from "./ui";
+import { BrandSeal, Hanko, IconHeart, StatusBadge } from "./ui";
 
 /** Photo that fades in when loaded and keeps its real aspect ratio (no forced crop). */
 function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: boolean }) {
@@ -109,7 +109,12 @@ function StatusMark({ card, className }: { card: Card; className?: string }) {
   if (card.status === "RESERVED") return <Hanko kind="reserved" className={className} />;
   if (card.status !== "PUBLISHED") return <StatusBadge status={card.status} className={className} />;
   if (card.auction) return <AuctionTimer endsAt={card.auction.endsAt} className={className} />;
-  return card.isBrand ? <Hanko kind="brand" className={className} /> : null;
+  return null;
+}
+
+/** The brand seal hangs off the photo's top-left corner, so it sits outside the photo's clipping frame. */
+function CardSeal({ card }: { card: Card }) {
+  return card.isBrand && card.status === "PUBLISHED" && !card.auction ? <BrandSeal className="absolute -left-1.5 -top-2.5 z-10" /> : null;
 }
 
 /** Price on a paper tag tied on with a cinnabar thread (値札); a price cut shows the new price in cinnabar and the old one struck. */
@@ -166,6 +171,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
           </span>
           <StatusMark card={card} className="absolute left-3 top-3" />
         </Link>
+        <CardSeal card={card} />
         {/* Desktop hover / keyboard focus panel */}
         <div className="panel pointer-events-none absolute inset-x-2 bottom-2 hidden translate-y-1 rounded-[20px] p-3 opacity-0 transition-[opacity,transform] duration-200 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:block">
           <p className="truncate text-sm font-medium">{card.title}</p>
@@ -201,6 +207,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
           <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
         </Link>
         <StatusMark card={card} className="absolute left-3 top-3" />
+        <CardSeal card={card} />
         {!mine && <HeartButton card={card} source={source} className="absolute right-2.5 top-2.5" />}
         <span className="transition-opacity md:group-hover:opacity-0">
           <CardMarks card={card} discount={shopDiscount} />

@@ -14,21 +14,20 @@ import type { Card, Cover, SellerSummary } from "@/lib/types";
 
 interface HomeData {
   totalVisible: number;
-  newToday: number;
-  fresh: Card[];
-  popular: Card[];
+  brandsVisible: number;
+  resaleToday: number;
+  /** The newest from private sellers: the «Вторичка» row under the brands' feed. */
+  resale: Card[];
   wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>;
   categories: Array<{ slug: string; label: string; count: number; cover: Cover | null }>;
   forYouAvailable: boolean;
 }
 
+// The home feed is the brands' showcase; auctions and «До 50 BYN» belong to the second-hand market (/resale).
 const CHIPS = [
   ["for_you", "Для вас"],
   ["new", "Новое"],
   ["popular", "Популярное"],
-  ["auctions", "Аукционы"],
-  // Categories live in «Каталог» in the header; the feed keeps only ways to sort the stream.
-  ["under_50", "До 50 BYN"],
 ] as const;
 
 const FIRST_SCREEN = 24;
@@ -42,7 +41,7 @@ function HomeFeed() {
   // Default chip: «Для вас» for returning users, «Новое» for new ones (frame 06).
   const chip = params.get("chip") ?? (forYou ? "for_you" : "new");
   const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) =>
-    sessionLoading || !home.data ? null : `/feed?chip=${chip}&offset=${offset}&limit=${FIRST_SCREEN}`,
+    sessionLoading || !home.data ? null : `/feed?chip=${chip}&market=brands&offset=${offset}&limit=${FIRST_SCREEN}`,
   );
   const sentinel = useSentinel(feed.loadMore, !feed.done);
 
@@ -126,7 +125,11 @@ function HomeFeed() {
           <MasonrySkeleton />
         </div>
       ) : feed.items.length === 0 ? (
-        smallCatalog ? (
+        home.data && !home.data.brandsVisible ? (
+          <EmptyState title="Бренды скоро здесь" hint="Белорусские бренды готовят свои витрины. А пока — вещи с историей на вторичке">
+            <ButtonLink href="/resale" variant="primary">Открыть вторичку</ButtonLink>
+          </EmptyState>
+        ) : smallCatalog ? (
           <EmptyState art={<Noren className="mb-2 w-64" />} title="Вещей пока мало" hint="Загляните скоро или выставьте свою — это займёт около минуты">
             <ButtonLink href="/sell" variant="shu">Продать вещь</ButtonLink>
           </EmptyState>
@@ -150,16 +153,10 @@ function HomeFeed() {
 
           {isDefaultChip && home.data && !smallCatalog && (
             <div className="flex flex-col gap-16 py-12 md:gap-24 md:py-16">
-              {home.data.fresh.length > 0 && chip !== "new" && (
+              {home.data.resale.length > 0 && (
                 <section>
-                  <SectionHeader kanji="新着" title="Новинки" count={home.data.newToday ? `опубликовано сегодня: ${home.data.newToday}` : undefined} href="/?chip=new" />
-                  <CardRow items={home.data.fresh} />
-                </section>
-              )}
-              {home.data.popular.length > 0 && (
-                <section>
-                  <SectionHeader kanji="人気" title="Популярное" href="/search?sort=popular" />
-                  <CardRow items={home.data.popular} />
+                  <SectionHeader kanji="古着" title="Вторичка" count={home.data.resaleToday ? `сегодня: ${home.data.resaleToday}` : undefined} href="/resale" />
+                  <CardRow items={home.data.resale} />
                 </section>
               )}
               {!me?.isSeller && <SellBand />}

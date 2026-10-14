@@ -5,7 +5,7 @@ import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useToast } from "./toast";
 import { Badge, Button, Chip, Field, Input, Textarea } from "./ui";
-import { Hanko } from "./ui";
+import { BrandSeal } from "./ui";
 
 export interface BrandApplication {
   id: string;
@@ -72,7 +72,7 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
     <Section id="brand" title="Статус бренда" hint="Для брендов и магазинов: на ваших вещах и в профиле появится печать «Бренд», покупатели сразу видят, что это не частный гардероб.">
       {!data ? null : data.brand ? (
         <div className="flex items-center gap-4 rounded-2xl bg-surface p-4">
-          <Hanko kind="brand" />
+          <BrandSeal />
           <p className="text-[15px]">
             <b>{data.brand.name}</b> — статус бренда подтверждён. Печать стоит на всех ваших вещах.
           </p>

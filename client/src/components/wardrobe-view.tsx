@@ -23,7 +23,7 @@ import { Masonry, MasonrySkeleton } from "./masonry";
 import { FollowButton } from "./sections";
 import { useSession } from "./session";
 import { useToast } from "./toast";
-import { ButtonLink, Chip, EmptyState, ErrorState, Hanko, IconMore, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
+import { ButtonLink, Chip, EmptyState, ErrorState, BrandSeal, IconMore, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
 import { Select } from "./select";
 
 export interface WardrobeData {
@@ -271,7 +271,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-3">
                   <h1 className="truncate text-4xl font-bold leading-[1.05] md:text-6xl">{s.username}</h1>
-                  {s.brand && <Hanko kind="brand" className="shrink-0" />}
+                  {s.brand && <BrandSeal className="shrink-0" />}
                 </div>
                 <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
                   {s.city ? `${s.city} · ` : ""}на ichiba с {sinceLabel(s.createdAt)}

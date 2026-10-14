@@ -24,7 +24,7 @@ export class ListingsController {
   @Public()
   @Get('feed')
   feed(@Query(new ZodPipe(FeedQuery)) q: z.infer<typeof FeedQuery>, @CurrentUser() user?: AuthUser) {
-    return this.listings.feed(q.chip, q.offset, q.limit, user?.id);
+    return this.listings.feed(q.chip, q.offset, q.limit, user?.id, q.market);
   }
 
   @Public()

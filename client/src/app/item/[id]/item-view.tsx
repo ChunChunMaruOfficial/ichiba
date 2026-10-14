@@ -21,7 +21,7 @@ import { Avatar } from "@/components/avatar";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
 import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
-import { Badge, Button, ButtonLink, DealBadge, Hanko, EmptyState, ErrorState, Field, IconBag, IconCheck, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconBag, IconCheck, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
@@ -431,12 +431,6 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
             {auctionRunning && <Badge tone="warn" className="mb-2 block w-fit">Аукцион</Badge>}
             {l.title}
           </h1>
-            {l.seller.brand && (
-              <Link href={`/u/${l.seller.username}`} className="mt-3 inline-flex items-center gap-2.5 text-sm text-ink-2 hover:text-ink" title="Статус бренда подтверждён ichiba">
-                <Hanko kind="brand" className="origin-left scale-[0.8]" />
-                {l.seller.brand}
-              </Link>
-            )}
             <div className="absolute -right-2 -top-1.5 flex flex-col">
               <button aria-label="Поделиться" onClick={share} className="grid size-10 place-items-center rounded-full text-ink-2 hover:bg-ink/5">
                 <IconShare />
