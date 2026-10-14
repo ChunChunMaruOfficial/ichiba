@@ -44,7 +44,7 @@ interface Offer {
   /** Each photo as its download candidates (photoCandidates), in the shop's order. */
   photos: string[][];
   isNew: boolean;
-  /** What a later sync compares to notice a change in the shop (prices in the shop's currency, not BYN). */
+  /** What a later sync compares to notice a change: BYN prices (at today's rate) and sizes in stock. */
   fingerprint: string;
 }
 
@@ -251,7 +251,8 @@ export class ShopImportService implements OnApplicationBootstrap {
       color: colorFromName(p.name_ru),
       photos,
       isNew: !!p.isNew,
-      fingerprint: JSON.stringify([p.price, p.oldPrice ?? null, sizes]),
+      // In BYN: a shop price change or a new exchange rate that moves the rounded BYN price both reach the listing.
+      fingerprint: JSON.stringify([price, old && old > price ? old : null, sizes]),
     };
   }
 
