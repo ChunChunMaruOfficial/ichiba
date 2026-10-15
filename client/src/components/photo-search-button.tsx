@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
+import { useMarketZone, withMarket } from "@/lib/market";
 import { searchByPhoto } from "@/lib/photo-search";
 import { useToast } from "./toast";
 import { Spinner } from "./ui";
@@ -21,6 +22,7 @@ export function PhotoSearchButton({ className, children }: { className?: string;
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const zone = useMarketZone();
   return (
     <>
       <button
@@ -44,8 +46,8 @@ export function PhotoSearchButton({ className, children }: { className?: string;
           if (!file) return;
           setBusy(true);
           try {
-            const r = await searchByPhoto(file);
-            router.push(`/search?photo=${r.id}`);
+            const r = await searchByPhoto(file, zone);
+            router.push(withMarket(`/search?photo=${r.id}`, zone));
           } catch (err) {
             toast(err instanceof ApiError ? err.message : "Не получилось найти по фото", { tone: "error" });
           } finally {

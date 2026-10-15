@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Logger, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Logger, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
@@ -119,8 +119,10 @@ export class AiController {
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } }))
-  async photoSearch(@UploadedFile() file?: Express.Multer.File, @CurrentUser() user?: AuthUser) {
+  async photoSearch(@UploadedFile() file?: Express.Multer.File, @CurrentUser() user?: AuthUser, @Query('market') marketRaw?: string) {
     if (!file) throw new BadRequestException({ message: 'Выберите фото' });
+    // Brands unless the search started on «Вторичка» (or asked for both).
+    const market = marketRaw === 'resale' || marketRaw === 'all' ? marketRaw : 'brands';
     const { jpeg, dhash } = await this.media.searchImage(file.buffer);
     const seen = this.ai.enabled
       ? await this.ai.analyze([jpeg], user?.id).catch((e: Error) => {
@@ -129,14 +131,14 @@ export class AiController {
         })
       : null;
     // "Not clothing" isn't final (AI answers vary, drawings and bags confuse it): then only the photo ranks.
-    if (seen?.flags.not_clothing) return { label: null, look: {}, items: await this.listings.photoSearch({}, dhash, user?.id), notClothing: true };
+    if (seen?.flags.not_clothing) return { label: null, look: {}, items: await this.listings.photoSearch({}, dhash, user?.id, market), notClothing: true };
     const category = seen && seen.category.confidence >= 0.5 ? CATEGORIES.find((c) => c.slug === seen.category.value) : undefined;
     const subcategory = category?.subcategories.find((sc) => sc.slug === seen?.subcategory.value);
     const color = seen && seen.color.confidence >= 0.5 ? COLORS.find((c) => c.value === seen.color.value) : undefined;
     const brand = seen && seen.brand.confidence >= 0.6 && seen.brand.value ? seen.brand.value : null;
     const look = { category: category?.slug ?? null, subcategory: subcategory?.slug ?? null, color: color?.value ?? null, brand };
     const label = [subcategory?.label ?? category?.label, color?.label.toLowerCase(), brand].filter(Boolean).join(', ') || null;
-    return { label, look, items: await this.listings.photoSearch(look, dhash, user?.id), notClothing: false };
+    return { label, look, items: await this.listings.photoSearch(look, dhash, user?.id, market), notClothing: false };
   }
 
   /** Provider health and recent usage for the admin dashboard. */

@@ -31,7 +31,7 @@ export class SwipeController {
   /**
    * Open to guests: they get popular items mixed across categories (no account needed to browse).
    * `skip` carries ids a guest already swiped left, kept in their browser. `market`: the home page swipes brands,
-   * «Вторичка» swipes private sellers; without it (onboarding) the deck takes both.
+   * «Вторичка» swipes private sellers (market=resale); anything else, onboarding included, swipes brands.
    */
   @Public()
   @Get('deck')
@@ -42,7 +42,8 @@ export class SwipeController {
     @Query('market') marketRaw = '',
     @CurrentUser() user?: AuthUser,
   ) {
-    const market = marketRaw === 'brands' || marketRaw === 'resale' ? marketRaw : undefined;
+    // Brands unless the second-hand market is asked for: the two are never shuffled into one deck.
+    const market = marketRaw === 'resale' ? 'resale' : 'brands';
     const limit = Math.min(Number(limitRaw) || 20, 40);
     const skip = skipRaw.split(',').filter((id) => /^[0-9a-f-]{36}$/.test(id)).slice(0, 300);
     let exclude = skip;

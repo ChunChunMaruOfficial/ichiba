@@ -14,10 +14,11 @@ export interface PhotoSearchResult {
 const KEY = "ichiba:photo-search";
 let last: PhotoSearchResult | null = null;
 
-export async function searchByPhoto(file: File): Promise<PhotoSearchResult> {
+/** `market`: the search stays in the market it started from (brands unless on «Вторичка»). */
+export async function searchByPhoto(file: File, market: "brands" | "resale" = "brands"): Promise<PhotoSearchResult> {
   const form = new FormData();
   form.append("file", file);
-  const res = await api<Omit<PhotoSearchResult, "id" | "preview">>("/ai/photo-search", { body: form });
+  const res = await api<Omit<PhotoSearchResult, "id" | "preview">>(`/ai/photo-search?market=${market}`, { body: form });
   const result: PhotoSearchResult = { ...res, id: Date.now().toString(36), preview: URL.createObjectURL(file) };
   if (last?.preview) URL.revokeObjectURL(last.preview);
   last = result;

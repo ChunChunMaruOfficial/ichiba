@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useMarketZone, withMarket, type Zone } from "@/lib/market";
 import { usePresence } from "@/lib/presence";
 import type { Gender, Meta } from "@/lib/types";
 import { useBrandSuggestions } from "./brand-picker";
@@ -18,8 +19,9 @@ type Audience = Gender | "";
 const BRANDS = "__brands__";
 
 const genderQuery = (g: Audience) => (g ? `&gender=${g}` : "");
-const categoryHref = (c: string, sub?: string, g: Audience = "") => `/search?category=${c}${sub ? `&subcategory=${sub}` : ""}${genderQuery(g)}`;
-const brandHref = (b: string, c?: string, g: Audience = "") => `/search?brand=${encodeURIComponent(b)}${c ? `&category=${c}` : ""}${genderQuery(g)}`;
+// Links stay in the market the menu was opened from (lib/market.ts).
+const categoryHref = (c: string, sub: string | undefined, g: Audience, zone: Zone) => withMarket(`/search?category=${c}${sub ? `&subcategory=${sub}` : ""}${genderQuery(g)}`, zone);
+const brandHref = (b: string, c: string | undefined, g: Audience, zone: Zone) => withMarket(`/search?brand=${encodeURIComponent(b)}${c ? `&category=${c}` : ""}${genderQuery(g)}`, zone);
 const forAudience = (categories: Category[], g: Audience) => (g ? categories.filter((c) => !c.genders || c.genders.includes(g)) : categories);
 
 /** "Все · Женщинам · Мужчинам" switch on top of the menu; the white pill slides to the chosen tab. */
@@ -84,6 +86,7 @@ function IconGrid({ className }: { className?: string }) {
 
 /** Subcategories of one category plus its popular brands, or the brand directory. */
 function PanelBody({ meta, active, audience, onNavigate }: { meta: Meta; active: string; audience: Audience; onNavigate: () => void }) {
+  const zone = useMarketZone();
   if (active === BRANDS) return <BrandDirectory meta={meta} audience={audience} onNavigate={onNavigate} />;
   const list = forAudience(meta.categories, audience);
   const c = list.find((x) => x.slug === active) ?? list[0];
@@ -91,7 +94,7 @@ function PanelBody({ meta, active, audience, onNavigate }: { meta: Meta; active:
   return (
     <div className="flex min-w-0 flex-1 gap-10">
       <div className="min-w-0 flex-1">
-        <Link href={categoryHref(c.slug, undefined, audience)} onClick={onNavigate} className="group mb-4 inline-flex items-center gap-1 text-lg font-semibold hover:text-accent">
+        <Link href={categoryHref(c.slug, undefined, audience, zone)} onClick={onNavigate} className="group mb-4 inline-flex items-center gap-1 text-lg font-semibold hover:text-accent">
           {who && <span className="font-normal text-muted">{who} ·</span>}
           {c.label}
           <IconChevronRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5" />
@@ -99,13 +102,13 @@ function PanelBody({ meta, active, audience, onNavigate }: { meta: Meta; active:
         <ul className="grid grid-cols-2 gap-x-6 gap-y-1 xl:grid-cols-3">
           {c.subcategories.map((s) => (
             <li key={s.slug}>
-              <Link href={categoryHref(c.slug, s.slug, audience)} onClick={onNavigate} className="block rounded-lg py-1.5 text-[15px] text-ink-2 hover:text-ink">
+              <Link href={categoryHref(c.slug, s.slug, audience, zone)} onClick={onNavigate} className="block rounded-lg py-1.5 text-[15px] text-ink-2 hover:text-ink">
                 {s.label}
               </Link>
             </li>
           ))}
           <li>
-            <Link href={categoryHref(c.slug, undefined, audience)} onClick={onNavigate} className="block rounded-lg py-1.5 text-[15px] font-medium text-accent hover:underline">
+            <Link href={categoryHref(c.slug, undefined, audience, zone)} onClick={onNavigate} className="block rounded-lg py-1.5 text-[15px] font-medium text-accent hover:underline">
               Смотреть все…
             </Link>
           </li>
@@ -116,7 +119,7 @@ function PanelBody({ meta, active, audience, onNavigate }: { meta: Meta; active:
         <ul className="flex flex-col gap-1">
           {meta.brands.slice(0, 9).map((b) => (
             <li key={b}>
-              <Link href={brandHref(b, c.slug, audience)} onClick={onNavigate} className="block py-1 text-[15px] text-ink-2 hover:text-ink">
+              <Link href={brandHref(b, c.slug, audience, zone)} onClick={onNavigate} className="block py-1 text-[15px] text-ink-2 hover:text-ink">
                 {b}
               </Link>
             </li>
@@ -128,6 +131,7 @@ function PanelBody({ meta, active, audience, onNavigate }: { meta: Meta; active:
 }
 
 function BrandDirectory({ meta, audience = "", onNavigate }: { meta: Meta; audience?: Audience; onNavigate: () => void }) {
+  const zone = useMarketZone();
   const [q, setQ] = useState("");
   const { items } = useBrandSuggestions(q, !!q.trim(), 24);
   const list = q.trim() ? items : meta.brands;
@@ -152,7 +156,7 @@ function BrandDirectory({ meta, audience = "", onNavigate }: { meta: Meta; audie
         <ul className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 xl:grid-cols-4">
           {list.map((b) => (
             <li key={b}>
-              <Link href={brandHref(b, undefined, audience)} onClick={onNavigate} className="block truncate py-1.5 text-[15px] text-ink-2 hover:text-ink">
+              <Link href={brandHref(b, undefined, audience, zone)} onClick={onNavigate} className="block truncate py-1.5 text-[15px] text-ink-2 hover:text-ink">
                 {b}
               </Link>
             </li>
@@ -165,6 +169,7 @@ function BrandDirectory({ meta, audience = "", onNavigate }: { meta: Meta; audie
 
 /** Left rail of the mega menu: categories, then brands. Hover or focus switches the right side. */
 function Rail({ categories, active, audience, setActive, onNavigate }: { categories: Category[]; active: string; audience: Audience; setActive: (s: string) => void; onNavigate: () => void }) {
+  const zone = useMarketZone();
   const row = (key: string, label: string, href: string) => (
     <li key={key}>
       <Link
@@ -181,9 +186,9 @@ function Rail({ categories, active, audience, setActive, onNavigate }: { categor
   );
   return (
     <ul className="flex w-60 shrink-0 flex-col border-r border-line pr-4">
-      {forAudience(categories, audience).map((c) => row(c.slug, c.label, categoryHref(c.slug, undefined, audience)))}
+      {forAudience(categories, audience).map((c) => row(c.slug, c.label, categoryHref(c.slug, undefined, audience, zone)))}
       <li className="my-1.5 border-t border-line" aria-hidden />
-      {row(BRANDS, "Бренды", audience ? `/search?gender=${audience}` : "/search")}
+      {row(BRANDS, "Бренды", withMarket(audience ? `/search?gender=${audience}` : "/search", zone))}
     </ul>
   );
 }
@@ -296,6 +301,7 @@ function Expand({ open, children }: { open: boolean; children: React.ReactNode }
 
 /** Mobile catalogue: a drawer with categories that expand into subcategories, and the brand directory. */
 export function MobileCatalog() {
+  const zone = useMarketZone();
   const meta = useMeta();
   const [open, setOpen] = useState(false);
   const pop = usePresence(open);
@@ -367,13 +373,13 @@ export function MobileCatalog() {
                         <ul className="grid grid-cols-2 gap-x-3 px-3 pb-3">
                           {c.subcategories.map((s) => (
                             <li key={s.slug}>
-                              <Link href={categoryHref(c.slug, s.slug, audience)} onClick={close} className="block py-2 text-[15px] text-ink-2">
+                              <Link href={categoryHref(c.slug, s.slug, audience, zone)} onClick={close} className="block py-2 text-[15px] text-ink-2">
                                 {s.label}
                               </Link>
                             </li>
                           ))}
                           <li className="col-span-2">
-                            <Link href={categoryHref(c.slug, undefined, audience)} onClick={close} className="block py-2 text-[15px] font-medium text-accent">
+                            <Link href={categoryHref(c.slug, undefined, audience, zone)} onClick={close} className="block py-2 text-[15px] font-medium text-accent">
                               Смотреть все…
                             </Link>
                           </li>

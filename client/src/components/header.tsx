@@ -1,6 +1,7 @@
 "use client";
 
 import { useGuestCart } from "@/lib/guest-cart";
+import { useMarketZone, withMarket } from "@/lib/market";
 import clsx from "clsx";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -69,6 +70,7 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
   const params = useSearchParams();
   const pathname = usePathname();
   const meta = useMeta();
+  const zone = useMarketZone();
   const urlQ = pathname === "/search" ? (params.get("q") ?? "") : "";
   const [q, setQ] = useState(urlQ);
   const [prevUrlQ, setPrevUrlQ] = useState(urlQ);
@@ -92,7 +94,7 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
   const go = (value: string) => {
     pushRecent(value);
     setOpen(false);
-    router.push(`/search?q=${encodeURIComponent(value.trim())}`);
+    router.push(withMarket(`/search?q=${encodeURIComponent(value.trim())}`, zone));
   };
 
   return (
@@ -163,7 +165,7 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
                 {meta.categories.slice(0, 6).map((c) => (
                   <Link
                     key={c.slug}
-                    href={`/search?category=${c.slug}`}
+                    href={withMarket(`/search?category=${c.slug}`, zone)}
                     onClick={() => setOpen(false)}
                     className="rounded-full bg-surface/70 px-3 py-1.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]"
                   >

@@ -73,8 +73,8 @@ export function LookEditor({ username, open, onClose, look, initial, onSaved }: 
       : source === "mine"
         ? `/wardrobes/${username}?section=all&sort=new`
         : query
-          ? `/search?q=${encodeURIComponent(query)}&limit=36`
-          : "/feed?chip=new&limit=36";
+          ? `/search?q=${encodeURIComponent(query)}&limit=36&market=all`
+          : "/feed?chip=new&limit=36&market=all";
   const { data } = useSWR<{ items?: Card[]; groups?: Array<{ items: Card[] }> }>(key);
   const items = (data?.items ?? data?.groups?.flatMap((g) => g.items) ?? []).filter((c) => c.status === "PUBLISHED" || c.status === "RESERVED" || c.status === "SOLD" || (source === "mine" && c.status === "HIDDEN"));
   const toggle = (c: Card) => setPicked((p) => (p.some((x) => x.id === c.id) ? p.filter((x) => x.id !== c.id) : p.length >= 8 ? p : [...p, c]));

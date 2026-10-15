@@ -119,6 +119,19 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
   const ways = deliveryWays(g.deliveryOptions);
   const chosen = method ?? ways[0] ?? null;
   const available = g.items.filter((i) => i.status === "PUBLISHED");
+  // Items «по договорённости» have no price: with some of them the total is a floor («от N BYN»), with only them
+  // there is no number at all.
+  const negotiable = available.filter((i) => i.price == null).length;
+  const totalLabel = !negotiable ? formatPrice(g.total) : negotiable === available.length ? "Договорная" : `от ${formatPrice(g.total)}`;
+  // The shop heads its own checkout box, where the total and the button are.
+  const seller = (
+    <div className="min-w-0">
+      <Link href={`/u/${g.seller.username}`} className="block truncate text-lg font-semibold hover:underline">
+        @{g.seller.username}
+      </Link>
+      {g.seller.city && <span className="text-sm text-muted">{g.seller.city}</span>}
+    </div>
+  );
 
   const submit = async () => {
     if (!chosen) return;
@@ -143,18 +156,6 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
   return (
     <section className="rise grid grid-cols-1 gap-6 border-t border-line pt-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10" style={{ animationDelay: `${index * 80}ms` }}>
       <div className="min-w-0">
-      <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h2 className="text-lg font-semibold">
-          <Link href={`/u/${g.seller.username}`} className="hover:underline">
-            @{g.seller.username}
-          </Link>
-          {g.seller.city && <span className="ml-2 text-sm font-normal text-muted">{g.seller.city}</span>}
-        </h2>
-        <span className="tabular text-lg font-semibold">
-          {g.discountPercent > 0 && <s className="mr-2 text-sm font-normal text-muted">{g.subtotal}</s>}
-          {formatPrice(g.total)}
-        </span>
-      </div>
       {(g.discountPercent > 0 || g.nextTier) && (
         <p className={clsx("mb-3 rounded-xl px-4 py-2.5 text-sm", g.discountPercent > 0 ? "bg-ok-soft text-ok" : "bg-kraft/60")}>
           {g.discountPercent > 0 && (
@@ -172,6 +173,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
           )}
         </p>
       )}
+      <h2 className="sr-only">@{g.seller.username}</h2>
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {g.items.map((i) => (
           <li key={i.id} className={clsx("pop flex gap-4 rounded-2xl bg-surface p-3", i.status !== "PUBLISHED" && "opacity-70")}>
@@ -197,18 +199,27 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
 
       <div className="lg:sticky lg:top-24 lg:self-start">
       {available.length === 0 ? (
-        <p className="text-sm text-muted">Эти вещи сейчас недоступны для покупки.</p>
+        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5 shadow-[var(--shadow-paper)]">
+          {seller}
+          <p className="text-sm text-muted">Эти вещи сейчас недоступны для покупки.</p>
+        </div>
       ) : !ways.length ? (
-        <p className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">У этих вещей нет общего способа получения — купите их по отдельности.</p>
+        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5 shadow-[var(--shadow-paper)]">
+          {seller}
+          <p className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">У этих вещей нет общего способа получения — купите их по отдельности.</p>
+        </div>
       ) : !open ? (
         <div className="flex flex-col gap-4 rounded-3xl bg-surface p-5 shadow-[var(--shadow-paper)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-ink-2">Итого</span>
-            <PriceTag>{formatPrice(g.total)}</PriceTag>
+          <div className="flex items-center justify-between gap-3">
+            {seller}
+            <PriceTag className="shrink-0">
+              {g.discountPercent > 0 && <s className="mr-2 text-sm font-normal opacity-60">{g.subtotal}</s>}
+              {totalLabel}
+            </PriceTag>
           </div>
           {/* A guest signs in here; their cart moves into the account and the page shows it as theirs. */}
           <Button size="lg" block onClick={() => (me ? setOpen(true) : requireAuth(() => undefined))}>
-            Запросить покупку · {itemsLabel(available.length)}
+            Купить · {itemsLabel(available.length)}
           </Button>
         </div>
       ) : (
@@ -219,6 +230,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
             void submit();
           }}
         >
+          {seller}
           <fieldset>
             <legend className="mb-2 font-medium">Способ получения</legend>
             {ways.length === 1 ? (
@@ -254,7 +266,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
               К оплате
               <span className="block text-sm text-muted">при получении</span>
             </span>
-            <PriceTag>{formatPrice(g.total)}</PriceTag>
+            <PriceTag>{totalLabel}</PriceTag>
           </div>
           {error && (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">

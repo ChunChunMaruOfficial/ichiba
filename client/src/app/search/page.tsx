@@ -22,7 +22,14 @@ import { photoSearchResult } from "@/lib/photo-search";
 
 const LIST_KEYS = ["category", "subcategory", "style", "gender", "size", "condition", "color", "brand"] as const;
 type ListKey = (typeof LIST_KEYS)[number];
-type Filters = Record<ListKey, string[]> & { city?: string; seller?: string; price_min?: string; price_max?: string; available: "0" | "1"; my_size?: "1" };
+/**
+ * `market`: brands when absent (they don't stand next to people's closets); «resale» for a search started on
+ * «Вторичка»; «all» only when the person turns on «Искать и на вторичке» / «Искать и среди брендов».
+ */
+type Market = "resale" | "all";
+/** The market the search started from: «all» switched on from «Вторичка» goes back there when switched off. */
+type From = "resale";
+type Filters = Record<ListKey, string[]> & { city?: string; seller?: string; price_min?: string; price_max?: string; available: "0" | "1"; my_size?: "1"; market?: Market; from?: From };
 
 const SORTS = [
   ["new", "Сначала новые"],
@@ -55,11 +62,18 @@ function readFilters(sp: URLSearchParams): Filters {
     price_max: sp.get("price_max") ?? undefined,
     available: sp.get("available") === "0" ? "0" : "1",
     my_size: sp.get("my_size") === "1" ? "1" : undefined,
+    market: sp.get("market") === "resale" || sp.get("market") === "all" ? (sp.get("market") as Market) : undefined,
+    from: sp.get("from") === "resale" ? "resale" : undefined,
   };
 }
 
+/** Cleared filters, still in the market the search started from. */
+const cleared = (f: Filters): Filters => ({ ...readFilters(new URLSearchParams()), market: homeMarket(f) });
+/** Where the search started: «Вторичка» (resale) or the brands (undefined). */
+const homeMarket = (f: Filters): Market | undefined => (f.market === "resale" || f.from === "resale" ? "resale" : undefined);
+
 const filterQuery = (f: Filters, extra: Record<string, string | undefined> = {}) =>
-  qs({ ...extra, ...Object.fromEntries(LIST_KEYS.map((k) => [k, f[k]])), city: f.city, seller: f.seller, price_min: f.price_min, price_max: f.price_max, available: f.available === "0" ? "0" : undefined, my_size: f.my_size });
+  qs({ ...extra, ...Object.fromEntries(LIST_KEYS.map((k) => [k, f[k]])), city: f.city, seller: f.seller, price_min: f.price_min, price_max: f.price_max, available: f.available === "0" ? "0" : undefined, my_size: f.my_size, market: f.market, from: f.market === "all" ? f.from : undefined });
 
 function activeChips(f: Filters, meta?: Meta): Array<{ key: string; label: string; remove: (f: Filters) => Filters }> {
   const out: Array<{ key: string; label: string; remove: (f: Filters) => Filters }> = [];
@@ -79,6 +93,7 @@ function activeChips(f: Filters, meta?: Meta): Array<{ key: string; label: strin
   if (f.city) out.push({ key: "city", label: f.city, remove: (x) => ({ ...x, city: undefined }) });
   if (f.seller) out.push({ key: "seller", label: `@${f.seller}`, remove: (x) => ({ ...x, seller: undefined }) });
   if (f.my_size) out.push({ key: "my_size", label: "Мой размер", remove: (x) => ({ ...x, my_size: undefined }) });
+  if (f.market === "all") out.push({ key: "market", label: f.from === "resale" ? "Вместе с брендами" : "Вместе со вторичкой", remove: (x) => ({ ...x, market: homeMarket(x), from: undefined }) });
   return out;
 }
 
@@ -167,11 +182,37 @@ function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: 
       <Group title="Продавец">
         <Input placeholder="@alex…" value={value.seller ?? ""} onChange={(e) => onChange({ ...value, seller: e.target.value.replace(/^@/, "") || undefined })} />
       </Group>
-      <label className="flex items-center justify-between py-5 text-sm font-semibold">
+      <label className="flex items-center justify-between border-b border-line py-5 text-sm font-semibold">
         Только доступные
         <input type="checkbox" className="size-5 accent-[var(--accent)]" checked={value.available === "1"} onChange={(e) => onChange({ ...value, available: e.target.checked ? "1" : "0" })} />
       </label>
+      {/* The last switch: brands and «Вторичка» are searched apart unless the person mixes them on purpose. */}
+      <MarketSwitch value={value} onChange={onChange} />
     </div>
+  );
+}
+
+function MarketSwitch({ value, onChange }: { value: Filters; onChange: (f: Filters) => void }) {
+  const home = homeMarket(value);
+  const on = value.market === "all";
+  return (
+    <label className="flex items-center justify-between gap-4 py-5">
+      <span>
+        <span className="block text-sm font-semibold">{home === "resale" ? "Искать и среди брендов" : "Искать и на вторичке"}</span>
+        <span className="block text-xs text-muted">{home === "resale" ? "Покажем и новые вещи брендов" : "Покажем и вещи частных продавцов"}</span>
+      </span>
+      <span className="relative inline-flex shrink-0">
+        <input
+          type="checkbox"
+          role="switch"
+          className="peer sr-only"
+          checked={on}
+          onChange={(e) => onChange({ ...value, market: e.target.checked ? "all" : home, from: e.target.checked ? (home as From | undefined) : undefined })}
+        />
+        <span aria-hidden className="h-7 w-12 rounded-full bg-line-strong transition-colors peer-checked:bg-ink peer-focus-visible:ring-3 peer-focus-visible:ring-indigo/30" />
+        <span aria-hidden className="absolute left-1 top-1 size-5 rounded-full bg-surface shadow transition-transform peer-checked:translate-x-5" />
+      </span>
+    </label>
   );
 }
 
@@ -231,7 +272,7 @@ function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta, closing }
           <FilterPanel value={draft} onChange={setDraft} meta={meta} />
         </div>
         <div className="flex gap-3 border-t border-line px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <Button variant="secondary" onClick={() => setDraft(readFilters(new URLSearchParams()))}>
+          <Button variant="secondary" onClick={() => setDraft(cleared(draft))}>
             Сбросить
           </Button>
           <Button block onClick={() => (onApply(draft), onClose())}>
@@ -290,7 +331,7 @@ function SearchView() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const chips = activeChips(filters, meta);
-  const hasQuery = !!q || chips.length > 0 || sp.has("sort");
+  const hasQuery = !!q || chips.length > 0 || sp.has("sort") || !!filters.market;
   const base = filterQuery(filters, { q: q || undefined, sort: sort !== "new" ? sort : undefined });
 
   // Natural-language search: a phrase is turned into filters first («платье на свадьбу до 50» → Платья · Classic · до 50 BYN).
@@ -316,7 +357,7 @@ function SearchView() {
     hasQuery && !parsing && !interpreted ? `/search${base}${base ? "&" : "?"}offset=${offset}&limit=24` : null,
   );
   const sentinel = useSentinel(results.loadMore, !results.done);
-  const fresh = useSWR<{ items: Card[] }>(hasQuery && results.data && results.total === 0 ? "/feed?chip=new&limit=8" : null);
+  const fresh = useSWR<{ items: Card[] }>(hasQuery && results.data && results.total === 0 ? `/feed?chip=new&limit=8&market=${homeMarket(filters) ?? "brands"}` : null);
 
   const navigate = (f: Filters, extra: { q?: string; sort?: string } = {}) => {
     const nextQ = extra.q ?? q;
@@ -378,7 +419,7 @@ function SearchView() {
                 <span className="sr-only">убрать фильтр</span>
               </button>
             ))}
-            <button className="shrink-0 px-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => navigate(readFilters(new URLSearchParams()))}>
+            <button className="shrink-0 px-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => navigate(cleared(filters))}>
               Сбросить всё
             </button>
           </div>
@@ -405,7 +446,7 @@ function SearchView() {
         <>
           <div className="flex items-baseline justify-between gap-4 pb-4 pt-2">
             <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-              {nlFrom ? `Результаты для «${nlFrom}»` : q ? `Результаты для «${q}»` : "Вещи"}
+              {nlFrom ? `Результаты для «${nlFrom}»` : q ? `Результаты для «${q}»` : filters.market === "resale" ? "Вещи на вторичке" : "Вещи"}
               {results.data && <span className="ml-2 text-base font-normal text-muted">{itemsLabel(results.total)}</span>}
             </h1>
             <div className="md:hidden">

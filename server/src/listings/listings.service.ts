@@ -32,11 +32,17 @@ const TILE_RATIO = 4 / 5;
 /** Edits of these on a live listing are moderated again. */
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
 
-export type Market = 'brands' | 'resale';
+/** `all` is only ever asked for on purpose («Искать и на вторичке» in the filters). */
+export type Market = 'brands' | 'resale' | 'all';
 
-/** Brands (sellers whose brand status an admin confirmed) and the second-hand market are shown apart. */
-export const marketWhere = (market?: Market): Prisma.ListingWhereInput =>
-  market === 'brands' ? { seller: { brandVerifiedAt: { not: null } } } : market === 'resale' ? { seller: { brandVerifiedAt: null } } : {};
+/**
+ * Brands (sellers whose brand status an admin confirmed) and the second-hand market are shown apart: brands don't
+ * want to stand next to people's closets. Anything that lists items picks one, brands when nothing is said.
+ */
+export const marketWhere = (market: Market = 'brands'): Prisma.ListingWhereInput =>
+  market === 'all' ? {} : market === 'resale' ? { seller: { brandVerifiedAt: null } } : { seller: { brandVerifiedAt: { not: null } } };
+/** The market an item belongs to, by its seller. */
+const marketOf = (seller: { brandVerifiedAt: Date | null }): Market => (seller.brandVerifiedAt ? 'brands' : 'resale');
 
 @Injectable()
 export class ListingsService {
@@ -589,6 +595,11 @@ export class ListingsService {
     };
   }
 
+  private async listingMarket(sellerId: string): Promise<Market> {
+    const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { brandVerifiedAt: true } });
+    return marketOf(seller ?? { brandVerifiedAt: null });
+  }
+
   async sellerSummary(sellerId: string, viewerId?: string) {
     const [user, active, sold, followers, following, completedDeals, rating] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true, avatar: { select: { key: true, provider: true } } } }),
@@ -629,6 +640,7 @@ export class ListingsService {
     const rows = await this.prisma.listing.findMany({
       where: {
         status: { in: VISIBLE_IN_FEED },
+        ...marketWhere(await this.listingMarket(listing.sellerId)),
         id: { not: listing.id },
         category: listing.category,
         ...(viewerId ? { sellerId: { not: viewerId } } : {}),
@@ -668,9 +680,9 @@ export class ListingsService {
    * how close each cover photo looks. The category only weighs in, it doesn't filter: when the AI files the item
    * under a neighbouring category (a backpack as an accessory), a close photo still comes out on top.
    */
-  async photoSearch(look: { category?: string | null; subcategory?: string | null; brand?: string | null; color?: string | null }, dhash: string, viewerId?: string) {
+  async photoSearch(look: { category?: string | null; subcategory?: string | null; brand?: string | null; color?: string | null }, dhash: string, viewerId?: string, market?: Market) {
     const rows = await this.prisma.listing.findMany({
-      where: { status: { in: VISIBLE_IN_FEED }, ...(viewerId ? { sellerId: { not: viewerId } } : {}) },
+      where: { status: { in: VISIBLE_IN_FEED }, ...marketWhere(market), ...(viewerId ? { sellerId: { not: viewerId } } : {}) },
       include: { ...cardInclude, photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 } },
       orderBy: { liftedAt: 'desc' },
       take: 600,
@@ -717,7 +729,7 @@ export class ListingsService {
     let forYou: Awaited<ReturnType<ListingsService['cards']>> = [];
     if (viewerId && (await this.recs.hasProfile(viewerId))) {
       const exclude = new Set([id, ...similar.map((s) => s.id), ...fromSeller.map((s) => s.id)]);
-      forYou = (await this.feed('for_you', 0, 16, viewerId)).items.filter((c) => !exclude.has(c.id)).slice(0, 8);
+      forYou = (await this.feed('for_you', 0, 16, viewerId, await this.listingMarket(listing.sellerId))).items.filter((c) => !exclude.has(c.id)).slice(0, 8);
     }
     return {
       similar: await this.cards(similar, viewerId),
@@ -793,7 +805,7 @@ export class ListingsService {
     const [totalVisible, brandsVisible, categoryCounts, forYouAvailable] = await Promise.all([
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED } } }),
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED }, ...marketWhere('brands') } }),
-      this.prisma.listing.groupBy({ by: ['category'], where: { status: 'PUBLISHED' }, _count: true }),
+      this.prisma.listing.groupBy({ by: ['category'], where: { status: 'PUBLISHED', ...marketWhere('brands') }, _count: true }),
       !!viewerId,
     ]);
 
@@ -805,7 +817,7 @@ export class ListingsService {
         .map(async (c) => {
           // The tile is 4:5 and its photo fills it edge to edge: among the category's popular items, the cover whose
           // proportions are closest to the tile's (the least cropped); popularity breaks ties.
-          const popular = await this.prisma.listing.findMany({ where: { status: 'PUBLISHED', category: c.category }, include: cardInclude, orderBy: { favoritesCount: 'desc' }, take: 30 });
+          const popular = await this.prisma.listing.findMany({ where: { status: 'PUBLISHED', category: c.category, ...marketWhere('brands') }, include: cardInclude, orderBy: { favoritesCount: 'desc' }, take: 30 });
           const misfit = (l: CardListing) => (l.photos[0] ? Math.abs(Math.log(l.photos[0].width / l.photos[0].height / TILE_RATIO)) : Infinity);
           const sample = popular.reduce<CardListing | null>((best, l) => (!best || misfit(l) < misfit(best) - 0.02 ? l : best), null);
           return { slug: c.category!, label: categoryBySlug(c.category)?.label ?? c.category!, count: c._count, cover: sample ? serializeCard(sample).cover : null };
@@ -928,7 +940,7 @@ export class ListingsService {
       for (const [key, label] of candidates) {
         const value = q[key];
         if (value == null || (Array.isArray(value) && !value.length)) continue;
-        const count = await this.prisma.listing.count({ where: this.searchWhere({ ...q, [key]: undefined, ...(key === 'price_max' ? { price_min: undefined } : {}) }) });
+        const count = await this.prisma.listing.count({ where: { AND: [this.searchWhere({ ...q, [key]: undefined, ...(key === 'price_max' ? { price_min: undefined } : {}) }), marketWhere(q.market)] } });
         if (count > 0) {
           relax = { filter: key, label, count };
           break;

@@ -29,6 +29,7 @@ import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
 import { CONDITION_LABEL, formatPrice, items, listingPrice, plural, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
+import { withMarket } from "@/lib/market";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
 
 const measurementLabel = (k: string) => (MEASURE_LABEL[k as keyof typeof MEASURE_LABEL] ?? k).toLowerCase();
@@ -262,7 +263,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         )}
       </span>
     ) : null],
-    ["Бренд", l.brand && <Link href={`/search?brand=${encodeURIComponent(l.brand)}`} className="hover:underline">{l.brand}</Link>],
+    ["Бренд", l.brand && <Link href={withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, l.seller.brand ? "brands" : "resale")} className="hover:underline">{l.brand}</Link>],
     ["Для кого", meta?.genders.find((g) => g.value === l.gender)?.label],
     ["Состояние", l.condition && CONDITION_LABEL[l.condition]],
     ["Цвет", color?.label],
@@ -352,7 +353,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
       {showAuction && auction && <AuctionPanel auction={auction} listingId={l.id} title={l.title} isOwner={false} onChange={setAuction} />}
       {auctionRunning ? null : sold ? (
         <div className="grid grid-cols-2 gap-3">
-          <ButtonLink href={`/search?category=${l.category ?? ""}`} variant="secondary">
+          <ButtonLink href={`/item/${l.id}/similar`} variant="secondary">
             Смотреть похожие
           </ButtonLink>
           <ButtonLink href={`/u/${l.seller.username}`} variant="secondary">
@@ -406,7 +407,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         {l.categoryLabel && (
           <>
             {" / "}
-            <Link href={`/search?category=${l.category}`} className="hover:text-ink">{l.categoryLabel}</Link>
+            <Link href={withMarket(`/search?category=${l.category}`, l.seller.brand ? "brands" : "resale")} className="hover:text-ink">{l.categoryLabel}</Link>
           </>
         )}
         {l.subcategoryLabel && <> / <span className="text-ink-2">{l.subcategoryLabel}</span></>}

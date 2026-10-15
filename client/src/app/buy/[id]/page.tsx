@@ -148,7 +148,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
           <div className="rise rounded-[28px] bg-warn-soft p-6">
             <p className="font-semibold text-warn">Пока вы оформляли, вещь зарезервировали</p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <ButtonLink href={`/search?category=${l.category ?? ""}`}>Похожие вещи</ButtonLink>
+              <ButtonLink href={`/item/${l.id}/similar`}>Похожие вещи</ButtonLink>
             </div>
           </div>
         ) : (

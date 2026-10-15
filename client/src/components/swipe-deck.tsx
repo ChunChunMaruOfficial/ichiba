@@ -17,7 +17,8 @@ import { Button, EmptyState, IconHeart, IconX, Spinner } from "./ui";
 const THRESHOLD = 100;
 const FLICK_SPEED = 0.6;
 const FLY_MS = 320;
-const STACK = 3;
+/** The top card and the next one, which shows only while the top card is being moved away. */
+const STACK = 2;
 /** Height of the price/title strip under the photo. */
 const INFO_H = 96;
 
@@ -236,9 +237,9 @@ export function SwipeDeck({
           .map((card, depth) => {
             const isTop = depth === 0;
             // Cards behind grow toward full size as the top one moves away.
-            const lift = isTop ? 0 : Math.max(0, depth - progress);
-            const scale = 1 - lift * 0.05;
-            const shiftY = lift * 14;
+            // Cards differ in shape (each follows its photo): the next one stays out of sight at rest and comes up,
+            // growing to full size, as the top one leaves, so two shapes never stick out from under each other.
+            const scale = isTop ? 1 : 0.92 + 0.08 * progress;
             const { w, h } = cardBox(card, boxW, boxH);
             return (
               <article
@@ -256,8 +257,8 @@ export function SwipeDeck({
                   height: h,
                   marginLeft: -w / 2,
                   marginTop: -h / 2,
-                  transform: isTop ? `translate(${x}px, ${y}px) rotate(${rotate}deg)` : `translateY(${shiftY}px) scale(${scale})`,
-                  opacity: isTop ? 1 : depth === STACK - 1 ? progress : 1,
+                  transform: isTop ? `translate(${x}px, ${y}px) rotate(${rotate}deg)` : `scale(${scale})`,
+                  opacity: isTop ? 1 : progress,
                 }}
                 onPointerDown={
                   isTop

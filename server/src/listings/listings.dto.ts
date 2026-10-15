@@ -84,8 +84,8 @@ export const SearchQuery = z.object({
   sort: z.enum(['new', 'cheap', 'expensive', 'popular', 'for_you']).default('new'),
   offset: int.default(0),
   limit: z.coerce.number().int().min(1).max(48).default(24),
-  /** brands = sellers with the brand status (the home page), resale = everyone else («Вторичка»); none = both. */
-  market: z.enum(['brands', 'resale']).optional(),
+  /** brands = sellers with the brand status (the default), resale = everyone else («Вторичка»), all = both, on purpose. */
+  market: z.enum(['brands', 'resale', 'all']).default('brands'),
 });
 export type SearchQueryT = z.infer<typeof SearchQuery>;
 
@@ -93,7 +93,8 @@ export const FeedQuery = z.object({
   chip: z.enum(['for_you', 'new', 'popular', 'auctions', 'clothing', 'shoes', 'accessories', 'bags', 'under_50']).default('new'),
   offset: int.default(0),
   limit: z.coerce.number().int().min(1).max(48).default(24),
-  market: z.enum(['brands', 'resale']).optional(),
+  /** all: only for the outfit picker, which builds a look from anything on the site. */
+  market: z.enum(['brands', 'resale', 'all']).default('brands'),
 });
 
 export const WardrobeQuery = z.object({
