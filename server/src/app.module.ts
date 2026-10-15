@@ -50,6 +50,7 @@ import { UsersController, UsersService } from './users/users.service.js';
 import { TgPostParser } from './tg/parse.js';
 import { AdminBrandApplicationsController, BrandApplicationsController, BrandApplicationsService } from './brands/brand-applications.js';
 import { TgImportService } from './tg/tg-import.service.js';
+import { HandListingsService } from './listings/hand-listings.js';
 import { ShopImportService } from './shops/shop-import.service.js';
 
 /** Single monolith (frame 28: no microservices); modules are grouped by controller/service pairs. */
@@ -121,6 +122,7 @@ import { ShopImportService } from './shops/shop-import.service.js';
     TgPostParser,
     TgImportService,
     ShopImportService,
+    HandListingsService,
     BrandApplicationsService,
     RecommendationsService,
     RequestsService,
