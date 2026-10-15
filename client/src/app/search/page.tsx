@@ -390,7 +390,7 @@ function SearchView() {
         </label>
       </form>
 
-      <div className="under-header z-30 -mx-4 bg-paper px-4 py-3 md:-mx-6 md:px-6">
+      <div className="under-header z-30 -mx-4 px-4 py-3 md:-mx-6 md:px-6">
         <div className="flex items-center gap-2">
           <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
             <Chip onClick={() => setDrawer(true)}>

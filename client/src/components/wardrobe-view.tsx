@@ -354,7 +354,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
         )
       ) : (
         <>
-          <div className="under-header z-20 -mx-4 flex items-center gap-2 bg-paper px-4 py-3 md:-mx-6 md:px-6">
+          <div className="under-header z-20 -mx-4 flex items-center gap-2 px-4 py-3 md:-mx-6 md:px-6">
             <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
               {FILTERS.filter(([key]) => key === "all" || key === section || !data || data.counts[key] > 0).map(([key, label]) => (
                 <Chip key={key} active={section === key} onClick={() => setSection(key)}>

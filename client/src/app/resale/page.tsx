@@ -99,7 +99,7 @@ function ResaleFeed() {
   const sections = chip === "new" && feed.items.length > 0;
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
-      <div className="under-header z-30 -mx-4 bg-washi px-4 pb-3 pt-4 md:-mx-6 md:px-6">
+      <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         <div className="no-scrollbar -mx-4 -my-2 flex items-center gap-3 overflow-x-auto px-4 py-2 md:-mx-6 md:px-6">
           {modeSwitch}
           <div className="flex shrink-0 gap-2">

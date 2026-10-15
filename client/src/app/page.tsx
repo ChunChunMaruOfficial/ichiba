@@ -74,7 +74,7 @@ function HomeFeed() {
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       {/* Discovery bar */}
-      <div className="under-header z-30 -mx-4 bg-washi px-4 pb-3 pt-4 md:-mx-6 md:px-6">
+      <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         {/* One row that scrolls as a whole on phones: the mode switch travels with the chips. */}
         <div className="no-scrollbar -mx-4 -my-2 flex items-center gap-3 overflow-x-auto px-4 py-2 md:-mx-6 md:px-6">
           {!noSwipe && (
