@@ -226,6 +226,15 @@ h1, h2 {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+/* Sideways rows are dragged with the mouse (drag-scroll.tsx): an open hand over them, a closed one while pulling. */
+@media (hover: hover) and (pointer: fine) {
+  .no-scrollbar { cursor: grab; }
+}
+html[data-drag-scrolling],
+html[data-drag-scrolling] * {
+  cursor: grabbing !important;
+  user-select: none;
+}
 
 @keyframes shimmer {
   0% { background-position: -400px 0; }
