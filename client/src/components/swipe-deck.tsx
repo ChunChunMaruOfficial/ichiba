@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
-import { BlurBackdrop } from "./gallery";
+import { guestCart } from "@/lib/guest-cart";
 import { CONDITION_LABEL, listingPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { useSession } from "./session";
@@ -18,6 +18,8 @@ const THRESHOLD = 100;
 const FLICK_SPEED = 0.6;
 const FLY_MS = 320;
 const STACK = 3;
+/** Height of the price/title strip under the photo. */
+const INFO_H = 96;
 
 const GUEST_SKIPS = "ichiba:guest-skips";
 const readSkips = (): string[] => {
@@ -60,9 +62,35 @@ function useFitHeight() {
   return { ref, height };
 }
 
+/** Live size of the space the cards sit in. */
+function useBoxSize() {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    if (!el) return;
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    observer.current = new ResizeObserver(measure);
+    observer.current.observe(el);
+  }, []);
+  return { ref, ...size };
+}
+
+/**
+ * The card takes the photo's own proportions (no bands around it): as large as fits the box, the info strip under it.
+ * Extreme proportions are clamped and the photo crops to them instead.
+ */
+function cardBox(card: Card, boxW: number, boxH: number) {
+  const ratio = Math.min(1.3, Math.max(0.56, card.cover ? card.cover.width / card.cover.height : 3 / 4));
+  const photoH = Math.max(160, boxH - INFO_H);
+  const w = Math.min(boxW, photoH * ratio);
+  return { w, h: w / ratio + INFO_H };
+}
+
 /**
  * Tinder-style deck (decision D2). Drag or flick the top card, or use the buttons / ← → / Backspace.
- * Right = ♡ (asks guests to sign in), left = "не моё", ↶ brings the last card back.
+ * Right = ♡ (a guest's ♡ goes to the cart in their browser), left = "не моё", ↶ brings the last card back.
  */
 /**
  * `onEmpty`: called instead of showing the "nothing left" screen when the deck has no card to show.
@@ -83,7 +111,7 @@ export function SwipeDeck({
   onDone?: () => void;
   onEmpty?: () => void;
 }) {
-  const { me, requireAuth, refresh } = useSession();
+  const { me, requireAuth } = useSession();
   const router = useRouter();
   const toast = useToast();
   const [skips] = useState(() => (typeof window === "undefined" ? [] : readSkips()));
@@ -99,6 +127,7 @@ export function SwipeDeck({
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
   const last = useRef<{ x: number; t: number }>({ x: 0, t: 0 });
   const { ref: frame, height } = useFitHeight();
+  const { ref: box, w: boxW, h: boxH } = useBoxSize();
 
   const cards = data?.items ?? [];
   const top = cards[index];
@@ -106,23 +135,16 @@ export function SwipeDeck({
   const commit = useCallback(
     (dir: Dir) => {
       if (!top || flying) return;
-      // ♡ is personal: a guest is asked to sign in first; the card stays until they do.
-      if (dir === "right" && !me) {
-        setDrag({ x: 0, y: 0 });
-        requireAuth(
-          async () => {
-            await api("/swipe", { body: { listingId: top.id, direction: "right", context } }).catch(() => {});
-            void refresh();
-            toast("Сохранено в избранное");
-            setHistory((h) => [...h, { card: top, dir }]);
-            setIndex((i) => i + 1);
-          },
-        );
-        return;
-      }
       setFlying(dir);
       if (me) api("/swipe", { body: { listingId: top.id, direction: dir, context } }).catch(() => toast("Не удалось сохранить", { tone: "error" }));
-      else writeSkips([...readSkips(), top.id]);
+      else {
+        // A guest has no profile to tune: ♡ puts the item in the cart kept in this browser, and nothing is sent.
+        writeSkips([...readSkips(), top.id]);
+        if (dir === "right") {
+          guestCart.add(top.id);
+          toast("Добавлено в корзину");
+        }
+      }
       window.setTimeout(() => {
         setHistory((h) => [...h, { card: top, dir }]);
         setIndex((i) => i + 1);
@@ -131,7 +153,7 @@ export function SwipeDeck({
         onSwipe?.(history.length + 1);
       }, FLY_MS);
     },
-    [top, flying, me, requireAuth, context, refresh, toast, onSwipe, history.length],
+    [top, flying, me, context, toast, onSwipe, history.length],
   );
 
   const undo = useCallback(async () => {
@@ -143,7 +165,10 @@ export function SwipeDeck({
     setReturning(prev.dir);
     requestAnimationFrame(() => requestAnimationFrame(() => setReturning(null)));
     if (me) await api("/swipe/last", { method: "DELETE" }).catch(() => {});
-    else writeSkips(readSkips().filter((id) => id !== prev.card.id));
+    else {
+      writeSkips(readSkips().filter((id) => id !== prev.card.id));
+      if (prev.dir === "right") guestCart.remove(prev.card.id);
+    }
   }, [history, flying, me]);
 
   useEffect(() => {
@@ -194,8 +219,7 @@ export function SwipeDeck({
   }
 
   // Top-card pose: following the pointer, flying off, or sliding back after undo.
-  const width = typeof window === "undefined" ? 400 : Math.min(window.innerWidth, 520);
-  const off = width * 1.4;
+  const off = Math.min(typeof window === "undefined" ? 400 : window.innerWidth, 520) * 1.4;
   const x = flying ? (flying === "right" ? off : -off) : returning ? (returning === "right" ? off : -off) : drag.x;
   const y = flying || returning ? drag.y * 0.5 : drag.y * 0.25;
   const rotate = flying || returning ? (x > 0 ? 18 : -18) : drag.x / 14;
@@ -206,9 +230,8 @@ export function SwipeDeck({
 
   return (
     <div ref={frame} className="mx-auto flex w-full max-w-[520px] flex-col items-center" style={{ height: height ?? undefined }}>
-      {/* Portrait card: width follows the available height so photos are never cropped to a strip. */}
-      <div className="relative min-h-0 w-full flex-1">
-        <div className="relative mx-auto h-full max-w-full" style={{ aspectRatio: "3 / 4.3" }}>
+      {/* Each card takes its photo's proportions, centred in the space between the header and the buttons. */}
+      <div ref={box} className="relative min-h-0 w-full flex-1">
         {visible
           .map((card, depth) => {
             const isTop = depth === 0;
@@ -216,18 +239,23 @@ export function SwipeDeck({
             const lift = isTop ? 0 : Math.max(0, depth - progress);
             const scale = 1 - lift * 0.05;
             const shiftY = lift * 14;
+            const { w, h } = cardBox(card, boxW, boxH);
             return (
               <article
                 key={card.id}
                 aria-hidden={!isTop}
                 aria-label={isTop ? `${card.title}, ${listingPrice(card)}` : undefined}
                 className={clsx(
-                  "absolute inset-0 mx-auto flex flex-col overflow-hidden rounded-[28px] bg-surface shadow-[0_18px_40px_-18px_rgb(28_26_23/0.45)] will-change-transform",
+                  "absolute left-1/2 top-1/2 flex flex-col overflow-hidden rounded-[28px] bg-surface shadow-[0_18px_40px_-18px_rgb(28_26_23/0.45)] will-change-transform",
                   isTop ? "z-20 cursor-grab touch-none select-none active:cursor-grabbing" : depth === 1 ? "z-10" : "z-0",
                   (!isTop || !dragging) && "transition-transform ease-out",
                 )}
                 style={{
                   transitionDuration: isTop && returning === null && flying === null && !dragging ? "260ms" : `${FLY_MS}ms`,
+                  width: w,
+                  height: h,
+                  marginLeft: -w / 2,
+                  marginTop: -h / 2,
                   transform: isTop ? `translate(${x}px, ${y}px) rotate(${rotate}deg)` : `translateY(${shiftY}px) scale(${scale})`,
                   opacity: isTop ? 1 : depth === STACK - 1 ? progress : 1,
                 }}
@@ -278,10 +306,7 @@ export function SwipeDeck({
                 <div className="relative min-h-0 flex-1 bg-skeleton">
                   {card.cover && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <>
-                      <BlurBackdrop src={card.cover.urls.s} />
-                      <img src={card.cover.urls.l} alt={isTop ? card.title : ""} draggable={false} className="pointer-events-none absolute inset-0 size-full object-contain" />
-                    </>
+                    <img src={card.cover.urls.l} alt={isTop ? card.title : ""} draggable={false} className="pointer-events-none absolute inset-0 size-full object-cover" />
                   )}
                   {isTop && (
                     <>
@@ -302,7 +327,7 @@ export function SwipeDeck({
                     </>
                   )}
                 </div>
-                <div className="flex items-end justify-between gap-3 px-5 pb-4 pt-3">
+                <div className="flex shrink-0 items-end justify-between gap-3 px-5 pb-4 pt-3" style={{ height: INFO_H }}>
                   <div className="min-w-0">
                     <p className="tabular text-2xl font-semibold leading-tight">{listingPrice(card)}</p>
                     <p className="truncate text-[15px]">{card.title}</p>
@@ -313,7 +338,6 @@ export function SwipeDeck({
             );
           })
           .reverse()}
-        </div>
       </div>
 
       <div className="mt-5 flex shrink-0 items-center justify-center gap-5">

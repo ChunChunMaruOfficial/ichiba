@@ -295,8 +295,7 @@ function AccountMenu() {
 }
 
 export function Header() {
-  const { me, loading, requireAuth, openAuth } = useSession();
-  const router = useRouter();
+  const { me, loading, openAuth } = useSession();
   const pathname = usePathname();
   const showMobileSearch = pathname === "/";
   const resaleZone = pathname.startsWith("/resale") || pathname.startsWith("/wardrobes");
@@ -395,13 +394,13 @@ export function Header() {
         <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0 md:justify-self-end">
           {/* «Продать вещь» is the second-hand market's call; the brands' showcase doesn't sell people's closets. */}
           {resaleZone && (
-          <button
-            onClick={() => requireAuth(() => router.push("/sell"))}
+          <Link
+            href="/sell"
             aria-label="Продать вещь"
             className="btn-wa btn-wa-shu mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex lg:px-5"
           >
             <IconPlus className="size-4.5" /> <span className="hidden lg:inline">Продать вещь</span>
-          </button>
+          </Link>
           )}
           {loading ? (
             <span className="h-11 w-24" />
@@ -474,8 +473,7 @@ export function Main({ children }: { children: React.ReactNode }) {
 
 export function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { me, requireAuth } = useSession();
+  const { me } = useSession();
   const hidden =
     pathname.startsWith("/sell") ||
     pathname.startsWith("/buy/") ||
@@ -485,7 +483,7 @@ export function BottomNav() {
     pathname.endsWith("/edit");
   if (hidden) return null;
 
-  const item = (href: string, label: string, Icon: typeof IconHome, opts: { auth?: boolean; badge?: number } = {}) => {
+  const item = (href: string, label: string, Icon: typeof IconHome, opts: { badge?: number } = {}) => {
     const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
     const content = (
       <>
@@ -501,11 +499,7 @@ export function BottomNav() {
     );
     // basis-0 + min-w-0: five equal tabs that never push past the screen edge, even at 320 px.
     const cls = clsx("flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 pb-1 pt-2", active ? "text-ink" : "text-ink-2");
-    return opts.auth ? (
-      <button key={href} className={cls} onClick={() => requireAuth(() => router.push(href))}>
-        {content}
-      </button>
-    ) : (
+    return (
       <Link key={href} href={href} className={cls}>
         {content}
       </Link>
@@ -517,17 +511,14 @@ export function BottomNav() {
       {item("/", "Главная", IconHome)}
       {/* The second-hand market has its own page; the home page is the brands' showcase. */}
       {item("/resale", "Вторичка", IconTag)}
-      <button
-        aria-label="Продать вещь"
-        className="flex min-w-0 flex-1 basis-0 items-center justify-center py-1.5 text-ink"
-        onClick={() => requireAuth(() => router.push("/sell"))}
-      >
+      <Link href="/sell" aria-label="Продать вещь" className="flex min-w-0 flex-1 basis-0 items-center justify-center py-1.5 text-ink">
         <span className="grid h-11 w-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_4px_12px_-4px_rgb(28_26_23/0.5)] transition-transform active:scale-95">
           <IconPlus className="size-6" />
         </span>
-      </button>
-      {item("/favorites", "Избранное", IconHeart, { auth: true })}
-      {item("/wardrobe", "Гардероб", IconHanger, { auth: true, badge: me ? me.pendingSales + me.pendingOffers : 0 })}
+      </Link>
+      {/* Open to guests too: the page itself says what signing in gives. */}
+      {item("/favorites", "Избранное", IconHeart)}
+      {item("/wardrobe", "Гардероб", IconHanger, { badge: me ? me.pendingSales + me.pendingOffers : 0 })}
     </nav>
   );
 }

@@ -28,7 +28,7 @@ const STEPS = ["Информация", "Цена"];
 export default function SellPage() {
   const { me } = useSession();
   return (
-    <RequireAuth reason="чтобы выставить вещь">
+    <RequireAuth reason="чтобы выставить вещь на продажу">
       {(me) => (
         <Suspense>
           <DraftLoader me={me} />

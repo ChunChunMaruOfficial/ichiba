@@ -150,7 +150,7 @@ function HomeFeed() {
           </div>
 
           {isDefaultChip && home.data && !smallCatalog && (
-            <div className="flex flex-col gap-16 py-12 md:gap-24 md:py-16">
+            <div className="flex flex-col gap-16 pt-12 md:gap-24 md:pt-16">
               {home.data.brands.length > 0 && (
                 <section className="reveal">
                   <SectionHeader kanji="銘柄" title="Бренды" />
@@ -168,12 +168,13 @@ function HomeFeed() {
                   <CategoryTiles categories={home.data.categories} />
                 </section>
               )}
-              {rest.length > 0 && <SectionHeader kanji="品々" title="Ещё вещи" />}
             </div>
           )}
 
           {rest.length > 0 && (
-            <div className={isDefaultChip ? "" : "pt-4"}>
+            <div className={isDefaultChip && home.data && !smallCatalog ? "pt-16 md:pt-24" : "pt-4"}>
+              {/* The heading sits right on its grid; the gap above separates it from the sections. */}
+              {isDefaultChip && home.data && !smallCatalog && <SectionHeader kanji="品々" title="Ещё вещи" />}
               <Masonry items={rest} variant="feed" source="feed" />
             </div>
           )}

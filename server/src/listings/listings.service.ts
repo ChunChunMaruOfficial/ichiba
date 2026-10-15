@@ -11,7 +11,7 @@ import {
 import type { Listing, ListingStatus, Prisma } from '../generated/prisma/client.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { RANK_SELECT, RecommendationsService } from '../recommendations/recommendations.service.js';
+import { RANK_SELECT, RecommendationsService, spread } from '../recommendations/recommendations.service.js';
 import { AUCTION_DURATIONS, auctionInclude, defaultStep, serializeAuction } from '../auctions/rules.js';
 import { ListingModerator, ModerationVerdict } from '../ai/moderation.js';
 import { nextBumpAt, StatsService } from '../stats/stats.js';
@@ -27,6 +27,8 @@ const ACTIVE_REQUEST_STATUSES = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT'
 /** Fields frozen while a deal is in progress (frame 10 EDIT ITEM). */
 const LOCKED_WHEN_RESERVED = ['price', 'priceNegotiable', 'sizeValue', 'sizeSystem', 'condition', 'defectsPresent', 'defectsDescription'] as const;
 const CANDIDATE_POOL = 1000;
+/** Width to height of a category tile on the home page. */
+const TILE_RATIO = 4 / 5;
 /** Edits of these on a live listing are moderated again. */
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
 
@@ -774,11 +776,13 @@ export class ListingsService {
     if (['clothing', 'shoes', 'accessories', 'bags'].includes(effective)) {
       where.category = { in: categoriesInGroup(effective as 'clothing') };
     }
-    const [rows, total] = await Promise.all([
-      this.prisma.listing.findMany({ where, include: cardInclude, orderBy: [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }], skip: offset, take: limit }),
+    // Newest first, but no two of a kind side by side.
+    const [pool, total] = await Promise.all([
+      this.prisma.listing.findMany({ where, select: RANK_SELECT, orderBy: [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }], take: CANDIDATE_POOL }),
       this.prisma.listing.count({ where }),
     ]);
-    return { chip: effective, items: await this.cards(rows, viewerId), total };
+    const ids = spread(pool).map((p) => p.id);
+    return { chip: effective, items: await this.cardsByIds(ids.slice(offset, offset + limit), viewerId), total: Math.min(total, ids.length) };
   }
 
   /**
@@ -799,7 +803,11 @@ export class ListingsService {
         .sort((a, b) => b._count - a._count)
         .slice(0, 8)
         .map(async (c) => {
-          const sample = await this.prisma.listing.findFirst({ where: { status: 'PUBLISHED', category: c.category }, include: cardInclude, orderBy: { favoritesCount: 'desc' } });
+          // The tile is 4:5 and its photo fills it edge to edge: among the category's popular items, the cover whose
+          // proportions are closest to the tile's (the least cropped); popularity breaks ties.
+          const popular = await this.prisma.listing.findMany({ where: { status: 'PUBLISHED', category: c.category }, include: cardInclude, orderBy: { favoritesCount: 'desc' }, take: 30 });
+          const misfit = (l: CardListing) => (l.photos[0] ? Math.abs(Math.log(l.photos[0].width / l.photos[0].height / TILE_RATIO)) : Infinity);
+          const sample = popular.reduce<CardListing | null>((best, l) => (!best || misfit(l) < misfit(best) - 0.02 ? l : best), null);
           return { slug: c.category!, label: categoryBySlug(c.category)?.label ?? c.category!, count: c._count, cover: sample ? serializeCard(sample).cover : null };
         }),
     );
@@ -1023,7 +1031,9 @@ export class ListingsService {
 
     const cards = await this.cards(filtered, viewerId);
     // Sold items go last in every section for visitors (frame 09).
-    const ordered = isOwner ? cards : [...cards.filter((c) => c.status !== 'SOLD'), ...cards.filter((c) => c.status === 'SOLD')];
+    // The default order mixes kinds (no two of a kind side by side); an explicit sort is kept as asked.
+    const mixed = sort === 'new' ? spread(cards.map((c, i) => ({ c, category: filtered[i].category, subcategory: filtered[i].subcategory, sellerId: filtered[i].sellerId }))).map((x) => x.c) : cards;
+    const ordered = isOwner ? mixed : [...mixed.filter((c) => c.status !== 'SOLD'), ...mixed.filter((c) => c.status === 'SOLD')];
     const groups = (['top', 'bottom', 'shoes', 'accessories'] as const)
       .map((s) => ({ section: s, items: ordered.filter((c) => c.status !== 'DRAFT' && (categoryBySlug(c.category)?.section ?? 'accessories') === s) }))
       .filter((g) => g.items.length);

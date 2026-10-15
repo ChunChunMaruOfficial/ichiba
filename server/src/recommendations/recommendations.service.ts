@@ -71,6 +71,32 @@ const share = (m: Weights, k: string | null | undefined) => {
   return top ? Math.max(-1, (m.get(k) ?? 0) / top) : 0;
 };
 
+const HEADWEAR = new Set(['hat', 'cap', 'beanie']);
+/** The kind of thing an item is, for «not two of a kind in a row»: the category; accessories split by what they are. */
+const kindOf = (c: Pick<Candidate, 'category' | 'subcategory'>) =>
+  c.category === 'accessories' ? (HEADWEAR.has(c.subcategory ?? '') ? 'headwear' : (c.subcategory ?? 'accessories')) : (c.category ?? '');
+
+/**
+ * Keeps a feed's order but never puts two items of one kind side by side (three jackets, then four hats looks like a
+ * dump, not a shop window), nor more than 3 in a row from one seller. When only one kind is left, it runs on.
+ */
+export function spread<T extends Pick<Candidate, 'category' | 'subcategory' | 'sellerId'>>(items: T[]): T[] {
+  const out: T[] = [];
+  const pending = [...items];
+  while (pending.length) {
+    const prev = out.at(-1);
+    const tail = out.slice(-MAX_SAME_SELLER_IN_A_ROW);
+    const blockedSeller = tail.length === MAX_SAME_SELLER_IN_A_ROW && tail.every((t) => t.sellerId === tail[0].sellerId) ? tail[0].sellerId : null;
+    const kindOk = (p: T) => !prev || kindOf(p) !== kindOf(prev);
+    const sellerOk = (p: T) => p.sellerId !== blockedSeller;
+    let idx = pending.findIndex((p) => kindOk(p) && sellerOk(p));
+    if (idx === -1) idx = pending.findIndex(kindOk);
+    if (idx === -1) idx = pending.findIndex(sellerOk);
+    out.push(pending.splice(Math.max(0, idx), 1)[0]);
+  }
+  return out;
+}
+
 @Injectable()
 export class RecommendationsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -109,7 +135,7 @@ export class RecommendationsService {
   async rankPopular(candidates: Candidate[]): Promise<string[]> {
     const pop = await this.popularity(candidates);
     const t = (c: Candidate) => c.publishedAt?.getTime() ?? 0;
-    return [...candidates].sort((a, b) => (pop.get(b.id) ?? 0) - (pop.get(a.id) ?? 0) || t(b) - t(a)).map((c) => c.id);
+    return spread([...candidates].sort((a, b) => (pop.get(b.id) ?? 0) - (pop.get(a.id) ?? 0) || t(b) - t(a))).map((c) => c.id);
   }
 
   /**
@@ -201,19 +227,6 @@ export class RecommendationsService {
       const explore = rest.length && (!matched.length || (merged.length + 1) % EXPLORE_EVERY === 0);
       merged.push((explore ? rest.shift() : matched.shift())!.c);
     }
-    return this.diversify(merged).map((c) => c.id);
-  }
-
-  /** No more than 3 items in a row from the same seller. */
-  private diversify(items: Candidate[]): Candidate[] {
-    const out: Candidate[] = [];
-    const pending = [...items];
-    while (pending.length) {
-      const tail = out.slice(-MAX_SAME_SELLER_IN_A_ROW);
-      const blocked = tail.length === MAX_SAME_SELLER_IN_A_ROW && tail.every((t) => t.sellerId === tail[0].sellerId) ? tail[0].sellerId : null;
-      const idx = blocked ? pending.findIndex((p) => p.sellerId !== blocked) : 0;
-      out.push(pending.splice(idx === -1 ? 0 : idx, 1)[0]);
-    }
-    return out;
+    return spread(merged).map((c) => c.id);
   }
 }

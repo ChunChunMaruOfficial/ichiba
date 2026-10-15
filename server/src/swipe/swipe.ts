@@ -67,15 +67,8 @@ export class SwipeController {
     if (user && context !== 'onboarding' && (await this.recs.hasProfile(user.id))) {
       ids = (await this.recs.rankForUser(user.id, pool)).slice(0, limit);
     } else {
-      // Guests and cold start: most popular first, round-robin across categories so the deck feels varied.
-      const order = await this.recs.rankPopular(pool);
-      const byId = new Map(pool.map((p) => [p.id, p]));
-      const sorted = order.map((id) => byId.get(id)!);
-      const byCategory = new Map<string, string[]>();
-      for (const p of sorted) byCategory.set(p.category ?? '', [...(byCategory.get(p.category ?? '') ?? []), p.id]);
-      const queues = [...byCategory.values()];
-      ids = [];
-      while (ids.length < limit && queues.some((q) => q.length)) for (const q of queues) if (q.length && ids.length < limit) ids.push(q.shift()!);
+      // Guests and cold start: most popular first, no two of a kind in a row.
+      ids = (await this.recs.rankPopular(pool)).slice(0, limit);
     }
     const rows = await this.prisma.listing.findMany({ where: { id: { in: ids } }, include: cardInclude });
     const byId = new Map(rows.map((r) => [r.id, r]));

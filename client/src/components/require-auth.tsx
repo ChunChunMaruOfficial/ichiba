@@ -4,7 +4,10 @@ import type { Me } from "@/lib/types";
 import { useSession } from "./session";
 import { Button, EmptyState, Spinner } from "./ui";
 
-/** Gate for pages that only make sense signed in (My Wardrobe, Purchases, Sales…). */
+/**
+ * Pages that only work signed in (My Wardrobe, Favorites, Purchases…) still open for guests: they say what signing in
+ * gives here («Чтобы добавлять вещи в избранное, войдите…») instead of throwing a sign-in window at the tab tap.
+ */
 export function RequireAuth({ children, reason }: { children: (me: Me) => React.ReactNode; reason?: string }) {
   const { me, loading, openAuth } = useSession();
   if (loading) {
@@ -15,9 +18,10 @@ export function RequireAuth({ children, reason }: { children: (me: Me) => React.
     );
   }
   if (!me) {
+    const why = reason ? reason[0].toUpperCase() + reason.slice(1) : "Чтобы продолжить";
     return (
-      <EmptyState title="Войдите, чтобы продолжить" hint={reason ? `Нужно войти ${reason}` : undefined}>
-        <Button onClick={() => openAuth()}>Войти</Button>
+      <EmptyState title={`${why}, войдите в аккаунт`} hint="Вход по почте, через Google или Telegram — это займёт минуту. Смотреть вещи и собирать корзину можно и без него.">
+        <Button onClick={() => openAuth()}>Войти или зарегистрироваться</Button>
       </EmptyState>
     );
   }

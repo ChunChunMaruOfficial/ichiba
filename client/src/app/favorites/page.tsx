@@ -29,7 +29,7 @@ const TABS: Array<[Tab, string]> = [
 
 export default function FavoritesPage() {
   return (
-    <RequireAuth reason="чтобы увидеть избранное">
+    <RequireAuth reason="чтобы добавлять вещи в избранное">
       {() => (
         <Suspense>
           <Favorites />

@@ -124,12 +124,13 @@ export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: 
   );
 }
 
-function CoverImg({ cover, alt }: { cover: Cover | null; alt: string }) {
+/** `fill`: the photo covers the frame edge to edge (category tiles); otherwise it is shown whole over its own blur. */
+function CoverImg({ cover, alt, fill }: { cover: Cover | null; alt: string; fill?: boolean }) {
   return cover ? (
     <span className="relative block size-full overflow-hidden">
-      <BlurBackdrop src={cover.urls.s} />
+      {!fill && <BlurBackdrop src={cover.urls.s} />}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={cover.urls.s} alt={alt} loading="lazy" className="relative size-full object-contain" />
+      <img src={fill ? cover.urls.m : cover.urls.s} alt={alt} loading="lazy" className={clsx("relative size-full", fill ? "object-cover" : "object-contain")} />
     </span>
   ) : (
     <div className="size-full bg-skeleton" />
@@ -204,7 +205,7 @@ export function CategoryTiles({ categories }: { categories: Array<{ slug: string
       {categories.map((c) => (
         <Link key={c.slug} href={`/search?category=${c.slug}`} className="reveal group relative aspect-[4/5] overflow-hidden rounded-[18px] bg-skeleton">
           <div className="absolute inset-0 transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-105">
-            <CoverImg cover={c.cover} alt="" />
+            <CoverImg cover={c.cover} alt="" fill />
           </div>
           {/* Label over the photo, like the price tag on cards. */}
           <div className="on-photo absolute inset-x-2 bottom-2 flex items-baseline justify-between gap-2 rounded-[14px] px-3 py-2">
