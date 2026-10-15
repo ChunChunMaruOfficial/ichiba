@@ -1084,6 +1084,19 @@ html[data-immersive] [data-chrome="main"] {
   transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
   will-change: transform;
 }
+/* No band of colour behind the chips: what scrolls under them goes soft (frosted) and fades back in below. */
+.under-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -20px;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--paper) 45%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
 @media (prefers-reduced-motion: reduce) {
   .under-header { transition: none; }
 }
