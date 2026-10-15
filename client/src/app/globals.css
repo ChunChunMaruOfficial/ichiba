@@ -148,10 +148,22 @@
 html {
   -webkit-text-size-adjust: 100%;
 }
+/*
+ * The washi fibres stay still while the page scrolls over them. A fixed layer of its own rather than
+ * background-attachment: fixed, which makes the browser repaint the whole screen on every frame of a scroll.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: url("/brand/washi-texture.svg") 0 0 / 320px;
+}
 
 body {
-  /* Washi: paper fibres over the ground colour (9 % ink, tiles seamlessly). */
-  background: url("/brand/washi-texture.svg") 0 0 / 320px fixed, var(--paper);
+  /* Washi: paper fibres over the ground colour (9 % ink, tiles seamlessly), on a layer of its own (body::before). */
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
   font-variant-numeric: lining-nums;
@@ -1132,7 +1144,12 @@ html[data-immersive] [data-chrome="main"] {
   inset: calc(-1 * var(--header-h, 57px)) 0 0;
   z-index: -1;
   pointer-events: none;
-  background: url("/brand/washi-texture.svg") 0 0 / 320px fixed, var(--paper);
+  /* Lined up with the page's still fibres while the row is stuck (no attachment: fixed, see body::before): this
+     layer then starts at the top of the screen, or a header's height above it once the row has slid up. */
+  background: url("/brand/washi-texture.svg") 0 calc(var(--header-h, 57px) - var(--header-offset, var(--header-h, 57px))) / 320px, var(--paper);
+}
+.under-header-still::before {
+  background-position: 0 0;
 }
 .under-header::after {
   content: "";

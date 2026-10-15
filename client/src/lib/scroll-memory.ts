@@ -95,14 +95,18 @@ export function restoreScroll(rendered: () => boolean) {
 export function startScrollMemory() {
   load();
   history.scrollRestoration = "manual";
+  // Kept in memory as the page scrolls, written to sessionStorage once it stops (and on leaving): writing on every
+  // frame of a scroll made it stutter.
   let frame = 0;
+  let idle = 0;
   const onScroll = () => {
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
       if (performance.now() < navigatingUntil) return;
       positions[here()] = scrollY;
-      save();
+      clearTimeout(idle);
+      idle = window.setTimeout(save, 250);
     });
   };
   // A reload or a visit elsewhere gets the browser's own restoration; coming back from the bfcache, it is ours again.
@@ -115,6 +119,7 @@ export function startScrollMemory() {
   addEventListener("pagehide", onHide);
   addEventListener("pageshow", onShow);
   return () => {
+    clearTimeout(idle);
     removeEventListener("scroll", onScroll);
     removeEventListener("pagehide", onHide);
     removeEventListener("pageshow", onShow);

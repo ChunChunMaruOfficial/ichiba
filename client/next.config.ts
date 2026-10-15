@@ -20,7 +20,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Textures, patterns and cloth (public/brand) change rarely: kept for a week instead of rechecked on every page.
+      { source: "/brand/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] },
+    ];
   },
   // One address for the site: www.ichiba.by goes to ichiba.by (ichiba.site is redirected by Cloudflare itself).
   async redirects() {
