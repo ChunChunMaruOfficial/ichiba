@@ -208,20 +208,13 @@ export function CategoryTiles({ categories }: { categories: Array<{ slug: string
           <div className="absolute inset-0 transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-105">
             <CoverImg cover={c.cover} alt="" large />
           </div>
-          {/* A noren 暖簾 over the shop's door: indigo cloth on a wooden rod, split into three panels below. */}
-          <div className="noren-label absolute inset-x-4 top-2.5">
-            <span aria-hidden className="noren-rod" />
-            <span className="aizome noren-cloth">
-              <span className="block truncate font-display text-[16px] font-bold leading-tight text-ink">{c.label}</span>
-            </span>
-            <span aria-hidden className="noren-tails">
-              <span className="aizome" />
-              <span className="aizome" />
-              <span className="aizome" />
-            </span>
+          {/* A slip of washi 和紙 with a torn top edge: the name in ink, the count stamped in cinnabar. */}
+          <div className="washi-slip absolute inset-x-2 bottom-2">
+            <div className="washi-slip-paper flex items-center justify-between gap-2 px-3 pb-2 pt-3">
+              <span className="truncate font-display text-[17px] font-bold leading-tight">{c.label}</span>
+              <span className="washi-slip-count tabular shrink-0">{c.count}</span>
+            </div>
           </div>
-          {/* How many: a small cinnabar seal in the corner. */}
-          <span className="noren-count tabular absolute bottom-3 right-3">{c.count}</span>
         </Link>
       ))}
     </div>
