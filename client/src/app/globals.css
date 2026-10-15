@@ -440,6 +440,54 @@ html[data-immersive] [data-chrome="main"] {
   mask-image: linear-gradient(to left, #000 0%, transparent 70%);
 }
 
+/* Category tiles (sections.tsx CategoryTiles): the name on a little noren 暖簾 hanging from a rod at the top. */
+.noren-label {
+  filter: drop-shadow(0 4px 6px rgb(28 26 23 / 0.28));
+  transform-origin: 50% 0;
+  transition: transform 500ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.group:hover .noren-label {
+  transform: rotate(-1.2deg);
+}
+.noren-rod {
+  display: block;
+  height: 6px;
+  margin: 0 -8px -1px;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, #9a7350, #5b3d22);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+.noren-cloth {
+  display: block;
+  padding: 7px 12px 6px;
+  text-align: center;
+}
+.noren-tails {
+  display: flex;
+  gap: 3px;
+  height: 12px;
+}
+.noren-tails > span {
+  flex: 1;
+  border-radius: 0 0 3px 3px;
+}
+.noren-count {
+  min-width: 26px;
+  padding: 4px 6px 3px;
+  border-radius: 4px;
+  background: var(--shu);
+  color: var(--on-shu, #fff);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  transform: rotate(-6deg);
+  box-shadow: inset 0 0 0 1.5px var(--shu), inset 0 0 0 2.5px rgb(255 255 255 / 0.7), 0 2px 5px rgb(0 0 0 / 0.25);
+}
+@media (prefers-reduced-motion: reduce) {
+  .noren-label { transition: none; }
+}
+
 /* Hanko 判子: a seal stamped on a photo (sold, sale, new, reserved). Kanji by brush + the Russian word. */
 .hanko {
   display: inline-flex;

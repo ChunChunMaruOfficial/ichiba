@@ -208,11 +208,20 @@ export function CategoryTiles({ categories }: { categories: Array<{ slug: string
           <div className="absolute inset-0 transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-105">
             <CoverImg cover={c.cover} alt="" large />
           </div>
-          {/* Label over the photo, like the price tag on cards. */}
-          <div className="on-photo absolute inset-x-2 bottom-2 flex items-baseline justify-between gap-2 rounded-[14px] px-3 py-2">
-            <p className="truncate font-display text-[17px] font-bold leading-tight">{c.label}</p>
-            <p className="tabular shrink-0 text-xs text-ink-2">{c.count}</p>
+          {/* A noren 暖簾 over the shop's door: indigo cloth on a wooden rod, split into three panels below. */}
+          <div className="noren-label absolute inset-x-4 top-2.5">
+            <span aria-hidden className="noren-rod" />
+            <span className="aizome noren-cloth">
+              <span className="block truncate font-display text-[16px] font-bold leading-tight text-ink">{c.label}</span>
+            </span>
+            <span aria-hidden className="noren-tails">
+              <span className="aizome" />
+              <span className="aizome" />
+              <span className="aizome" />
+            </span>
           </div>
+          {/* How many: a small cinnabar seal in the corner. */}
+          <span className="noren-count tabular absolute bottom-3 right-3">{c.count}</span>
         </Link>
       ))}
     </div>
