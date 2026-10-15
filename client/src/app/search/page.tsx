@@ -18,6 +18,7 @@ import { pushRecent } from "@/lib/recent-searches";
 import type { Card, Meta, SearchInterpretation } from "@/lib/types";
 import { Select } from "@/components/select";
 import { PhotoSearchButton } from "@/components/photo-search-button";
+import { DragRow } from "@/components/drag-row";
 import { photoSearchResult } from "@/lib/photo-search";
 
 const LIST_KEYS = ["category", "subcategory", "style", "gender", "size", "condition", "color", "brand"] as const;
@@ -392,7 +393,7 @@ function SearchView() {
 
       <div className="under-header z-30 -mx-4 px-4 py-3 md:-mx-6 md:px-6">
         <div className="flex items-center gap-2">
-          <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
+          <DragRow viewportClassName="-my-1.5 min-w-0 flex-1" className="gap-2 py-1.5">
             <Chip onClick={() => setDrawer(true)}>
               <IconFilter className="size-4" /> Все фильтры{chips.length ? ` · ${chips.length}` : ""}
             </Chip>
@@ -409,13 +410,13 @@ function SearchView() {
                 {c.label}
               </Chip>
             ))}
-          </div>
+          </DragRow>
           <div className="hidden shrink-0 md:block">
             <SortMenu value={sort} onChange={(v) => navigate(filters, { sort: v })} />
           </div>
         </div>
         {chips.length > 0 && (
-          <div className="no-scrollbar mt-3 flex items-center gap-2 overflow-x-auto">
+          <DragRow viewportClassName="mt-3" className="items-center gap-2">
             {chips.map((c) => (
               <button key={c.key} onClick={() => navigate(c.remove(filters))} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-ink px-3 text-sm text-accent-ink">
                 {c.label} <IconX className="size-3.5" />
@@ -425,7 +426,7 @@ function SearchView() {
             <button className="shrink-0 px-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => navigate(cleared(filters))}>
               Сбросить всё
             </button>
-          </div>
+          </DragRow>
         )}
       </div>
 

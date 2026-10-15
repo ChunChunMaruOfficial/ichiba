@@ -316,6 +316,8 @@ export function PhotoFlight() {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (!a || a.target === "_blank" || a.origin !== location.origin) return;
+      // The click that ends dragging a row (drag-row.tsx) isn't a tap on the card: Embla cancels it after us.
+      if (a.closest("[data-dragged]")) return;
       // Leaving this page: its scroll is kept for coming back (scroll-memory).
       rememberScroll();
       navigationStarts();

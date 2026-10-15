@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { items as itemsLabel } from "@/lib/labels";
 import type { Card, Cover, SellerSummary } from "@/lib/types";
+import { DragRow } from "./drag-row";
 import { ItemCard } from "./item-card";
 import { Chochin } from "./shop/chochin";
 import { Noren } from "./shop/noren";
@@ -101,10 +102,11 @@ export function SellBand() {
 }
 
 /**
- * A horizontal row that bleeds to the screen edges but snaps cards to the page gutter (scroll-padding), so the first
- * and the snapped card keep the same 16/24 px margin as everything else on the page.
+ * A horizontal row (DragRow, dragged with the mouse or a finger) that bleeds to the screen edges but keeps its cards
+ * on the page gutter, so the first card has the same 16/24 px margin as everything else on the page.
  */
-const ROW = "no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:scroll-px-6 md:px-6";
+const ROW_BLEED = "-mx-4 md:-mx-6";
+const ROW = "gap-4 px-4 pb-2 md:px-6";
 
 /** Horizontal row of photos (sections on Home, recommendations on Product), all in one frame as tall as the tallest. */
 export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: "feed" | "grid" }) {
@@ -113,13 +115,13 @@ export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: 
   const frame = Math.min(Math.max(...items.map((c) => (c.cover ? c.cover.height / c.cover.width : 1.25)), 0.6), 1.6);
   return (
     // pb: the brand seal hangs below the photo's corner and a scrolling row would clip it.
-    <div className={clsx(ROW, "pb-4")}>
+    <DragRow snap viewportClassName={ROW_BLEED} className={clsx(ROW, "pb-4")}>
       {items.map((c) => (
-        <div key={c.id} className="w-[44vw] shrink-0 snap-start sm:w-56">
+        <div key={c.id} className="w-[44vw] sm:w-56">
           <ItemCard card={c} variant={variant} uniform={frame} />
         </div>
       ))}
-    </div>
+    </DragRow>
   );
 }
 
@@ -172,10 +174,8 @@ export function FollowButton({ seller, onChange, size = "md", block }: { seller:
 /** Wardrobe cards: a 2×2 collage of the latest items, the nick and «Подписаться». A scrolling row, or a grid (`grid`). */
 export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>; onFollowChange: (username: string, v: boolean) => void; grid?: boolean }) {
   const router = useRouter();
-  return (
-    <div className={grid ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4" : ROW}>
-      {wardrobes.map((w) => (
-        <div key={w.id} className={clsx("reveal rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", grid ? "min-w-0" : "w-64 shrink-0 snap-start")}>
+  const cards = wardrobes.map((w) => (
+        <div key={w.id} className={clsx("reveal rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", grid ? "min-w-0" : "w-64")}>
           <button onClick={() => router.push(`/u/${w.username}`)} className="grid aspect-square w-full grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-[16px]" aria-label={`Гардероб @${w.username}`}>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="min-h-0 overflow-hidden bg-skeleton">
@@ -195,8 +195,13 @@ export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: 
             <FollowButton seller={w} size="sm" onChange={(v) => onFollowChange(w.username, v)} />
           </div>
         </div>
-      ))}
-    </div>
+  ));
+  return grid ? (
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">{cards}</div>
+  ) : (
+    <DragRow snap viewportClassName={ROW_BLEED} className={ROW}>
+      {cards}
+    </DragRow>
   );
 }
 

@@ -7,6 +7,7 @@ import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CategoryTiles, SectionHeader, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
 import { Noren } from "@/components/shop/noren";
+import { DragRow } from "@/components/drag-row";
 import { SwipeDeck } from "@/components/swipe-deck";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
@@ -76,7 +77,7 @@ function HomeFeed() {
       {/* Discovery bar */}
       <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         {/* One row that scrolls as a whole on phones: the mode switch travels with the chips. */}
-        <div className="no-scrollbar -mx-4 -my-2 flex items-center gap-3 overflow-x-auto px-4 py-2 md:-mx-6 md:px-6">
+        <DragRow viewportClassName="-mx-4 -my-2 md:-mx-6" className="items-center gap-3 px-4 py-2 md:px-6">
           {!noSwipe && (
           <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
             {(
@@ -109,7 +110,7 @@ function HomeFeed() {
               </Chip>
             </div>
           )}
-        </div>
+        </DragRow>
       </div>
 
       {swipeMode ? (

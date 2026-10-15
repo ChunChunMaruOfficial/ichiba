@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import Link from "next/link";
+import { DragRow } from "./drag-row";
 import { useRouter } from "next/navigation";
 import { useDeferredValue, useState } from "react";
 import useSWR from "swr";
@@ -31,7 +32,7 @@ export function LookHighlights({ username, owner, onCreate }: { username: string
   if (!data) return owner ? <div className="h-[92px]" /> : null;
   if (!data.items.length && !owner) return null;
   return (
-    <nav aria-label="Образы" className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+    <DragRow role="navigation" aria-label="Образы" viewportClassName="-mx-4 md:mx-0" className="gap-4 px-4 pb-1 md:px-0">
       {owner && (
         <button type="button" onClick={onCreate} className="flex w-[76px] shrink-0 flex-col items-center gap-1.5 text-center">
           <span className="grid size-[68px] place-items-center rounded-full border-2 border-dashed border-line-strong text-ink-2 transition-colors hover:border-shu hover:text-shu">
@@ -50,7 +51,7 @@ export function LookHighlights({ username, owner, onCreate }: { username: string
           <span className="w-full truncate text-[11px]">{l.title}</span>
         </Link>
       ))}
-    </nav>
+    </DragRow>
   );
 }
 

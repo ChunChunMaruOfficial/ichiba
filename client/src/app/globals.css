@@ -226,11 +226,6 @@ h1, h2 {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-/* Sideways rows are dragged with the mouse (drag-scroll.tsx); the cursor stays as it is, only text isn't selected. */
-html[data-drag-scrolling],
-html[data-drag-scrolling] * {
-  user-select: none;
-}
 
 @keyframes shimmer {
   0% { background-position: -400px 0; }

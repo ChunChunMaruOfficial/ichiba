@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Spectral, Yuji_Syuku } from "next/font/google";
 import { CookieNotice } from "@/components/cookie-notice";
-import { DragScroll } from "@/components/drag-scroll";
 import { Footer } from "@/components/footer";
 import { BottomNav, Header, Main } from "@/components/header";
 import { PhotoFlight } from "@/components/photo-flight";
@@ -50,7 +49,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Footer />
           <BottomNav />
           <CookieNotice />
-          <DragScroll />
           <PhotoFlight />
         </Providers>
       </body>

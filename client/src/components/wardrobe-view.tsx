@@ -1,6 +1,7 @@
 "use client";
 
 
+import { DragRow } from "./drag-row";
 import { Noren } from "@/components/shop/noren";
 import { Daruma } from "@/components/shop/daruma";
 import clsx from "clsx";
@@ -355,13 +356,13 @@ export function WardrobeView({ username, initial }: { username: string; initial?
       ) : (
         <>
           <div className="under-header under-header-still z-20 -mx-4 flex items-center gap-2 px-4 py-3 md:-mx-6 md:px-6">
-            <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto">
+            <DragRow viewportClassName="-my-1.5 min-w-0 flex-1" className="gap-2 py-1.5">
               {FILTERS.filter(([key]) => key === "all" || key === section || !data || data.counts[key] > 0).map(([key, label]) => (
                 <Chip key={key} active={section === key} onClick={() => setSection(key)}>
                   {label}
                 </Chip>
               ))}
-            </div>
+            </DragRow>
             <Select variant="pill" aria-label="Сортировка" value={sort} onChange={setSort} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />
           </div>
 

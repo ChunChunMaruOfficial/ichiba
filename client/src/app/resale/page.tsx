@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { SectionHeader, SellBand, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
+import { DragRow } from "@/components/drag-row";
 import { SwipeDeck } from "@/components/swipe-deck";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
@@ -100,7 +101,7 @@ function ResaleFeed() {
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
-        <div className="no-scrollbar -mx-4 -my-2 flex items-center gap-3 overflow-x-auto px-4 py-2 md:-mx-6 md:px-6">
+        <DragRow viewportClassName="-mx-4 -my-2 md:-mx-6" className="items-center gap-3 px-4 py-2 md:px-6">
           {modeSwitch}
           <div className="flex shrink-0 gap-2">
             {chips.map(([key, label]) => (
@@ -112,7 +113,7 @@ function ResaleFeed() {
               <IconFilter className="size-4" /> Фильтры
             </Chip>
           </div>
-        </div>
+        </DragRow>
       </div>
 
       {feed.error ? (
