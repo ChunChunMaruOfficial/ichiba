@@ -150,6 +150,8 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
   const u = data?.user;
   const values = form ?? (u ? { username: u.username, email: u.email ?? "", phone: u.phone ?? "", city: u.city ?? "", bio: u.bio ?? "", role: u.role } : null);
 
+  // A password set here is shown once (only its hash is stored): copy it and hand it over.
+  const [issued, setIssued] = useState<{ login: string; password: string } | null>(null);
   const run = async (key: string, fn: () => Promise<unknown>, done: string) => {
     setBusy(key);
     setErrors({});
@@ -291,10 +293,58 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
             </section>
           )}
 
+          {issued && (
+            <section className="rounded-2xl bg-kraft/60 p-4 text-sm" aria-live="polite">
+              <p className="font-semibold">Новый пароль — покажем только сейчас</p>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                <dt className="text-muted">Логин</dt>
+                <dd className="select-all font-mono">{issued.login}</dd>
+                <dt className="text-muted">Пароль</dt>
+                <dd className="select-all font-mono text-base">{issued.password}</dd>
+              </dl>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="mt-3"
+                onClick={() =>
+                  navigator.clipboard
+                    .writeText(`Логин: ${issued.login}
+Пароль: ${issued.password}
+Вход: https://ichiba.by`)
+                    .then(() => toast("Скопировано"))
+                    .catch(() => toast("Не удалось скопировать — выделите текст"))
+                }
+              >
+                Скопировать логин и пароль
+              </Button>
+            </section>
+          )}
+
           <section className="flex flex-wrap items-center gap-2 border-t border-line pt-5">
             <Link href={dbLink("User", { id: u.id })} className="mr-auto text-sm text-ink-2 hover:underline">
               Открыть строку в базе →
             </Link>
+            {u.role !== "ADMIN" && (
+              <Button
+                variant="secondary"
+                loading={busy === "password"}
+                onClick={async () => {
+                  if (
+                    !(await confirm({
+                      title: `Задать новый пароль @${u.username}?`,
+                      message: u.hasPassword ? "Старый пароль перестанет подходить. Новый покажем один раз — сразу передайте его владельцу аккаунта." : "Аккаунт сможет входить по паролю. Покажем его один раз — сразу передайте владельцу.",
+                      confirmLabel: "Задать пароль",
+                    }))
+                  )
+                    return;
+                  let result: { login: string; password: string } | null = null;
+                  const ok = await run("password", async () => (result = await api<{ login: string; password: string }>(`/admin/users/${id}/password`, { method: "POST" })), "Пароль задан");
+                  if (ok) setIssued(result);
+                }}
+              >
+                Задать новый пароль
+              </Button>
+            )}
             {u.listingsHiddenAt ? (
               <Button variant="secondary" loading={busy === "listings"} onClick={() => run("listings", () => api(`/admin/users/${id}/show-listings`, { method: "POST" }), "Объявления снова видны")}>
                 Показать объявления

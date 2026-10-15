@@ -182,37 +182,40 @@ function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: 
       <Group title="Продавец">
         <Input placeholder="@alex…" value={value.seller ?? ""} onChange={(e) => onChange({ ...value, seller: e.target.value.replace(/^@/, "") || undefined })} />
       </Group>
-      <label className="flex items-center justify-between border-b border-line py-5 text-sm font-semibold">
-        Только доступные
-        <input type="checkbox" className="size-5 accent-[var(--accent)]" checked={value.available === "1"} onChange={(e) => onChange({ ...value, available: e.target.checked ? "1" : "0" })} />
-      </label>
+      <SwitchRow title="Только доступные" hint="Без забронированных вещей" checked={value.available === "1"} onChange={(on) => onChange({ ...value, available: on ? "1" : "0" })} />
       {/* The last switch: brands and «Вторичка» are searched apart unless the person mixes them on purpose. */}
       <MarketSwitch value={value} onChange={onChange} />
     </div>
   );
 }
 
-function MarketSwitch({ value, onChange }: { value: Filters; onChange: (f: Filters) => void }) {
-  const home = homeMarket(value);
-  const on = value.market === "all";
+/** A filter that is on or off: a title, a quiet hint and a sliding switch. */
+function SwitchRow({ title, hint, checked, onChange, last }: { title: string; hint: string; checked: boolean; onChange: (on: boolean) => void; last?: boolean }) {
   return (
-    <label className="flex items-center justify-between gap-4 py-5">
+    <label className={clsx("flex cursor-pointer items-center justify-between gap-4 py-5", !last && "border-b border-line")}>
       <span>
-        <span className="block text-sm font-semibold">{home === "resale" ? "Искать и среди брендов" : "Искать и на вторичке"}</span>
-        <span className="block text-xs text-muted">{home === "resale" ? "Покажем и новые вещи брендов" : "Покажем и вещи частных продавцов"}</span>
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="block text-xs text-muted">{hint}</span>
       </span>
       <span className="relative inline-flex shrink-0">
-        <input
-          type="checkbox"
-          role="switch"
-          className="peer sr-only"
-          checked={on}
-          onChange={(e) => onChange({ ...value, market: e.target.checked ? "all" : home, from: e.target.checked ? (home as From | undefined) : undefined })}
-        />
+        <input type="checkbox" role="switch" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
         <span aria-hidden className="h-7 w-12 rounded-full bg-line-strong transition-colors peer-checked:bg-ink peer-focus-visible:ring-3 peer-focus-visible:ring-indigo/30" />
         <span aria-hidden className="absolute left-1 top-1 size-5 rounded-full bg-surface shadow transition-transform peer-checked:translate-x-5" />
       </span>
     </label>
+  );
+}
+
+function MarketSwitch({ value, onChange }: { value: Filters; onChange: (f: Filters) => void }) {
+  const home = homeMarket(value);
+  return (
+    <SwitchRow
+      last
+      title={home === "resale" ? "Искать и среди брендов" : "Искать и на вторичке"}
+      hint={home === "resale" ? "Покажем и новые вещи брендов" : "Покажем и вещи частных продавцов"}
+      checked={value.market === "all"}
+      onChange={(on) => onChange({ ...value, market: on ? "all" : home, from: on ? (home as From | undefined) : undefined })}
+    />
   );
 }
 

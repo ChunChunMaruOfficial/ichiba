@@ -1,4 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
+import { randomInt } from 'node:crypto';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, forgetSessionStatus } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
@@ -58,6 +60,10 @@ const UserPatch = z.object({
   bio: z.string().trim().max(500).nullish(),
   role: z.enum(['USER', 'ADMIN']).optional(),
 });
+/** Letters and digits that can't be misread when a password is copied by hand (no 0/O, 1/l/I). */
+const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const newPassword = (length = 12) => Array.from({ length }, () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]).join('');
+
 const Reason = z.object({ reason: z.string().trim().min(3, 'Укажите причину').max(300) });
 const RowKey = z.object({ key: z.record(z.string(), z.unknown()) });
 const RowPatch = RowKey.extend({ set: z.record(z.string(), z.unknown()) });
@@ -132,6 +138,25 @@ export class AdminDataController {
     forgetSessionStatus(id);
     await this.log(admin.id, 'USER', id, 'edit', Object.keys(dto).join(', '));
     return { ok: true };
+  }
+
+  /**
+   * «Задать новый пароль»: a fresh random password replaces the old one and is returned once, for the owner to hand
+   * over (passwords are stored only as hashes, so there is nothing to look up later). Never for admin accounts.
+   * The journal records that it happened, not the password.
+   */
+  @Post('users/:id/password')
+  @HttpCode(200)
+  async resetPassword(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { role: true, username: true, email: true, phone: true, deletedAt: true } });
+    if (!user || user.deletedAt) throw new NotFoundException({ message: 'Пользователь не найден' });
+    if (user.role === 'ADMIN') throw new ForbiddenException({ message: 'Пароль администратора так не меняется' });
+    const password = newPassword();
+    await this.prisma.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(password, 10) } });
+    forgetSessionStatus(id);
+    await this.log(admin.id, 'USER', id, 'password_reset', null);
+    // Accounts without an address sign in with their nick (AuthService.login).
+    return { login: user.email ?? user.phone ?? `@${user.username}`, password };
   }
 
   @Post('users/:id/block')
