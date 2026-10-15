@@ -1128,7 +1128,8 @@ html[data-immersive] [data-chrome="main"] {
 }
 /*
  * What scrolls up under the chips disappears into the page itself (the same washi, so no band shows), through a thin
- * soft edge instead of a hard cut. The paper reaches up over the header's place too, for rows that stay put.
+ * blurred edge (blur only, no wash of colour) instead of a hard cut. The paper reaches up over the header's place
+ * too, for rows that stay put.
  */
 .under-header::before {
   content: "";
@@ -1145,9 +1146,8 @@ html[data-immersive] [data-chrome="main"] {
   height: 14px;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(to bottom, var(--paper), transparent);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
   mask-image: linear-gradient(to bottom, #000, transparent);
 }
