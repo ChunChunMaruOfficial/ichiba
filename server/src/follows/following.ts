@@ -56,9 +56,8 @@ export class FollowingController {
   private async sellerWithCollage(sellerId: string, viewerId?: string) {
     const [summary, items] = await Promise.all([
       this.listings.sellerSummary(sellerId, viewerId),
-      this.prisma.listing.findMany({ where: { sellerId, status: 'PUBLISHED' }, include: cardInclude, orderBy: { publishedAt: 'desc' }, take: 4 }),
+      this.listings.collage(sellerId),
     ]);
-    const cards = await this.listings.cards(items);
-    return { ...summary, collage: cards.map((c) => c.cover) };
+    return { ...summary, collage: items };
   }
 }

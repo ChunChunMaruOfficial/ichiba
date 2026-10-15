@@ -73,7 +73,7 @@ const share = (m: Weights, k: string | null | undefined) => {
 
 const HEADWEAR = new Set(['hat', 'cap', 'beanie']);
 /** The kind of thing an item is, for «not two of a kind in a row»: the category; accessories split by what they are. */
-const kindOf = (c: Pick<Candidate, 'category' | 'subcategory'>) =>
+export const kindOf = (c: Pick<Candidate, 'category' | 'subcategory'>) =>
   c.category === 'accessories' ? (HEADWEAR.has(c.subcategory ?? '') ? 'headwear' : (c.subcategory ?? 'accessories')) : (c.category ?? '');
 
 /**

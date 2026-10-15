@@ -11,7 +11,7 @@ import {
 import type { Listing, ListingStatus, Prisma } from '../generated/prisma/client.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { RANK_SELECT, RecommendationsService, spread } from '../recommendations/recommendations.service.js';
+import { kindOf, RANK_SELECT, RecommendationsService, spread } from '../recommendations/recommendations.service.js';
 import { AUCTION_DURATIONS, auctionInclude, defaultStep, serializeAuction } from '../auctions/rules.js';
 import { ListingModerator, ModerationVerdict } from '../ai/moderation.js';
 import { nextBumpAt, StatsService } from '../stats/stats.js';
@@ -600,6 +600,31 @@ export class ListingsService {
     return marketOf(seller ?? { brandVerifiedAt: null });
   }
 
+  /**
+   * A seller's 2×2 collage: their latest items, one of each kind (a hoodie, jeans, shoes, a cap — not four caps),
+   * topped up with the latest others when they sell fewer kinds.
+   */
+  async collage(sellerId: string) {
+    const latest = await this.prisma.listing.findMany({
+      where: { sellerId, status: 'PUBLISHED' },
+      include: { photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 } },
+      orderBy: { publishedAt: 'desc' },
+      take: 60,
+    });
+    const picked: typeof latest = [];
+    const kinds = new Set<string>();
+    for (const l of latest) {
+      if (picked.length === 4 || kinds.has(kindOf(l))) continue;
+      kinds.add(kindOf(l));
+      picked.push(l);
+    }
+    for (const l of latest) if (picked.length < 4 && !picked.includes(l)) picked.push(l);
+    return picked.map((l) => {
+      const p = l.photos[0];
+      return p ? { width: p.width, height: p.height, urls: serializePhoto(p).urls } : null;
+    });
+  }
+
   async sellerSummary(sellerId: string, viewerId?: string) {
     const [user, active, sold, followers, following, completedDeals, rating] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true, avatar: { select: { key: true, provider: true } } } }),
@@ -846,9 +871,9 @@ export class ListingsService {
       top.map(async (t) => {
         const [summary, items] = await Promise.all([
           this.sellerSummary(t.sellerId, viewerId),
-          this.prisma.listing.findMany({ where: { sellerId: t.sellerId, status: 'PUBLISHED' }, include: cardInclude, orderBy: { publishedAt: 'desc' }, take: 4 }),
+          this.collage(t.sellerId),
         ]);
-        return { ...summary, collage: items.map((i) => serializeCard(i).cover) };
+        return { ...summary, collage: items };
       }),
     );
   }
@@ -868,9 +893,9 @@ export class ListingsService {
       page.map(async (t) => {
         const [summary, latest] = await Promise.all([
           this.sellerSummary(t.sellerId, viewerId),
-          this.prisma.listing.findMany({ where: { sellerId: t.sellerId, status: 'PUBLISHED' }, include: cardInclude, orderBy: { publishedAt: 'desc' }, take: 4 }),
+          this.collage(t.sellerId),
         ]);
-        return { ...summary, collage: latest.map((i) => serializeCard(i).cover) };
+        return { ...summary, collage: latest };
       }),
     );
     return { items, total: all.length };
