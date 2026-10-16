@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useFavorite } from "@/lib/hooks";
-import { CONDITION_LABEL, formatPrice } from "@/lib/labels";
+import { conditionLabel, formatPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { AuctionTimer, auctionPrice } from "./auction";
 import { scheduleLabel } from "./schedule-picker";
@@ -200,7 +200,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
             {discounted && <s className="ml-2 text-sm font-normal text-muted">{card.previousPrice}</s>}
           </p>
           <p className="truncate text-xs text-ink-2">
-            {[card.size, card.condition && CONDITION_LABEL[card.condition]].filter(Boolean).join(" · ")}
+            {[card.size, card.condition && conditionLabel(card.condition, card.hasTags)].filter(Boolean).join(" · ")}
           </p>
           <div className="mt-2.5 flex items-center gap-2">
             <BuyButton card={card} className="flex-1" />
@@ -251,7 +251,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
             {card.scheduledAt ? (
               <p className="truncate text-xs font-medium text-indigo">Опубликуется {scheduleLabel(card.scheduledAt)}</p>
             ) : (
-              card.condition && <p className="truncate text-xs text-muted">{CONDITION_LABEL[card.condition]}</p>
+              card.condition && <p className="truncate text-xs text-muted">{conditionLabel(card.condition, card.hasTags)}</p>
             )}
           </div>
         </Link>

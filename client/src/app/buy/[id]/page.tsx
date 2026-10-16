@@ -8,7 +8,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { Furoshiki } from "@/components/shop/furoshiki";
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconChevronLeft, Input, OptionCard, PriceTag, Skeleton, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { CONDITION_LABEL, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice } from "@/lib/labels";
+import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice } from "@/lib/labels";
 import type { Deal, ListingDetail, ListingResponse, Me } from "@/lib/types";
 
 export default function BuyPage() {
@@ -208,7 +208,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
             </div>
             <div className="min-w-0">
               <p className="font-medium">{l.title}</p>
-              <p className="mt-1 text-sm text-ink-2">{[(size ?? l.size) && `Размер ${size ?? l.size}`, l.condition && CONDITION_LABEL[l.condition]].filter(Boolean).join(" · ")}</p>
+              <p className="mt-1 text-sm text-ink-2">{[(size ?? l.size) && `Размер ${size ?? l.size}`, l.condition && conditionLabel(l.condition, l.hasTags)].filter(Boolean).join(" · ")}</p>
               <p className="mt-1 text-sm text-muted">@{l.seller.username}</p>
             </div>
           </Link>

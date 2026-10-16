@@ -85,12 +85,21 @@ export class ReportsController {
 
 @Injectable()
 export class AdminGuard implements CanActivate {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
-  /** ADMIN role on the site session plus a valid admin session (password entered at /admin) for the same user. */
+  /**
+   * ADMIN role plus a valid admin session (password entered at /admin) for the same user. The role is read from the
+   * database on every admin request, not from the session token: an admin whose role was taken away (or who was
+   * blocked or deleted) loses the admin area at once, while the token they hold still says ADMIN.
+   */
   async canActivate(ctx: ExecutionContext) {
     const req = ctx.switchToHttp().getRequest<{ user?: AuthUser; cookies?: Record<string, string> }>();
-    if (req.user?.role !== 'ADMIN') throw new ForbiddenException({ message: 'Только для администраторов' });
+    if (!req.user) throw new ForbiddenException({ message: 'Только для администраторов' });
+    const account = await this.prisma.user.findUnique({ where: { id: req.user.id }, select: { role: true, blockedAt: true, deletedAt: true } });
+    if (account?.role !== 'ADMIN' || account.blockedAt || account.deletedAt) throw new ForbiddenException({ message: 'Только для администраторов' });
     const token = req.cookies?.[ADMIN_COOKIE];
     const payload = token ? await this.jwt.verifyAsync<{ sub: string; purpose: string }>(token).catch(() => null) : null;
     if (payload?.purpose !== 'admin' || payload.sub !== req.user.id) throw new UnauthorizedException({ message: 'Войдите в админку', code: 'ADMIN_LOGIN' });
@@ -231,7 +240,7 @@ export class AdminController {
       ...(q ? { OR: [{ title: { contains: q, mode: 'insensitive' } }, { seller: { username: { contains: q.toLowerCase() } } }] } : {}),
     };
     const rows = await this.prisma.listing.findMany({ where, include: cardInclude, orderBy: { updatedAt: 'desc' }, take: 100 });
-    return { items: rows.map((l) => ({ ...serializeCard(l), blockedReason: l.blockedReason, market: marketOf(l) })) };
+    return { items: rows.map((l) => ({ ...serializeCard(l), blockedReason: l.blockedReason, market: marketOf(l), marketByAdmin: l.marketByAdmin })) };
   }
 
   /**
@@ -241,11 +250,12 @@ export class AdminController {
   @Post('listings/:id/market')
   @HttpCode(200)
   async setMarket(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(MarketDto)) dto: z.infer<typeof MarketDto>) {
-    const l = await this.prisma.listing.findUnique({ where: { id }, select: { status: true, market: true } });
+    const l = await this.prisma.listing.findUnique({ where: { id }, select: { status: true, market: true, marketByAdmin: true } });
     if (!l || l.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
     const market = dto.market === 'brands' ? 'CATALOG' : 'RESALE';
-    if (l.market !== market) {
-      await this.prisma.listing.update({ where: { id }, data: { market } });
+    if (l.market !== market || !l.marketByAdmin) {
+      // Marked as the admin's choice: a later change of the seller's status or the item's condition won't move it.
+      await this.prisma.listing.update({ where: { id }, data: { market, marketByAdmin: true } });
       await this.prisma.moderationAction.create({ data: { moderatorId: admin.id, targetType: 'LISTING', targetId: id, action: `market_${dto.market}`, reason: dto.reason ?? null } });
     }
     return { ok: true, market: dto.market };
@@ -293,9 +303,7 @@ export class AdminController {
   private async blockUser(adminId: string, userId: string, reason: string) {
     await this.prisma.user.update({ where: { id: userId }, data: { blockedAt: new Date() } });
     forgetSessionStatus(userId);
-    const onSale = await this.prisma.listing.findMany({ where: { sellerId: userId, status: 'PUBLISHED' }, select: { id: true } });
-    await this.prisma.listing.updateMany({ where: { id: { in: onSale.map((l) => l.id) } }, data: { status: 'HIDDEN' } });
-    await this.listings.withdrawFromSale(onSale.map((l) => l.id));
+    await this.listings.hideForBlock(userId);
     await this.prisma.moderationAction.create({ data: { moderatorId: adminId, targetType: 'USER', targetId: userId, action: 'block', reason } });
   }
 }

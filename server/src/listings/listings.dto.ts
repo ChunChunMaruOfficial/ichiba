@@ -22,6 +22,8 @@ export const ListingInput = z.object({
   sizeSystem: z.enum(['ALPHA', 'SHOE_EU', 'JEANS_W', 'OTHER']).nullish(),
   sizeValue: z.string().trim().max(20).nullish(),
   condition: z.enum(['NEW_WITH_TAGS', 'LIKE_NEW', 'GOOD', 'VISIBLE_WEAR']).nullish(),
+  /** «Новое»: the tags are still on (true) or not (false). Ignored for worn items. */
+  hasTags: z.boolean().nullish(),
   price: z.number().int('Целое число').min(1, 'Укажите цену').max(100_000).nullish(),
   defectsPresent: z.boolean().nullish(),
   defectsDescription: z.string().trim().max(1000).nullish(),

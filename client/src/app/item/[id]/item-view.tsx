@@ -27,7 +27,7 @@ import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, Ic
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
-import { CONDITION_LABEL, formatPrice, items, listingPrice, plural, timeAgo } from "@/lib/labels";
+import { conditionLabel, formatPrice, items, listingPrice, plural, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
 import { withMarket } from "@/lib/market";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
@@ -265,7 +265,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
     ) : null],
     ["Бренд", l.brand && <Link href={withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, l.market ?? (l.seller.brand ? "brands" : "resale"))} className="hover:underline">{l.brand}</Link>],
     ["Для кого", meta?.genders.find((g) => g.value === l.gender)?.label],
-    ["Состояние", l.condition && CONDITION_LABEL[l.condition]],
+    ["Состояние", l.condition && conditionLabel(l.condition, l.hasTags)],
     ["Цвет", color?.label],
     ["Материал", l.material],
     ["Категория", l.subcategoryLabel ?? l.categoryLabel],

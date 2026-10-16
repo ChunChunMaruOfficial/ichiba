@@ -167,9 +167,7 @@ export class AdminDataController {
     if (id === admin.id) throw new ForbiddenException({ message: 'Нельзя заблокировать себя' });
     await this.prisma.user.update({ where: { id }, data: { blockedAt: new Date() } });
     forgetSessionStatus(id);
-    const onSale = await this.prisma.listing.findMany({ where: { sellerId: id, status: 'PUBLISHED' }, select: { id: true } });
-    await this.prisma.listing.updateMany({ where: { id: { in: onSale.map((l) => l.id) } }, data: { status: 'HIDDEN' } });
-    await this.listings.withdrawFromSale(onSale.map((l) => l.id));
+    await this.listings.hideForBlock(id);
     await this.log(admin.id, 'USER', id, 'block', dto.reason);
     return { ok: true };
   }
@@ -179,8 +177,9 @@ export class AdminDataController {
   async unblockUser(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     await this.prisma.user.update({ where: { id }, data: { blockedAt: null } });
     forgetSessionStatus(id);
-    await this.log(admin.id, 'USER', id, 'unblock', null);
-    return { ok: true };
+    const restored = await this.listings.restoreAfterUnblock(id);
+    await this.log(admin.id, 'USER', id, 'unblock', `${restored}`);
+    return { ok: true, restored };
   }
 
   /**
@@ -203,11 +202,15 @@ export class AdminDataController {
   @Post('users/:id/show-listings')
   @HttpCode(200)
   async showListings(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    await this.prisma.user.update({ where: { id }, data: { listingsHiddenAt: null } });
-    const { count } = await this.prisma.listing.updateMany({ where: { sellerId: id, hiddenByAdmin: true, status: 'HIDDEN' }, data: { status: 'PUBLISHED', hiddenByAdmin: false } });
+    const user = await this.prisma.user.update({ where: { id }, data: { listingsHiddenAt: null }, select: { blockedAt: true } });
+    // A blocked account's items stay hidden until it is unblocked (then they come back with the block's own).
+    const { count } = await this.prisma.listing.updateMany({
+      where: { sellerId: id, hiddenByAdmin: true, status: 'HIDDEN' },
+      data: user.blockedAt ? { hiddenByAdmin: false, hiddenByBlock: true } : { status: 'PUBLISHED', hiddenByAdmin: false },
+    });
     await this.prisma.listing.updateMany({ where: { sellerId: id, hiddenByAdmin: true }, data: { hiddenByAdmin: false } });
     await this.log(admin.id, 'USER', id, 'show_listings', `${count}`);
-    return { ok: true, shown: count };
+    return { ok: true, shown: user.blockedAt ? 0 : count };
   }
 
   /** Same erasure as "delete my account": deals and chats stay for the other side, anonymised. */

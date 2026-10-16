@@ -99,7 +99,7 @@ export const GENDERS: Array<{ value: GenderKey; label: string; menu: string }> =
 ];
 
 export const CONDITIONS = [
-  { value: 'NEW_WITH_TAGS', label: 'Новое с биркой', hint: 'Не носилась' },
+  { value: 'NEW_WITH_TAGS', label: 'Новое', hint: 'Не носилась — с биркой или без' },
   { value: 'LIKE_NEW', label: 'Как новое', hint: 'Носилась 1–3 раза, без следов' },
   { value: 'GOOD', label: 'Хорошее', hint: 'Есть лёгкие следы носки' },
   { value: 'VISIBLE_WEAR', label: 'Заметные следы носки', hint: 'Потёртости, катышки, выцветание' },

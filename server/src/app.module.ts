@@ -44,6 +44,7 @@ import { MediaService } from './media/media.service.js';
 import { NotificationsModule } from './notifications/notifications.service.js';
 import { PrismaModule } from './prisma/prisma.service.js';
 import { RecommendationsService } from './recommendations/recommendations.service.js';
+import { AdminDisputesController, DisputesService } from './requests/disputes.js';
 import { RequestsController } from './requests/requests.controller.js';
 import { RequestsService } from './requests/requests.service.js';
 import { UsersController, UsersService } from './users/users.service.js';
@@ -83,6 +84,7 @@ import { ShopImportService } from './shops/shop-import.service.js';
     FavoritesController,
     FollowsController,
     RequestsController,
+    AdminDisputesController,
     OffersController,
     AuctionsController,
     CartController,
@@ -126,6 +128,7 @@ import { ShopImportService } from './shops/shop-import.service.js';
     BrandApplicationsService,
     RecommendationsService,
     RequestsService,
+    DisputesService,
     OffersService,
     AuctionsService,
     ChatService,

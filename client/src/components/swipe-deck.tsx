@@ -7,7 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import { guestCart } from "@/lib/guest-cart";
-import { CONDITION_LABEL, listingPrice } from "@/lib/labels";
+import { conditionLabel, listingPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { useSession } from "./session";
 import { useToast } from "./toast";
@@ -332,7 +332,7 @@ export function SwipeDeck({
                   <div className="min-w-0">
                     <p className="tabular text-2xl font-semibold leading-tight">{listingPrice(card)}</p>
                     <p className="truncate text-[15px]">{card.title}</p>
-                    <p className="truncate text-sm text-muted">{[card.size, card.condition && CONDITION_LABEL[card.condition], `@${card.seller.username}`].filter(Boolean).join(" · ")}</p>
+                    <p className="truncate text-sm text-muted">{[card.size, card.condition && conditionLabel(card.condition, card.hasTags), `@${card.seller.username}`].filter(Boolean).join(" · ")}</p>
                   </div>
                 </div>
               </article>

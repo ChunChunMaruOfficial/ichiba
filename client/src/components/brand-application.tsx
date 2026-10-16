@@ -9,6 +9,8 @@ import { BrandSeal } from "./ui";
 
 export interface BrandApplication {
   id: string;
+  /** BRAND: the «Бренд» status; CATALOG: a seller of others' original items asks for the main catalogue. */
+  kind: "BRAND" | "CATALOG";
   brandName: string;
   legalForm: LegalForm;
   legalName: string | null;
@@ -33,14 +35,14 @@ export const LEGAL_FORM_LABEL: Record<LegalForm, string> = {
   PERSON: "Пока без регистрации",
 };
 
-const empty = { brandName: "", legalForm: "IP" as LegalForm, legalName: "", unp: "", contactName: "", email: "", phone: "", telegram: "", links: "", description: "" };
+const empty = { kind: "BRAND" as BrandApplication["kind"], brandName: "", legalForm: "IP" as LegalForm, legalName: "", unp: "", contactName: "", email: "", phone: "", telegram: "", links: "", description: "" };
 
 /**
  * Settings → «Статус бренда»: the form, then the application's state (on review, approved, declined with the
  * reason and a way to apply again). Approved brands get the «Бренд» seal on every item and on the profile.
  */
 export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: string; title: string; hint?: string; children: React.ReactNode }> }) {
-  const { data, mutate } = useSWR<{ brand: { name: string; since: string } | null; application: BrandApplication | null }>("/brand-application");
+  const { data, mutate } = useSWR<{ brand: { name: string; since: string } | null; catalog: { since: string } | null; application: BrandApplication | null }>("/brand-application");
   const toast = useToast();
   const [v, setV] = useState(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,6 +50,7 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
   const [again, setAgain] = useState(false);
   const set = (p: Partial<typeof empty>) => setV((x) => ({ ...x, ...p }));
   const needsUnp = v.legalForm === "IP" || v.legalForm === "LLC";
+  const reseller = v.kind === "CATALOG";
 
   const submit = async () => {
     setBusy(true);
@@ -77,10 +80,17 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
             <b>{data.brand.name}</b> — статус бренда подтверждён. Печать стоит на всех ваших вещах.
           </p>
         </div>
+      ) : data.catalog && !again && !(a && a.kind === "BRAND" && a.status !== "APPROVED") ? (
+        <div className="flex flex-col gap-3 rounded-2xl bg-surface p-4 text-[15px]">
+          <p>Вы допущены в основной каталог: новые вещи с биркой показываются там, поношенные — на вторичке.</p>
+          <Button variant="secondary" className="self-start" onClick={() => (setV({ ...empty, kind: "BRAND" }), setAgain(true))}>
+            Подать заявку на статус бренда
+          </Button>
+        </div>
       ) : a && !again && a.status !== "APPROVED" ? (
         <div className="flex flex-col gap-3 rounded-2xl bg-surface p-4 text-[15px]">
           <p className="flex flex-wrap items-center gap-2">
-            Заявка «{a.brandName}»
+            {a.kind === "CATALOG" ? "Заявка на размещение в каталоге" : "Заявка"} «{a.brandName}»
             {a.status === "PENDING" ? <Badge tone="warn">на рассмотрении</Badge> : <Badge tone="danger">отклонена</Badge>}
           </p>
           {a.status === "PENDING" && <p className="text-sm text-ink-2">Обычно отвечаем в течение пары дней. Решение придёт в уведомления.</p>}
@@ -101,8 +111,20 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
             void submit();
           }}
         >
-          <Field label="Название бренда" required htmlFor="brand-name" error={errors.brandName}>
-            <Input id="brand-name" value={v.brandName} onChange={(e) => set({ brandName: e.target.value })} error={errors.brandName} placeholder="Например, MIRARWEAR" />
+          {!data.catalog && (
+            <Field label="Кто вы" required hint={reseller ? "Продаёте оригинальные вещи других брендов: после проверки ваши новые вещи с биркой будут в основном каталоге" : undefined}>
+              <div className="flex flex-wrap gap-2">
+                <Chip active={!reseller} onClick={() => set({ kind: "BRAND" })}>
+                  Бренд — свои вещи
+                </Chip>
+                <Chip active={reseller} onClick={() => set({ kind: "CATALOG" })}>
+                  Магазин — оригиналы других брендов
+                </Chip>
+              </div>
+            </Field>
+          )}
+          <Field label={reseller ? "Название магазина" : "Название бренда"} required htmlFor="brand-name" error={errors.brandName}>
+            <Input id="brand-name" value={v.brandName} onChange={(e) => set({ brandName: e.target.value })} error={errors.brandName} placeholder={reseller ? "Например, ne net store" : "Например, MIRARWEAR"} />
           </Field>
           <Field label="Форма" required>
             <div className="flex flex-wrap gap-2">
@@ -140,7 +162,13 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
           <Field label="Ссылки" htmlFor="brand-links" hint="Сайт, Instagram, Telegram-канал — через пробел" error={errors.links}>
             <Input id="brand-links" value={v.links} onChange={(e) => set({ links: e.target.value })} error={errors.links} placeholder="https://t.me/…" />
           </Field>
-          <Field label="О бренде" required htmlFor="brand-about" error={errors.description} hint="Что производите или продаёте, с какого года, где шьёте">
+          <Field
+            label={reseller ? "О магазине" : "О бренде"}
+            required
+            htmlFor="brand-about"
+            error={errors.description}
+            hint={reseller ? "Какие бренды продаёте, откуда товар и чем подтверждаете оригинальность (чеки, поставщики)" : "Что производите или продаёте, с какого года, где шьёте"}
+          >
             <Textarea id="brand-about" rows={4} value={v.description} onChange={(e) => set({ description: e.target.value })} error={errors.description} />
           </Field>
           <Button type="submit" loading={busy} className="self-start">

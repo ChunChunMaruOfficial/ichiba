@@ -43,6 +43,12 @@ export interface CreateRequestInput extends DeliveryInput {
 
 /** «Несколько размеров»: one listing with several sizes, never reserved or sold as a whole by a deal. */
 const multiSize = (l: { sizes: string[] }) => l.sizes.length > 1;
+/**
+ * The size a buyer picked is still for sale on the listing as it is now: among its sizes, or — once the seller has
+ * cut it down to one size — that one size. A size taken off since can't be sold.
+ */
+const sizeInStock = (l: { sizes: string[]; sizeValue: string | null }, size: string | null | undefined) =>
+  !size || l.sizes.includes(size) || (l.sizes.length <= 1 && l.sizeValue === size);
 
 @Injectable()
 export class RequestsService {
@@ -219,8 +225,10 @@ export class RequestsService {
   async createFromOffer(tx: Prisma.TransactionClient, offer: { listingId: string; buyerId: string; sellerId: string; amount: number; acceptedBy: string; size?: string | null }) {
     const listing = await tx.listing.findUniqueOrThrow({ where: { id: offer.listingId } });
     // Several sizes: the listing stays on sale for the other sizes; the seller takes the sold one off by hand.
+    // The offer was for a size the seller has taken off since: nothing to sell.
+    if (!sizeInStock(listing, offer.size)) throw new ConflictException({ message: 'Выбранный размер уже недоступен', code: 'UNAVAILABLE' });
     const reserved = multiSize(listing)
-      ? { count: listing.status === 'PUBLISHED' && !!offer.size && listing.sizes.includes(offer.size) ? 1 : 0 }
+      ? { count: listing.status === 'PUBLISHED' && !!offer.size ? 1 : 0 }
       : await tx.listing.updateMany({ where: { id: listing.id, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
     if (!reserved.count) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
     return tx.buyRequest.create({
@@ -303,11 +311,15 @@ export class RequestsService {
     const multi = r.items.filter((i) => multiSize(i.listing)).map((i) => i.listingId);
 
     await this.prisma.$transaction(async (tx) => {
+      // A size the seller has taken off since the request (sold elsewhere) can't be sold again — also when the
+      // listing is down to one size now and so no longer counts as «Несколько размеров».
+      const current = await tx.listing.findMany({ where: { id: { in: listingIds } }, select: { id: true, sizes: true, sizeValue: true } });
+      if (r.items.some((i) => !sizeInStock(current.find((c) => c.id === i.listingId) ?? { sizes: [], sizeValue: null }, i.size))) {
+        throw new ConflictException({ message: 'Выбранный размер уже недоступен', code: 'UNAVAILABLE' });
+      }
       const reserved = await tx.listing.updateMany({ where: { id: { in: single }, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
-      // A size the seller has taken off since the request (sold elsewhere) can't be sold again.
-      const stock = await tx.listing.findMany({ where: { id: { in: multi }, status: 'PUBLISHED' }, select: { id: true, sizes: true } });
-      const inStock = r.items.filter((i) => multiSize(i.listing) && stock.some((s) => s.id === i.listingId && !!i.size && s.sizes.includes(i.size))).length;
-      if (reserved.count + inStock !== listingIds.length) throw new ConflictException({ message: 'Вещь или выбранный размер уже недоступны', code: 'UNAVAILABLE' });
+      const onSale = await tx.listing.count({ where: { id: { in: multi }, status: 'PUBLISHED' } });
+      if (reserved.count + onSale !== listingIds.length) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
       const moved = await tx.buyRequest.updateMany({ where: { id, status: 'PENDING_SELLER' }, data: { status: 'WAITING_HANDOVER', expiresAt: null } });
       if (!moved.count) throw new ConflictException({ message: 'Статус сделки уже изменился — обновите страницу' });
       await tx.buyRequestEvent.createMany({

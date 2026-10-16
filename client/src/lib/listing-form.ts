@@ -22,6 +22,8 @@ export interface ListingValues {
   sizeSystem: SizeSystem | null;
   sizeValue: string | null;
   condition: Condition | null;
+  /** «Новое»: бирка есть (true) или нет (false). */
+  hasTags: boolean | null;
   defectsPresent: boolean | null;
   defectsDescription: string;
   brand: string;
@@ -64,6 +66,7 @@ export const emptyValues = (city: string | null): ListingValues => ({
   sizeSystem: null,
   sizeValue: null,
   condition: null,
+  hasTags: null,
   defectsPresent: null,
   defectsDescription: "",
   brand: "",
@@ -103,6 +106,7 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
     sizeSystem: l.sizeSystem,
     sizeValue: l.size,
     condition: l.condition,
+    hasTags: l.hasTags ?? null,
     defectsPresent: l.defectsPresent,
     defectsDescription: l.defectsDescription ?? "",
     brand: l.brand ?? "",
@@ -193,6 +197,7 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
     if (!values.category) e.category = "Выберите категорию";
     if (sizeRequired(meta, values.category) && !values.sizeValue) e.size = "Укажите размер";
     if (!values.condition) e.condition = "Выберите состояние";
+    else if (values.condition === "NEW_WITH_TAGS" && values.hasTags == null) e.hasTags = "Укажите, есть ли бирка";
     if (values.defectsPresent == null) e.defects = "Укажите, есть ли дефекты";
     if (values.defectsPresent && !values.defectsDescription.trim()) e.defectsDescription = "Опишите дефекты";
     if (!values.title.trim()) e.title = "Укажите название";
@@ -234,6 +239,7 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     sizeValue: multi ? values.sizes[0] : values.sizeValue,
     sizes: multi ? values.sizes : [],
     condition: values.condition,
+    hasTags: values.condition === "NEW_WITH_TAGS" ? values.hasTags : null,
     defectsPresent: values.defectsPresent,
     defectsDescription: values.defectsPresent ? values.defectsDescription.trim() : null,
     brand: values.brand.trim() || null,

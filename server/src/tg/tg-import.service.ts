@@ -263,6 +263,7 @@ export class TgImportService implements OnApplicationBootstrap {
       subcategory: item.subcategory,
       ...size,
       condition: 'NEW_WITH_TAGS',
+      hasTags: true,
       defectsPresent: false,
       brand: item.brand ?? cfg.ownBrand ?? null,
       color: color ?? null,

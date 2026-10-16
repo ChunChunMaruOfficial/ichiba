@@ -1,11 +1,15 @@
 import type { Condition, DeliveryMethod, ListingStatus, RequestStatus } from "./types";
 
 export const CONDITION_LABEL: Record<Condition, string> = {
-  NEW_WITH_TAGS: "Новое с биркой",
+  NEW_WITH_TAGS: "Новое",
   LIKE_NEW: "Как новое",
   GOOD: "Хорошее",
   VISIBLE_WEAR: "Заметные следы носки",
 };
+
+/** The condition as a buyer reads it: «Новое» says whether the tags are on, when the seller said so. */
+export const conditionLabel = (condition: Condition, hasTags?: boolean | null) =>
+  condition === "NEW_WITH_TAGS" && hasTags != null ? (hasTags ? "Новое с биркой" : "Новое без бирки") : CONDITION_LABEL[condition];
 
 export const DELIVERY_LABEL: Record<DeliveryMethod, string> = {
   IN_PERSON: "Передача лично",

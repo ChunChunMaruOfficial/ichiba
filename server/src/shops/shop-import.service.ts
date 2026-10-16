@@ -6,6 +6,7 @@ import { PRIVACY_VERSION } from '../auth/auth.service.js';
 import { categoryBySlug, SIZES } from '../catalog/catalog.js';
 import type { ListingInputT } from '../listings/listings.dto.js';
 import { ListingsService } from '../listings/listings.service.js';
+import { reclassifySeller } from '../listings/market.js';
 import { MediaService } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { type Rates, RatesService } from '../rates/rates.js';
@@ -298,8 +299,8 @@ export class ShopImportService implements OnApplicationBootstrap {
       ...(!user.brandVerifiedAt ? { brandVerifiedAt: new Date(), brandName: cfg.brandName } : {}),
     };
     if (Object.keys(patch).length) await this.prisma.user.update({ where: { id: user.id }, data: patch });
-    // The status granted just now: what the account already lists moves into the catalogue with it.
-    if (!user.brandVerifiedAt) await this.prisma.listing.updateMany({ where: { sellerId: user.id }, data: { market: 'CATALOG' } });
+    // The status granted just now: the account's items follow the catalogue rules (an admin's own choices stay).
+    if (!user.brandVerifiedAt) await reclassifySeller(this.prisma, user.id, { brandVerifiedAt: new Date(), catalogApprovedAt: user.catalogApprovedAt });
     if (!user.avatarId && cfg.logoUrl) {
       try {
         const photo = await this.media.upload(user.id, jpegFile(await squareLogo(await download(cfg.logoUrl)), 'avatar.jpg'), 'avatar');
@@ -358,6 +359,7 @@ export class ShopImportService implements OnApplicationBootstrap {
       subcategory: offer.kind.subcategory,
       ...this.sizeFields(offer),
       condition: 'NEW_WITH_TAGS',
+      hasTags: true,
       defectsPresent: false,
       brand: cfg.brandName,
       color: color ?? null,

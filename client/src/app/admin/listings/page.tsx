@@ -9,7 +9,7 @@ import { api, ApiError } from "@/lib/api";
 import { formatPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 
-type Row = Card & { blockedReason: string | null; market: "brands" | "resale" };
+type Row = Card & { blockedReason: string | null; market: "brands" | "resale"; marketByAdmin: boolean };
 
 const TABS = [
   ["BLOCKED", "Заблокированные"],
@@ -19,7 +19,8 @@ const TABS = [
 
 /**
  * Blocked listings with a manual unblock; items on sale with their section (catalogue or «Вторичка»), which an
- * admin can change for one item under the platform rules. Search by title or seller.
+ * admin can change for one item under the platform rules. A moved item stays where the admin put it, whatever
+ * later happens to the seller's status. Search by title or seller.
  */
 export default function AdminListingsPage() {
   const [q, setQ] = useState("");
@@ -66,6 +67,7 @@ export default function AdminListingsPage() {
                 </Link>
                 <p className="text-sm text-muted">
                   @{l.seller.username} · <span className="tabular">{formatPrice(l.price)}</span> · {l.market === "brands" ? "каталог" : "вторичка"}
+                  {l.marketByAdmin ? " (решение админа)" : ""}
                   {l.isBrand ? " · бренд" : ""}
                 </p>
                 {l.blockedReason && <p className="text-sm text-danger">{l.blockedReason}</p>}

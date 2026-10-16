@@ -41,7 +41,10 @@ export type NotificationType =
   | 'offer_likers'
   | 'offer_auto_accepted'
   | 'brand_approved'
-  | 'brand_rejected';
+  | 'brand_rejected'
+  | 'catalog_approved'
+  | 'catalog_rejected'
+  | 'dispute_resolved';
 
 /** In-app notifications, pushed live over SSE (frame 15). Email carries sign-in codes only. */
 @Injectable()

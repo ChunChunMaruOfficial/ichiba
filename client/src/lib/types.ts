@@ -99,6 +99,8 @@ export interface Card {
   priceNegotiable?: boolean;
   /** «Несколько размеров»: a size is picked on the item page. */
   multiSize?: boolean;
+  /** «Новое»: с биркой (true) или без (false). */
+  hasTags?: boolean | null;
   previousPrice: number | null;
   originalPrice?: number | null;
   hasVideo?: boolean;
@@ -215,6 +217,8 @@ export interface ListingDetail {
   sizeSystem: SizeSystem | null;
   size: string | null;
   condition: Condition | null;
+  /** «Новое»: с биркой (true) или без (false). */
+  hasTags?: boolean | null;
   defectsPresent: boolean | null;
   defectsDescription: string | null;
   brand: string | null;

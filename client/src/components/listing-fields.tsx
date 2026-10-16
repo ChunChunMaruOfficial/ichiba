@@ -168,7 +168,7 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
               key={c.value}
               name="condition"
               checked={values.condition === c.value}
-              onChange={() => set({ condition: c.value })}
+              onChange={() => set({ condition: c.value, ...(c.value === "NEW_WITH_TAGS" ? {} : { hasTags: null }) })}
               disabled={locked}
               seal={CONDITION_GRADE[c.value as keyof typeof CONDITION_GRADE] ?? "品"}
               title={c.label}
@@ -185,6 +185,19 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
           ))}
         </div>
       </Field>
+
+      {values.condition === "NEW_WITH_TAGS" && (
+        <Field label="Бирка" required error={errors.hasTags} hint={lockedHint(locked)}>
+          <div className="flex gap-2">
+            <Chip disabled={locked} active={values.hasTags === true} onClick={() => set({ hasTags: true })}>
+              Есть
+            </Chip>
+            <Chip disabled={locked} active={values.hasTags === false} onClick={() => set({ hasTags: false })}>
+              Нет
+            </Chip>
+          </div>
+        </Field>
+      )}
 
       <Field label="Дефекты" required error={errors.defects} hint={lockedHint(locked)}>
         <div className="flex gap-2">

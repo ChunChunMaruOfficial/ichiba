@@ -125,6 +125,9 @@ model User {
   /// «Бренд»: confirmed by an admin from a brand application; it can put seals on its items (Listing.labels).
   brandVerifiedAt   DateTime?
   brandName         String?
+  /// A seller who is not a brand (e.g. a reseller of original items) let into the main catalogue by an admin after
+  /// a review of the seller and their stock: their new items with tags are listed there. Null = not admitted.
+  catalogApprovedAt DateTime?
   onboardedAt       DateTime?
   /// Profile photo (one of the user's photos); shown on the profile and wardrobe cards.
   avatarId          String?   @unique
@@ -189,6 +192,8 @@ model Listing {
   sizeSystem         SizeSystem?
   sizeValue          String?
   condition          Condition?
+  /// «Новое» (NEW_WITH_TAGS): whether the tags are still on — true с биркой, false без бирки; null for worn items.
+  hasTags            Boolean?
   price              Int?
   previousPrice      Int?
   defectsPresent     Boolean?
@@ -206,10 +211,14 @@ model Listing {
   priceNegotiable    Boolean          @default(false)
   /// Hidden by an admin together with the rest of the account's listings; only an admin brings it back.
   hiddenByAdmin      Boolean          @default(false)
+  /// Hidden only because its seller was blocked: unblocking the seller puts it back on sale (nothing else does).
+  hiddenByBlock      Boolean          @default(false)
   saleType           SaleType         @default(FIXED)
   /// Section of the site, set by the server only: a brand's items go to the catalogue, everyone else's to «Вторичка»;
   /// an admin can move a single item either way (a reseller's new original item, a brand's worn one).
   market             ListingMarket    @default(RESALE)
+  /// The section was chosen by an admin for this item: automatic rules (seller status, condition) never change it.
+  marketByAdmin      Boolean          @default(false)
   /// Auction settings, applied when the listing is published (decision D16).
   auctionStep        Int?
   auctionReserve     Int?
@@ -910,6 +919,9 @@ model ShopProduct {
 /// A seller asks for the «Бренд» status from Settings; an admin reviews it in the admin panel.
 model BrandApplication {
   id          String    @id @default(uuid())
+  /// BRAND: the «Бренд» status. CATALOG: a seller who isn't a brand asks to list their new original items in the
+  /// main catalogue (same review, same admin screen).
+  kind        String    @default("BRAND")
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   brandName   String

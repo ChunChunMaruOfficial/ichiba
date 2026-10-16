@@ -28,6 +28,8 @@ export interface NotificationRow {
     /** brand_approved / brand_rejected */
     brand?: string;
     note?: string | null;
+    /** dispute_resolved: complete | cancel. */
+    outcome?: string;
   };
   readAt: string | null;
   createdAt: string;
@@ -46,6 +48,9 @@ const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => strin
   deal_in_transit: (p) => `«${p.title}» в пути${p.trackingNumber ? `, трек ${p.trackingNumber}` : ""}`,
   brand_approved: (p) => `Статус бренда «${p.brand}» подтверждён — печать «Бренд» уже на ваших вещах`,
   brand_rejected: (p) => `Заявка на статус бренда «${p.brand}» отклонена${p.note ? `: ${p.note}` : ""}`,
+  catalog_approved: () => "Вас допустили в основной каталог — новые вещи с биркой теперь показываются там",
+  catalog_rejected: (p) => `Заявка на размещение в основном каталоге отклонена${p.note ? `: ${p.note}` : ""}`,
+  dispute_resolved: (p) => `Спор по «${p.title}» решён: ${p.outcome === "complete" ? "сделка завершена" : "сделка отменена"}${p.reason ? ` — ${p.reason}` : ""}`,
   deal_completed: (p) => `Сделка по «${p.title}» завершена${p.sizes?.length ? ` · продан размер ${p.sizes.join(", ")} — уберите его из наличия` : ""}`,
   price_drop: (p) => `Цена снижена: «${p.title}» — ${p.newPrice} BYN вместо ${p.oldPrice}`,
   item_reserved: (p) => `«${p.title}» из избранного зарезервирована`,

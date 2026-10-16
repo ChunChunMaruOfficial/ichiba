@@ -11,7 +11,7 @@ import { useToast } from "@/components/toast";
 import { ManekiNeko } from "@/components/shop/maneki-neko";
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconX, Input, OptionCard, PriceTag, Skeleton, StatusBadge, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { CONDITION_LABEL, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, items as itemsLabel, plural } from "@/lib/labels";
+import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, items as itemsLabel, plural } from "@/lib/labels";
 import type { CartGroup, Deal, Me } from "@/lib/types";
 
 /** Guests have a cart too (kept in the browser); signing in is asked only at checkout. */
@@ -185,7 +185,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
               <Link href={`/item/${i.id}`} className="block truncate font-medium hover:underline">
                 {i.title}
               </Link>
-              <p className="text-sm text-ink-2">{[i.size, i.condition && CONDITION_LABEL[i.condition]].filter(Boolean).join(" · ")}</p>
+              <p className="text-sm text-ink-2">{[i.size, i.condition && conditionLabel(i.condition, i.hasTags)].filter(Boolean).join(" · ")}</p>
               <p className="tabular mt-1 font-semibold">{formatPrice(i.price)}</p>
               {i.status !== "PUBLISHED" && <StatusBadge status={i.status} className="mt-1" />}
             </div>

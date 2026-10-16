@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CONDITION_LABEL, DELIVERY_LABEL } from "@/lib/labels";
+import { conditionLabel, DELIVERY_LABEL } from "@/lib/labels";
 import { jsonLd, serverFetch, SITE_URL, truncate } from "@/lib/server";
 import type { ListingDetail, ListingResponse } from "@/lib/types";
 import { ItemView } from "./item-view";
@@ -17,7 +17,7 @@ async function load(id: string) {
 const isDetail = (l: ListingResponse | null | undefined): l is ListingDetail => !!l && !("unavailable" in l);
 
 function describe(l: ListingDetail) {
-  const facts = [l.size && `размер ${l.size}`, l.brand, l.condition && CONDITION_LABEL[l.condition].toLowerCase(), l.city].filter(Boolean).join(", ");
+  const facts = [l.size && `размер ${l.size}`, l.brand, l.condition && conditionLabel(l.condition, l.hasTags).toLowerCase(), l.city].filter(Boolean).join(", ");
   const price = l.auction?.status === "ACTIVE" ? `аукцион, ставка от ${l.auction.currentBid ?? l.auction.startPrice} BYN` : l.price != null ? `${l.price} BYN` : "";
   const text = [price && `${l.title} — ${price}`, facts, l.description].filter(Boolean).join(". ");
   return truncate(text, 160);

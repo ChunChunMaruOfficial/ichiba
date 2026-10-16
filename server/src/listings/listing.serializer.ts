@@ -44,6 +44,8 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     /** «Несколько размеров»: the buyer picks a size on the item page before buying. */
     multiSize: l.sizes.length > 1,
     condition: l.condition,
+    /** «Новое»: с биркой (true) или без (false). */
+    hasTags: l.hasTags,
     brand: l.brand,
     category: l.category,
     status: l.status,

@@ -28,7 +28,7 @@ export { type Market, marketOf, marketWhere };
 const VISIBLE_IN_FEED: ListingStatus[] = ['PUBLISHED', 'RESERVED'];
 const ACTIVE_REQUEST_STATUSES = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT', 'WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED'] as const;
 /** Fields frozen while a deal is in progress (frame 10 EDIT ITEM). */
-const LOCKED_WHEN_RESERVED = ['price', 'priceNegotiable', 'sizeValue', 'sizeSystem', 'condition', 'defectsPresent', 'defectsDescription'] as const;
+const LOCKED_WHEN_RESERVED = ['price', 'priceNegotiable', 'sizeValue', 'sizeSystem', 'condition', 'hasTags', 'defectsPresent', 'defectsDescription'] as const;
 const CANDIDATE_POOL = 1000;
 /** Width to height of a category tile on the home page. */
 const TILE_RATIO = 4 / 5;
@@ -76,11 +76,11 @@ export class ListingsService {
   // ---------- create / edit ----------
 
   async create(userId: string, input: ListingInputT) {
-    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { city: true, brandVerifiedAt: true } });
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { city: true, brandVerifiedAt: true, catalogApprovedAt: true } });
     const data = this.toData(input);
     if (!me?.brandVerifiedAt) delete data.labels;
     const listing = await this.prisma.listing.create({
-      data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...data, market: marketFor(me) },
+      data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...data, market: marketFor(me, data.condition, data.hasTags) },
     });
     if (input.photos) await this.attachPhotos(userId, listing.id, input.photos);
     if (input.videoId !== undefined) await this.attachVideo(userId, listing.id, input.videoId);
@@ -116,7 +116,12 @@ export class ListingsService {
       if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Изменения не прошли проверку', code: 'MODERATION', fields: verdict.fields });
     }
 
-    await this.prisma.listing.update({ where: { id }, data });
+    // A new condition or tags can change the section (a worn item leaves the catalogue), unless an admin placed the item.
+    const condition = data.condition !== undefined ? data.condition : listing.condition;
+    const hasTags = data.hasTags !== undefined ? data.hasTags : condition === 'NEW_WITH_TAGS' ? listing.hasTags : null;
+    const changed = condition !== listing.condition || hasTags !== listing.hasTags;
+    const market = changed && !listing.marketByAdmin ? await this.autoMarket(userId, condition, hasTags) : undefined;
+    await this.prisma.listing.update({ where: { id }, data: { ...data, ...(market ? { market } : {}) } });
     if (input.photos) await this.attachPhotos(userId, id, input.photos);
     if (input.videoId !== undefined) await this.attachVideo(userId, id, input.videoId);
     if (verdict) await this.moderator.record(prospective, verdict);
@@ -133,6 +138,12 @@ export class ListingsService {
     return this.getForOwner(userId, id);
   }
 
+  /** The automatic section of an item of this seller in this condition (see market.ts). */
+  private async autoMarket(sellerId: string, condition: ListingInputT['condition'], hasTags: boolean | null | undefined) {
+    const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { brandVerifiedAt: true, catalogApprovedAt: true } });
+    return marketFor(seller, condition, hasTags);
+  }
+
   /** Plain column values (no Prisma update operators), so they work for create, update and comparisons. */
   private toData(input: ListingInputT) {
     const { photos: _photos, videoId: _videoId, measurements, aiAttributes, ...rest } = input;
@@ -144,6 +155,8 @@ export class ListingsService {
     if (measurements !== undefined) data.measurements = (measurements ?? undefined) as Prisma.InputJsonValue | undefined;
     if (aiAttributes !== undefined) data.aiAttributes = (aiAttributes ?? undefined) as Prisma.InputJsonValue | undefined;
     if (input.defectsPresent === false) data.defectsDescription = null;
+    // Tags only mean something on a new item.
+    if (input.condition !== undefined && input.condition !== 'NEW_WITH_TAGS') data.hasTags = null;
     if (input.brand !== undefined) data.brand = canonicalBrand(input.brand);
     // «Несколько размеров»: one listing holds every size; the first is its sizeValue. Older clients still send
     // extraSizes (they used to become copies) — those are folded in the same way.
@@ -209,6 +222,7 @@ export class ListingsService {
     if (!listing.category) fields.category = 'Выберите категорию';
     if (sizeRequired(listing.category) && !listing.sizeValue) fields.size = 'Укажите размер';
     if (!listing.condition) fields.condition = 'Выберите состояние';
+    else if (listing.condition === 'NEW_WITH_TAGS' && listing.hasTags == null) fields.hasTags = 'Укажите, есть ли бирка';
     if (listing.defectsPresent == null) fields.defects = 'Укажите, есть ли дефекты';
     if (listing.defectsPresent && !listing.defectsDescription?.trim()) fields.defectsDescription = 'Опишите дефекты';
     if (!listing.price && !listing.priceNegotiable) fields.price = 'Укажите цену';
@@ -242,11 +256,20 @@ export class ListingsService {
 
     const verdict = await this.checkPublishable(userId, listing, opts.trustedPhotos);
     // An account whose listings an admin hid: new items (the shop import too) are saved hidden as well.
-    const seller = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { listingsHiddenAt: true } });
+    const seller = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { listingsHiddenAt: true, brandVerifiedAt: true, catalogApprovedAt: true } });
     const hidden = !!seller.listingsHiddenAt;
     await this.prisma.listing.update({
       where: { id },
-      data: { status: hidden ? 'HIDDEN' : 'PUBLISHED', hiddenByAdmin: hidden, publishedAt: listing.publishedAt ?? new Date(), liftedAt: listing.liftedAt ?? new Date(), scheduledAt: null },
+      data: {
+        status: hidden ? 'HIDDEN' : 'PUBLISHED',
+        hiddenByAdmin: hidden,
+        // A draft is classified when it first goes live, with everything known (it may predate a change of the seller's
+        // status). An item brought back from hidden keeps its section: it never moves just for being shown again.
+        ...(listing.status === 'DRAFT' && !listing.marketByAdmin ? { market: marketFor(seller, listing.condition, listing.hasTags) } : {}),
+        publishedAt: listing.publishedAt ?? new Date(),
+        liftedAt: listing.liftedAt ?? new Date(),
+        scheduledAt: null,
+      },
     });
     await this.moderator.record(listing, verdict);
     if (hidden) return this.getForOwner(userId, id);
@@ -436,6 +459,38 @@ export class ListingsService {
     ]);
   }
 
+  /**
+   * The seller was blocked: everything on sale is hidden and marked as hidden by the block, so unblocking brings back
+   * exactly these items. Drafts, items the seller or an admin hid, moderator-blocked, reserved, sold and deleted items
+   * are left as they are.
+   */
+  async hideForBlock(sellerId: string) {
+    const onSale = await this.prisma.listing.findMany({ where: { sellerId, status: 'PUBLISHED' }, select: { id: true } });
+    const ids = onSale.map((l) => l.id);
+    await this.prisma.listing.updateMany({ where: { id: { in: ids }, status: 'PUBLISHED' }, data: { status: 'HIDDEN', hiddenByBlock: true } });
+    await this.withdrawFromSale(ids);
+    return ids.length;
+  }
+
+  /**
+   * The seller was unblocked: items hidden only by the block go back on sale. An item hidden for another reason too
+   * (all of the account's items hidden by an admin) stays hidden; one blocked by a moderator or deleted meanwhile
+   * isn't HIDDEN any more and is not touched. The mark is cleared either way.
+   */
+  async restoreAfterUnblock(sellerId: string) {
+    const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { listingsHiddenAt: true } });
+    // The account's items are also hidden by an admin: they wait for «Показать объявления» instead.
+    const hiddenByAdminToo = !!seller?.listingsHiddenAt;
+    const [{ count }] = await this.prisma.$transaction([
+      this.prisma.listing.updateMany({
+        where: { sellerId, hiddenByBlock: true, status: 'HIDDEN', hiddenByAdmin: false },
+        data: hiddenByAdminToo ? { hiddenByAdmin: true } : { status: 'PUBLISHED' },
+      }),
+      this.prisma.listing.updateMany({ where: { sellerId, hiddenByBlock: true }, data: { hiddenByBlock: false } }),
+    ]);
+    return hiddenByAdminToo ? 0 : count;
+  }
+
   /** A running auction can be stopped only before the first bid. */
   private async stopAuction(listingId: string) {
     const a = await this.prisma.auction.findFirst({ where: { listingId, status: 'ACTIVE' }, include: { _count: { select: { bids: true } } } });
@@ -544,6 +599,7 @@ export class ListingsService {
       sizeSystem: listing.sizeSystem,
       size: listing.sizeValue,
       condition: listing.condition,
+      hasTags: listing.hasTags,
       defectsPresent: listing.defectsPresent,
       defectsDescription: listing.defectsDescription,
       brand: listing.brand,
