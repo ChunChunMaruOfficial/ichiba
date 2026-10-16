@@ -74,7 +74,13 @@ export class BrandApplicationsService {
     const name = brandName?.trim() || a.brandName;
     await this.prisma.$transaction([
       this.prisma.brandApplication.update({ where: { id }, data: { status: approve ? 'APPROVED' : 'REJECTED', adminNote: note, reviewedAt: new Date() } }),
-      ...(approve ? [this.prisma.user.update({ where: { id: a.userId }, data: { brandVerifiedAt: new Date(), brandName: name } })] : []),
+      ...(approve
+        ? [
+            this.prisma.user.update({ where: { id: a.userId }, data: { brandVerifiedAt: new Date(), brandName: name } }),
+            // A brand sells in the main catalogue: its items move there from «Вторичка».
+            this.prisma.listing.updateMany({ where: { sellerId: a.userId }, data: { market: 'CATALOG' } }),
+          ]
+        : []),
       this.prisma.moderationAction.create({ data: { moderatorId: adminId, targetType: 'USER', targetId: a.userId, action: approve ? 'brand_approve' : 'brand_reject', reason: note } }),
     ]);
     await this.notifications.notify(a.userId, approve ? 'brand_approved' : 'brand_rejected', { brand: name, note });
@@ -83,7 +89,11 @@ export class BrandApplicationsService {
 
   /** Takes the status away (e.g. granted by mistake). */
   async revoke(adminId: string, userId: string, note: string | null) {
-    await this.prisma.user.update({ where: { id: userId }, data: { brandVerifiedAt: null } });
+    // Without the status its items go back to «Вторичка», as everyone else's (an admin can let single items back in).
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { brandVerifiedAt: null } }),
+      this.prisma.listing.updateMany({ where: { sellerId: userId }, data: { market: 'RESALE' } }),
+    ]);
     await this.prisma.moderationAction.create({ data: { moderatorId: adminId, targetType: 'USER', targetId: userId, action: 'brand_revoke', reason: note } });
     return { ok: true };
   }

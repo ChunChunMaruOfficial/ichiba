@@ -21,7 +21,8 @@ export class FavoritesController {
   @Get()
   async list(@CurrentUser() user: AuthUser, @Query('sort') sort = 'recent', @Query('available') available?: string) {
     const favs = await this.prisma.favorite.findMany({
-      where: { userId: user.id, listing: available === '1' ? { status: 'PUBLISHED' } : undefined },
+      // A deleted or moderator-blocked item is gone for the buyer: its page shows nothing, so the list doesn't either.
+      where: { userId: user.id, listing: available === '1' ? { status: 'PUBLISHED' } : { status: { notIn: ['DELETED', 'BLOCKED', 'DRAFT'] } } },
       include: { listing: { include: cardInclude } },
       orderBy: { createdAt: 'desc' },
     });

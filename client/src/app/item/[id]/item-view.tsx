@@ -263,7 +263,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         )}
       </span>
     ) : null],
-    ["Бренд", l.brand && <Link href={withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, l.seller.brand ? "brands" : "resale")} className="hover:underline">{l.brand}</Link>],
+    ["Бренд", l.brand && <Link href={withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, l.market ?? (l.seller.brand ? "brands" : "resale"))} className="hover:underline">{l.brand}</Link>],
     ["Для кого", meta?.genders.find((g) => g.value === l.gender)?.label],
     ["Состояние", l.condition && CONDITION_LABEL[l.condition]],
     ["Цвет", color?.label],
@@ -407,7 +407,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         {l.categoryLabel && (
           <>
             {" / "}
-            <Link href={withMarket(`/search?category=${l.category}`, l.seller.brand ? "brands" : "resale")} className="hover:text-ink">{l.categoryLabel}</Link>
+            <Link href={withMarket(`/search?category=${l.category}`, l.market ?? (l.seller.brand ? "brands" : "resale"))} className="hover:text-ink">{l.categoryLabel}</Link>
           </>
         )}
         {l.subcategoryLabel && <> / <span className="text-ink-2">{l.subcategoryLabel}</span></>}

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
@@ -80,6 +80,9 @@ export class SwipeController {
   @Post()
   @HttpCode(200)
   async swipe(@CurrentUser() user: AuthUser, @Body(new ZodPipe(SwipeDto)) dto: z.infer<typeof SwipeDto>) {
+    // Same rule as ♡: only items others can see (no saving drafts or hidden items, no 500 on a wrong id).
+    const listing = await this.prisma.listing.findUnique({ where: { id: dto.listingId }, select: { status: true } });
+    if (!listing || !['PUBLISHED', 'RESERVED', 'SOLD'].includes(listing.status)) throw new NotFoundException({ message: 'Такой вещи нет' });
     if (dto.direction === 'right') {
       const existing = await this.prisma.favorite.findUnique({ where: { userId_listingId: { userId: user.id, listingId: dto.listingId } } });
       if (!existing) {

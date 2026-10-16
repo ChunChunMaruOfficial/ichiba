@@ -77,7 +77,9 @@ function BuyButton({ card, className }: { card: Card; className?: string }) {
       disabled={reserved}
       onClick={(e) => {
         e.preventDefault();
-        requireAuth(() => router.push(`/buy/${card.id}`));
+        // A negotiable price or a size to pick is settled on the item page (offer, chat, size picker), not in the buy form.
+        if (card.priceNegotiable || card.multiSize) router.push(`/item/${card.id}`);
+        else requireAuth(() => router.push(`/buy/${card.id}`));
       }}
       className={clsx("btn-wa btn-wa-ink rounded-xl px-3 py-2 text-sm font-semibold disabled:bg-ink/10 disabled:text-ink-2", className)}
     >

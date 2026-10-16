@@ -41,6 +41,8 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     /** Owner's drafts only: when a scheduled draft goes live. */
     scheduledAt: l.status === 'DRAFT' ? l.scheduledAt : null,
     size: sizeLabel(l),
+    /** «Несколько размеров»: the buyer picks a size on the item page before buying. */
+    multiSize: l.sizes.length > 1,
     condition: l.condition,
     brand: l.brand,
     category: l.category,

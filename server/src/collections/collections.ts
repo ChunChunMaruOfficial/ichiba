@@ -57,7 +57,7 @@ export class CollectionsController {
   @Get(':id')
   async get(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     const c = await this.own(user.id, id);
-    const items = await this.prisma.collectionItem.findMany({ where: { collectionId: id }, include: { listing: { include: cardInclude } }, orderBy: { addedAt: 'desc' } });
+    const items = await this.prisma.collectionItem.findMany({ where: { collectionId: id, listing: { status: { notIn: ['DELETED', 'BLOCKED', 'DRAFT'] } } }, include: { listing: { include: cardInclude } }, orderBy: { addedAt: 'desc' } });
     const favs = new Set((await this.prisma.favorite.findMany({ where: { userId: user.id, listingId: { in: items.map((i) => i.listingId) } }, select: { listingId: true } })).map((f) => f.listingId));
     return { id: c.id, name: c.name, items: items.map((i) => serializeCard(i.listing, favs)) };
   }

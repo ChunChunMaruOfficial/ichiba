@@ -12,7 +12,7 @@ import { api, ApiError } from "@/lib/api";
 const NAV = [
   ["/admin", "Обзор"],
   ["/admin/moderation", "Модерация"],
-  ["/admin/listings", "Заблокированные"],
+  ["/admin/listings", "Объявления"],
   ["/admin/users", "Пользователи"],
   ["/admin/brands", "Бренды"],
   ["/admin/db", "База данных"],

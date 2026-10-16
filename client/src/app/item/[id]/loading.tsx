@@ -30,7 +30,9 @@ export default function ItemLoading() {
   const frame = photo ? Math.min(Math.max(photo.width / photo.height, 0.6), 1.5) : 0.8;
   // The page opens at its top, and before the first paint: the shell is short, so the browser would otherwise
   // keep the old scroll as far as it goes (the photo's frame off screen).
-  useLayoutEffect(() => window.scrollTo(0, 0), []);
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   return (
     // Taller than the screen, so the footer (and the branch over it) stays below until the page itself is in.
     <div className="mx-auto min-h-[140dvh] max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16" aria-busy aria-label="Загружаем вещь">

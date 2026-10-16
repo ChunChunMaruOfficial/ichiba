@@ -97,6 +97,8 @@ export interface Card {
   price: number | null;
   /** «Цена договорная»: no price, bought through an offer or a chat. */
   priceNegotiable?: boolean;
+  /** «Несколько размеров»: a size is picked on the item page. */
+  multiSize?: boolean;
   previousPrice: number | null;
   originalPrice?: number | null;
   hasVideo?: boolean;
@@ -199,6 +201,8 @@ export interface ListingDetail {
   title: string;
   /** Seals the brand chose for the item. */
   labels?: ListingLabel[];
+  /** Section the item is shown in: brands = the main catalogue, resale = «Вторичка». */
+  market?: "brands" | "resale";
   price: number | null;
   /** «Цена договорная»: no price, bought through an offer or a chat. */
   priceNegotiable?: boolean;

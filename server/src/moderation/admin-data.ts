@@ -6,6 +6,7 @@ import { AuthUser, CurrentUser, forgetSessionStatus } from '../auth/auth.guard.j
 import { ZodPipe } from '../common/zod.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ListingsService } from '../listings/listings.service.js';
 import { PrivacyService } from '../privacy/privacy.js';
 import { AdminGuard } from './moderation.js';
 
@@ -74,6 +75,7 @@ export class AdminDataController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly privacy: PrivacyService,
+    private readonly listings: ListingsService,
   ) {}
 
   // ---------- users ----------
@@ -165,7 +167,9 @@ export class AdminDataController {
     if (id === admin.id) throw new ForbiddenException({ message: 'Нельзя заблокировать себя' });
     await this.prisma.user.update({ where: { id }, data: { blockedAt: new Date() } });
     forgetSessionStatus(id);
-    await this.prisma.listing.updateMany({ where: { sellerId: id, status: 'PUBLISHED' }, data: { status: 'HIDDEN' } });
+    const onSale = await this.prisma.listing.findMany({ where: { sellerId: id, status: 'PUBLISHED' }, select: { id: true } });
+    await this.prisma.listing.updateMany({ where: { id: { in: onSale.map((l) => l.id) } }, data: { status: 'HIDDEN' } });
+    await this.listings.withdrawFromSale(onSale.map((l) => l.id));
     await this.log(admin.id, 'USER', id, 'block', dto.reason);
     return { ok: true };
   }
@@ -187,7 +191,9 @@ export class AdminDataController {
   @HttpCode(200)
   async hideListings(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     await this.prisma.user.update({ where: { id }, data: { listingsHiddenAt: new Date() } });
-    const { count } = await this.prisma.listing.updateMany({ where: { sellerId: id, status: 'PUBLISHED' }, data: { status: 'HIDDEN', hiddenByAdmin: true } });
+    const onSale = await this.prisma.listing.findMany({ where: { sellerId: id, status: 'PUBLISHED' }, select: { id: true } });
+    const { count } = await this.prisma.listing.updateMany({ where: { id: { in: onSale.map((l) => l.id) } }, data: { status: 'HIDDEN', hiddenByAdmin: true } });
+    await this.listings.withdrawFromSale(onSale.map((l) => l.id));
     await this.prisma.cartItem.deleteMany({ where: { listing: { sellerId: id, hiddenByAdmin: true } } });
     await this.log(admin.id, 'USER', id, 'hide_listings', `${count}`);
     return { ok: true, hidden: count };

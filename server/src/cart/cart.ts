@@ -50,7 +50,8 @@ export class CartController {
     const groups = new Map<string, { seller: { id: string; username: string; city: string | null }; tiers: BundleTier[]; items: ReturnType<typeof serializeCard>[]; deliveryOptions: string[] }>();
     for (const r of rows) {
       const l = r.listing;
-      if (l.status === 'DELETED') continue;
+      // Never shown by id: a deleted item, someone's draft, or one a moderator blocked (its page hides it too).
+      if (l.status === 'DELETED' || l.status === 'DRAFT' || l.status === 'BLOCKED') continue;
       const { bundleDiscounts, brandVerifiedAt: _brand, ...seller } = l.seller;
       const g = groups.get(l.sellerId) ?? { seller, tiers: tiersOf(bundleDiscounts), items: [], deliveryOptions: [...DELIVERY_ORDER] };
       // The size picked on a listing with several sizes replaces its «S · M · L».

@@ -81,6 +81,12 @@ enum SaleType {
   AUCTION
 }
 
+/// Where a listing is shown: the main catalogue (brands, and items an admin let in) or «Вторичка».
+enum ListingMarket {
+  CATALOG
+  RESALE
+}
+
 enum CodePurpose {
   VERIFY
   RESET
@@ -201,6 +207,9 @@ model Listing {
   /// Hidden by an admin together with the rest of the account's listings; only an admin brings it back.
   hiddenByAdmin      Boolean          @default(false)
   saleType           SaleType         @default(FIXED)
+  /// Section of the site, set by the server only: a brand's items go to the catalogue, everyone else's to «Вторичка»;
+  /// an admin can move a single item either way (a reseller's new original item, a brand's worn one).
+  market             ListingMarket    @default(RESALE)
   /// Auction settings, applied when the listing is published (decision D16).
   auctionStep        Int?
   auctionReserve     Int?
@@ -264,6 +273,7 @@ model Listing {
   @@index([status, liftedAt])
   @@index([sellerId, status])
   @@index([category, status])
+  @@index([market, status, liftedAt])
 }
 
 /// Where a photo's file lives. LOCAL = MEDIA_DRIVER storage (dev disk or S3), CLOUDINARY = uploaded by the browser.

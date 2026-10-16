@@ -298,6 +298,8 @@ export class ShopImportService implements OnApplicationBootstrap {
       ...(!user.brandVerifiedAt ? { brandVerifiedAt: new Date(), brandName: cfg.brandName } : {}),
     };
     if (Object.keys(patch).length) await this.prisma.user.update({ where: { id: user.id }, data: patch });
+    // The status granted just now: what the account already lists moves into the catalogue with it.
+    if (!user.brandVerifiedAt) await this.prisma.listing.updateMany({ where: { sellerId: user.id }, data: { market: 'CATALOG' } });
     if (!user.avatarId && cfg.logoUrl) {
       try {
         const photo = await this.media.upload(user.id, jpegFile(await squareLogo(await download(cfg.logoUrl)), 'avatar.jpg'), 'avatar');

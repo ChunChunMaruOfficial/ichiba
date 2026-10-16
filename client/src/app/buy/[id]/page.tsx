@@ -67,6 +67,19 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
     );
   }
   const l: ListingDetail = data;
+  // Bought on the item page, not with this form: a negotiable price (offer or chat), an auction (a bid), or a size
+  // still to pick. The server refuses such a request anyway; this sends the buyer where they can go on.
+  const pickOnItemPage = !confirming && (l.priceNegotiable || l.saleType === "AUCTION" || ((l.stockSizes?.length ?? 0) > 1 && !(size && l.stockSizes?.includes(size))));
+  if (pickOnItemPage) {
+    return (
+      <EmptyState
+        title={l.priceNegotiable ? "Цена договорная" : l.saleType === "AUCTION" ? "Это аукцион" : "Выберите размер"}
+        hint={l.priceNegotiable ? "Предложите свою цену или напишите продавцу на странице вещи" : l.saleType === "AUCTION" ? "Сделайте ставку на странице вещи" : "Размер выбирается на странице вещи"}
+      >
+        <ButtonLink href={`/item/${l.id}`}>Открыть вещь</ButtonLink>
+      </EmptyState>
+    );
+  }
   const ways = deliveryWays(l.deliveryOptions);
   const chosen = method ?? ways[0] ?? null;
   const cover = l.photos[0];

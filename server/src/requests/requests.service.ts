@@ -220,7 +220,7 @@ export class RequestsService {
     const listing = await tx.listing.findUniqueOrThrow({ where: { id: offer.listingId } });
     // Several sizes: the listing stays on sale for the other sizes; the seller takes the sold one off by hand.
     const reserved = multiSize(listing)
-      ? { count: listing.status === 'PUBLISHED' ? 1 : 0 }
+      ? { count: listing.status === 'PUBLISHED' && !!offer.size && listing.sizes.includes(offer.size) ? 1 : 0 }
       : await tx.listing.updateMany({ where: { id: listing.id, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
     if (!reserved.count) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
     return tx.buyRequest.create({
@@ -304,8 +304,10 @@ export class RequestsService {
 
     await this.prisma.$transaction(async (tx) => {
       const reserved = await tx.listing.updateMany({ where: { id: { in: single }, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
-      const onSale = await tx.listing.count({ where: { id: { in: multi }, status: 'PUBLISHED' } });
-      if (reserved.count + onSale !== listingIds.length) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
+      // A size the seller has taken off since the request (sold elsewhere) can't be sold again.
+      const stock = await tx.listing.findMany({ where: { id: { in: multi }, status: 'PUBLISHED' }, select: { id: true, sizes: true } });
+      const inStock = r.items.filter((i) => multiSize(i.listing) && stock.some((s) => s.id === i.listingId && !!i.size && s.sizes.includes(i.size))).length;
+      if (reserved.count + inStock !== listingIds.length) throw new ConflictException({ message: 'Вещь или выбранный размер уже недоступны', code: 'UNAVAILABLE' });
       const moved = await tx.buyRequest.updateMany({ where: { id, status: 'PENDING_SELLER' }, data: { status: 'WAITING_HANDOVER', expiresAt: null } });
       if (!moved.count) throw new ConflictException({ message: 'Статус сделки уже изменился — обновите страницу' });
       await tx.buyRequestEvent.createMany({

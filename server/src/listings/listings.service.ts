@@ -21,6 +21,9 @@ import { BodyMeasurements, fitHint, PreferredSizes } from './fit.js';
 import { hashDistance, MediaService, photoUrls, serializeVideo } from '../media/media.service.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
 import { LISTING_LABELS, type ListingInputT, type SearchQueryT } from './listings.dto.js';
+import { type Market, marketFor, marketOf, marketWhere } from './market.js';
+
+export { type Market, marketOf, marketWhere };
 
 const VISIBLE_IN_FEED: ListingStatus[] = ['PUBLISHED', 'RESERVED'];
 const ACTIVE_REQUEST_STATUSES = ['PENDING_SELLER', 'ACCEPTED', 'WAITING_PAYMENT', 'WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED'] as const;
@@ -31,18 +34,6 @@ const CANDIDATE_POOL = 1000;
 const TILE_RATIO = 4 / 5;
 /** Edits of these on a live listing are moderated again. */
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
-
-/** `all` is only ever asked for on purpose («Искать и на вторичке» in the filters). */
-export type Market = 'brands' | 'resale' | 'all';
-
-/**
- * Brands (sellers whose brand status an admin confirmed) and the second-hand market are shown apart: brands don't
- * want to stand next to people's closets. Anything that lists items picks one, brands when nothing is said.
- */
-export const marketWhere = (market: Market = 'brands'): Prisma.ListingWhereInput =>
-  market === 'all' ? {} : market === 'resale' ? { seller: { brandVerifiedAt: null } } : { seller: { brandVerifiedAt: { not: null } } };
-/** The market an item belongs to, by its seller. */
-const marketOf = (seller: { brandVerifiedAt: Date | null }): Market => (seller.brandVerifiedAt ? 'brands' : 'resale');
 
 @Injectable()
 export class ListingsService {
@@ -89,7 +80,7 @@ export class ListingsService {
     const data = this.toData(input);
     if (!me?.brandVerifiedAt) delete data.labels;
     const listing = await this.prisma.listing.create({
-      data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...data },
+      data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...data, market: marketFor(me) },
     });
     if (input.photos) await this.attachPhotos(userId, listing.id, input.photos);
     if (input.videoId !== undefined) await this.attachVideo(userId, listing.id, input.videoId);
@@ -430,6 +421,21 @@ export class ListingsService {
     return { ok: true };
   }
 
+  /**
+   * Taken off sale by an admin (blocked item, blocked or hidden account): pending offers are void and a running
+   * auction is cancelled, bids or not, so the closing cron never tries to award an item that is gone.
+   */
+  async withdrawFromSale(listingIds: string[]) {
+    if (!listingIds.length) return;
+    const auctioned = await this.prisma.auction.findMany({ where: { listingId: { in: listingIds }, status: 'ACTIVE' }, select: { listingId: true } });
+    await this.prisma.$transaction([
+      this.prisma.offer.updateMany({ where: { listingId: { in: listingIds }, status: 'PENDING' }, data: { status: 'CANCELLED' } }),
+      this.prisma.auction.updateMany({ where: { listingId: { in: listingIds }, status: 'ACTIVE' }, data: { status: 'CANCELLED' } }),
+      // Back on sale later (unblocked), such an item is sold at a fixed price, as after an auction without a sale.
+      this.prisma.listing.updateMany({ where: { id: { in: auctioned.map((a) => a.listingId) } }, data: { saleType: 'FIXED' } }),
+    ]);
+  }
+
   /** A running auction can be stopped only before the first bid. */
   private async stopAuction(listingId: string) {
     const a = await this.prisma.auction.findFirst({ where: { listingId, status: 'ACTIVE' }, include: { _count: { select: { bids: true } } } });
@@ -527,6 +533,8 @@ export class ListingsService {
       previousPrice: listing.previousPrice,
       originalPrice: listing.originalPrice,
       labels: listing.labels,
+      /** Section the item is shown in (brands = the main catalogue): links from its page stay in it. */
+      market: marketOf(listing),
       /** «Несколько размеров»: every size in stock (empty for a one-size listing). */
       stockSizes: listing.sizes,
       category: listing.category,
@@ -595,11 +603,6 @@ export class ListingsService {
     };
   }
 
-  private async listingMarket(sellerId: string): Promise<Market> {
-    const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { brandVerifiedAt: true } });
-    return marketOf(seller ?? { brandVerifiedAt: null });
-  }
-
   /**
    * A seller's 2×2 collage: their latest items, one of each kind (a hoodie, jeans, shoes, a cap — not four caps),
    * topped up with the latest others when they sell fewer kinds.
@@ -665,7 +668,7 @@ export class ListingsService {
     const rows = await this.prisma.listing.findMany({
       where: {
         status: { in: VISIBLE_IN_FEED },
-        ...marketWhere(await this.listingMarket(listing.sellerId)),
+        ...marketWhere(marketOf(listing)),
         id: { not: listing.id },
         category: listing.category,
         ...(viewerId ? { sellerId: { not: viewerId } } : {}),
@@ -754,7 +757,7 @@ export class ListingsService {
     let forYou: Awaited<ReturnType<ListingsService['cards']>> = [];
     if (viewerId && (await this.recs.hasProfile(viewerId))) {
       const exclude = new Set([id, ...similar.map((s) => s.id), ...fromSeller.map((s) => s.id)]);
-      forYou = (await this.feed('for_you', 0, 16, viewerId, await this.listingMarket(listing.sellerId))).items.filter((c) => !exclude.has(c.id)).slice(0, 8);
+      forYou = (await this.feed('for_you', 0, 16, viewerId, marketOf(listing))).items.filter((c) => !exclude.has(c.id)).slice(0, 8);
     }
     return {
       similar: await this.cards(similar, viewerId),
@@ -862,7 +865,13 @@ export class ListingsService {
   private async topWardrobes(viewerId: string | undefined, market: Market) {
     const top = await this.prisma.listing.groupBy({
       by: ['sellerId'],
-      where: { status: 'PUBLISHED', sellerId: viewerId ? { not: viewerId } : undefined, ...marketWhere(market) },
+      where: {
+        status: 'PUBLISHED',
+        sellerId: viewerId ? { not: viewerId } : undefined,
+        ...marketWhere(market),
+        // The brands' block shows brands: a reseller whose single item an admin let into the catalogue isn't one.
+        ...(market === 'brands' ? { seller: { brandVerifiedAt: { not: null } } } : {}),
+      },
       _count: true,
       orderBy: { _count: { sellerId: 'desc' } },
       take: 6,
@@ -884,8 +893,9 @@ export class ListingsService {
       status: 'PUBLISHED',
       // Wardrobes are the second-hand market's people; brands stand on the home page.
       ...marketWhere('resale'),
+      seller: { brandVerifiedAt: null },
       ...(viewerId ? { sellerId: { not: viewerId } } : {}),
-      ...(q?.trim() ? { seller: { username: { contains: q.trim().replace(/^@/, '').toLowerCase() } } } : {}),
+      ...(q?.trim() ? { seller: { brandVerifiedAt: null, username: { contains: q.trim().replace(/^@/, '').toLowerCase() } } } : {}),
     };
     const all = await this.prisma.listing.groupBy({ by: ['sellerId'], where, _max: { publishedAt: true }, orderBy: { _max: { publishedAt: 'desc' } } });
     const page = all.slice(offset, offset + limit);

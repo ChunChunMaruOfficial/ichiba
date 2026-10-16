@@ -23,7 +23,7 @@ import { ADMIN_COOKIE, AuthUser, CurrentUser, forgetSessionStatus } from '../aut
 import { ZodPipe } from '../common/zod.js';
 import type { Prisma, ReportStatus } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
-import { ListingsService } from '../listings/listings.service.js';
+import { ListingsService, marketOf } from '../listings/listings.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -103,6 +103,7 @@ const ResolveDto = z.object({
   reason: z.string().trim().max(300).nullish(),
 });
 const BlockDto = z.object({ reason: z.string().trim().min(3, 'Укажите причину').max(300) });
+const MarketDto = z.object({ market: z.enum(['brands', 'resale']), reason: z.string().trim().max(300).nullish() });
 
 /** Internal admin section of the same app (frame 30 item 7). */
 @Controller('admin')
@@ -230,7 +231,24 @@ export class AdminController {
       ...(q ? { OR: [{ title: { contains: q, mode: 'insensitive' } }, { seller: { username: { contains: q.toLowerCase() } } }] } : {}),
     };
     const rows = await this.prisma.listing.findMany({ where, include: cardInclude, orderBy: { updatedAt: 'desc' }, take: 100 });
-    return { items: rows.map((l) => ({ ...serializeCard(l), blockedReason: l.blockedReason })) };
+    return { items: rows.map((l) => ({ ...serializeCard(l), blockedReason: l.blockedReason, market: marketOf(l) })) };
+  }
+
+  /**
+   * Moves one item between the main catalogue and «Вторичка», by an admin's decision under the platform rules:
+   * a reseller's new original item into the catalogue, a brand's worn item out of it. Logged like any moderation.
+   */
+  @Post('listings/:id/market')
+  @HttpCode(200)
+  async setMarket(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(MarketDto)) dto: z.infer<typeof MarketDto>) {
+    const l = await this.prisma.listing.findUnique({ where: { id }, select: { status: true, market: true } });
+    if (!l || l.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
+    const market = dto.market === 'brands' ? 'CATALOG' : 'RESALE';
+    if (l.market !== market) {
+      await this.prisma.listing.update({ where: { id }, data: { market } });
+      await this.prisma.moderationAction.create({ data: { moderatorId: admin.id, targetType: 'LISTING', targetId: id, action: `market_${dto.market}`, reason: dto.reason ?? null } });
+    }
+    return { ok: true, market: dto.market };
   }
 
   @Post('listings/:id/block')
@@ -257,6 +275,7 @@ export class AdminController {
     if (!l) throw new NotFoundException({ message: 'Такой вещи нет' });
     if (l.status === 'RESERVED') throw new BadRequestException({ message: 'Идёт сделка — сначала разберите её' });
     await this.prisma.listing.update({ where: { id }, data: { status: 'BLOCKED', blockedReason: reason } });
+    await this.listings.withdrawFromSale([id]);
     await this.listings.declinePendingRequests(id, 'Объявление снято модератором');
     await this.prisma.moderationAction.create({ data: { moderatorId: adminId, targetType: 'LISTING', targetId: id, action: 'block', reason } });
     await this.notifications.notify(l.sellerId, 'listing_blocked', { listingId: id, title: l.title, reason });
@@ -274,7 +293,9 @@ export class AdminController {
   private async blockUser(adminId: string, userId: string, reason: string) {
     await this.prisma.user.update({ where: { id: userId }, data: { blockedAt: new Date() } });
     forgetSessionStatus(userId);
-    await this.prisma.listing.updateMany({ where: { sellerId: userId, status: 'PUBLISHED' }, data: { status: 'HIDDEN' } });
+    const onSale = await this.prisma.listing.findMany({ where: { sellerId: userId, status: 'PUBLISHED' }, select: { id: true } });
+    await this.prisma.listing.updateMany({ where: { id: { in: onSale.map((l) => l.id) } }, data: { status: 'HIDDEN' } });
+    await this.listings.withdrawFromSale(onSale.map((l) => l.id));
     await this.prisma.moderationAction.create({ data: { moderatorId: adminId, targetType: 'USER', targetId: userId, action: 'block', reason } });
   }
 }
