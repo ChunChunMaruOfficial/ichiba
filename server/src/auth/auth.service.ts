@@ -31,6 +31,8 @@ export const DEV_ANY_CODE = process.env.AUTH_DEV_ANY_CODE === 'true' && process.
 const appleJwks = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
 
 export const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
+/** Nicks an account made by hand may carry (a shop named in Cyrillic): what signing in by nick accepts. */
+const LOGIN_NICK_RE = /^[a-z0-9_а-яё]{3,24}$/;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -251,7 +253,7 @@ export class AuthService {
   async login(rawLogin: string, password: string) {
     // Accounts made without an address (shops imported from Telegram) sign in with their nick and password.
     const nick = rawLogin.trim().toLowerCase().replace(/^@/, '');
-    if (!nick.includes('@') && USERNAME_RE.test(nick)) {
+    if (!nick.includes('@') && LOGIN_NICK_RE.test(nick)) {
       const user = await this.prisma.user.findUnique({ where: { username: nick } });
       if (!user?.passwordHash || user.email || user.phone || !(await bcrypt.compare(password, user.passwordHash))) {
         throw new UnauthorizedException({ message: 'Неверный ник или пароль' });
