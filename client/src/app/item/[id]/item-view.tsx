@@ -54,6 +54,10 @@ function ProductSkeleton() {
  * Product page (client part). The server page passes the public listing so the HTML is complete for search
  * engines and the first paint; SWR then refetches with the viewer's session (♡, owner tools, fit hint).
  */
+/** Literal class names (Tailwind only sees whole strings): how many columns the seller strip's last tile spans. */
+const TILE_SPAN_PHONE: Record<number, string> = { 1: "col-span-1", 2: "col-span-2", 3: "col-span-3" };
+const TILE_SPAN_WIDE: Record<number, string> = { 1: "md:col-span-1", 2: "md:col-span-2", 3: "md:col-span-3", 4: "md:col-span-4", 5: "md:col-span-5" };
+
 export function ItemView({ id, initial }: { id: string; initial?: ListingResponse | null }) {
   // The server copy is anonymous: it paints instantly, while this request (always sent, no fallbackData that
   // SWR might treat as fresh) brings the viewer's own copy — owner tools, ♡, fit hint.
@@ -613,8 +617,10 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
                 </Link>
               </li>
             ))}
-            <li>
-              <Link href={`/u/${seller.username}`} className="grid aspect-[4/5] place-items-center bg-paper text-center text-sm font-semibold text-ink-2 transition-colors hover:bg-ink/5 hover:text-ink">
+            {/* The last tile takes the rest of its row (3 columns on phones, 6 wider up): a seller with two items
+                doesn't leave half the card empty. Alone on its row, it becomes a slim bar. */}
+            <li className={clsx(TILE_SPAN_PHONE[3 - (Math.min(5, related.fromSeller.length) % 3)], TILE_SPAN_WIDE[6 - Math.min(5, related.fromSeller.length)])}>
+              <Link href={`/u/${seller.username}`} className="grid h-full min-h-14 place-items-center bg-paper p-3 text-center text-sm font-semibold text-ink-2 transition-colors hover:bg-ink/5 hover:text-ink">
                 {(() => {
                   // In sale besides this item and the five shown.
                   const rest = seller.activeCount - Math.min(5, related.fromSeller.length) - 1;

@@ -399,8 +399,9 @@ export function Header() {
       )}
     >
       {/* Desktop: three columns with equal sides, so the search box stands in the very middle of the page whatever
-          sits left and right of it. Phones: one row. */}
-      <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 md:grid md:h-16 md:grid-cols-[1fr_minmax(0,560px)_1fr] md:gap-4 md:px-6">
+          sits left and right of it. A side never gets narrower than what it holds: on a tight screen the search box
+          gives way instead of sliding over the logo. Phones: one row. */}
+      <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 md:grid md:h-16 md:grid-cols-[minmax(max-content,1fr)_minmax(0,560px)_minmax(max-content,1fr)] md:gap-4 md:px-6">
         <div className="flex min-w-0 items-center gap-3 md:gap-4">
         <MobileCatalog />
         <Logo />

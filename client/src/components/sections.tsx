@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { items as itemsLabel } from "@/lib/labels";
 import type { Card, Cover, SellerSummary } from "@/lib/types";
+import { Collage } from "./collage";
 import { DragRow } from "./drag-row";
 import { ItemCard } from "./item-card";
 import { Chochin } from "./shop/chochin";
@@ -179,15 +180,20 @@ export const fullCollage = (w: { collage: (Cover | null)[] }) => w.collage.lengt
 export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>; onFollowChange: (username: string, v: boolean) => void; grid?: boolean }) {
   const router = useRouter();
   const cards = wardrobes.map((w) => (
-        <div key={w.id} className={clsx("reveal rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", grid ? "min-w-0" : "w-64")}>
-          <button onClick={() => router.push(`/u/${w.username}`)} className="grid aspect-square w-full grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-[16px]" aria-label={`Гардероб @${w.username}`}>
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="min-h-0 overflow-hidden bg-skeleton">
-                <CoverImg cover={w.collage[i] ?? null} alt="" />
-              </div>
-            ))}
+        <div key={w.id} className={clsx("reveal rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", "@container", grid ? "min-w-0" : "w-64")}>
+          <button onClick={() => router.push(`/u/${w.username}`)} className="block w-full" aria-label={`Гардероб @${w.username}`}>
+            {/* Fewer than four items fill the frame too (one tall photo, halves), never empty grey cells. */}
+            <Collage
+              className="aspect-square w-full rounded-[16px]"
+              cells={w.collage
+                .slice(0, 4)
+                .filter((c): c is Cover => !!c)
+                .map((c) => <CoverImg key={c.urls.s} cover={c} alt="" large={w.collage.filter(Boolean).length < 4} />)}
+            />
           </button>
-          <div className={clsx("mt-3 flex gap-2 px-1 pb-0.5", grid ? "flex-col max-sm:items-stretch sm:flex-row sm:items-center sm:justify-between" : "items-center justify-between")}>
+          {/* The card's own width decides: too narrow for the nick and the button side by side, the button goes under
+              the nick instead of cutting it to «@find_st…». */}
+          <div className="mt-3 flex flex-col items-stretch gap-2 px-1 pb-0.5 @[17rem]:flex-row @[17rem]:items-center @[17rem]:justify-between">
             <div className="min-w-0">
               <Link href={`/u/${w.username}`} className="block truncate font-semibold hover:underline">
                 @{w.username}

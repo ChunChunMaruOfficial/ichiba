@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
 import { items } from "@/lib/labels";
 import type { CollectionSummary } from "@/lib/types";
+import { Collage } from "./collage";
 import { useToast } from "./toast";
 import { Button, Chip, Field, Input, Modal, Spinner } from "./ui";
 
@@ -119,16 +120,16 @@ export function AddToCollection({ listingId, open, onClose }: { listingId: strin
 export function CollectionTile({ c }: { c: CollectionSummary }) {
   return (
     <Link href={`/favorites/collections/${c.id}`} className="group block">
-      <div className="grid aspect-square grid-cols-2 gap-1 overflow-hidden rounded-2xl bg-skeleton">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="overflow-hidden bg-skeleton">
-            {c.covers[i] && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={c.covers[i]!} alt="" width={160} height={160} loading="lazy" className="size-full object-contain transition-transform group-hover:scale-105" />
-            )}
-          </div>
-        ))}
-      </div>
+      <Collage
+        className="aspect-square rounded-2xl bg-skeleton"
+        cells={c.covers
+          .slice(0, 4)
+          .filter((src): src is string => !!src)
+          .map((src) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={src} src={src} alt="" width={160} height={160} loading="lazy" className="size-full object-contain transition-transform group-hover:scale-105" />
+          ))}
+      />
       <p className="mt-2 font-medium">{c.name}</p>
       <p className="text-sm text-muted">{items(c.count)}</p>
     </Link>
