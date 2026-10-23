@@ -1,7 +1,9 @@
 import { Controller, Get, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Post, Query , BadRequestException} from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { background } from '../common/background.js';
 import { EventsService } from '../events/events.js';
+import { NotifyEmails } from '../mail/mail.module.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -47,18 +49,28 @@ export type NotificationType =
   | 'dispute_opened'
   | 'dispute_resolved';
 
-/** In-app notifications, pushed live over SSE (frame 15). Email carries sign-in codes only. */
+/**
+ * In-app notifications, pushed live over SSE (frame 15). The ones that matter are also emailed to sellers and
+ * brands who bound an address in settings (NotifyEmails).
+ */
 @Injectable()
 export class NotificationsService {
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
+    private readonly emails: NotifyEmails,
   ) {}
+
+  /** Never delays or fails the action because of email. */
+  private email(userIds: string[], type: NotificationType, payload: Prisma.InputJsonValue) {
+    background(this.emails.send(userIds, type, payload as Record<string, unknown>), `email for ${type}`);
+  }
 
   async notify(userId: string, type: NotificationType, payload: Prisma.InputJsonValue) {
     const n = await this.prisma.notification.create({ data: { userId, type, payload } });
     await this.events.emit(userId, { type: 'notification', data: n });
+    this.email([userId], type, payload);
     return n;
   }
 
@@ -67,6 +79,7 @@ export class NotificationsService {
     if (!unique.length) return;
     const rows = await this.prisma.notification.createManyAndReturn({ data: unique.map((userId) => ({ userId, type, payload })) });
     await Promise.all(rows.map((n) => this.events.emit(n.userId, { type: 'notification', data: n })));
+    this.email(unique, type, payload);
   }
 
   unreadCount(userId: string) {

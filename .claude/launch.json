@@ -80,6 +80,50 @@
         "API_URL": "http://localhost:4100",
         "PORT": "3100"
       }
+    },
+    {
+      "name": "server-test-nomail",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "server",
+        "run",
+        "dev"
+      ],
+      "port": 4100,
+      "env": {
+        "PORT": "4100",
+        "DATABASE_URL": "postgres://postgres:postgres@localhost:51300/template1?sslmode=disable",
+        "DIRECT_URL": "postgres://postgres:postgres@localhost:51300/template1?sslmode=disable",
+        "DATABASE_POOL_MAX": "1",
+        "WEB_ORIGIN": "http://localhost:3100",
+        "APP_URL": "http://localhost:3100",
+        "MEDIA_PUBLIC_URL": "http://localhost:4100/media",
+        "ADMIN_EMAILS": "",
+        "SMTP_HOST": "",
+        "GMAIL_CLIENT_ID": "",
+        "GOOGLE_CLIENT_ID": "",
+        "MAIL_PROVIDER": "log",
+        "AUTH_DEV_ANY_CODE": "true"
+      }
+    },
+    {
+      "name": "client-mail",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "client",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3200"
+      ],
+      "port": 3200,
+      "env": {
+        "API_URL": "http://localhost:4100",
+        "PORT": "3200"
+      }
     }
   ]
 }

@@ -92,6 +92,8 @@ enum CodePurpose {
   VERIFY
   RESET
   LOGIN
+  /// Binding a seller's address for notification emails (users/notify-email.ts).
+  NOTIFY
 }
 
 model User {
@@ -116,6 +118,9 @@ model User {
   bundleDiscounts   Json?
   /// Email preferences: { deals: boolean }
   emailPrefs        Json?
+  /// Where a seller or brand gets notification emails (a buy request, an offer…); set only after its owner entered
+  /// the code sent there, so it is always confirmed. Null = notifications stay on the site.
+  notifyEmail       String?
   /// Consent to personal data processing (Belarus Law No. 99-Z): when and which policy version.
   privacyAcceptedAt DateTime?
   privacyVersion    String?

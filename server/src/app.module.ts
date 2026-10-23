@@ -49,6 +49,7 @@ import { AdminDisputesController, DisputesService } from './requests/disputes.js
 import { RequestsController } from './requests/requests.controller.js';
 import { RequestsService } from './requests/requests.service.js';
 import { UsersController, UsersService } from './users/users.service.js';
+import { NotifyEmailController } from './users/notify-email.js';
 import { TgPostParser } from './tg/parse.js';
 import { AdminBrandApplicationsController, BrandApplicationsController, BrandApplicationsService } from './brands/brand-applications.js';
 import { TgImportService } from './tg/tg-import.service.js';
@@ -89,6 +90,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
   controllers: [
     AuthController,
     UsersController,
+    NotifyEmailController,
     MediaController,
     AiController,
     ListingsController,

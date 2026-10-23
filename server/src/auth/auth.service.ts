@@ -39,7 +39,7 @@ export const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 /** Nicks an account made by hand may carry (a shop named in Cyrillic): what signing in by nick accepts. */
 const LOGIN_NICK_RE = /^[a-z0-9_а-яё]{3,24}$/;
 
-const EMAIL_RE = /^[a-z0-9!#$%&'*+/=?^_`{|}~.-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+export const EMAIL_RE = /^[a-z0-9!#$%&'*+/=?^_`{|}~.-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
 
 /** Sign-in is by email only (no SMS gateway): the address is lower-cased and checked. */
 function normalizeLogin(raw: string): { kind: 'email' | 'phone'; value: string } {
@@ -448,7 +448,8 @@ export class AuthService {
     return { user, isNew: true };
   }
 
-  private async issueCode(target: string, purpose: CodePurpose, payload?: PendingRegistration) {
+  /** Also used by users/notify-email.ts, whose codes carry the requesting account ({ userId }). */
+  async issueCode(target: string, purpose: CodePurpose, payload?: PendingRegistration | { userId: string }) {
     const last = await this.prisma.verificationCode.findFirst({ where: { target, purpose }, orderBy: { createdAt: 'desc' } });
     if (last && Date.now() - last.createdAt.getTime() < RESEND_COOLDOWN_MS) {
       const wait = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - last.createdAt.getTime())) / 1000);
@@ -469,9 +470,10 @@ export class AuthService {
     }
   }
 
-  private async consumeCode(target: string, purpose: CodePurpose, code: string) {
+  /** `scope` narrows the codes looked at, e.g. to those one account asked for. */
+  async consumeCode(target: string, purpose: CodePurpose, code: string, scope?: Prisma.VerificationCodeWhereInput) {
     const record = await this.prisma.verificationCode.findFirst({
-      where: { target, purpose, consumedAt: null, expiresAt: { gt: new Date() } },
+      where: { ...scope, target, purpose, consumedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
     });
     if (!record) throw new BadRequestException({ message: 'Код устарел — запросите новый', fields: { code: 'Код устарел' } });

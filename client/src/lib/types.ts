@@ -46,6 +46,8 @@ export interface Me {
   createdAt: string;
   emailVerified: boolean;
   emailPrefs: { deals: boolean };
+  /** Confirmed address for notification emails (settings → «Уведомления на почту»); null = site only. */
+  notifyEmail: string | null;
   sizes: PreferredSizes | null;
   bodyMeasurements: BodyMeasurements | null;
   bundleDiscounts: BundleTier[];

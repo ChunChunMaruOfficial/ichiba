@@ -37,6 +37,7 @@ export class UsersService {
           bodyMeasurements: true,
           bundleDiscounts: true,
           emailPrefs: true,
+          notifyEmail: true,
           role: true,
           onboardedAt: true,
           createdAt: true,

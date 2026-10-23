@@ -61,7 +61,7 @@ export class PrivacyService {
       // Photos and videos outside listings (drafts, chat) are detached; the nightly media cleanup deletes the files.
       this.prisma.photo.updateMany({ where: { ownerId: userId, listingId: null }, data: { messageId: null } }),
       this.prisma.video.updateMany({ where: { ownerId: userId, listingId: null }, data: { messageId: null } }),
-      this.prisma.verificationCode.deleteMany({ where: { target: { in: [user.email, user.phone].filter((x): x is string => !!x) } } }),
+      this.prisma.verificationCode.deleteMany({ where: { target: { in: [user.email, user.phone, user.notifyEmail].filter((x): x is string => !!x) } } }),
       // A shared location is personal data: the message stays for the other side, the point does not.
       this.prisma.message.updateMany({ where: { senderId: userId, kind: 'LOCATION' }, data: { lat: null, lng: null, accuracy: null } }),
       // Contacts left in past deals are personal data too.
@@ -85,6 +85,7 @@ export class PrivacyService {
           bodyMeasurements: Prisma.DbNull,
           bundleDiscounts: Prisma.DbNull,
           emailPrefs: Prisma.DbNull,
+          notifyEmail: null,
           deletedAt: new Date(),
           sessionVersion: { increment: 1 },
         },
