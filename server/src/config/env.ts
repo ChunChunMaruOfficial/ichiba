@@ -28,6 +28,17 @@ export function checkEnv() {
     errors.push('Railway disk is not persistent: set CLOUDINARY_* or attach a volume and point MEDIA_DIR into it');
   }
 
+  // Bcrypt hashes of imported shop accounts, JSON by nick: a typo would silently leave those accounts without a password.
+  for (const k of ['HAND_PASSWORD_HASHES', 'TG_PASSWORD_HASHES', 'SHOP_PASSWORD_HASHES']) {
+    if (!env[k]) continue;
+    try {
+      const map = JSON.parse(env[k]!) as unknown;
+      if (!map || typeof map !== 'object' || Array.isArray(map) || Object.values(map).some((v) => typeof v !== 'string' || !v.startsWith('$2'))) throw new Error('not a map of bcrypt hashes');
+    } catch (e) {
+      errors.push(`${k} must be JSON like {"nick":"$2b$10$…"}: ${(e as Error).message}`);
+    }
+  }
+
   if (prod) {
     if (!env.WEB_ORIGIN) errors.push('WEB_ORIGIN is not set (URL of the web app, e.g. https://ichiba.up.railway.app)');
     if (!env.SMTP_HOST && !env.GMAIL_REFRESH_TOKEN) logger.warn('No GMAIL_* or SMTP_HOST: verification codes and emails go to the log only — see docs/EMAIL.md');

@@ -25,12 +25,21 @@ function describe(w: WardrobeData) {
   return truncate(`Гардероб @${s.username} на ichiba: ${parts.join(", ")}.`, 160);
 }
 
+/** The username from the address; a malformed %-escape ("/u/%E0") is no such wardrobe rather than a crash (500). */
+function decodeUsername(raw: string) {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    notFound();
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
-  const w = await load(decodeURIComponent(username));
+  const w = await load(decodeUsername(username));
   if (w === null) return { title: "Гардероб не найден", robots: { index: false } };
   if (!w) return {};
-  const url = `${SITE_URL}/u/${w.seller.username}`;
+  const url = `${SITE_URL}/u/${encodeURIComponent(w.seller.username)}`;
   const cover = w.groups.flatMap((g) => g.items).find((i) => i.cover)?.cover;
   return {
     title: `Гардероб @${w.seller.username}`,
@@ -43,13 +52,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SellerWardrobePage({ params }: Props) {
   const { username: raw } = await params;
-  const username = decodeURIComponent(raw);
+  const username = decodeUsername(raw);
   const w = await load(username);
   if (w === null) notFound();
   const ld = w && {
     "@context": "https://schema.org",
     "@type": "ProfilePage",
-    url: `${SITE_URL}/u/${w.seller.username}`,
+    url: `${SITE_URL}/u/${encodeURIComponent(w.seller.username)}`,
     mainEntity: {
       "@type": "Person",
       name: w.seller.username,

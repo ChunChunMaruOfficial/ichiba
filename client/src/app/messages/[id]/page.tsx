@@ -131,7 +131,7 @@ interface Job {
 function Thread({ id }: { id: string }) {
   const { refresh, realtime } = useSession();
   // Without a live channel (e.g. no Pusher keys on Vercel) the open thread polls every 5 s.
-  const { data, error, mutate } = useSWR<ThreadData>(`/threads/${id}`, { refreshInterval: realtime === "live" ? 0 : 5000 });
+  const { data, error, mutate } = useSWR<ThreadData>(`/threads/${encodeURIComponent(id)}`, { refreshInterval: realtime === "live" ? 0 : 5000 });
   const toast = useToast();
   const { mutate: globalMutate } = useSWRConfig();
   // The conversation list (left column) shows my last message too.
@@ -178,6 +178,20 @@ function Thread({ id }: { id: string }) {
     return [...map.values()].sort(byTime);
   }, [older, data?.messages]);
   const messages = useMemo(() => [...serverMessages, ...outbox], [serverMessages, outbox]);
+
+  // Screen readers: only a message that has just arrived from the other side is announced (role="log" below), not
+  // the whole list on every reaction, edit, older page or own message as aria-live on the list used to do.
+  const lastIncoming = useMemo(() => {
+    for (let i = serverMessages.length - 1; i >= 0; i--) if (!serverMessages[i].mine) return serverMessages[i];
+    return null;
+  }, [serverMessages]);
+  const [heard, setHeard] = useState<{ id: string | null; at: number; text: string } | null>(null);
+  if (data && !heard) {
+    // First load: what is already in the thread is not news.
+    setHeard({ id: lastIncoming?.id ?? null, at: lastIncoming ? new Date(lastIncoming.createdAt).getTime() : 0, text: "" });
+  } else if (heard && lastIncoming && lastIncoming.id !== heard.id && new Date(lastIncoming.createdAt).getTime() >= heard.at) {
+    setHeard({ id: lastIncoming.id, at: new Date(lastIncoming.createdAt).getTime(), text: `@${counterpart}: ${lastIncoming.body || "вложение"}` });
+  }
   const hasMore = older.length ? !!olderMore : !!data?.hasMore;
 
   /** Applies a change to a message wherever it is loaded; returning null removes it. */
@@ -213,7 +227,7 @@ function Thread({ id }: { id: string }) {
       if (threadId !== id) return;
       setTypingUntil(0);
       void mutate((d) => d && { ...d, messages: d.messages.some((x) => x.id === message.id) ? d.messages : [...d.messages, message] }, { revalidate: false });
-      if (document.visibilityState === "visible") void api(`/threads/${id}/read`, { method: "POST" }).then(() => refresh());
+      if (document.visibilityState === "visible") void api(`/threads/${encodeURIComponent(id)}/read`, { method: "POST" }).then(() => refresh());
     };
     const onUpdate = (e: Event) => {
       const r = (e as CustomEvent<LiveMessageUpdate>).detail;
@@ -267,7 +281,7 @@ function Thread({ id }: { id: string }) {
   const notifyTyping = useCallback(() => {
     if (realtime !== "live" || Date.now() - lastTypingSent.current < 3000) return;
     lastTypingSent.current = Date.now();
-    void api(`/threads/${id}/typing`, { method: "POST" }).catch(() => undefined);
+    void api(`/threads/${encodeURIComponent(id)}/typing`, { method: "POST" }).catch(() => undefined);
   }, [realtime, id]);
 
   // ---------- scrolling ----------
@@ -310,7 +324,7 @@ function Thread({ id }: { id: string }) {
     if (!first || loadingOlder) return false;
     setLoadingOlder(true);
     try {
-      const page = await api<ThreadData>(`/threads/${id}?before=${encodeURIComponent(first.createdAt)}`);
+      const page = await api<ThreadData>(`/threads/${encodeURIComponent(id)}?before=${encodeURIComponent(first.createdAt)}`);
       const el = list.current;
       if (el) restore.current = { height: el.scrollHeight, top: el.scrollTop };
       setOlder((prev) => [...page.messages, ...prev]);
@@ -384,7 +398,7 @@ function Thread({ id }: { id: string }) {
         );
         // Server thumbnails replace local previews the browser may not draw (HEIC).
         if (media.length) setOutbox((o) => o.map((x) => (x.id === tempId ? { ...x, media } : x)));
-        const m = await api<ChatMessage>(`/threads/${id}/messages`, {
+        const m = await api<ChatMessage>(`/threads/${encodeURIComponent(id)}/messages`, {
           body: {
             body: job.body,
             replyToId: job.replyToId,
@@ -407,6 +421,9 @@ function Thread({ id }: { id: string }) {
     },
     [id, mutate, toast, refreshList],
   );
+
+  // Stable, so the memoised bubbles don't all re-render on every keystroke in the composer.
+  const retry = useCallback((x: ChatMessage) => void run(x.id), [run]);
 
   const send = useCallback(
     (body: string, files: Attachment[]) => {
@@ -449,7 +466,7 @@ function Thread({ id }: { id: string }) {
     const tempId = `tmp-${Date.now()}`;
     setOutbox((o) => [...o, { id: tempId, kind: "LOCATION", body: "📍 Местоположение", mine: true, createdAt: new Date().toISOString(), pending: true, location, replyTo: reply ? quoteOf(reply) : null }]);
     try {
-      const m = await api<ChatMessage>(`/threads/${id}/location`, { body: { ...location, replyToId: reply?.id } });
+      const m = await api<ChatMessage>(`/threads/${encodeURIComponent(id)}/location`, { body: { ...location, replyToId: reply?.id } });
       await mutate((d) => d && { ...d, messages: d.messages.some((x) => x.id === m.id) ? d.messages : [...d.messages, m] }, { revalidate: false });
       refreshList();
     } catch (e) {
@@ -476,7 +493,7 @@ function Thread({ id }: { id: string }) {
     const before = m;
     replaceMessage({ ...m, body, editedAt: new Date().toISOString() });
     try {
-      const next = await api<ChatMessage>(`/threads/${id}/messages/${m.id}`, { method: "PUT", body: { body } });
+      const next = await api<ChatMessage>(`/threads/${encodeURIComponent(id)}/messages/${m.id}`, { method: "PUT", body: { body } });
       replaceMessage(next);
       if (next.notice) toast(next.notice, { tone: "error" });
       refreshList();
@@ -510,7 +527,7 @@ function Thread({ id }: { id: string }) {
       if (m.pending || m.failed) return;
       patch((x) => (x.id === m.id ? { ...x, reactions: toggleReaction(x.reactions, emoji) } : x));
       try {
-        replaceMessage(await api<ChatMessage>(`/threads/${id}/messages/${m.id}/reaction`, { method: "PUT", body: { emoji } }));
+        replaceMessage(await api<ChatMessage>(`/threads/${encodeURIComponent(id)}/messages/${m.id}/reaction`, { method: "PUT", body: { emoji } }));
       } catch (e) {
         void mutate();
         toast(e instanceof ApiError ? e.message : "Не удалось поставить реакцию", { tone: "error" });
@@ -522,7 +539,7 @@ function Thread({ id }: { id: string }) {
   const pin = async (m: ChatMessage, forAll: boolean) => {
     setPinAsk(null);
     try {
-      const r = await api<{ pins: ChatPin[] }>(`/threads/${id}/messages/${m.id}/pin`, { body: { forAll } });
+      const r = await api<{ pins: ChatPin[] }>(`/threads/${encodeURIComponent(id)}/messages/${m.id}/pin`, { body: { forAll } });
       void mutate((d) => d && { ...d, pins: r.pins }, { revalidate: false });
       toast(forAll ? "Сообщение закреплено у вас обоих" : "Сообщение закреплено у вас");
     } catch (e) {
@@ -533,7 +550,7 @@ function Thread({ id }: { id: string }) {
   const unpin = async (messageId: string) => {
     void mutate((d) => d && { ...d, pins: d.pins?.filter((p) => p.messageId !== messageId) }, { revalidate: false });
     try {
-      const r = await api<{ pins: ChatPin[] }>(`/threads/${id}/messages/${messageId}/pin`, { method: "DELETE" });
+      const r = await api<{ pins: ChatPin[] }>(`/threads/${encodeURIComponent(id)}/messages/${messageId}/pin`, { method: "DELETE" });
       void mutate((d) => d && { ...d, pins: r.pins }, { revalidate: false });
       toast("Сообщение откреплено");
     } catch (e) {
@@ -552,7 +569,7 @@ function Thread({ id }: { id: string }) {
     setSelected(null);
     removeMessages(ids);
     try {
-      await api(`/threads/${id}/messages/delete`, { body: { ids, forAll } });
+      await api(`/threads/${encodeURIComponent(id)}/messages/delete`, { body: { ids, forAll } });
       void mutate();
       refreshList();
     } catch (e) {
@@ -724,7 +741,10 @@ function Thread({ id }: { id: string }) {
 
       <PinnedBar pins={pins} onJump={(mid) => void jumpTo(mid)} onUnpin={(p) => void unpin(p.messageId)} />
 
-      <div ref={list} onScroll={onScroll} className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-3 sm:px-4" aria-live="polite" aria-busy={loadingOlder}>
+      <div role="log" aria-live="polite" className="sr-only">
+        {heard?.text}
+      </div>
+      <div ref={list} onScroll={onScroll} className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-3 sm:px-4" aria-busy={loadingOlder}>
         {hasMore && (
           <div className="flex justify-center py-2 text-muted">
             {loadingOlder ? (
@@ -758,7 +778,7 @@ function Thread({ id }: { id: string }) {
                   onJump={jumpTo}
                   onOpenMedia={openMedia}
                   onOpenLocation={openLocation}
-                  onRetry={(x) => void run(x.id)}
+                  onRetry={retry}
                   onDiscard={discard}
                 />
               </li>

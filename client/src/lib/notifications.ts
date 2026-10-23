@@ -43,7 +43,9 @@ const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => strin
   request_accepted: (p) => (p.confirmed ? `@${p.buyer} выбрал способ получения «${p.title}» — договоритесь о передаче` : `@${p.seller} подтвердил запрос на «${p.title}»`),
   request_declined: (p) => `Продавец отклонил запрос на «${p.title}»${p.reason ? `: ${p.reason.toLowerCase()}` : ""}`,
   request_cancelled: (p) => `Сделка по «${p.title}» отменена`,
-  request_expired: (p) => `Запрос на «${p.title}» отменён — не было ответа 48 часов`,
+  // The seller gets this one with a reason; the buyer's copy means the seller didn't answer in time.
+  request_expired: (p) => (p.reason ? `Запрос на «${p.title}» отменён: ${p.reason.toLowerCase()}` : `Запрос на «${p.title}» отменён — не было ответа 48 часов`),
+  dispute_opened: (p) => `${p.by === "buyer" ? "Покупатель" : "Продавец"} открыл спор по «${p.title}»${p.reason ? `: ${p.reason}` : ""} — сделка заморожена до решения администратора`,
   deal_handed_over: (p) => `Продавец отметил «${p.title}» как переданную — подтвердите получение`,
   deal_in_transit: (p) => `«${p.title}» в пути${p.trackingNumber ? `, трек ${p.trackingNumber}` : ""}`,
   brand_approved: (p) => `Статус бренда «${p.brand}» подтверждён — печать «Бренд» уже на ваших вещах`,

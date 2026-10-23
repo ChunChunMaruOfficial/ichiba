@@ -19,7 +19,8 @@ const MAX_H = 288;
  * options, the chosen one checked in cinnabar. Keyboard: arrows, Home/End, Enter/Space, Esc, and typing jumps to an
  * option. The list is portalled and fixed, so drawers and modals with scrolling never clip it; it opens upwards
  * when there is no room below.
- * `field` looks like an input (forms); `pill` is the small rounded one (sorting).
+ * `field` looks like an input (forms); `pill` is the small rounded one (sorting); `text` is a bare label with a
+ * chevron (sorting next to a search bar).
  */
 export function Select({
   value,
@@ -39,7 +40,7 @@ export function Select({
   placeholder?: string;
   id?: string;
   "aria-label"?: string;
-  variant?: "field" | "pill";
+  variant?: "field" | "pill" | "text";
   error?: string;
   disabled?: boolean;
   className?: string;
@@ -153,7 +154,9 @@ export function Select({
           "group/select inline-flex items-center justify-between gap-2 text-left outline-none transition-[border-color,box-shadow,background-color] disabled:cursor-not-allowed disabled:opacity-50",
           variant === "field"
             ? ["h-11 w-full rounded-xl border bg-surface px-3.5 text-[15px] hover:border-ink-2 focus-visible:border-indigo focus-visible:ring-3 focus-visible:ring-indigo/20", error ? "border-2 border-danger" : "border-line-control"]
-            : "chip h-9 shrink-0 px-4 text-sm font-medium focus-visible:ring-3 focus-visible:ring-indigo/25",
+            : variant === "pill"
+              ? "chip h-9 shrink-0 px-4 text-sm font-medium focus-visible:ring-3 focus-visible:ring-indigo/25"
+              : "-mx-1 h-9 shrink-0 rounded-lg px-1 text-[15px] font-semibold text-ink hover:text-indigo focus-visible:ring-3 focus-visible:ring-indigo/25",
           open && variant === "field" && "border-indigo ring-3 ring-indigo/20",
           className,
         )}

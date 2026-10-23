@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import { useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
@@ -43,7 +43,7 @@ export function useFavorite(card: Pick<Card, "id" | "title" | "isFavorite">, sou
         else toast("Удалено из избранного", { action: { label: "Отменить", onClick: () => void set(true) } });
       },
     );
-  }, [requireAuth, isFavorite, set, toast, router, card.title]);
+  }, [requireAuth, isFavorite, set, toast, router]);
 
   return { isFavorite, toggle };
 }
@@ -65,6 +65,32 @@ export function useInfiniteCards<P extends Page>(keyFor: (offset: number) => str
   const done = pages.length > 0 && (pages[pages.length - 1].items.length < pageSize || items.length >= total);
   const loadingMore = swr.isValidating && swr.size > pages.length;
   return { ...swr, pages, items, total, done, loadingMore, loadMore: () => !done && !swr.isValidating && swr.setSize(swr.size + 1) };
+}
+
+/**
+ * A list whose first page comes from SWR and whose further pages are fetched on demand («Показать ещё»): for lists
+ * that are filtered by a query string and were never meant to scroll forever (deals). `path` already carries its
+ * query; `offset` is appended. Extra pages are dropped whenever the first page's key changes.
+ */
+export function useMorePages<T>(path: string | null, first: { items: T[]; hasMore?: boolean } | undefined) {
+  const [extra, setExtra] = useState<{ path: string | null; items: T[]; hasMore: boolean | null }>({ path, items: [], hasMore: null });
+  const [busy, setBusy] = useState(false);
+  const fresh = extra.path === path ? extra : { path, items: [], hasMore: null };
+  const items = useMemo(() => [...(first?.items ?? []), ...fresh.items], [first?.items, fresh.items]);
+  const hasMore = fresh.hasMore ?? first?.hasMore ?? false;
+  const loadMore = async () => {
+    if (!path || busy || !hasMore) return;
+    setBusy(true);
+    try {
+      const page = await api<{ items: T[]; hasMore?: boolean }>(`${path}${path.includes("?") ? "&" : "?"}offset=${items.length}`);
+      setExtra({ path, items: [...fresh.items, ...page.items], hasMore: page.hasMore ?? false });
+    } catch {
+      // The button stays; the next tap tries again.
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { items, hasMore, loadMore, busy };
 }
 
 /**

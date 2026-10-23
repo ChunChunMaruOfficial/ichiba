@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
-import sharp from 'sharp';
+import { withJobLock } from '../common/job-lock.js';
 import type { PhotoProvider } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.js';
 import {
   cloudinaryEnabled,
   cloudinaryInfo,
@@ -17,15 +18,20 @@ import {
   uploadTicket,
   userFolder,
   validUploadSignature,
+  VIDEO_FRAME_OFFSETS,
   videoUploadTicket,
 } from './cloudinary.js';
+import { mapLimit, openImage, probeImage, withSharp } from './image.js';
+import { colorPalette } from './palette.js';
 import { createStorage } from './storage.js';
-import { MAX_CHAT_VIDEO_MS, MAX_VIDEO_BYTES, MAX_VIDEO_MS, mp4DurationMs, sniffVideo } from './video.js';
+import { MAX_CHAT_VIDEO_MS, MAX_VIDEO_BYTES, MAX_VIDEO_MS, mp4DurationMs, sniffVideo, stripMp4Metadata } from './video.js';
 
 /** Preview widths from frame 30: 320 / 640 / 1280, WebP, EXIF stripped. */
 const VARIANTS = [320, 640, 1280] as const;
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-const MIN_SIDE = 400;
+/** Listing photos: the smaller side at least this. Checked again when photos are attached to a listing. */
+export const LISTING_MIN_SIDE = 400;
+const MIN_SIDE = LISTING_MIN_SIDE;
 /** Chat photos are screenshots and quick snaps too: only tiny images are refused. */
 const CHAT_MIN_SIDE = 64;
 /** Profile photos are shown small: 160 px is plenty. */
@@ -36,6 +42,11 @@ const minSide = (purpose: MediaPurpose) => (purpose === 'chat' ? CHAT_MIN_SIDE :
 const tooSmall = (purpose: MediaPurpose) =>
   purpose === 'listing' ? 'Фото слишком маленькое — нужно от 400 px по меньшей стороне' : 'Фото слишком маленькое';
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+/** A browser-captured poster frame is a few hundred KB; anything bigger is not one. */
+const MAX_POSTER_BYTES = 5 * 1024 * 1024;
+/** Stored in `dhash` / `palette` when a photo couldn't be read, so the backfill doesn't retry it forever. */
+const UNREADABLE = '-';
+const unreadable = () => new BadRequestException({ message: 'Не удалось прочитать фото. Попробуйте JPG или PNG' });
 
 export interface PhotoUrls {
   s: string;
@@ -50,9 +61,9 @@ export interface PhotoQuality {
   sharpness: number;
 }
 
-async function measureQuality(input: Buffer | ReturnType<typeof sharp>): Promise<PhotoQuality> {
-  const base = Buffer.isBuffer(input) ? sharp(input) : input.clone();
-  const grey = base.resize(320, 320, { fit: 'inside' }).greyscale();
+/** Callers hold a `withSharp` slot (media/image.ts). */
+async function measureQuality(input: Buffer): Promise<PhotoQuality> {
+  const grey = openImage(input).resize(320, 320, { fit: 'inside' }).greyscale();
   const stats = await grey.clone().stats();
   const lap = await grey.clone().convolve({ width: 3, height: 3, kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0], offset: 128 }).raw().toBuffer();
   let sum = 0;
@@ -75,13 +86,15 @@ const mediaBase = () => process.env.MEDIA_PUBLIC_URL ?? 'http://localhost:4000/m
  * Difference hash: 9×8 greyscale thumbnail, one bit per "is this pixel brighter than its right neighbour".
  * Re-uploads, re-saves and light crops of the same photo land within a few bits of each other.
  */
-export async function differenceHash(input: Buffer | ReturnType<typeof sharp>): Promise<string> {
-  const img = Buffer.isBuffer(input) ? sharp(input) : input.clone();
-  const px = await img.resize(9, 8, { fit: 'fill' }).greyscale().raw().toBuffer();
+export async function differenceHash(input: Buffer): Promise<string> {
+  const px = await openImage(input).resize(9, 8, { fit: 'fill' }).greyscale().raw().toBuffer();
   let bits = 0n;
   for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) bits = (bits << 1n) | (px[y * 9 + x] > px[y * 9 + x + 1] ? 1n : 0n);
   return bits.toString(16).padStart(16, '0');
 }
+
+/** A stored difference hash, or null when there is none (not computed yet, or the photo was unreadable). */
+export const usableHash = (h: string | null | undefined) => (h && /^[0-9a-f]{16}$/.test(h) ? h : null);
 
 /** Number of differing bits between two difference hashes. */
 export function hashDistance(a: string, b: string) {
@@ -130,7 +143,10 @@ export class MediaService implements OnModuleInit {
   private readonly logger = new Logger('Media');
   private readonly storage = createStorage();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   async onModuleInit() {
     try {
@@ -144,35 +160,37 @@ export class MediaService implements OnModuleInit {
     if (!ALLOWED_MIME.has(file.mimetype)) {
       throw new BadRequestException({ message: 'Поддерживаются JPG, PNG, HEIC и WEBP' });
     }
-    let image: ReturnType<typeof sharp>;
-    let width: number;
-    let height: number;
-    try {
+    const done = await withSharp(async () => {
+      let probe: Awaited<ReturnType<typeof probeImage>>;
+      try {
+        probe = await probeImage(file.buffer);
+      } catch (e) {
+        if (e instanceof BadRequestException) throw e;
+        throw unreadable();
+      }
+      if (Math.min(probe.width, probe.height) < minSide(purpose)) {
+        throw new BadRequestException({ message: tooSmall(purpose), code: 'TOO_SMALL' });
+      }
+      // The original is decoded once, into the 1280 px variant; the smaller ones are cut from that buffer.
       // rotate() applies EXIF orientation; sharp drops all metadata (incl. GPS) on output by default.
-      image = sharp(file.buffer).rotate();
-      const meta = await image.metadata();
-      const swap = (meta.orientation ?? 1) >= 5;
-      width = (swap ? meta.height : meta.width) ?? 0;
-      height = (swap ? meta.width : meta.height) ?? 0;
-    } catch {
-      throw new BadRequestException({ message: 'Не удалось прочитать фото. Попробуйте JPG или PNG' });
-    }
-    if (Math.min(width, height) < minSide(purpose)) {
-      throw new BadRequestException({ message: tooSmall(purpose), code: 'TOO_SMALL' });
-    }
+      let large: Buffer;
+      let medium: Buffer;
+      let small: Buffer;
+      try {
+        large = await probe.image.rotate().resize({ width: 1280, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
+        [small, medium] = await Promise.all([320, 640].map((w) => openImage(large).resize({ width: w, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()));
+      } catch {
+        throw unreadable();
+      }
+      // Hashed from the 320 px variant, like the backfill and Cloudinary photos, so all photos compare equally.
+      const [quality, dhash, palette] = await Promise.all([measureQuality(medium).catch(() => null), differenceHash(small).catch(() => null), colorPalette(small).catch(() => null)]);
+      return { width: probe.width, height: probe.height, bodies: [small, medium, large], quality, dhash, palette };
+    });
+    const { width, height, quality, dhash, palette } = done;
 
     const key = `${ownerId}/${randomUUID()}`;
-    const bodies = await Promise.all(
-      VARIANTS.map(async (w) => {
-        const body = await image.clone().resize({ width: w, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
-        await this.storage.put(`${key}_${w}.webp`, body, 'image/webp');
-        return body;
-      }),
-    );
-
-    // Hashed from the stored 320 px variant, exactly like the lazy path, so old and new photos compare equally.
-    const [quality, dhash] = await Promise.all([measureQuality(image).catch(() => null), differenceHash(bodies[0]).catch(() => null)]);
-    const photo = await this.prisma.photo.create({ data: { ownerId, key, width, height, dhash, quality: quality ? { ...quality } : undefined } });
+    await Promise.all(VARIANTS.map((w, i) => this.storage.put(`${key}_${w}.webp`, done.bodies[i], 'image/webp')));
+    const photo = await this.prisma.photo.create({ data: { ownerId, key, width, height, dhash, palette, quality: quality ? { ...quality } : undefined } });
     return { id: photo.id, width, height, urls: photoUrls(photo) };
   }
 
@@ -210,7 +228,9 @@ export class MediaService implements OnModuleInit {
       await destroyCloudinary(dto.publicId).catch(() => undefined);
       throw new BadRequestException({ message: tooSmall(purpose), code: 'TOO_SMALL' });
     }
-    const [quality, dhash] = await Promise.all([measureQuality(medium).catch(() => null), differenceHash(small).catch(() => null)]);
+    const [quality, dhash, palette] = await withSharp(() =>
+      Promise.all([measureQuality(medium).catch(() => null), differenceHash(small).catch(() => null), colorPalette(small).catch(() => null)]),
+    );
     const photo = await this.prisma.photo.create({
       data: {
         ownerId,
@@ -223,6 +243,7 @@ export class MediaService implements OnModuleInit {
         width: info.width,
         height: info.height,
         dhash,
+        palette,
         quality: quality ? { ...quality } : undefined,
       },
     });
@@ -236,6 +257,14 @@ export class MediaService implements OnModuleInit {
    */
   @Cron('30 4 * * *')
   async purgeOrphans(olderThanMs = 24 * 3600_000) {
+    let result = { removed: 0, failed: 0 };
+    await withJobLock(this.redis, 'media.purgeOrphans', 24 * 3600_000, async () => {
+      result = await this.purgeOrphansNow(olderThanMs);
+    });
+    return result;
+  }
+
+  private async purgeOrphansNow(olderThanMs: number) {
     const unused = { listingId: null, messageId: null, createdAt: { lt: new Date(Date.now() - olderThanMs) } };
     let removed = 0;
     let failed = 0;
@@ -274,8 +303,13 @@ export class MediaService implements OnModuleInit {
     return { removed, failed };
   }
 
-  /** A stored WebP of the given width, wherever the photo lives. A key without a photo row is a video's poster. */
+  /**
+   * A stored WebP of the given width, wherever the photo lives. A key without a photo row is a video's poster;
+   * `key#50` is a Cloudinary video's frame at 50 % (see videoFrameKeys).
+   */
   private async read(photo: StoredPhoto, width: 320 | 640): Promise<Buffer> {
+    const frame = /^(.+)#(\d{1,2})$/.exec(photo.key);
+    if (frame) return fetchCloudinaryVideoFrame(frame[1], width, Number(frame[2]));
     if (photo.provider) return photo.provider === 'CLOUDINARY' ? fetchCloudinaryImage(photo.key, width) : this.storage.get(`${photo.key}_${width}.webp`);
     const row = await this.prisma.photo.findFirst({ where: { key: photo.key }, select: { provider: true } });
     if (row) return this.read({ key: photo.key, provider: row.provider }, width);
@@ -322,8 +356,13 @@ export class MediaService implements OnModuleInit {
   }
 
   /**
-   * Listing video with a poster frame captured by the browser. The poster is stored like a photo
-   * (`${key}_320/640.webp`), so moderation and cards treat it as one more image.
+   * Listing video with a poster frame captured by the browser (the server has no ffmpeg to grab one). The poster is
+   * stored like a photo (`${key}_320/640.webp`), so moderation and cards treat it as one more image.
+   *
+   * This local path is for development and Cloudinary-less installs: with Cloudinary on, videos go there (it
+   * re-encodes them, which drops their metadata, and gives moderation frames from the whole clip), so a direct post
+   * is refused. QuickTime files are refused here: their metadata carries the shooting location and, without
+   * ffmpeg, they can't be re-encoded; MP4 has its user-data boxes blanked instead (see stripMp4Metadata).
    */
   async uploadVideo(
     ownerId: string,
@@ -332,25 +371,35 @@ export class MediaService implements OnModuleInit {
     client: { durationMs?: number; width?: number; height?: number },
     purpose: MediaPurpose = 'listing',
   ) {
+    if (cloudinaryEnabled()) throw new BadRequestException({ message: 'Видео загружается через облако — обновите страницу и попробуйте ещё раз', code: 'USE_CLOUD' });
     const { mime, ext } = sniffVideo(file.buffer, file.mimetype);
-    const durationMs = mp4DurationMs(file.buffer) ?? client.durationMs ?? null;
+    if (mime === 'video/quicktime') throw new BadRequestException({ message: 'Видео в формате MOV не поддерживается — сохраните его как MP4', code: 'MOV' });
+    const serverMs = mp4DurationMs(file.buffer);
+    // A listing video's 30 s limit must be checked by us, not taken from the browser: WebM has no duration we read.
+    if (purpose === 'listing' && serverMs == null) throw new BadRequestException({ message: 'Для объявления загрузите видео в формате MP4', code: 'NO_DURATION' });
+    const durationMs = serverMs ?? client.durationMs ?? null;
     if (durationMs == null) throw new BadRequestException({ message: 'Не удалось определить длительность видео' });
     const maxMs = purpose === 'chat' ? MAX_CHAT_VIDEO_MS : MAX_VIDEO_MS;
     if (durationMs > maxMs + 500) throw new BadRequestException({ message: `Видео должно быть не длиннее ${purpose === 'chat' ? '3 минут' : '30 секунд'}`, code: 'TOO_LONG' });
     if (!poster) throw new BadRequestException({ message: 'Не получен кадр-обложка видео' });
+    if (poster.size > MAX_POSTER_BYTES) throw new BadRequestException({ message: 'Кадр-обложка слишком большой — до 5 МБ' });
+    if (!ALLOWED_MIME.has(poster.mimetype)) throw new BadRequestException({ message: 'Кадр-обложка должен быть JPG, PNG или WEBP' });
 
-    let posterImage: ReturnType<typeof sharp>;
-    try {
-      posterImage = sharp(poster.buffer).rotate();
-      await posterImage.metadata();
-    } catch {
-      throw new BadRequestException({ message: 'Не удалось прочитать кадр видео' });
-    }
+    const frames = await withSharp(async () => {
+      try {
+        const { image } = await probeImage(poster.buffer);
+        const medium = await image.rotate().resize({ width: 640, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+        const small = await openImage(medium).resize({ width: 320, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+        return { 320: small, 640: medium };
+      } catch (e) {
+        if (e instanceof BadRequestException) throw e;
+        throw new BadRequestException({ message: 'Не удалось прочитать кадр видео' });
+      }
+    });
+    const body = ext === 'mp4' ? stripMp4Metadata(file.buffer) : file.buffer;
     const key = `${ownerId}/v-${randomUUID()}`;
-    await this.storage.put(`${key}.${ext}`, file.buffer, mime);
-    await Promise.all(
-      [320, 640].map(async (w) => this.storage.put(`${key}_${w}.webp`, await posterImage.clone().resize({ width: w, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(), 'image/webp')),
-    );
+    await this.storage.put(`${key}.${ext}`, body, mime);
+    await Promise.all(([320, 640] as const).map((w) => this.storage.put(`${key}_${w}.webp`, frames[w], 'image/webp')));
     const size = (n: number | undefined) => Math.max(1, Math.min(8192, Math.round(n ?? 0))) || 1;
     const video = await this.prisma.video.create({
       data: { ownerId, key, ext, mime, width: size(client.width), height: size(client.height), durationMs: Math.round(durationMs) },
@@ -361,37 +410,60 @@ export class MediaService implements OnModuleInit {
   /** Downscaled JPEG of a photo for the AI ensemble (every provider accepts JPEG; small = cheap and fast). */
   async imageForAi(photo: string | StoredPhoto, size = 512): Promise<Buffer> {
     const webp = await this.read(typeof photo === 'string' ? { key: photo } : photo, 640);
-    return sharp(webp).resize(size, size, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
+    return withSharp(() => openImage(webp).resize(size, size, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer());
   }
 
-  /** A photo the visitor searches by (never stored): upright, downscaled JPEG for the AI plus its difference hash. */
-  async searchImage(file: Buffer): Promise<{ jpeg: Buffer; dhash: string }> {
-    try {
-      const img = sharp(file, { failOn: 'error' }).rotate();
-      const jpeg = await img.clone().resize(512, 512, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
-      return { jpeg, dhash: await differenceHash(jpeg) };
-    } catch {
-      throw new BadRequestException({ message: 'Не получилось открыть фото — попробуйте JPG или PNG' });
-    }
+  /** A photo the visitor searches by (never stored): upright, downscaled JPEG for the AI plus its difference hash and colours. */
+  async searchImage(file: Buffer): Promise<{ jpeg: Buffer; dhash: string; palette: string }> {
+    return withSharp(async () => {
+      try {
+        const { image } = await probeImage(file);
+        const jpeg = await image.rotate().resize(512, 512, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
+        const [dhash, palette] = await Promise.all([differenceHash(jpeg), colorPalette(jpeg)]);
+        return { jpeg, dhash, palette };
+      } catch (e) {
+        if (e instanceof BadRequestException) throw e;
+        throw new BadRequestException({ message: 'Не получилось открыть фото — попробуйте JPG или PNG' });
+      }
+    });
   }
 
-  /** Stored difference hash, computed lazily for photos uploaded before hashing existed. */
-  async dhash(photo: StoredPhoto & { id: string; dhash: string | null }): Promise<string | null> {
-    if (photo.dhash) return photo.dhash;
-    try {
-      const h = await differenceHash(await this.read(photo, 320));
-      await this.prisma.photo.updateMany({ where: { key: photo.key }, data: { dhash: h } });
-      return h;
-    } catch {
-      return null;
-    }
+  /**
+   * Fills the difference hash and colour signature of photos uploaded before they existed. Request paths (duplicate
+   * check, «Похожие», search by photo) only read stored values, so a page never fans out into hundreds of image
+   * reads; a photo that can't be read gets a sentinel and isn't tried again.
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async backfillLooks() {
+    await withJobLock(this.redis, 'media.backfillLooks', 60_000, async () => {
+      const rows = await this.prisma.photo.findMany({
+        where: { OR: [{ dhash: null }, { palette: null }] },
+        select: { id: true, key: true, provider: true, dhash: true, palette: true },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      });
+      let failed = 0;
+      await mapLimit(rows, 4, async (p) => {
+        try {
+          const img = await this.read(p, 320);
+          const [dhash, palette] = await withSharp(() => Promise.all([p.dhash ?? differenceHash(img), p.palette ?? colorPalette(img)]));
+          // Size copies share the files: every row with the key gets the values.
+          await this.prisma.photo.updateMany({ where: { key: p.key }, data: { dhash, palette } });
+        } catch {
+          failed++;
+          await this.prisma.photo.update({ where: { id: p.id }, data: { dhash: p.dhash ?? UNREADABLE, palette: p.palette ?? UNREADABLE } }).catch(() => undefined);
+        }
+      });
+      if (rows.length) this.logger.log(`photo looks backfilled: ${rows.length - failed}, unreadable: ${failed}`);
+    });
   }
 
-  /** Stored quality, measured lazily for photos uploaded before quality tracking existed. */
+  /** Stored quality, measured lazily for photos uploaded before quality tracking existed (the seller's own few photos). */
   async quality(photo: StoredPhoto & { id: string; quality: unknown }): Promise<PhotoQuality | null> {
     if (photo.quality) return photo.quality as PhotoQuality;
     try {
-      const q = await measureQuality(await this.read(photo, 640));
+      const img = await this.read(photo, 640);
+      const q = await withSharp(() => measureQuality(img));
       await this.prisma.photo.update({ where: { id: photo.id }, data: { quality: { ...q } } });
       return q;
     } catch {
@@ -399,3 +471,9 @@ export class MediaService implements OnModuleInit {
     }
   }
 }
+
+/**
+ * What moderation looks at for a listing video: a Cloudinary video gives three frames spread over the clip
+ * (`key#10`, `key#50`, `key#90`, read by MediaService.read), a local one only the poster the browser captured.
+ */
+export const videoFrameKeys = (v: StoredVideo) => (v.provider === 'CLOUDINARY' ? VIDEO_FRAME_OFFSETS.map((p) => `${v.key}#${p}`) : [v.key]);

@@ -7,17 +7,31 @@ import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
+import { sessionOk } from './auth/auth.guard.js';
+import { UploadTooLargeFilter } from './common/http-errors.js';
 import { checkEnv } from './config/env.js';
 import { attachWebSockets, EventsService } from './events/events.js';
 import { MEDIA_DIR } from './media/storage.js';
+import { PrismaService } from './prisma/prisma.service.js';
 
 async function bootstrap() {
   checkEnv();
   const production = process.env.NODE_ENV === 'production';
+  const logger = new Logger('Bootstrap');
+  // A failed promise nobody awaited, or an error thrown outside any request, must not end the process silently:
+  // Railway restarts it only a few times before giving up.
+  process.on('unhandledRejection', (e) => logger.error(`unhandled rejection: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`));
+  process.on('uncaughtException', (e) => {
+    logger.error(`uncaught exception: ${e.stack ?? e.message}`);
+    setTimeout(() => process.exit(1), 500).unref();
+  });
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Behind a proxy (nginx, Railway/Vercel edge, the Next.js rewrite): take the client IP from X-Forwarded-For,
-  // otherwise rate limits see one IP for everyone. Railway and Vercel always sit behind their edge proxy.
-  const trustProxy = process.env.TRUST_PROXY || (process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL ? 'true' : '');
+  // otherwise rate limits see one IP for everyone. Only the nearest hop is trusted (TRUST_PROXY to override):
+  // Railway's edge appends the real client address last, and the Next.js rewrite passes the header on without adding
+  // its own hop, so the rightmost entry is the visitor and anything a client wrote into the header before it is
+  // ignored. `true` (every hop) would let a request name its own address and walk past every rate limit.
+  const trustProxy = process.env.TRUST_PROXY || (process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL ? '1' : '');
   if (trustProxy) app.set('trust proxy', trustProxy === 'true' ? true : Number(trustProxy) || trustProxy);
   // Security headers; photos are loaded by the site from another origin, hence cross-origin resource policy.
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, hsts: production }));
@@ -28,18 +42,35 @@ async function bootstrap() {
     next();
   });
   app.use(cookieParser());
+  app.useGlobalFilters(new UploadTooLargeFilter());
   const origins = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',').map((o) => o.trim());
   app.enableCors({ origin: origins, credentials: true });
   if ((process.env.MEDIA_DRIVER ?? 'local') === 'local') {
     app.useStaticAssets(MEDIA_DIR, { prefix: '/media/', maxAge: '365d', immutable: true });
   }
-  app.enableShutdownHooks();
-
   const events = app.get(EventsService);
-  if (events.driver === 'ws') attachWebSockets(app.getHttpServer(), events, app.get(JwtService));
+  const prisma = app.get(PrismaService);
+  if (events.driver === 'ws') attachWebSockets(app.getHttpServer(), events, app.get(JwtService), (userId, sv) => sessionOk(prisma, userId, sv));
 
   const port = Number(process.env.PORT ?? 4000);
   await app.listen(port);
-  Logger.log(`API on http://localhost:${port}`, 'Bootstrap');
+  logger.log(`API on http://localhost:${port}`);
+
+  // Redeploy (SIGTERM): stop taking connections, let requests in flight finish, then close modules (Prisma last),
+  // instead of Nest's default order, which disconnects the database while requests are still running.
+  let stopping = false;
+  const shutdown = (signal: string) => {
+    if (stopping) return;
+    stopping = true;
+    logger.log(`${signal}: draining`);
+    const server = app.getHttpServer() as import('http').Server;
+    const timer = setTimeout(() => process.exit(0), 15_000).unref();
+    server.close(() => {
+      clearTimeout(timer);
+      app.close().finally(() => process.exit(0));
+    });
+    server.closeIdleConnections?.();
+  };
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) process.once(signal, () => shutdown(signal));
 }
 bootstrap();

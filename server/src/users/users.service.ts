@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, Injectable, Patch } from '@nestjs/common';
+import {
+  ConflictException, BadRequestException, Body, Controller, Injectable, Patch } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { CITIES } from '../catalog/catalog.js';
 import { ZodPipe } from '../common/zod.js';
 import { ChatService } from '../chat/chat.js';
-import type { Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { BundleTiersDto } from '../listings/bundle.js';
 import { BodyMeasurementsDto, SizesDto } from '../listings/fit.js';
 import { emailPrefsOf } from '../mail/mail.module.js';
@@ -76,7 +77,13 @@ export class UsersService {
 const UpdateMeDto = z.object({
   city: z.enum(CITIES as [string, ...string[]]).nullish(),
   bio: z.string().trim().max(160, 'До 160 символов').nullish(),
-  phone: z.string().trim().max(30).nullish(),
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .transform((v) => v.replace(/[\s()-]/g, ''))
+    .refine((v) => !v || /^\+?\d{7,15}$/.test(v), 'Введите номер в формате +375 29 123-45-67')
+    .nullish(),
   sizes: SizesDto.nullish(),
   bodyMeasurements: BodyMeasurementsDto.nullish(),
   bundleDiscounts: BundleTiersDto.optional(),
@@ -101,18 +108,27 @@ export class UsersController {
       if (!photo || photo.ownerId !== user.id || photo.listingId || photo.messageId) throw new BadRequestException({ message: 'Это фото нельзя поставить на аватар' });
     }
     const json = (v: unknown) => (v ?? undefined) as Prisma.InputJsonValue | undefined;
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        ...rest,
-        ...(sizes !== undefined ? { sizes: json(sizes) } : {}),
-        ...(bodyMeasurements !== undefined ? { bodyMeasurements: json(bodyMeasurements) } : {}),
-        ...(bundleDiscounts !== undefined ? { bundleDiscounts: [...bundleDiscounts].sort((a, b) => a.minItems - b.minItems) } : {}),
-        ...(emailPrefs !== undefined ? { emailPrefs } : {}),
-        ...(onboarded ? { onboardedAt: new Date() } : {}),
-        ...(avatarId !== undefined ? { avatarId } : {}),
-      },
-    });
+    // A phone that moves is a phone nobody has confirmed yet.
+    const phoneChange = rest.phone !== undefined ? { phone: rest.phone || null, phoneVerifiedAt: null } : {};
+    try {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...rest,
+          ...phoneChange,
+          ...(sizes !== undefined ? { sizes: json(sizes) } : {}),
+          ...(bodyMeasurements !== undefined ? { bodyMeasurements: json(bodyMeasurements) } : {}),
+          ...(bundleDiscounts !== undefined ? { bundleDiscounts: [...bundleDiscounts].sort((a, b) => a.minItems - b.minItems) } : {}),
+          ...(emailPrefs !== undefined ? { emailPrefs } : {}),
+          ...(onboarded ? { onboardedAt: new Date() } : {}),
+          ...(avatarId !== undefined ? { avatarId } : {}),
+        },
+      });
+    } catch (e) {
+      // The number belongs to another account (unique column): say so instead of a 500.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException({ message: 'Этот номер уже привязан к другому аккаунту', fields: { phone: 'Номер занят' } });
+      throw e;
+    }
     return this.users.me(user.id);
   }
 }

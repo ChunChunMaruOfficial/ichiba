@@ -86,7 +86,8 @@ export class PhotoChecker {
   ) {}
 
   async check(userId: string, photoIds: string[], category?: string | null): Promise<PhotoCheckResult> {
-    const key = hashKey('photos', photoIds, category);
+    // Per user: the result describes the caller's own photos, and another account must not read it by guessing ids.
+    const key = hashKey('photos', userId, photoIds, category);
     const cached = this.cache.get(key);
     if (cached) return cached;
 

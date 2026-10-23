@@ -92,7 +92,8 @@ export class TgPostParser {
           title: i.title.trim().slice(0, 80),
           category: category.slug,
           subcategory: category.subcategories.find((s) => s.slug === i.subcategory)?.slug ?? category.subcategories[0].slug,
-          brand: i.brand?.trim() || ownBrand,
+          // Model output: kept to the listing's brand field length.
+          brand: i.brand?.trim().slice(0, 40) || ownBrand,
           color: COLORS.some((c) => c.value === i.color) ? i.color! : undefined,
           sizes: i.sizes.map((s) => s.trim().toUpperCase()).filter((s) => /^(XXS|XS|S|M|L|XL|XXL|3XL|\d{2})$/.test(s)),
           price: i.price_byn && i.price_byn > 0 && i.price_byn <= 100_000 ? Math.round(i.price_byn) : undefined,

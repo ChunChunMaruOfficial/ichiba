@@ -4,12 +4,15 @@ import sharp from 'sharp';
 import { AiService } from '../ai/ai.service.js';
 import { PRIVACY_VERSION } from '../auth/auth.service.js';
 import { categoryBySlug, SIZES } from '../catalog/catalog.js';
+import { withJobLock } from '../common/job-lock.js';
 import type { ListingInputT } from '../listings/listings.dto.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { reclassifySeller } from '../listings/market.js';
 import { MediaService } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { type Rates, RatesService } from '../rates/rates.js';
+import { RedisService } from '../redis/redis.js';
+import { ADOPT_SELECT, importerMayAdopt } from '../tg/adopt.js';
 import { download, downloadFirst, fetchProducts, lexicalText, type PayloadProduct, photoCandidates } from './payload.js';
 import { colorFromName, listingTitle, materialFrom, SHOP_SOURCES, type ShopKind, type ShopSourceConfig, tidySize } from './sources.js';
 
@@ -27,6 +30,11 @@ function passwordHash(key: string): string | null {
 }
 
 const REMOVED_ON_ICHIBA = 'снято на ichiba';
+/** A BYN price that moved less than this (mostly the exchange rate wobbling) is not copied to the listing. */
+const MIN_PRICE_CHANGE = 0.03;
+/** Sizes a listing takes from the shop: at most this many, each at most SIZE_MAX characters (listing limits). */
+const MAX_SIZES = 15;
+const SIZE_MAX = 20;
 
 /** A product as it would be listed now. */
 interface Offer {
@@ -67,6 +75,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     private readonly media: MediaService,
     private readonly ai: AiService,
     private readonly rates: RatesService,
+    private readonly redis: RedisService,
   ) {}
 
   get enabled() {
@@ -76,12 +85,13 @@ export class ShopImportService implements OnApplicationBootstrap {
 
   onApplicationBootstrap() {
     // After the Telegram import's first run has started, so the two don't download photos at the same moment.
-    if (this.enabled) setTimeout(() => void this.syncAll(), 90_000).unref();
+    if (this.enabled) setTimeout(() => void this.cron(), 90_000).unref();
   }
 
+  /** Under the job lock: the old and the new container overlapping in a deploy would list every new product twice. */
   @Cron('47 */3 * * *')
   async cron() {
-    if (this.enabled) await this.syncAll();
+    if (this.enabled) await withJobLock(this.redis, 'shops.import', 3 * 3600_000, () => this.syncAll());
   }
 
   async syncAll() {
@@ -108,6 +118,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     this.logger.log(`${cfg.key}: ${products.length} products read`);
 
     const userId = await this.ensureSeller(cfg);
+    if (!userId) return;
     const source = await this.prisma.shopSource.upsert({ where: { key: cfg.key }, create: { key: cfg.key, userId }, update: {} });
     if (!source.enabled) return;
     // The first import keeps each product's own date, so the brand's whole catalogue doesn't flood «Новое».
@@ -136,7 +147,7 @@ export class ShopImportService implements OnApplicationBootstrap {
         continue;
       }
       const listing = row?.listingId
-        ? await this.prisma.listing.findUnique({ where: { id: row.listingId }, select: { id: true, status: true } })
+        ? await this.prisma.listing.findUnique({ where: { id: row.listingId }, select: { id: true, status: true, price: true } })
         : null;
 
       try {
@@ -173,21 +184,36 @@ export class ShopImportService implements OnApplicationBootstrap {
             stats.updated++;
           }
         }
+        // What the listing is known to show; differs from the offer's when a small price move was left out.
+        let fingerprint = offer.fingerprint;
         if (row!.fingerprint !== offer.fingerprint && live.status !== 'RESERVED') {
-          await this.listings.update(userId, live.id, this.priceAndSizes(offer));
-          stats.updated++;
+          const patch = this.priceAndSizes(offer);
+          // A move under 3% (an exchange-rate wobble) keeps the listed price: no edit for it and no «цена снижена» to
+          // everyone who saved the item. The fingerprint records the price actually listed, so a drift that adds up
+          // past 3% is copied on a later run.
+          const small = live.price != null && live.price > 0 && Math.abs(offer.price - live.price) / live.price < MIN_PRICE_CHANGE;
+          if (small) {
+            patch.price = live.price;
+            fingerprint = JSON.stringify([live.price, offer.originalPrice, offer.sizes]);
+          }
+          const [, prevOld, prevSizes] = (JSON.parse(row!.fingerprint ?? 'null') as [number, number | null, string[]] | null) ?? [];
+          const onlyPrice = JSON.stringify([prevOld ?? null, prevSizes ?? []]) === JSON.stringify([offer.originalPrice, offer.sizes]);
+          if (!(small && onlyPrice)) {
+            await this.listings.update(userId, live.id, patch);
+            stats.updated++;
+          }
         }
         if (!offer.available && (live.status === 'PUBLISHED' || live.status === 'DRAFT')) {
           await this.listings.hide(userId, live.id);
           stats.hidden++;
-          await save(productId, { status: 'OUT', reason: product.hidden ? 'скрыт в магазине' : 'нет в наличии', listingId: live.id, fingerprint: offer.fingerprint });
+          await save(productId, { status: 'OUT', reason: product.hidden ? 'скрыт в магазине' : 'нет в наличии', listingId: live.id, fingerprint });
         } else if (offer.available && live.status === 'HIDDEN' && row!.status === 'OUT') {
           // Only what the sync hid comes back; a listing the brand hid by hand stays hidden.
           await this.listings.publish(userId, live.id, { trustedPhotos: true });
           stats.shown++;
-          await save(productId, { status: 'LISTED', listingId: live.id, fingerprint: offer.fingerprint });
+          await save(productId, { status: 'LISTED', listingId: live.id, fingerprint });
         } else {
-          await save(productId, { status: row!.status === 'OUT' && offer.available ? 'LISTED' : row!.status, listingId: live.id, fingerprint: offer.fingerprint });
+          await save(productId, { status: row!.status === 'OUT' && offer.available ? 'LISTED' : row!.status, listingId: live.id, fingerprint });
         }
       } catch (e) {
         stats.failed++;
@@ -225,7 +251,8 @@ export class ShopImportService implements OnApplicationBootstrap {
 
     const inStock = (p.stock ?? []).filter((s) => (s.quantity ?? 0) > 0 && s.size?.trim()).map((s) => tidySize(s.size!));
     const sized = (categoryBySlug(kind.category)?.sizeSystems.length ?? 0) > 0;
-    const sizes = sized ? [...new Set(inStock)] : [];
+    // Third-party data: sizes are kept to what a listing can hold (a broken feed can't write hundreds of long «sizes»).
+    const sizes = sized ? [...new Set(inStock)].filter((s) => s.length <= SIZE_MAX).slice(0, MAX_SIZES) : [];
     const available = !p.hidden && p.inStock !== false && (p.stock?.length ? inStock.length > 0 : true);
 
     const text = withoutContacts(lexicalText(p.description_ru));
@@ -272,11 +299,18 @@ export class ShopImportService implements OnApplicationBootstrap {
     return { price: offer.price, originalPrice: offer.originalPrice, ...this.sizeFields(offer) };
   }
 
-  /** The brand's account: created once, a verified brand from the start; the profile follows the shop. */
+  /**
+   * The brand's account: created once, a verified brand from the start; the profile follows the shop. Null when the
+   * nick belongs to an account the import didn't make (a person's): it is never listed under or given a password.
+   */
   private async ensureSeller(cfg: ShopSourceConfig) {
-    const existing = await this.prisma.user.findUnique({ where: { username: cfg.key }, include: { shopSources: true } });
-    if (existing && !existing.shopSources.length && (existing.email || existing.phone || existing.googleSub || existing.telegramId)) {
-      throw new Error(`@${cfg.key} is taken by a real user — not touching it`);
+    const existing = await this.prisma.user.findUnique({
+      where: { username: cfg.key },
+      select: { id: true, passwordHash: true, bio: true, brandVerifiedAt: true, catalogApprovedAt: true, avatarId: true, ...ADOPT_SELECT },
+    });
+    if (existing && !importerMayAdopt(existing)) {
+      this.logger.warn(`@${cfg.key}: the nick belongs to an account the import didn't create — shop skipped`);
+      return null;
     }
     const user =
       existing ??
@@ -303,7 +337,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     if (!user.brandVerifiedAt) await reclassifySeller(this.prisma, user.id, { brandVerifiedAt: new Date(), catalogApprovedAt: user.catalogApprovedAt });
     if (!user.avatarId && cfg.logoUrl) {
       try {
-        const photo = await this.media.upload(user.id, jpegFile(await squareLogo(await download(cfg.logoUrl)), 'avatar.jpg'), 'avatar');
+        const photo = await this.media.upload(user.id, jpegFile(await squareLogo(await download(cfg.origin, cfg.logoUrl)), 'avatar.jpg'), 'avatar');
         await this.prisma.user.update({ where: { id: user.id }, data: { avatarId: photo.id } });
       } catch (e) {
         this.logger.warn(`${cfg.key}: avatar not set: ${(e as Error).message}`);
@@ -319,7 +353,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     let cover: Buffer | null = null;
     for (const candidates of offer.photos) {
       try {
-        const buffer = await downloadFirst(candidates);
+        const buffer = await downloadFirst(cfg.origin, candidates);
         cover ??= buffer;
         photos.push({ id: (await this.media.upload(userId, jpegFile(buffer, 'photo.jpg'))).id, isDefect: false });
       } catch (e) {

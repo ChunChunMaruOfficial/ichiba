@@ -3,10 +3,13 @@ import { Cron } from '@nestjs/schedule';
 import { AiService } from '../ai/ai.service.js';
 import { PRIVACY_VERSION } from '../auth/auth.service.js';
 import { sizeRequired } from '../catalog/catalog.js';
+import { withJobLock } from '../common/job-lock.js';
 import type { ListingInputT } from '../listings/listings.dto.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { MediaService } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.js';
+import { ADOPT_SELECT, importerMayAdopt } from './adopt.js';
 import { download, fetchAvatarUrl, fetchChannel, type TgChannelData, type TgPostData } from './scrape.js';
 import { type ParsedItem, TgPostParser } from './parse.js';
 import { type CuratedItem, TG_SOURCES, type TgSourceConfig } from './sources.js';
@@ -48,6 +51,7 @@ export class TgImportService implements OnApplicationBootstrap {
     private readonly media: MediaService,
     private readonly ai: AiService,
     private readonly parser: TgPostParser,
+    private readonly redis: RedisService,
   ) {}
 
   get enabled() {
@@ -57,12 +61,12 @@ export class TgImportService implements OnApplicationBootstrap {
 
   onApplicationBootstrap() {
     // Shortly after start, so a fresh deploy imports at once without slowing the boot.
-    if (this.enabled) setTimeout(() => void this.syncAll(), 30_000).unref();
+    if (this.enabled) setTimeout(() => void this.cron(), 30_000).unref();
   }
 
   @Cron('17 */3 * * *')
   async cron() {
-    if (this.enabled) await this.syncAll();
+    if (this.enabled) await withJobLock(this.redis, 'tg.import', 3 * 3600_000, () => this.syncAll());
   }
 
   async syncAll() {
@@ -86,8 +90,9 @@ export class TgImportService implements OnApplicationBootstrap {
     if (!channel.posts.length) throw new Error('no posts read (channel private or t.me unreachable)');
     this.logger.log(`@${cfg.channel}: ${channel.posts.length} posts read${channel.complete ? '' : ' (incomplete)'}`);
     const userId = await this.ensureSeller(cfg, channel);
-    await this.foldRepeats(cfg, userId);
+    if (!userId) return;
     const source = await this.prisma.tgSource.upsert({ where: { channel: cfg.channel }, create: { channel: cfg.channel, userId }, update: {} });
+    await this.foldRepeats(cfg, userId, source.id);
     if (!source.enabled) return;
 
     const known = new Map<number, { status: string; listingIds: string[] }>(
@@ -165,11 +170,15 @@ export class TgImportService implements OnApplicationBootstrap {
     if (Object.values(stats).some((n) => n > 0)) this.logger.log(`@${cfg.channel}: ${JSON.stringify(stats)}`);
   }
 
-  /** The shop's account: created once with the configured password; the profile follows the channel. */
+  /**
+   * The shop's account: created once with the configured password; the profile follows the channel. Null when the
+   * nick belongs to an account the import didn't make (a person's): it is never listed under or given a password.
+   */
   private async ensureSeller(cfg: TgSourceConfig, channel: TgChannelData) {
-    const existing = await this.prisma.user.findUnique({ where: { username: cfg.channel }, include: { tgSources: true } });
-    if (existing && !existing.tgSources.length && (existing.email || existing.phone || existing.googleSub || existing.telegramId)) {
-      throw new Error(`@${cfg.channel} is taken by a real user — not touching it`);
+    const existing = await this.prisma.user.findUnique({ where: { username: cfg.channel }, select: { id: true, passwordHash: true, bio: true, avatarId: true, ...ADOPT_SELECT } });
+    if (existing && !importerMayAdopt(existing)) {
+      this.logger.warn(`@${cfg.channel}: the nick belongs to an account the import didn't create — channel skipped`);
+      return null;
     }
     const user =
       existing ??
@@ -290,13 +299,18 @@ export class TgImportService implements OnApplicationBootstrap {
 
   /**
    * One item = one card: size copies made by earlier imports are folded into their first listing (as its
-   * «Несколько размеров»), and listings repeating a title keep only the oldest. Items in a deal are left alone.
+   * «Несколько размеров»), and listings repeating a title keep only the oldest. Only listings this import created
+   * (recorded on its posts) are looked at — what the shop made by hand on ichiba is theirs; and only items on sale
+   * or hidden are removed, through the regular removal (pending requests and offers declined), never a sold one or
+   * one in a deal.
    */
-  private async foldRepeats(cfg: TgSourceConfig, userId: string) {
+  private async foldRepeats(cfg: TgSourceConfig, userId: string, sourceId: string) {
     const ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
     const rank = (v: string | null) => (ORDER.includes(v ?? '') ? ORDER.indexOf(v!) : 100 + Number(v ?? 0));
+    const imported = (await this.prisma.tgPost.findMany({ where: { sourceId }, select: { listingIds: true } })).flatMap((p) => p.listingIds);
+    if (!imported.length) return;
     const live = await this.prisma.listing.findMany({
-      where: { sellerId: userId, status: { in: ['PUBLISHED', 'HIDDEN', 'RESERVED', 'SOLD'] } },
+      where: { id: { in: imported }, sellerId: userId, status: { in: ['PUBLISHED', 'HIDDEN', 'RESERVED', 'SOLD'] } },
       orderBy: { createdAt: 'asc' },
       select: { id: true, title: true, status: true, groupId: true, sizeValue: true, sizeSystem: true, sizes: true },
     });
@@ -317,10 +331,13 @@ export class TgImportService implements OnApplicationBootstrap {
       const keep = rows.find((r) => r.status === 'RESERVED') ?? rows[0];
       const sizes = [...new Set(rows.flatMap((r) => (r.sizes.length ? r.sizes : [r.sizeValue])).filter((v): v is string => !!v && v !== 'Уточняйте'))].sort((a, b) => rank(a) - rank(b));
       for (const r of rows) {
-        if (r.id === keep.id || r.status === 'RESERVED') continue;
-        await this.prisma.listing.update({ where: { id: r.id }, data: { status: 'DELETED' } });
-        await this.prisma.offer.updateMany({ where: { listingId: r.id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
-        folded++;
+        if (r.id === keep.id || !['PUBLISHED', 'HIDDEN'].includes(r.status)) continue;
+        try {
+          await this.listings.remove(userId, r.id);
+          folded++;
+        } catch (e) {
+          this.logger.warn(`@${cfg.channel}: fold ${r.id}: ${errorText(e)}`);
+        }
       }
       await this.prisma.listing.update({
         where: { id: keep.id },

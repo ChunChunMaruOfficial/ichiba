@@ -3,7 +3,12 @@
  * typed; everything else in a product is ignored.
  */
 
+import { hostOrSub, safeFetch, safeFetchText } from '../tg/fetch-safe.js';
+
 const UA = 'Mozilla/5.0 (compatible; ichiba-shop-import/1.0)';
+
+/** Requests for a shop go only to the shop's own host (and its subdomains): its JSON can't point us elsewhere. */
+const shopHosts = (origin: string) => hostOrSub(new URL(origin).hostname.toLowerCase());
 
 interface PayloadMedia {
   url?: string | null;
@@ -35,12 +40,13 @@ export interface PayloadProduct {
 export async function fetchProducts(origin: string): Promise<PayloadProduct[]> {
   const all: PayloadProduct[] = [];
   for (let page = 1; page <= 50; page++) {
-    const res = await fetch(`${origin}/api/products?limit=100&depth=1&page=${page}`, {
-      headers: { 'user-agent': UA, accept: 'application/json' },
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) throw new Error(`${origin}/api/products: HTTP ${res.status}`);
-    const body = (await res.json()) as { docs?: PayloadProduct[]; hasNextPage?: boolean };
+    const text = await safeFetchText(`${origin}/api/products?limit=100&depth=1&page=${page}`, { allow: shopHosts(origin), userAgent: UA, accept: 'application/json' });
+    let body: { docs?: PayloadProduct[]; hasNextPage?: boolean };
+    try {
+      body = JSON.parse(text) as typeof body;
+    } catch {
+      throw new Error(`${origin}/api/products: not JSON`);
+    }
     if (!Array.isArray(body.docs)) throw new Error(`${origin}/api/products: no docs`);
     all.push(...body.docs);
     if (!body.hasNextPage) break;
@@ -48,22 +54,21 @@ export async function fetchProducts(origin: string): Promise<PayloadProduct[]> {
   return all;
 }
 
-export async function download(url: string, timeoutMs = 60_000): Promise<Buffer> {
-  const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+/** An image from the shop's own host: https, at most 15 MB, 20 s. */
+export async function download(origin: string, url: string): Promise<Buffer> {
+  return safeFetch(url, { allow: shopHosts(origin), userAgent: UA, image: true });
 }
 
 /**
  * A photo by its candidates in order (the original, then the CMS's own smaller copy): a shop that serves
- * multi-megabyte originals slowly still gives each item all its photos. The original gets a second, longer try.
+ * multi-megabyte originals slowly still gives each item all its photos. The original gets a second try.
  */
-export async function downloadFirst(urls: string[]): Promise<Buffer> {
+export async function downloadFirst(origin: string, urls: string[]): Promise<Buffer> {
   let last: unknown;
   for (const [i, url] of urls.entries()) {
-    for (const timeout of i === 0 ? [60_000, 120_000] : [60_000]) {
+    for (let attempt = 0; attempt < (i === 0 ? 2 : 1); attempt++) {
       try {
-        return await download(url, timeout);
+        return await download(origin, url);
       } catch (e) {
         last = e;
       }

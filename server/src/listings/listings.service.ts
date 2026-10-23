@@ -16,9 +16,12 @@ import { AUCTION_DURATIONS, auctionInclude, defaultStep, serializeAuction } from
 import { ListingModerator, ModerationVerdict } from '../ai/moderation.js';
 import { nextBumpAt, StatsService } from '../stats/stats.js';
 import { canonicalBrand } from '../catalog/brands.js';
+import { withJobLock } from '../common/job-lock.js';
+import { RedisService } from '../redis/redis.js';
 import { tiersOf } from './bundle.js';
 import { BodyMeasurements, fitHint, PreferredSizes } from './fit.js';
-import { hashDistance, MediaService, photoUrls, serializeVideo } from '../media/media.service.js';
+import { hashDistance, LISTING_MIN_SIDE, MediaService, photoUrls, serializeVideo, usableHash, videoFrameKeys } from '../media/media.service.js';
+import { MAX_VIDEO_MS } from '../media/video.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
 import { LISTING_LABELS, type ListingInputT, type SearchQueryT } from './listings.dto.js';
 import { type Market, marketFor, marketOf, marketWhere } from './market.js';
@@ -34,6 +37,38 @@ const CANDIDATE_POOL = 1000;
 const TILE_RATIO = 4 / 5;
 /** Edits of these on a live listing are moderated again. */
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
+/** What a sold item can no longer change: its page stays up as the record of the sale and nothing moderates it again. */
+const FROZEN_WHEN_SOLD = [...MODERATED_FIELDS, 'price', 'labels'] as const;
+/** Statuses whose content the public sees (HIDDEN comes back as it is), so edits to them are moderated. */
+const SHOWN_STATUSES: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'HIDDEN'];
+/** Statuses anyone may see the page (and the «Похожие» built from it) of; the rest only their owner. */
+const PUBLIC_STATUSES: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'SOLD'];
+const DAY_MS = 24 * 3600_000;
+/** A price counts as the «was» price of a discount only after it was asked this long (no fake «−50 %» overnight). */
+const DISCOUNT_AFTER_MS = 7 * DAY_MS;
+/** Wardrobe page size (per section). */
+const WARDROBE_PAGE = 200;
+/** «Гардеробы» page cap: every wardrobe is a collage and a summary. */
+const WARDROBES_MAX = 12;
+/** Views of one item by one person (or IP) are counted once a day; the dedupe map holds at most this many keys. */
+const VIEW_KEYS_MAX = 50_000;
+
+/** A tiny in-process cache for public pages everyone shares; the promise is stored, so concurrent misses load once. */
+class MemoCache {
+  private readonly map = new Map<string, { exp: number; v: Promise<unknown> }>();
+
+  get<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+    const hit = this.map.get(key);
+    if (hit && hit.exp > Date.now()) return hit.v as Promise<T>;
+    if (this.map.size >= 200) this.map.clear();
+    const v = load();
+    this.map.set(key, { exp: Date.now() + ttlMs, v });
+    v.catch(() => this.map.delete(key));
+    return v;
+  }
+}
+
+const isUniqueViolation = (e: unknown) => (e as { code?: string } | null)?.code === 'P2002';
 
 @Injectable()
 export class ListingsService {
@@ -44,7 +79,35 @@ export class ListingsService {
     private readonly moderator: ListingModerator,
     private readonly stats: StatsService,
     private readonly media: MediaService,
+    private readonly redis: RedisService,
   ) {}
+
+  private readonly cache = new MemoCache();
+  /** listingId:viewer → day number of the last counted view. */
+  private readonly views = new Map<string, number>();
+  private viewsSweptAt = Date.now();
+  /** Scheduled drafts that failed only because no model answered: not retried for 5 minutes. */
+  private readonly retriedAt = new Map<string, number>();
+  /** Per-listing marks the schema has no column for (last price change, last price-drop mailing): this process's copy. */
+  private readonly marks = new Map<string, number>();
+
+  /** When a mark was set (Redis when there is one, so instances agree; else this process), or null. */
+  private async markAt(key: string): Promise<number | null> {
+    // `redis` is absent only where a test builds the service by hand.
+    const client = this.redis?.client;
+    const shared = client ? await client.get(`ichiba:mark:${key}`).catch(() => null) : null;
+    return shared ? Number(shared) : (this.marks.get(key) ?? null);
+  }
+
+  private async setMark(key: string, ttlMs: number) {
+    const now = Date.now();
+    if (this.marks.size >= 10_000) {
+      for (const [k, at] of this.marks) if (now - at > 30 * DAY_MS) this.marks.delete(k);
+      if (this.marks.size >= 10_000) this.marks.clear();
+    }
+    this.marks.set(key, now);
+    await this.redis?.client?.set(`ichiba:mark:${key}`, String(now), 'PX', ttlMs).catch(() => undefined);
+  }
 
   // ---------- helpers ----------
 
@@ -79,6 +142,7 @@ export class ListingsService {
     const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { city: true, brandVerifiedAt: true, catalogApprovedAt: true } });
     const data = this.toData(input);
     if (!me?.brandVerifiedAt) delete data.labels;
+    await this.assertListingMedia(userId, null, input.photos, input.videoId);
     const listing = await this.prisma.listing.create({
       data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...data, market: marketFor(me, data.condition, data.hasTags) },
     });
@@ -94,6 +158,14 @@ export class ListingsService {
     // Seals are a brand's tool; anyone else's choice is ignored.
     if (data.labels !== undefined && !(await this.prisma.user.findUnique({ where: { id: userId }, select: { brandVerifiedAt: true } }))?.brandVerifiedAt) delete data.labels;
 
+    // Arrays (labels) compare by value: a resent unchanged list isn't a change.
+    const changes = (f: keyof typeof data & keyof Listing) => f in data && data[f] !== undefined && JSON.stringify(data[f]) !== JSON.stringify(listing[f]);
+    if (listing.status === 'SOLD' && (FROZEN_WHEN_SOLD.some(changes) || input.photos || input.videoId !== undefined)) {
+      throw new ConflictException({ message: 'Проданную вещь нельзя менять' });
+    }
+    const live = listing.status === 'PUBLISHED' || listing.status === 'RESERVED';
+    if (live && changes('saleType')) throw new ConflictException({ message: 'Способ продажи нельзя менять у вещи в продаже — снимите её и выставьте заново' });
+
     const runningAuction = await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } });
     if (runningAuction) {
       const frozen = (['price', 'saleType', 'auctionStep', 'auctionReserve', 'auctionHours', 'auctionBuyNow'] as const).filter((f) => f in data && data[f] !== listing[f]);
@@ -104,14 +176,34 @@ export class ListingsService {
       if (changed.length) throw new ConflictException({ message: 'Идёт сделка — цену, размер, состояние и дефекты менять нельзя' });
     }
 
-    const priceDropped = listing.status === 'PUBLISHED' && data.price != null && listing.price != null && data.price < listing.price;
-    if (priceDropped) data.previousPrice = listing.price;
-
-    // Live listings are moderated again when their text, category or photos change; a rejected edit isn't saved.
-    let verdict: ModerationVerdict | null = null;
-    const live = listing.status === 'PUBLISHED' || listing.status === 'RESERVED';
+    await this.assertListingMedia(userId, id, input.photos, input.videoId);
     const prospective = { ...listing, ...Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) } as typeof listing;
-    if (live && (MODERATED_FIELDS.some((f) => f in data && data[f] !== listing[f]) || input.photos || input.videoId)) {
+    // A live listing stays publishable: no edit may take away its price, photos or a way to hand it over. Only problems
+    // the edit introduces count, so an older listing that predates a rule can still be edited in other fields.
+    if (live) {
+      const photoCount = await this.prisma.photo.count({ where: { listingId: id } });
+      const newCount = input.photos ? (await this.photoKeys(userId, id, input.photos)).length : photoCount;
+      const before = this.publishErrors(listing, photoCount);
+      const fields = Object.fromEntries(Object.entries(this.publishErrors(prospective, newCount)).filter(([k, v]) => before[k] !== v));
+      if (Object.keys(fields).length) throw new BadRequestException({ message: 'Заполните обязательные поля', fields });
+    }
+
+    const priceChanged = data.price !== undefined && data.price !== listing.price;
+    const priceDropped = listing.status === 'PUBLISHED' && data.price != null && listing.price != null && data.price < listing.price;
+    if (priceChanged) {
+      // The crossed-out price is the one asked for at least a week (since publication or the last change this server
+      // saw: there is no priceChangedAt column), so a raise-then-drop can't fake a discount. A later raise to or above
+      // the crossed-out price ends the discount.
+      const changedAt = await this.markAt(`price:${id}`);
+      const heldSince = Math.max(listing.publishedAt?.getTime() ?? Date.now(), changedAt ?? 0);
+      if (priceDropped && Date.now() - heldSince >= DISCOUNT_AFTER_MS) data.previousPrice = listing.price;
+      else if (listing.previousPrice != null && (data.price == null || data.price >= listing.previousPrice)) data.previousPrice = null;
+    }
+
+    // Content the public sees (or will see again: a hidden item comes back as it is) is moderated again when its
+    // text, category or photos change; a rejected edit isn't saved.
+    let verdict: ModerationVerdict | null = null;
+    if (SHOWN_STATUSES.includes(listing.status) && (MODERATED_FIELDS.some((f) => f in data && data[f] !== listing[f]) || input.photos || input.videoId)) {
       verdict = await this.moderator.check(prospective, await this.moderationKeys(userId, id, input.photos, input.videoId));
       if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Изменения не прошли проверку', code: 'MODERATION', fields: verdict.fields, retry: !!verdict.retry });
     }
@@ -125,8 +217,12 @@ export class ListingsService {
     if (input.photos) await this.attachPhotos(userId, id, input.photos);
     if (input.videoId !== undefined) await this.attachVideo(userId, id, input.videoId);
     if (verdict) await this.moderator.record(prospective, verdict);
+    if (priceChanged) await this.setMark(`price:${id}`, 30 * DAY_MS);
 
-    if (priceDropped) {
+    // At most one price-drop notice per item a day: lowering the price by 1 BYN at a time isn't a mailing list.
+    const notifiedAt = priceDropped ? await this.markAt(`price_drop:${id}`) : null;
+    if (priceDropped && (notifiedAt == null || Date.now() - notifiedAt >= DAY_MS)) {
+      await this.setMark(`price_drop:${id}`, DAY_MS);
       // ♡ = save + watch: everyone who saved the item hears about the price drop (D3).
       const favs = await this.prisma.favorite.findMany({ where: { listingId: id }, select: { userId: true } });
       await this.notifications.notifyMany(
@@ -185,6 +281,31 @@ export class ListingsService {
   }
 
   /** Links the given photos (in order, first = cover) and detaches any others. */
+  /**
+   * An upload marked `?for=chat` skips the listing rules (photo size, 30 s video) and nothing stored says what it was
+   * for, so media new to the listing is checked against them again before anything is saved. `listingId` is null
+   * for a listing being created.
+   */
+  private async assertListingMedia(userId: string, listingId: string | null, photos?: { id: string }[], videoId?: string | null) {
+    if (photos?.length) {
+      const fresh = await this.prisma.photo.findMany({
+        where: { id: { in: photos.map((p) => p.id) }, ownerId: userId, ...(listingId ? { OR: [{ listingId: null }, { listingId: { not: listingId } }] } : {}) },
+        select: { width: true, height: true },
+      });
+      if (fresh.some((p) => Math.min(p.width, p.height) < LISTING_MIN_SIDE)) {
+        throw new BadRequestException({ message: 'Фото слишком маленькое — нужно от 400 px по меньшей стороне', code: 'TOO_SMALL', fields: { photos: 'Фото слишком маленькое' } });
+      }
+    }
+    if (videoId) {
+      const v = await this.prisma.video.findFirst({ where: { id: videoId, ownerId: userId }, select: { listingId: true, provider: true, ext: true, durationMs: true } });
+      if (v && (!listingId || v.listingId !== listingId)) {
+        if (v.durationMs > MAX_VIDEO_MS + 500) throw new BadRequestException({ message: 'Видео должно быть не длиннее 30 секунд', code: 'TOO_LONG', fields: { video: 'Не длиннее 30 секунд' } });
+        // A local WebM's length was only reported by the browser.
+        if (v.provider === 'LOCAL' && v.ext === 'webm') throw new BadRequestException({ message: 'Для объявления загрузите видео в формате MP4', code: 'NO_DURATION', fields: { video: 'Нужен MP4' } });
+      }
+    }
+  }
+
   private async attachPhotos(userId: string, listingId: string, photos: { id: string; isDefect: boolean }[]) {
     const owned = await this.prisma.photo.findMany({ where: { id: { in: photos.map((p) => p.id) }, ownerId: userId }, select: { id: true } });
     const ownedIds = new Set(owned.map((p) => p.id));
@@ -202,16 +323,16 @@ export class ListingsService {
     if (videoId) await this.prisma.video.updateMany({ where: { id: videoId, ownerId: userId }, data: { listingId } });
   }
 
-  /** Images moderation looks at: the photos plus the video's poster frame (stored like a photo). */
+  /** Images moderation looks at: the photos plus the video's frames (three across a Cloudinary clip, else the poster). */
   private async moderationKeys(userId: string, listingId: string, photos?: { id: string }[], videoId?: string | null) {
     const keys = await this.photoKeys(userId, listingId, photos);
     const video =
       videoId === undefined
-        ? await this.prisma.video.findUnique({ where: { listingId }, select: { key: true } })
+        ? await this.prisma.video.findUnique({ where: { listingId }, select: { key: true, provider: true } })
         : videoId
-          ? await this.prisma.video.findFirst({ where: { id: videoId, ownerId: userId }, select: { key: true } })
+          ? await this.prisma.video.findFirst({ where: { id: videoId, ownerId: userId }, select: { key: true, provider: true } })
           : null;
-    return video ? [...keys, video.key] : keys;
+    return video ? [...keys, ...videoFrameKeys(video)] : keys;
   }
 
   /** Missing or inconsistent fields that block publication, as field errors. */
@@ -229,6 +350,7 @@ export class ListingsService {
     if (listing.priceNegotiable && listing.saleType === 'AUCTION') fields.price = 'На аукционе нужна стартовая цена';
     if (!listing.deliveryOptions.length) fields.deliveryOptions = 'Выберите способ передачи';
     if (listing.originalPrice != null && listing.price != null && listing.originalPrice <= listing.price) fields.originalPrice = 'Цена в магазине должна быть выше вашей';
+    if (listing.minOfferPrice != null && listing.price != null && listing.minOfferPrice >= listing.price) fields.minOfferPrice = 'Порог автоотказа должен быть ниже цены';
     if (listing.saleType === 'AUCTION') {
       if (!AUCTION_DURATIONS.includes(listing.auctionHours ?? 0)) fields.auctionHours = 'Выберите длительность аукциона';
       if (listing.auctionReserve != null && listing.price != null && listing.auctionReserve < listing.price) fields.auctionReserve = 'Резерв не может быть ниже стартовой цены';
@@ -259,34 +381,54 @@ export class ListingsService {
     // An account whose listings an admin hid: new items (the shop import too) are saved hidden as well.
     const seller = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { listingsHiddenAt: true, brandVerifiedAt: true, catalogApprovedAt: true } });
     const hidden = !!seller.listingsHiddenAt;
-    await this.prisma.listing.update({
-      where: { id },
-      data: {
-        status: hidden ? 'HIDDEN' : 'PUBLISHED',
-        hiddenByAdmin: hidden,
-        // A draft is classified when it first goes live, with everything known (it may predate a change of the seller's
-        // status). An item brought back from hidden keeps its section: it never moves just for being shown again.
-        ...(listing.status === 'DRAFT' && !listing.marketByAdmin ? { market: marketFor(seller, listing.condition, listing.hasTags) } : {}),
-        publishedAt: listing.publishedAt ?? new Date(),
-        liftedAt: listing.liftedAt ?? new Date(),
-        scheduledAt: null,
-      },
-    });
+    // The status write is conditional and the auction is opened in the same transaction: two publishes racing (a
+    // double click, the scheduler and the seller) can't both go through, open two auctions or notify twice.
+    let won: boolean;
+    try {
+      won = await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.listing.updateMany({
+          where: { id, status: { in: ['DRAFT', 'HIDDEN'] }, hiddenByAdmin: false },
+          data: {
+            status: hidden ? 'HIDDEN' : 'PUBLISHED',
+            hiddenByAdmin: hidden,
+            // A draft is classified when it first goes live, with everything known (it may predate a change of the seller's
+            // status). An item brought back from hidden keeps its section: it never moves just for being shown again.
+            ...(listing.status === 'DRAFT' && !listing.marketByAdmin ? { market: marketFor(seller, listing.condition, listing.hasTags) } : {}),
+            publishedAt: listing.publishedAt ?? new Date(),
+            liftedAt: listing.liftedAt ?? new Date(),
+            scheduledAt: null,
+          },
+        });
+        if (!count) return false;
+        // Auction clock starts at publication (decision D16). One ACTIVE auction per listing is a partial unique index:
+        // ON CONFLICT DO NOTHING (skipDuplicates) treats an existing one as "already active" without failing the
+        // transaction, as a caught error would in Postgres.
+        if (!hidden && listing.saleType === 'AUCTION') {
+          await tx.auction.createMany({
+            data: [
+              {
+                listingId: id,
+                startPrice: listing.price!,
+                step: listing.auctionStep ?? defaultStep(listing.price!),
+                reservePrice: listing.auctionReserve,
+                buyNowPrice: listing.auctionBuyNow,
+                endsAt: new Date(Date.now() + listing.auctionHours! * 3600 * 1000),
+              },
+            ],
+            skipDuplicates: true,
+          });
+        }
+        return true;
+      });
+    } catch (e) {
+      // A racing publish opened the auction first: the listing is live already.
+      if (isUniqueViolation(e)) return this.getForOwner(userId, id);
+      throw e;
+    }
+    // Someone else published (or hid) it meanwhile: nothing more to do here.
+    if (!won) return this.getForOwner(userId, id);
     await this.moderator.record(listing, verdict);
     if (hidden) return this.getForOwner(userId, id);
-    // Auction clock starts at publication (decision D16).
-    if (listing.saleType === 'AUCTION' && !(await this.prisma.auction.findFirst({ where: { listingId: id, status: 'ACTIVE' } }))) {
-      await this.prisma.auction.create({
-        data: {
-          listingId: id,
-          startPrice: listing.price!,
-          step: listing.auctionStep ?? defaultStep(listing.price!),
-          reservePrice: listing.auctionReserve,
-          buyNowPrice: listing.auctionBuyNow,
-          endsAt: new Date(Date.now() + listing.auctionHours! * 3600 * 1000),
-        },
-      });
-    }
     if (!listing.publishedAt) {
       const [followers, seller] = await Promise.all([
         this.prisma.follow.findMany({ where: { sellerId: userId }, select: { followerId: true } }),
@@ -330,19 +472,24 @@ export class ListingsService {
         OR: [{ status: { in: ['PUBLISHED', 'RESERVED'] } }, { status: 'DRAFT', scheduledAt: { not: null } }],
         ...(listing.groupId ? { NOT: { groupId: listing.groupId } } : {}),
       },
-      select: { id: true, title: true, category: true, sizeValue: true, groupId: true, photos: { select: { id: true, key: true, dhash: true } } },
+      // The latest 100 are where a re-post would be; a big shop's whole catalogue isn't compared photo by photo.
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: { id: true, title: true, category: true, sizeValue: true, groupId: true, photos: { select: { dhash: true } } },
     });
     if (!others.length) return null;
     const norm = (s: string) => s.toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
     const text = others.find((o) => norm(o.title) === norm(listing.title) && o.category === listing.category && (o.sizeValue ?? '') === (listing.sizeValue ?? ''));
     if (text) return { id: text.id, title: text.title, by: 'text' };
+    if (skipPhotos) return null;
 
-    const mine = await this.prisma.photo.findMany({ where: { listingId: listing.id }, select: { id: true, key: true, dhash: true } });
-    const myHashes = (await Promise.all(mine.map((p) => this.media.dhash(p)))).filter((h): h is string => !!h);
-    if (skipPhotos || !myHashes.length) return null;
+    // Stored hashes only (filled at upload, old photos by the backfill job): no image reads on this path.
+    const mine = await this.prisma.photo.findMany({ where: { listingId: listing.id }, select: { dhash: true } });
+    const myHashes = mine.map((p) => usableHash(p.dhash)).filter((h): h is string => !!h);
+    if (!myHashes.length) return null;
     for (const o of others) {
       for (const p of o.photos) {
-        const h = await this.media.dhash(p);
+        const h = usableHash(p.dhash);
         // ≤ 6 of 64 bits: the same shot (re-saved, recompressed, slightly cropped), not just a similar item.
         if (h && myHashes.some((m) => hashDistance(m, h) <= 6)) return { id: o.id, title: o.title, by: 'photo' };
       }
@@ -375,14 +522,35 @@ export class ListingsService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async publishScheduled() {
-    const due = await this.prisma.listing.findMany({ where: { status: 'DRAFT', scheduledAt: { lte: new Date() } }, select: { id: true, sellerId: true, title: true }, take: 20 });
+    await withJobLock(this.redis, 'listings.publishScheduled', 60_000, () => this.publishDue());
+  }
+
+  private async publishDue() {
+    const now = Date.now();
+    for (const [id, at] of this.retriedAt) if (now - at >= 5 * 60_000) this.retriedAt.delete(id);
+    const due = await this.prisma.listing.findMany({
+      where: {
+        status: 'DRAFT',
+        scheduledAt: { lte: new Date() },
+        // A blocked or deleted seller's drafts stay drafts.
+        seller: { blockedAt: null, deletedAt: null },
+        // Ones that just failed for want of a model wait a few minutes, so they don't take every turn from the rest.
+        ...(this.retriedAt.size ? { id: { notIn: [...this.retriedAt.keys()] } } : {}),
+      },
+      select: { id: true, sellerId: true, title: true },
+      orderBy: { scheduledAt: 'asc' },
+      take: 50,
+    });
     for (const l of due) {
       try {
         await this.publish(l.sellerId, l.id);
         await this.notifications.notify(l.sellerId, 'listing_scheduled_published', { listingId: l.id, title: l.title });
       } catch (e) {
-        // No model could look at the photos this minute: the listing stays scheduled and is tried again.
-        if (e instanceof BadRequestException && (e.getResponse() as { retry?: boolean }).retry) continue;
+        // No model could look at the photos this minute: the listing stays scheduled and is tried again later.
+        if (e instanceof BadRequestException && (e.getResponse() as { retry?: boolean }).retry) {
+          this.retriedAt.set(l.id, Date.now());
+          continue;
+        }
         // Something changed since scheduling (moderation rules, a deleted photo): back to a plain draft.
         await this.prisma.listing.update({ where: { id: l.id }, data: { scheduledAt: null } });
         const reason = e instanceof BadRequestException || e instanceof ConflictException ? ((e.getResponse() as { message?: string }).message ?? null) : null;
@@ -428,12 +596,28 @@ export class ListingsService {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'RESERVED') throw new ConflictException({ message: 'Идёт сделка — завершите или отмените её в «Мои продажи»' });
     if (!['PUBLISHED', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя пометить проданной' });
+    // A SOLD page is public again: what an admin (or a block) took down must not come back through «Продано».
+    if (listing.hiddenByAdmin || listing.hiddenByBlock) throw new ConflictException({ message: 'Объявление скрыто администрацией — его нельзя пометить проданным' });
+    if (listing.status === 'HIDDEN') await this.ensureModerated(userId, listing);
     await this.stopAuction(id);
     await this.prisma.listing.update({ where: { id }, data: { status: 'SOLD', soldAt: new Date() } });
     await this.prisma.offer.updateMany({ where: { listingId: id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
     await this.declinePendingRequests(id, 'Уже продано');
     await this.notifyWatchers(id, 'item_sold', listing.title);
     return { ok: true };
+  }
+
+  /**
+   * A hidden item about to become public (as SOLD) must show content moderation saw: the stored verdict's hash has to
+   * match what it holds now; otherwise (edited while hidden before edits there were moderated) it is checked first.
+   */
+  private async ensureModerated(userId: string, listing: Listing) {
+    const keys = await this.moderationKeys(userId, listing.id);
+    const prev = listing.moderation as { hash?: string; status?: string } | null;
+    if (prev?.hash === this.moderator.contentHash(listing, keys) && prev.status !== 'rejected') return;
+    const verdict = await this.moderator.check(listing, keys);
+    if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку — исправьте его', code: 'MODERATION', fields: verdict.fields, retry: !!verdict.retry });
+    await this.moderator.record(listing, verdict);
   }
 
   /** Soft delete; finished deals keep pointing at the listing. */
@@ -471,6 +655,8 @@ export class ListingsService {
     const onSale = await this.prisma.listing.findMany({ where: { sellerId, status: 'PUBLISHED' }, select: { id: true } });
     const ids = onSale.map((l) => l.id);
     await this.prisma.listing.updateMany({ where: { id: { in: ids }, status: 'PUBLISHED' }, data: { status: 'HIDDEN', hiddenByBlock: true } });
+    // Scheduled drafts would otherwise go live on their own (the scheduler skips blocked sellers too).
+    await this.prisma.listing.updateMany({ where: { sellerId, status: 'DRAFT', scheduledAt: { not: null } }, data: { scheduledAt: null } });
     await this.withdrawFromSale(ids);
     return ids.length;
   }
@@ -523,11 +709,30 @@ export class ListingsService {
 
   // ---------- read: product page ----------
 
+  /**
+   * Whether this is the person's (or IP's) first view of the item today: reloads and scripted hits don't inflate the
+   * counter. In memory, bounded: swept hourly of past days, cleared outright if it still grows past the cap.
+   */
+  private firstViewToday(listingId: string, viewer: string | undefined) {
+    if (!viewer) return true;
+    const day = Math.floor(Date.now() / DAY_MS);
+    if (Date.now() - this.viewsSweptAt > 3600_000 || this.views.size >= VIEW_KEYS_MAX) {
+      for (const [k, d] of this.views) if (d !== day) this.views.delete(k);
+      if (this.views.size >= VIEW_KEYS_MAX) this.views.clear();
+      this.viewsSweptAt = Date.now();
+    }
+    const key = `${listingId}:${viewer}`;
+    if (this.views.get(key) === day) return false;
+    this.views.set(key, day);
+    return true;
+  }
+
   async getForOwner(userId: string, id: string) {
     return this.get(id, userId, { trackView: false });
   }
 
-  async get(id: string, viewerId?: string, opts: { trackView?: boolean } = {}) {
+  /** `viewer`: who is looking when nobody is signed in (the IP), so a guest's reloads count once too. */
+  async get(id: string, viewerId?: string, opts: { trackView?: boolean; viewer?: string } = {}) {
     const listing = await this.prisma.listing.findUnique({
       where: { id },
       include: { photos: { orderBy: { order: 'asc' } }, video: true, seller: { select: { id: true, username: true, city: true, createdAt: true } } },
@@ -543,8 +748,11 @@ export class ListingsService {
     }
 
     if (!isOwner && opts.trackView !== false) {
-      await this.prisma.listing.update({ where: { id }, data: { viewsCount: { increment: 1 } } });
-      this.stats.track(id, 'views');
+      if (this.firstViewToday(id, viewerId ?? opts.viewer)) {
+        // Raw UPDATE: a view must not touch `updatedAt`, which the sitemap gives crawlers as the page's lastmod.
+        await this.prisma.$executeRaw`UPDATE "Listing" SET "viewsCount" = "viewsCount" + 1 WHERE id = ${id}`;
+        this.stats.track(id, 'views');
+      }
       if (viewerId) await this.recs.record(viewerId, 'view', id);
     }
 
@@ -688,34 +896,57 @@ export class ListingsService {
   }
 
   async sellerSummary(sellerId: string, viewerId?: string) {
-    const [user, active, sold, followers, following, completedDeals, rating] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: sellerId }, select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true, avatar: { select: { key: true, provider: true } } } }),
-      this.prisma.listing.count({ where: { sellerId, status: { in: VISIBLE_IN_FEED } } }),
-      this.prisma.listing.count({ where: { sellerId, status: 'SOLD' } }),
-      this.prisma.follow.count({ where: { sellerId } }),
-      this.prisma.follow.count({ where: { followerId: sellerId } }),
-      this.prisma.buyRequest.count({ where: { sellerId, status: 'COMPLETED' } }),
-      this.prisma.review.aggregate({ where: { sellerId, hidden: false }, _avg: { rating: true }, _count: true }),
+    const summary = (await this.sellerSummaries([sellerId], viewerId)).get(sellerId);
+    if (!summary) throw new NotFoundException({ message: 'Такого продавца нет' });
+    return summary;
+  }
+
+  /** Seller summaries for many sellers at once: one grouped query per metric, whatever the number of sellers. */
+  async sellerSummaries(ids: string[], viewerId?: string) {
+    const [users, listingCounts, followers, following, deals, ratings, viewerFollows] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true, avatar: { select: { key: true, provider: true } } },
+      }),
+      this.prisma.listing.groupBy({ by: ['sellerId', 'status'], where: { sellerId: { in: ids }, status: { in: [...VISIBLE_IN_FEED, 'SOLD'] } }, _count: { _all: true } }),
+      this.prisma.follow.groupBy({ by: ['sellerId'], where: { sellerId: { in: ids } }, _count: { _all: true } }),
+      this.prisma.follow.groupBy({ by: ['followerId'], where: { followerId: { in: ids } }, _count: { _all: true } }),
+      this.prisma.buyRequest.groupBy({ by: ['sellerId'], where: { sellerId: { in: ids }, status: 'COMPLETED' }, _count: { _all: true } }),
+      this.prisma.review.groupBy({ by: ['sellerId'], where: { sellerId: { in: ids }, hidden: false }, _avg: { rating: true }, _count: { _all: true } }),
+      viewerId ? this.prisma.follow.findMany({ where: { followerId: viewerId, sellerId: { in: ids } }, select: { sellerId: true } }) : [],
     ]);
-    const isFollowing =
-      viewerId && viewerId !== sellerId
-        ? !!(await this.prisma.follow.findUnique({ where: { followerId_sellerId: { followerId: viewerId, sellerId } } }))
-        : false;
-    const { bundleDiscounts, avatar, brandVerifiedAt, brandName, ...profile } = user;
-    return {
-      /** «Бренд» status: the brand's name, or null. */
-      brand: brandVerifiedAt ? (brandName ?? user.username) : null,
-      ...profile,
-      avatar: avatar ? photoUrls(avatar) : null,
-      activeCount: active,
-      soldCount: sold,
-      followers,
-      following,
-      completedDeals,
-      isFollowing,
-      rating: rating._count ? { avg: Math.round((rating._avg.rating ?? 0) * 10) / 10, count: rating._count } : null,
-      bundleDiscounts: tiersOf(bundleDiscounts),
-    };
+    const active = new Map<string, number>();
+    const sold = new Map<string, number>();
+    for (const r of listingCounts) {
+      const m = r.status === 'SOLD' ? sold : active;
+      m.set(r.sellerId, (m.get(r.sellerId) ?? 0) + r._count._all);
+    }
+    const followerCount = new Map(followers.map((r) => [r.sellerId, r._count._all]));
+    const followingCount = new Map(following.map((r) => [r.followerId, r._count._all]));
+    const dealCount = new Map(deals.map((r) => [r.sellerId, r._count._all]));
+    const ratingOf = new Map(ratings.map((r) => [r.sellerId, r]));
+    const followed = new Set(viewerFollows.map((f) => f.sellerId));
+    return new Map(
+      users.map((user) => {
+        const { bundleDiscounts, avatar, brandVerifiedAt, brandName, ...profile } = user;
+        const rating = ratingOf.get(user.id);
+        const summary = {
+          /** «Бренд» status: the brand's name, or null. */
+          brand: brandVerifiedAt ? (brandName ?? user.username) : null,
+          ...profile,
+          avatar: avatar ? photoUrls(avatar) : null,
+          activeCount: active.get(user.id) ?? 0,
+          soldCount: sold.get(user.id) ?? 0,
+          followers: followerCount.get(user.id) ?? 0,
+          following: followingCount.get(user.id) ?? 0,
+          completedDeals: dealCount.get(user.id) ?? 0,
+          isFollowing: !!viewerId && viewerId !== user.id && followed.has(user.id),
+          rating: rating?._count._all ? { avg: Math.round((rating._avg.rating ?? 0) * 10) / 10, count: rating._count._all } : null,
+          bundleDiscounts: tiersOf(bundleDiscounts),
+        };
+        return [user.id, summary] as const;
+      }),
+    );
   }
 
   /**
@@ -737,28 +968,23 @@ export class ListingsService {
       orderBy: { liftedAt: 'desc' },
       take: pool,
     });
-    const coverOf = async (l: { id: string }) => {
-      const p = await this.prisma.photo.findFirst({ where: { listingId: l.id }, orderBy: [{ isCover: 'desc' }, { order: 'asc' }], select: { id: true, key: true, dhash: true } });
-      return p ? this.media.dhash(p) : null;
-    };
-    const mine = await coverOf(listing);
+    // Stored hashes only (no image reads on a public page); a photo without one simply gives no visual signal.
+    const myCover = await this.prisma.photo.findFirst({ where: { listingId: listing.id }, orderBy: [{ isCover: 'desc' }, { order: 'asc' }], select: { dhash: true } });
+    const mine = usableHash(myCover?.dhash);
     const price = listing.price ?? 0;
-    const scored = await Promise.all(
-      rows.map(async (l) => {
-        let s = 0;
-        if (listing.subcategory && l.subcategory === listing.subcategory) s += 3;
-        if (listing.brand && l.brand && l.brand.toLowerCase() === listing.brand.toLowerCase()) s += 2;
-        if (listing.color && l.color === listing.color) s += 1.5;
-        if (listing.gender && (l.gender === listing.gender || l.gender == null || l.gender === 'UNISEX')) s += 0.5;
-        if (listing.sizeValue && l.sizeValue === listing.sizeValue) s += 0.5;
-        if (price && l.price) s -= Math.min(2, Math.abs(l.price - price) / price) * 1.5;
-        const cover = l.photos[0];
-        const h = mine && cover ? await this.media.dhash(cover) : null;
-        // Photos within ~20 of 64 bits share composition and tones: a weak but useful visual signal.
-        if (mine && h) s += Math.max(0, (20 - hashDistance(mine, h)) / 20) * 2;
-        return { l, s };
-      }),
-    );
+    const scored = rows.map((l) => {
+      let s = 0;
+      if (listing.subcategory && l.subcategory === listing.subcategory) s += 3;
+      if (listing.brand && l.brand && l.brand.toLowerCase() === listing.brand.toLowerCase()) s += 2;
+      if (listing.color && l.color === listing.color) s += 1.5;
+      if (listing.gender && (l.gender === listing.gender || l.gender == null || l.gender === 'UNISEX')) s += 0.5;
+      if (listing.sizeValue && l.sizeValue === listing.sizeValue) s += 0.5;
+      if (price && l.price) s -= Math.min(2, Math.abs(l.price - price) / price) * 1.5;
+      const h = mine ? usableHash(l.photos[0]?.dhash) : null;
+      // Photos within ~20 of 64 bits share composition and tones: a weak but useful visual signal.
+      if (mine && h) s += Math.max(0, (20 - hashDistance(mine, h)) / 20) * 2;
+      return { l, s };
+    });
     return scored.sort((a, b) => b.s - a.s).map((x) => x.l);
   }
 
@@ -767,33 +993,47 @@ export class ListingsService {
    * how close each cover photo looks. The category only weighs in, it doesn't filter: when the AI files the item
    * under a neighbouring category (a backpack as an accessory), a close photo still comes out on top.
    */
-  async photoSearch(look: { category?: string | null; subcategory?: string | null; brand?: string | null; color?: string | null }, dhash: string, viewerId?: string, market?: Market) {
-    const rows = await this.prisma.listing.findMany({
-      where: { status: { in: VISIBLE_IN_FEED }, ...marketWhere(market), ...(viewerId ? { sellerId: { not: viewerId } } : {}) },
-      include: { ...cardInclude, photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 } },
-      orderBy: { liftedAt: 'desc' },
-      take: 600,
+  /**
+   * Candidates for a search by photo (ai/photo-search.ts ranks them): what's on sale in the market, of the type the
+   * AI saw (any type when it couldn't tell), with the cover photo and the words that describe the item.
+   */
+  async photoCandidates(category: string | null, market: Market, viewerId?: string) {
+    return this.prisma.listing.findMany({
+      where: {
+        status: { in: VISIBLE_IN_FEED },
+        ...marketWhere(market),
+        ...(category ? { category } : {}),
+        ...(viewerId ? { sellerId: { not: viewerId } } : {}),
+        ...(await this.notInterested(viewerId)),
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        category: true,
+        subcategory: true,
+        color: true,
+        brand: true,
+        photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1, select: { id: true, key: true, provider: true, dhash: true, palette: true } },
+      },
+      orderBy: [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }],
+      take: category ? 400 : 600,
     });
-    const scored = await Promise.all(
-      rows.map(async (l) => {
-        let s = 0;
-        if (look.category && l.category === look.category) s += 3;
-        if (look.subcategory && l.subcategory === look.subcategory) s += 3;
-        if (look.brand && l.brand && l.brand.toLowerCase() === look.brand.toLowerCase()) s += 2;
-        if (look.color && l.color === look.color) s += 1.5;
-        const cover = l.photos[0];
-        const h = cover ? await this.media.dhash(cover) : null;
-        if (h) s += Math.max(0, (24 - hashDistance(dhash, h)) / 24) * 5;
-        return { l, s };
-      }),
-    );
-    const ranked = scored.sort((a, b) => b.s - a.s).map((x) => x.l);
-    return this.cards(ranked.slice(0, 48), viewerId);
+  }
+
+  /**
+   * The listing behind «Похожие» / related blocks, under the item page's own rule (see get()): drafts, hidden and
+   * blocked items are their owner's only; to anyone else their title and content don't exist.
+   */
+  private async publicListing(id: string, viewerId?: string) {
+    const listing = await this.prisma.listing.findUnique({ where: { id } });
+    if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
+    if (listing.sellerId !== viewerId && !PUBLIC_STATUSES.includes(listing.status)) throw new NotFoundException({ message: 'Такой вещи нет' });
+    return listing;
   }
 
   async similar(id: string, offset: number, limit: number, viewerId?: string) {
-    const listing = await this.prisma.listing.findUnique({ where: { id } });
-    if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
+    const listing = await this.publicListing(id, viewerId);
     const ranked = await this.rankSimilar(listing, viewerId);
     return {
       source: { id: listing.id, title: listing.title },
@@ -803,8 +1043,7 @@ export class ListingsService {
   }
 
   async related(id: string, viewerId?: string) {
-    const listing = await this.prisma.listing.findUnique({ where: { id } });
-    if (!listing) throw new NotFoundException({ message: 'Такой вещи нет' });
+    const listing = await this.publicListing(id, viewerId);
     const base = { status: { in: VISIBLE_IN_FEED }, id: { not: id } };
 
     const [ranked, fromSeller] = await Promise.all([
@@ -829,9 +1068,20 @@ export class ListingsService {
 
   /** Items the viewer marked «Не интересно»: left out of their feeds and search. */
   private async notInterested(viewerId?: string): Promise<Prisma.ListingWhereInput> {
-    if (!viewerId) return {};
-    const rows = await this.prisma.signal.findMany({ where: { userId: viewerId, type: 'not_interested', listingId: { not: null } }, select: { listingId: true } });
-    return rows.length ? { id: { notIn: rows.map((r) => r.listingId!) } } : {};
+    const ids = await this.notInterestedIds(viewerId);
+    return ids.length ? { id: { notIn: ids } } : {};
+  }
+
+  /** The 500 latest «Не интересно» marks: older ones have mostly sold anyway, and the list goes into every query. */
+  private async notInterestedIds(viewerId?: string): Promise<string[]> {
+    if (!viewerId) return [];
+    const rows = await this.prisma.signal.findMany({
+      where: { userId: viewerId, type: 'not_interested', listingId: { not: null } },
+      select: { listingId: true },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+    return rows.map((r) => r.listingId!);
   }
 
   async setNotInterested(userId: string, listingId: string, on: boolean) {
@@ -843,16 +1093,17 @@ export class ListingsService {
   async feed(chip: string, offset: number, limit: number, viewerId?: string, market?: Market) {
     // Guests have no «Для вас»: they get «Новое». A signed-in person without a profile yet sees the popular items.
     const effective = chip === 'for_you' && !viewerId ? 'new' : chip;
-    const where: Prisma.ListingWhereInput = { status: { in: VISIBLE_IN_FEED }, ...marketWhere(market), ...(await this.notInterested(viewerId)) };
+    const notInterested = await this.notInterestedIds(viewerId);
+    const where: Prisma.ListingWhereInput = { status: { in: VISIBLE_IN_FEED }, ...marketWhere(market), ...(notInterested.length ? { id: { notIn: notInterested } } : {}) };
 
     if (effective === 'for_you' || effective === 'popular') {
-      // Own items are excluded from personalised and popular feeds (frame 06).
-      const pool = await this.prisma.listing.findMany({
-        where: { ...where, sellerId: viewerId ? { not: viewerId } : undefined, status: 'PUBLISHED' },
-        select: RANK_SELECT,
-        orderBy: { publishedAt: 'desc' },
-        take: CANDIDATE_POOL,
-      });
+      // The 1000 latest items are the same for everyone for a minute: loaded once, then each viewer's own items and
+      // «Не интересно» are taken out (frame 06: own items are excluded from personalised and popular feeds).
+      const shared = await this.cache.get(`pool:${market ?? 'brands'}`, 60_000, () =>
+        this.prisma.listing.findMany({ where: { status: 'PUBLISHED', ...marketWhere(market) }, select: RANK_SELECT, orderBy: { publishedAt: 'desc' }, take: CANDIDATE_POOL }),
+      );
+      const hidden = new Set(notInterested);
+      const pool = shared.filter((p) => p.sellerId !== viewerId && !hidden.has(p.id));
       const ids = effective === 'for_you' && (await this.recs.hasProfile(viewerId!)) ? await this.recs.rankForUser(viewerId!, pool) : await this.recs.rankPopular(pool);
       return { chip: effective, items: await this.cardsByIds(ids.slice(offset, offset + limit), viewerId), total: ids.length };
     }
@@ -889,11 +1140,20 @@ export class ListingsService {
    * the categories. The second-hand market lives on its own page (/resale) and isn't mixed in here.
    */
   async home(viewerId?: string) {
-    const [totalVisible, brandsVisible, categoryCounts, forYouAvailable] = await Promise.all([
+    // Counts and category tiles are the same for everyone: computed at most every two minutes. The brands block is
+    // too for guests; a signed-in viewer gets their own (their brand left out, «Вы подписаны»).
+    const [shared, brands] = await Promise.all([
+      this.cache.get('home', 120_000, () => this.homeShared()),
+      viewerId ? this.topWardrobes(viewerId, 'brands') : this.cache.get('home:brands', 120_000, () => this.topWardrobes(undefined, 'brands')),
+    ]);
+    return { totalVisible: shared.totalVisible, brandsVisible: shared.brandsVisible, brands, categories: shared.categories, forYouAvailable: !!viewerId };
+  }
+
+  private async homeShared() {
+    const [totalVisible, brandsVisible, categoryCounts] = await Promise.all([
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED } } }),
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED }, ...marketWhere('brands') } }),
       this.prisma.listing.groupBy({ by: ['category'], where: { status: 'PUBLISHED', ...marketWhere('brands') }, _count: true }),
-      !!viewerId,
     ]);
 
     const categories = await Promise.all(
@@ -911,13 +1171,16 @@ export class ListingsService {
         }),
     );
 
-    return {
-      totalVisible,
-      brandsVisible,
-      brands: await this.topWardrobes(viewerId, 'brands'),
-      categories,
-      forYouAvailable,
-    };
+    return { totalVisible, brandsVisible, categories };
+  }
+
+  /** Wardrobe cards (summary + collage) for these sellers, in this order; summaries are one batch. */
+  private async wardrobeCards(sellerIds: string[], viewerId?: string) {
+    const [summaries, collages] = await Promise.all([this.sellerSummaries(sellerIds, viewerId), Promise.all(sellerIds.map((id) => this.collage(id)))]);
+    return sellerIds.flatMap((id, i) => {
+      const s = summaries.get(id);
+      return s ? [{ ...s, collage: collages[i] }] : [];
+    });
   }
 
   /** The sellers with the most on sale, each with a collage of their latest items (home: the brands). */
@@ -935,14 +1198,9 @@ export class ListingsService {
       orderBy: { _count: { sellerId: 'desc' } },
       take: 6,
     });
-    return Promise.all(
-      top.map(async (t) => {
-        const [summary, items] = await Promise.all([
-          this.sellerSummary(t.sellerId, viewerId),
-          this.collage(t.sellerId),
-        ]);
-        return { ...summary, collage: items };
-      }),
+    return this.wardrobeCards(
+      top.map((t) => t.sellerId),
+      viewerId,
     );
   }
 
@@ -957,15 +1215,11 @@ export class ListingsService {
       ...(q?.trim() ? { seller: { brandVerifiedAt: null, username: { contains: q.trim().replace(/^@/, '').toLowerCase() } } } : {}),
     };
     const all = await this.prisma.listing.groupBy({ by: ['sellerId'], where, _max: { publishedAt: true }, orderBy: { _max: { publishedAt: 'desc' } } });
-    const page = all.slice(offset, offset + limit);
-    const items = await Promise.all(
-      page.map(async (t) => {
-        const [summary, latest] = await Promise.all([
-          this.sellerSummary(t.sellerId, viewerId),
-          this.collage(t.sellerId),
-        ]);
-        return { ...summary, collage: latest };
-      }),
+    // Each wardrobe is a collage and a summary: a page is capped whatever `limit` asks for.
+    const page = all.slice(offset, offset + Math.min(limit, WARDROBES_MAX));
+    const items = await this.wardrobeCards(
+      page.map((t) => t.sellerId),
+      viewerId,
     );
     return { items, total: all.length };
   }
@@ -981,7 +1235,13 @@ export class ListingsService {
     const where: Prisma.ListingWhereInput = { AND: [this.searchWhere(q), marketWhere(q.market), await this.notInterested(viewerId)] };
     let items;
     let total: number;
-    if (q.sort === 'for_you' && viewerId) {
+    if (q.sort === 'similar' && q.ids) {
+      // A search by photo: the items keep the order the photo ranked them in, whatever narrowed them.
+      const found = new Set((await this.prisma.listing.findMany({ where, select: { id: true } })).map((r) => r.id));
+      const ids = q.ids.filter((id) => found.has(id));
+      total = ids.length;
+      items = await this.cardsByIds(ids.slice(q.offset, q.offset + q.limit), viewerId);
+    } else if (q.sort === 'for_you' && viewerId) {
       const pool = await this.prisma.listing.findMany({
         where,
         select: RANK_SELECT,
@@ -1009,7 +1269,7 @@ export class ListingsService {
     }
 
     // What the person searches for shapes «Для вас» (the first page only, so scrolling doesn't count twice).
-    if (viewerId && q.offset === 0) {
+    if (viewerId && q.offset === 0 && !q.ids) {
       const meta = { category: q.category, brand: q.brand, style: q.style, size: q.size, color: q.color };
       const traits = Object.values(meta).some((v) => v?.length);
       if (q.q?.trim() || traits) await this.recs.record(viewerId, q.q?.trim() ? 'search' : 'filter', undefined, meta);
@@ -1031,9 +1291,12 @@ export class ListingsService {
         ['price_max', 'по цене'],
         ['city', `«${q.city}»`],
       ];
+      // At most three extra counts: an empty result page shouldn't cost ten full scans.
+      let tries = 0;
       for (const [key, label] of candidates) {
         const value = q[key];
         if (value == null || (Array.isArray(value) && !value.length)) continue;
+        if (++tries > 3) break;
         const count = await this.prisma.listing.count({ where: { AND: [this.searchWhere({ ...q, [key]: undefined, ...(key === 'price_max' ? { price_min: undefined } : {}) }), marketWhere(q.market)] } });
         if (count > 0) {
           relax = { filter: key, label, count };
@@ -1046,6 +1309,7 @@ export class ListingsService {
 
   private searchWhere(q: SearchQueryT): Prisma.ListingWhereInput {
     const and: Prisma.ListingWhereInput[] = [];
+    if (q.ids) and.push({ id: { in: q.ids } });
     if (q.q) {
       for (const token of q.q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6)) {
         // Crude Russian stemming: match on the word without its last 1–2 letters ("куртки" → "курт").
@@ -1084,7 +1348,12 @@ export class ListingsService {
     return { status: q.available === '1' ? 'PUBLISHED' : { in: VISIBLE_IN_FEED }, AND: and };
   }
 
-  async sitemap() {
+  /** Crawlers fetch it often and it is 45 000 rows: rebuilt at most every five minutes. */
+  sitemap() {
+    return this.cache.get('sitemap', 300_000, () => this.buildSitemap());
+  }
+
+  private async buildSitemap() {
     const [listings, sellers] = await Promise.all([
       this.prisma.listing.findMany({ where: { status: { in: ['PUBLISHED', 'RESERVED'] } }, select: { id: true, updatedAt: true }, orderBy: { liftedAt: 'desc' }, take: 45_000 }),
       this.prisma.listing.groupBy({ by: ['sellerId'], where: { status: 'PUBLISHED' }, _max: { updatedAt: true } }),
@@ -1099,57 +1368,92 @@ export class ListingsService {
 
   // ---------- wardrobe ----------
 
-  async wardrobe(username: string, viewerId: string | undefined, section: string, sort: string) {
+  /**
+   * A wardrobe page: counts per section, and one section's items, WARDROBE_PAGE at a time (`offset`, `hasMore`), so a
+   * big shop's wardrobe isn't loaded whole on every visit. Visitors see sold items after everything else.
+   */
+  async wardrobe(username: string, viewerId: string | undefined, section: string, sort: string, offset = 0) {
     const user = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
     if (!user) throw new NotFoundException({ message: 'Такого гардероба нет' });
     const isOwner = viewerId === user.id;
 
-    // Visitors see PUBLISHED, RESERVED and SOLD; the owner also sees hidden, drafts and blocked.
-    const statuses: ListingStatus[] = isOwner ? ['PUBLISHED', 'RESERVED', 'SOLD', 'HIDDEN', 'DRAFT', 'BLOCKED'] : ['PUBLISHED', 'RESERVED', 'SOLD'];
-    const rows = await this.prisma.listing.findMany({
-      where: { sellerId: user.id, status: { in: statuses } },
-      include: cardInclude,
-      orderBy:
-        sort === 'old' ? { createdAt: 'asc' } : sort === 'cheap' ? { price: 'asc' } : sort === 'expensive' ? { price: 'desc' } : { createdAt: 'desc' },
-    });
+    // Visitors see PUBLISHED, RESERVED and SOLD; the owner also sees hidden and blocked items, and drafts apart.
+    const statuses: ListingStatus[] = isOwner ? ['PUBLISHED', 'RESERVED', 'SOLD', 'HIDDEN', 'BLOCKED'] : ['PUBLISHED', 'RESERVED', 'SOLD'];
+    const base: Prisma.ListingWhereInput = { sellerId: user.id, status: { in: statuses } };
+    const freshSince = new Date(Date.now() - 14 * DAY_MS);
+    const sectionWhere: Prisma.ListingWhereInput =
+      section === 'all'
+        ? {}
+        : section === 'new'
+          ? { publishedAt: { gte: freshSince } }
+          : section === 'selling'
+            ? { status: 'PUBLISHED' }
+            : section === 'sold'
+              ? { status: 'SOLD' }
+              : { category: { in: categoriesInSection(section as WardrobeSection) } };
+    const orderBy: Prisma.ListingOrderByWithRelationInput =
+      sort === 'old' ? { createdAt: 'asc' } : sort === 'cheap' ? { price: 'asc' } : sort === 'expensive' ? { price: 'desc' } : { createdAt: 'desc' };
 
-    const sectionOf = (l: Listing) => categoryBySlug(l.category)?.section ?? 'accessories';
-    const fresh = (l: Listing) => !!l.publishedAt && Date.now() - l.publishedAt.getTime() < 14 * 24 * 3600 * 1000;
-    const counts = {
-      all: rows.filter((r) => r.status !== 'DRAFT').length,
-      top: 0,
-      bottom: 0,
-      shoes: 0,
-      accessories: 0,
-      new: rows.filter((r) => r.status !== 'DRAFT' && fresh(r)).length,
-      selling: rows.filter((r) => r.status === 'PUBLISHED').length,
-      sold: rows.filter((r) => r.status === 'SOLD').length,
-    };
-    for (const r of rows) if (r.status !== 'DRAFT') counts[sectionOf(r)]++;
+    const [byCategory, fresh, rows, draftRows, seller] = await Promise.all([
+      this.prisma.listing.groupBy({ by: ['category', 'status'], where: base, _count: { _all: true } }),
+      this.prisma.listing.count({ where: { ...base, publishedAt: { gte: freshSince } } }),
+      this.wardrobePage({ AND: [base, sectionWhere] }, orderBy, offset, isOwner),
+      isOwner && section === 'all'
+        ? this.prisma.listing.findMany({ where: { sellerId: user.id, status: 'DRAFT' }, include: cardInclude, orderBy, take: WARDROBE_PAGE })
+        : Promise.resolve([] as CardListing[]),
+      this.sellerSummary(user.id, viewerId),
+    ]);
 
-    const filtered = rows.filter((r) => {
-      if (section === 'all') return true;
-      if (section === 'new') return r.status !== 'DRAFT' && fresh(r);
-      if (section === 'selling') return r.status === 'PUBLISHED';
-      if (section === 'sold') return r.status === 'SOLD';
-      return r.status !== 'DRAFT' && categoriesInSection(section as WardrobeSection).includes(r.category ?? '');
-    });
+    const counts = { all: 0, top: 0, bottom: 0, shoes: 0, accessories: 0, new: fresh, selling: 0, sold: 0 };
+    for (const g of byCategory) {
+      const n = g._count._all;
+      counts.all += n;
+      counts[categoryBySlug(g.category)?.section ?? 'accessories'] += n;
+      if (g.status === 'PUBLISHED') counts.selling += n;
+      if (g.status === 'SOLD') counts.sold += n;
+    }
 
-    const cards = await this.cards(filtered, viewerId);
-    // Sold items go last in every section for visitors (frame 09).
+    const hasMore = rows.length > WARDROBE_PAGE;
+    const page = rows.slice(0, WARDROBE_PAGE);
+    const cards = await this.cards(page, viewerId);
     // The default order mixes kinds (no two of a kind side by side); an explicit sort is kept as asked.
-    const mixed = sort === 'new' ? spread(cards.map((c, i) => ({ c, category: filtered[i].category, subcategory: filtered[i].subcategory, sellerId: filtered[i].sellerId }))).map((x) => x.c) : cards;
-    const ordered = isOwner ? mixed : [...mixed.filter((c) => c.status !== 'SOLD'), ...mixed.filter((c) => c.status === 'SOLD')];
+    // For visitors sold items stay last (frame 09): the page is already ordered that way, so each part is mixed apart.
+    const mix = (part: typeof cards) => {
+      if (sort !== 'new') return part;
+      const byId = new Map(page.map((l) => [l.id, l]));
+      return spread(part.map((c) => ({ c, category: c.category, subcategory: byId.get(c.id)?.subcategory ?? null, sellerId: user.id }))).map((x) => x.c);
+    };
+    const ordered = isOwner ? mix(cards) : [...mix(cards.filter((c) => c.status !== 'SOLD')), ...mix(cards.filter((c) => c.status === 'SOLD'))];
     const groups = (['top', 'bottom', 'shoes', 'accessories'] as const)
-      .map((s) => ({ section: s, items: ordered.filter((c) => c.status !== 'DRAFT' && (categoryBySlug(c.category)?.section ?? 'accessories') === s) }))
+      .map((s) => ({ section: s, items: ordered.filter((c) => (categoryBySlug(c.category)?.section ?? 'accessories') === s) }))
       .filter((g) => g.items.length);
 
     return {
-      seller: await this.sellerSummary(user.id, viewerId),
+      seller,
       isOwner,
       counts,
       groups,
-      drafts: isOwner ? ordered.filter((c) => c.status === 'DRAFT') : [],
+      drafts: isOwner ? mix(await this.cards(draftRows, viewerId)) : [],
+      offset,
+      /** More of this section past this page: ask again with `offset` + 200. */
+      hasMore,
+      nextOffset: hasMore ? offset + WARDROBE_PAGE : null,
     };
+  }
+
+  /**
+   * WARDROBE_PAGE + 1 items of a wardrobe from `offset` (the extra one tells there is more). For visitors the unsold
+   * items come first and sold ones after, paged as one list.
+   */
+  private async wardrobePage(where: Prisma.ListingWhereInput, orderBy: Prisma.ListingOrderByWithRelationInput, offset: number, isOwner: boolean): Promise<CardListing[]> {
+    const take = WARDROBE_PAGE + 1;
+    if (isOwner) return this.prisma.listing.findMany({ where, include: cardInclude, orderBy, skip: offset, take });
+    const unsold: Prisma.ListingWhereInput = { AND: [where, { status: { not: 'SOLD' } }] };
+    const sold: Prisma.ListingWhereInput = { AND: [where, { status: 'SOLD' }] };
+    const unsoldCount = await this.prisma.listing.count({ where: unsold });
+    const first = offset < unsoldCount ? await this.prisma.listing.findMany({ where: unsold, include: cardInclude, orderBy, skip: offset, take }) : [];
+    if (first.length >= take) return first;
+    const rest = await this.prisma.listing.findMany({ where: sold, include: cardInclude, orderBy, skip: Math.max(0, offset - unsoldCount), take: take - first.length });
+    return [...first, ...rest];
   }
 }

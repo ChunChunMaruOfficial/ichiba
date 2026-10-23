@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePresence } from "@/lib/presence";
 import type { Photo, VideoView } from "@/lib/types";
-import { IconChevronLeft, IconChevronRight, IconExpand, IconX } from "./ui";
+import { IconChevronLeft, IconChevronRight, IconExpand, IconX, useModalFocus } from "./ui";
 
 function VideoSlide({ video, className, style }: { video: VideoView; className?: string; style?: React.CSSProperties }) {
   return <video src={video.url} poster={video.poster} controls playsInline preload="metadata" className={clsx("bg-black object-contain", className)} style={style} />;
@@ -165,13 +165,30 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
 function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Photo[]; index: number; onIndex: (i: number) => void; onClose: () => void; closing: boolean }) {
   const [zoom, setZoom] = useState(1);
   const [zoomFor, setZoomFor] = useState(index);
+  // Offset of a zoomed photo, so the parts outside the screen can be reached (dragged with a finger or the mouse).
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   if (zoomFor !== index) {
     setZoomFor(index);
     setZoom(1);
+    setPan({ x: 0, y: 0 });
   }
+  if (zoom === 1 && (pan.x || pan.y)) setPan({ x: 0, y: 0 });
   const touch = useRef<{ x: number; y: number; t: number; axis: "x" | "y" | null } | null>(null);
   const [pull, setPull] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const panDrag = useRef<{ x: number; y: number; px: number; py: number; moved: boolean } | null>(null);
+  const img = useRef<HTMLImageElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // Page behind is inert, Tab stays on the viewer's buttons, focus goes back to the photo on close.
+  useModalFocus(!closing, root);
+  /** Keeps the zoomed photo covering the screen: it can move at most by the part that sticks out on each side. */
+  const clampPan = (x: number, y: number) => {
+    const el = img.current;
+    if (!el) return { x: 0, y: 0 };
+    const mx = Math.max(0, (el.offsetWidth * zoom - window.innerWidth) / 2);
+    const my = Math.max(0, (el.offsetHeight * zoom - window.innerHeight) / 2);
+    return { x: Math.min(mx, Math.max(-mx, x)), y: Math.min(my, Math.max(-my, y)) };
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -191,6 +208,7 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
 
   return (
     <div
+      ref={root}
       role="dialog"
       aria-modal="true"
       aria-label="Просмотр фото"
@@ -232,13 +250,39 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
       <div aria-hidden className="absolute inset-0 bg-paper/75 backdrop-blur-2xl" style={{ opacity: 1 - share * 0.7 }} onClick={onClose} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={img}
         src={p.urls.l}
         alt=""
-        onClick={() => setZoom((z) => (z > 1 ? 1 : 2))}
+        draggable={false}
+        onPointerDown={(e) => {
+          if (zoom <= 1 || !e.isPrimary) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          panDrag.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y, moved: false };
+          setDragging(true);
+        }}
+        onPointerMove={(e) => {
+          const d = panDrag.current;
+          if (!d) return;
+          const dx = e.clientX - d.x;
+          const dy = e.clientY - d.y;
+          if (Math.hypot(dx, dy) > 4) d.moved = true;
+          setPan(clampPan(d.px + dx, d.py + dy));
+        }}
+        onPointerUp={() => setDragging(false)}
+        onPointerCancel={() => {
+          panDrag.current = null;
+          setDragging(false);
+        }}
+        onClick={() => {
+          // A drag that moved the photo is not a tap: it must not zoom out.
+          const moved = panDrag.current?.moved;
+          panDrag.current = null;
+          if (!moved) setZoom((z) => (z > 1 ? 1 : 2));
+        }}
         className={clsx("relative max-h-full max-w-full object-contain shadow-[var(--shadow-float)]", !dragging && "transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]", zoom > 1 ? "cursor-zoom-out" : "cursor-zoom-in")}
-        style={{ transform: `translateY(${pull}px) scale(${zoom * (1 - share * 0.15)})` }}
+        style={{ transform: `translate(${pan.x}px, ${pan.y + pull}px) scale(${zoom * (1 - share * 0.15)})` }}
       />
-      <button aria-label="Закрыть" onClick={onClose} className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] grid size-11 place-items-center rounded-full bg-surface/80 text-ink shadow-sm hover:bg-surface" style={{ opacity: 1 - share }}>
+      <button data-modal-close aria-label="Закрыть" onClick={onClose} className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] grid size-11 place-items-center rounded-full bg-surface/80 text-ink shadow-sm hover:bg-surface" style={{ opacity: 1 - share }}>
         <IconX />
       </button>
       {photos.length > 1 && (

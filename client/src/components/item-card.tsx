@@ -185,15 +185,15 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
         <Link href={`/item/${card.id}`} className="relative block overflow-hidden rounded-[18px]">
           <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
-          <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-0 transition-opacity md:group-hover:opacity-0" />
-          <span className="transition-opacity md:group-hover:opacity-0">
+          <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-0 transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0" />
+          <span className="transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0">
             <CardMarks card={card} discount={shopDiscount} />
           </span>
           <StatusMark card={card} className="absolute left-3 top-3" />
           <CardSeal card={card} stuck />
         </Link>
-        {/* Desktop hover / keyboard focus panel */}
-        <div className="panel pointer-events-none absolute inset-x-2 bottom-2 hidden translate-y-1 rounded-[20px] p-3 opacity-0 transition-[opacity,transform] duration-200 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:block">
+        {/* Desktop hover / keyboard focus panel; on tablets (no hover) it is always shown, else Buy and ♡ are out of reach. */}
+        <div className="panel pointer-events-none absolute inset-x-2 bottom-2 hidden translate-y-1 rounded-[20px] p-3 opacity-0 transition-[opacity,transform] duration-200 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:block [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100">
           <p className="truncate text-sm font-medium">{card.title}</p>
           <p className="tabular mt-0.5 text-lg font-bold">
             <span className={discounted ? "text-shu" : undefined}>{price}</span>
@@ -229,11 +229,12 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         <StatusMark card={card} className="absolute left-3 top-3" />
         <CardSeal card={card} />
         {!mine && <HeartButton card={card} source={source} className="absolute right-2.5 top-2.5" />}
-        <span className="transition-opacity md:group-hover:opacity-0">
+        <span className={clsx("transition-opacity md:group-hover:opacity-0", !mine && "md:[@media(hover:none)]:opacity-0")}>
           <CardMarks card={card} discount={shopDiscount} sealsBelow />
         </span>
         {!mine && (
-          <div className="absolute inset-x-2.5 bottom-2.5 hidden translate-y-1 opacity-0 transition-[opacity,transform] group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 md:flex">
+          // Shown on hover or focus; on tablets (no hover) always, as there is no other way to reach it.
+          <div className="absolute inset-x-2.5 bottom-2.5 hidden translate-y-1 opacity-0 transition-[opacity,transform] group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 md:flex [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100">
             <BuyButton card={card} className="flex-1 shadow-md" />
           </div>
         )}

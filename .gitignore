@@ -2,7 +2,8 @@ node_modules
 dist
 .next
 .env
-.env.local
+.env.*
+!.env.example
 server/src/generated
 *.log
 server/storage
@@ -12,3 +13,11 @@ dump.rdb
 
 # Passwords of shop accounts imported from Telegram (kept only on this machine)
 tg-accounts.local.json
+
+# Raw seller photos and mockups kept only on this machine (the server reads seed-data/<folder> instead)
+/Second_minsk
+/find_store
+/clothesminsko
+/винтшмот
+/tg-items
+/art-mockup.png

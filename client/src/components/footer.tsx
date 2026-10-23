@@ -12,7 +12,7 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
     [
       ["/", "Лента"],
       ["/search", "Поиск и фильтры"],
-      ["/?chip=auctions", "Аукционы"],
+      ["/resale?chip=auctions", "Аукционы"],
       ["/favorites", "Избранное"],
     ],
   ],

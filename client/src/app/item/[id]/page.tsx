@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { conditionLabel, DELIVERY_LABEL } from "@/lib/labels";
+import { conditionLabel } from "@/lib/labels";
 import { jsonLd, serverFetch, SITE_URL, truncate } from "@/lib/server";
 import type { ListingDetail, ListingResponse } from "@/lib/types";
 import { ItemView } from "./item-view";
@@ -26,7 +26,9 @@ function describe(l: ListingDetail) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const l = await load(id);
-  if (l === null) return { title: "Вещь не найдена", robots: { index: false } };
+  // Metadata is resolved before the stream starts, so an unknown id becomes a real 404 status here;
+  // the same call inside the page (under its loading boundary) would already have sent a 200.
+  if (l === null) notFound();
   if (!l) return {};
   if (!isDetail(l)) return { title: "Объявление недоступно", robots: { index: false, follow: true } };
   const url = `${SITE_URL}/item/${l.id}`;
@@ -61,15 +63,17 @@ function productLd(l: ListingDetail) {
       name: l.title,
       url,
       sku: l.id,
-      image: l.photos.map((p) => p.urls.l),
-      description: l.description ?? describe(l),
+      // No empty fields: an empty image list or description makes the Product invalid for rich results.
+      image: l.photos.length ? l.photos.map((p) => p.urls.l) : undefined,
+      description: l.description || describe(l) || undefined,
       category: l.subcategoryLabel ?? l.categoryLabel ?? undefined,
       brand: l.brand ? { "@type": "Brand", name: l.brand } : undefined,
       size: l.size ?? undefined,
       color: l.color ?? undefined,
       material: l.material ?? undefined,
+      // A negotiable price («Договорная») has no amount to offer: the Product goes without an Offer.
       offers:
-        price != null
+        price != null && (l.auction?.status === "ACTIVE" || !l.priceNegotiable)
           ? {
               "@type": "Offer",
               url,
@@ -77,8 +81,8 @@ function productLd(l: ListingDetail) {
               priceCurrency: "BYN",
               availability: `https://schema.org/${availability}`,
               itemCondition: l.condition === "NEW_WITH_TAGS" ? "https://schema.org/NewCondition" : "https://schema.org/UsedCondition",
-              availableDeliveryMethod: l.deliveryOptions.map((d) => DELIVERY_LABEL[d]).join(", "),
-              seller: { "@type": "Person", name: l.seller.username, url: `${SITE_URL}/u/${l.seller.username}` },
+              // availableDeliveryMethod is left out: schema.org expects DeliveryMethod enum URLs there, not Russian words.
+              seller: { "@type": "Person", name: l.seller.username, url: `${SITE_URL}/u/${encodeURIComponent(l.seller.username)}` },
             }
           : undefined,
     },

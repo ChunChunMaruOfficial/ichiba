@@ -10,6 +10,7 @@ import { AiEnsemble } from './ai/ensemble/ensemble.js';
 import { ListingModerator } from './ai/moderation.js';
 import { NegotiationAdvisor } from './ai/negotiation.js';
 import { PhotoChecker } from './ai/photo-check.js';
+import { PhotoSearch } from './ai/photo-search.js';
 import { PriceAdvisor } from './ai/price.js';
 import { SearchParser } from './ai/search-parse.js';
 import { ReviewsController, ReviewsService } from './reviews/reviews.js';
@@ -68,6 +69,8 @@ import { ShopImportService } from './shops/shop-import.service.js';
       inject: [RedisService],
       useFactory: (redis: RedisService) => ({
         throttlers: [{ ttl: 60_000, limit: 300 }],
+        // Signed-in visitors are counted per account, guests per address (the guard runs after AuthGuard, see providers).
+        getTracker: (req: Record<string, unknown>) => (req.user as { id?: string } | undefined)?.id ?? (req.ip as string | undefined) ?? 'unknown',
         // Shared counters across instances when Redis is configured; in-memory otherwise.
         storage: redis.client ? new RedisThrottlerStorage(redis.client) : undefined,
       }),
@@ -114,6 +117,7 @@ import { ShopImportService } from './shops/shop-import.service.js';
     AiService,
     PriceAdvisor,
     PhotoChecker,
+    PhotoSearch,
     ListingModerator,
     NegotiationAdvisor,
     SearchParser,
@@ -136,8 +140,9 @@ import { ShopImportService } from './shops/shop-import.service.js';
     MaintenanceService,
     RatesService,
     LooksService,
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Order matters: the session is read first so the rate limit can key on the account.
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule implements NestModule {

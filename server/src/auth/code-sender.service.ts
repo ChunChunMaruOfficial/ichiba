@@ -12,18 +12,19 @@ export class CodeSenderService {
   constructor(private readonly mail: CodeMailer) {}
 
   async send(target: string, code: string, purpose: string) {
+    const masked = target.replace(/^(.{2}).*@/, '$1***@');
     if (this.mail.enabled) {
       try {
         await this.mail.send(target, code, purpose);
-        this.logger.log(`[${purpose}] code email sent to ${target.replace(/^(.{2}).*@/, '$1***@')}`);
+        this.logger.log(`[${purpose}] code email sent to ${masked}`);
         return;
       } catch (e) {
-        this.logger.error(`code email to ${target} failed: ${(e as Error).message}`);
+        this.logger.error(`code email to ${masked} failed: ${(e as Error).message}`);
         throw new ServiceUnavailableException({ message: 'Не получилось отправить письмо с кодом. Попробуйте ещё раз через минуту' });
       }
     }
     if (process.env.NODE_ENV === 'production') {
-      this.logger.error(`code email to ${target} not sent: email is not configured (docs/EMAIL.md)`);
+      this.logger.error(`code email to ${masked} not sent: email is not configured (docs/EMAIL.md)`);
       throw new ServiceUnavailableException({ message: 'Отправка писем временно недоступна. Попробуйте позже' });
     }
     this.logger.log(`[${purpose}] code for ${target}: ${code}`);

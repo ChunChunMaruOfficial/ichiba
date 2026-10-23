@@ -284,11 +284,13 @@ h1, h2 {
   animation: slide-in-left 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Card captions: a thin frosted paper layer, invisible on the plain page, legible over illustrations behind it. */
+/*
+ * Card captions: a thin paper layer, invisible on the plain page, legible over illustrations behind it. No
+ * backdrop-filter: a blur on every card of a long feed made scrolling janky on phones; a slightly denser paper keeps
+ * the text readable over the footer's sakura without it.
+ */
 .card-info {
-  background: color-mix(in srgb, var(--paper) 70%, transparent);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
 }
 
 /* Exit: an overlay kept mounted by usePresence() gets data-closing and plays its entrance backwards. */
@@ -1225,4 +1227,24 @@ html[data-immersive] [data-chrome="main"] {
 @media (prefers-reduced-motion: reduce) {
   .buy-dart, .cart-drop, .cart-drop .cart-parcel { animation: none; }
   .buy-arrow { transition: none; }
+}
+
+/*
+ * Keyboard focus for the cloth buttons, chips and condition cards. Their sashiko stitch is an `outline` declared
+ * outside any layer, which beats the `@layer base :focus-visible` default, so they used to show no focus at all
+ * (WCAG 2.4.7). Kept last in the file so it also wins over the per-variant and .aizome outline colours: on focus the
+ * dashed stitch inside gives way to a solid ring outside, which no resting button has. The condition card is a label
+ * around a hidden radio, so it shows the ring while the radio inside has keyboard focus.
+ */
+.btn-wa:focus-visible,
+.chip:focus-visible,
+.cond-card:focus-visible,
+.cond-card:has(:focus-visible) {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+/* On indigo cloth an indigo ring would vanish: undyed cotton instead. */
+.aizome .btn-wa:focus-visible,
+.aizome .chip:focus-visible {
+  outline-color: #f4efe6;
 }

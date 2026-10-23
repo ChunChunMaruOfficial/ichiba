@@ -55,7 +55,27 @@ type ThrottlerStorageRecord = Awaited<ReturnType<ThrottlerStorage['increment']>>
 export class RedisThrottlerStorage implements ThrottlerStorage {
   constructor(private readonly redis: Redis) {}
 
+  private readonly logger = new Logger('Throttle');
+  private warnedAt = 0;
+
+  /** Redis unreachable: requests pass rather than every route answering 500 until it is back (logged once a minute). */
+  private open(e: Error): ThrottlerStorageRecord {
+    if (Date.now() - this.warnedAt > 60_000) {
+      this.warnedAt = Date.now();
+      this.logger.warn(`counters unavailable, limits off: ${e.message}`);
+    }
+    return { totalHits: 1, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0 };
+  }
+
   async increment(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<ThrottlerStorageRecord> {
+    try {
+      return await this.count(key, ttl, limit, blockDuration, throttlerName);
+    } catch (e) {
+      return this.open(e as Error);
+    }
+  }
+
+  private async count(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<ThrottlerStorageRecord> {
     const hitsKey = `throttle:${throttlerName}:${key}`;
     const blockKey = `${hitsKey}:blocked`;
     const blockedFor = await this.redis.pttl(blockKey);

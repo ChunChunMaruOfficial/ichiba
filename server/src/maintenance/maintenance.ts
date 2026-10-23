@@ -1,4 +1,5 @@
-import { Controller, Get, Headers, Injectable, Logger, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
+import { Controller, Get, Headers, Injectable, Logger, NestMiddleware, Res, UnauthorizedException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { NextFunction, Request, Response } from 'express';
 import { ListingModerator } from '../ai/moderation.js';
@@ -128,15 +129,22 @@ export class MaintenanceController {
   @Get('cron/tick')
   tick(@Headers('authorization') auth?: string) {
     const secret = process.env.CRON_SECRET;
-    if (!secret || auth !== `Bearer ${secret}`) throw new UnauthorizedException({ message: 'Bad cron secret' });
+    const given = Buffer.from(auth ?? '');
+    const expected = Buffer.from(`Bearer ${secret ?? ''}`);
+    if (!secret || given.length !== expected.length || !timingSafeEqual(given, expected)) throw new UnauthorizedException({ message: 'Bad cron secret' });
     return this.maintenance.runAll();
   }
 
-  /** Liveness + dependencies, for uptime monitors. */
+  /**
+   * Liveness + dependencies, for uptime monitors and the platform healthcheck: 503 without the database (a deploy
+   * that can't reach Postgres must not go live); Redis is optional, so its absence only shows in the body.
+   */
   @Get('health')
-  async health() {
-    const db = await this.prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false);
-    const redis = await this.redis.ping().catch(() => false);
+  async health(@Res({ passthrough: true }) res: Response) {
+    const within = <T>(work: Promise<T>, ms: number) => Promise.race([work, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms).unref())]);
+    const db = await within(this.prisma.$queryRaw`SELECT 1`, 3_000).then(() => true).catch(() => false);
+    const redis = await within(this.redis.ping(), 2_000).catch(() => false);
+    if (!db) res.status(503);
     return { ok: db && redis !== false, db, redis };
   }
 }

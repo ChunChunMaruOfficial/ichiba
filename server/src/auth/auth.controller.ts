@@ -51,6 +51,7 @@ export class AuthController {
   ) {}
 
   @Get('username-available')
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   usernameAvailable(@Query('u') u = '') {
     return this.auth.usernameAvailability(u);
   }
@@ -168,14 +169,17 @@ export class AuthController {
     return { ok: true };
   }
 
-  /** Session bootstrap for the web app: user + header counters, or null for guests. */
+  /** Session bootstrap for the web app: user + header counters, or null for guests. Called on every page load, so it
+   * isn't held to the sign-in limit (offices and mobile carriers share one address). */
   @Get('me')
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   async me(@CurrentUser() user?: AuthUser) {
     return { user: user ? await this.users.me(user.id) : null };
   }
 
   /** Exposes which sign-in buttons should be shown. */
   @Get('providers')
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   providers() {
     return {
       google: process.env.GOOGLE_CLIENT_ID || null,

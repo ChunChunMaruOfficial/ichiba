@@ -42,13 +42,25 @@ export async function api<T>(path: string, init: { method?: string; body?: Body;
     throw new ApiError(0, "Нет соединения. Проверьте интернет и повторите");
   }
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // A proxy in front of the API answers 502/504 with an HTML page: never show the reader a raw SyntaxError.
+    throw new ApiError(res.status, res.ok ? "Некорректный ответ сервера" : "Сервер недоступен. Повторите через минуту");
+  }
   if (!res.ok) {
-    const message = typeof data?.message === "string" ? data.message : "Что-то пошло не так. Повторите";
+    const message = typeof data?.message === "string" ? ruMessage(data.message) : "Что-то пошло не так. Повторите";
     throw new ApiError(res.status, message, data?.fields ?? {}, data?.code, data ?? {});
   }
   return data as T;
 }
+
+/** English messages that come straight from libraries on the API (multer), shown to the reader in Russian. */
+const LIBRARY_MESSAGES: Record<string, string> = {
+  "File too large": "Файл слишком большой (до 15 МБ)",
+};
+const ruMessage = (m: string) => LIBRARY_MESSAGES[m] ?? m;
 
 /** SWR fetcher. */
 export const fetcher = <T,>(path: string) => api<T>(path);

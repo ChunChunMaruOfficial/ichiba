@@ -23,6 +23,8 @@ const STACK = 2;
 const INFO_H = 96;
 
 const GUEST_SKIPS = "ichiba:guest-skips";
+/** How many of a guest's skips are sent with the deck request (≈2.3 KB of ids). */
+const URL_SKIPS = 60;
 const readSkips = (): string[] => {
   try {
     return JSON.parse(localStorage.getItem(GUEST_SKIPS) ?? "[]");
@@ -116,7 +118,10 @@ export function SwipeDeck({
   const router = useRouter();
   const toast = useToast();
   const [skips] = useState(() => (typeof window === "undefined" ? [] : readSkips()));
-  const deckKey = `/swipe/deck?context=${context}${market ? `&market=${market}` : ""}&limit=${limit}${!me && skips.length ? `&skip=${skips.join(",")}` : ""}`;
+  // Only the most recent skips go in the query: 300 ids made an ~11 KB URL, past what proxies and the API accept.
+  // The older ones are unlikely to come round again in a deck of `limit` cards.
+  const recentSkips = skips.slice(-URL_SKIPS);
+  const deckKey = `/swipe/deck?context=${context}${market ? `&market=${market}` : ""}&limit=${limit}${!me && recentSkips.length ? `&skip=${recentSkips.join(",")}` : ""}`;
   const { data, mutate, isLoading } = useSWR<{ items: Card[] }>(deckKey, { revalidateOnFocus: false });
 
   const [index, setIndex] = useState(0);

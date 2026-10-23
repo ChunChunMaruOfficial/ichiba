@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Controller, Get, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Post, Query , BadRequestException} from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { EventsService } from '../events/events.js';
@@ -44,6 +44,7 @@ export type NotificationType =
   | 'brand_rejected'
   | 'catalog_approved'
   | 'catalog_rejected'
+  | 'dispute_opened'
   | 'dispute_resolved';
 
 /** In-app notifications, pushed live over SSE (frame 15). Email carries sign-in codes only. */
@@ -79,9 +80,11 @@ class NotificationsController {
 
   @Get()
   async list(@CurrentUser() user: AuthUser, @Query('limit') limit = '20', @Query('before') before?: string, @Query('unread') unread?: string) {
-    const take = Math.min(Number(limit) || 20, 100);
+    const take = Math.min(Math.max(Math.trunc(Number(limit)) || 20, 1), 100);
+    const cursor = before ? new Date(before) : undefined;
+    if (cursor && Number.isNaN(cursor.getTime())) throw new BadRequestException({ message: 'Некорректная дата' });
     const items = await this.prisma.notification.findMany({
-      where: { userId: user.id, createdAt: before ? { lt: new Date(before) } : undefined, readAt: unread === '1' ? null : undefined },
+      where: { userId: user.id, createdAt: cursor ? { lt: cursor } : undefined, readAt: unread === '1' ? null : undefined },
       orderBy: { createdAt: 'desc' },
       take: take + 1,
     });

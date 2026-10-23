@@ -26,26 +26,60 @@ export function sniffVideo(buf: Buffer, claimed: string): { mime: VideoMime; ext
   throw new BadRequestException({ message: 'Поддерживаются видео MP4, MOV и WEBM' });
 }
 
+/** Child boxes of an ISO-BMFF box body `[start, end)`: type, start of the box, start of its body, end. */
+function boxes(buf: Buffer, start: number, end: number) {
+  const out: Array<{ type: string; at: number; body: number; end: number }> = [];
+  let at = start;
+  while (at + 8 <= end) {
+    let size = buf.readUInt32BE(at);
+    let header = 8;
+    if (size === 1) {
+      if (at + 16 > end) break;
+      size = Number(buf.readBigUInt64BE(at + 8));
+      header = 16;
+    } else if (size === 0) size = end - at;
+    if (size < header) break;
+    out.push({ type: buf.toString('latin1', at + 4, at + 8), at, body: at + header, end: Math.min(at + size, end) });
+    at += size;
+  }
+  return out;
+}
+
+/** Boxes that hold metadata, not media: `udta` (incl. ©xyz, the GPS position), `meta` (QuickTime keys incl. location). */
+const METADATA_BOXES = new Set(['udta', 'meta']);
+
+/**
+ * An MP4 without its metadata: every `udta` / `meta` box in `moov` and in its tracks becomes a zero-filled `free`
+ * box of the same size. Nothing moves, so the chunk offsets stay valid and the file plays as before; there's no
+ * ffmpeg on the server to remux it. A layout we can't walk is returned unchanged (a copy either way).
+ */
+export function stripMp4Metadata(input: Buffer): Buffer {
+  const buf = Buffer.from(input);
+  try {
+    const blank = (b: { at: number; body: number; end: number }) => {
+      buf.write('free', b.at + 4, 'latin1');
+      buf.fill(0, b.body, b.end);
+    };
+    for (const moov of boxes(buf, 0, buf.length).filter((b) => b.type === 'moov')) {
+      for (const child of boxes(buf, moov.body, moov.end)) {
+        if (METADATA_BOXES.has(child.type)) blank(child);
+        else if (child.type === 'trak') for (const t of boxes(buf, child.body, child.end)) if (METADATA_BOXES.has(t.type)) blank(t);
+      }
+    }
+  } catch {
+    return Buffer.from(input);
+  }
+  return buf;
+}
+
 /**
  * Duration of an MP4/MOV from its `moov/mvhd` box, in ms; null when the box isn't found
  * (WebM, or an unusual layout), in which case the client-reported duration is used.
  */
 export function mp4DurationMs(buf: Buffer): number | null {
   const find = (start: number, end: number, type: string): [number, number] | null => {
-    let at = start;
-    while (at + 8 <= end) {
-      let size = buf.readUInt32BE(at);
-      let header = 8;
-      if (size === 1) {
-        if (at + 16 > end) return null;
-        size = Number(buf.readBigUInt64BE(at + 8));
-        header = 16;
-      } else if (size === 0) size = end - at;
-      if (size < header) return null;
-      if (buf.toString('latin1', at + 4, at + 8) === type) return [at + header, Math.min(at + size, end)];
-      at += size;
-    }
-    return null;
+    const b = boxes(buf, start, end).find((x) => x.type === type);
+    return b ? [b.body, b.end] : null;
   };
   try {
     const moov = find(0, buf.length, 'moov');

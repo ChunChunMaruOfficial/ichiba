@@ -69,6 +69,8 @@ const Reason = z.object({ reason: z.string().trim().min(3, 'Укажите пр�
 const RowKey = z.object({ key: z.record(z.string(), z.unknown()) });
 const RowPatch = RowKey.extend({ set: z.record(z.string(), z.unknown()) });
 
+const NO_HARD_DELETE = new Set(['User', 'Listing', 'Thread', 'Message', 'ModerationAction', 'BuyRequest', 'Review', 'Report']);
+
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminDataController {
@@ -154,7 +156,7 @@ export class AdminDataController {
     if (!user || user.deletedAt) throw new NotFoundException({ message: 'Пользователь не найден' });
     if (user.role === 'ADMIN') throw new ForbiddenException({ message: 'Пароль администратора так не меняется' });
     const password = newPassword();
-    await this.prisma.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(password, 10) } });
+    await this.prisma.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(password, 10), sessionVersion: { increment: 1 } } });
     forgetSessionStatus(id);
     await this.log(admin.id, 'USER', id, 'password_reset', null);
     // Accounts without an address sign in with their nick (AuthService.login).
@@ -165,7 +167,7 @@ export class AdminDataController {
   @HttpCode(200)
   async blockUser(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(Reason)) dto: z.infer<typeof Reason>) {
     if (id === admin.id) throw new ForbiddenException({ message: 'Нельзя заблокировать себя' });
-    await this.prisma.user.update({ where: { id }, data: { blockedAt: new Date() } });
+    await this.prisma.user.update({ where: { id }, data: { blockedAt: new Date(), sessionVersion: { increment: 1 } } });
     forgetSessionStatus(id);
     await this.listings.hideForBlock(id);
     await this.log(admin.id, 'USER', id, 'block', dto.reason);
@@ -256,6 +258,7 @@ export class AdminDataController {
       for (const [k, v] of Object.entries(filter)) {
         const col = columns.find((c) => c.name === k);
         if (!col) throw new BadRequestException({ message: `Нет колонки ${k}` });
+        if (col.secret) throw new BadRequestException({ message: `По колонке ${k} нельзя фильтровать` });
         if (v === null) conds.push(`${quote(k)} IS NULL`);
         else {
           params.push(String(v));
@@ -264,7 +267,7 @@ export class AdminDataController {
       }
     }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const sortCol = columns.find((c) => c.name === sort) ?? columns.find((c) => c.name === 'createdAt') ?? columns.find((c) => c.pk) ?? columns[0];
+    const sortCol = columns.find((c) => c.name === sort && !c.secret) ?? columns.find((c) => c.name === 'createdAt') ?? columns.find((c) => c.pk) ?? columns[0];
     const order = `${quote(sortCol.name)} ${dir === 'asc' ? 'ASC' : 'DESC'} NULLS LAST`;
     const offset = (Math.max(1, Number(page) || 1) - 1) * PAGE;
     try {
@@ -305,6 +308,9 @@ export class AdminDataController {
 
   @Delete('db/:table')
   async deleteRow(@CurrentUser() admin: AuthUser, @Param('table') table: string, @Body(new ZodPipe(RowKey)) dto: z.infer<typeof RowKey>) {
+    // Accounts are deleted through the privacy flow (anonymised, deals kept), listings and chats cascade into
+    // evidence moderation relies on, and the journal is append-only.
+    if (NO_HARD_DELETE.has(table)) throw new ForbiddenException({ message: `Строки ${table} не удаляются отсюда` });
     const columns = await this.columns(table);
     const params: unknown[] = [];
     const where = this.keyWhere(columns, dto.key, params);

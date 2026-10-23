@@ -16,7 +16,7 @@ import { PriceConvert } from "@/components/price-convert";
 import { Nefuda } from "@/components/shop/nefuda";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
-import { AuctionPanel, AuctionTimer } from "@/components/auction";
+import { AuctionPanel } from "@/components/auction";
 import { AddToCollection } from "@/components/collections";
 import { AddToLook, LooksWithItem } from "@/components/looks";
 import { Avatar } from "@/components/avatar";
@@ -27,7 +27,7 @@ import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, Ic
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useFavorite } from "@/lib/hooks";
-import { conditionLabel, formatPrice, items, listingPrice, plural, timeAgo } from "@/lib/labels";
+import { conditionLabel, formatPrice, listingPrice, plural, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
 import { withMarket } from "@/lib/market";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
@@ -57,10 +57,10 @@ function ProductSkeleton() {
 export function ItemView({ id, initial }: { id: string; initial?: ListingResponse | null }) {
   // The server copy is anonymous: it paints instantly, while this request (always sent, no fallbackData that
   // SWR might treat as fresh) brings the viewer's own copy — owner tools, ♡, fit hint.
-  const live = useSWR<ListingResponse>(`/listings/${id}`);
+  const live = useSWR<ListingResponse>(`/listings/${encodeURIComponent(id)}`);
   const { error, mutate } = live;
   const data = live.data ?? initial ?? undefined;
-  const related = useSWR<{ similar: Card[]; fromSeller: Card[]; forYou: Card[] }>(data && !("unavailable" in data) ? `/listings/${id}/related` : null);
+  const related = useSWR<{ similar: Card[]; fromSeller: Card[]; forYou: Card[] }>(data && !("unavailable" in data) ? `/listings/${encodeURIComponent(id)}/related` : null);
 
   if (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -554,7 +554,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           <LooksWithItem listingId={l.id} />
 
           <p className="mt-6 text-xs text-muted">
-            {l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"} · {l.viewsCount} просмотров · {l.favoritesCount} сохранений
+            {/* «2 часа назад» is computed from the clock, which differs between the server render and hydration. */}
+            <span suppressHydrationWarning>{l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"}</span> · {l.viewsCount} просмотров · {l.favoritesCount} сохранений
           </p>
         </div>
       </div>

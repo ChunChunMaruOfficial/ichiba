@@ -25,7 +25,7 @@ export default function EditPage() {
 }
 
 function Loader({ id }: { id: string }) {
-  const { data, error, mutate } = useSWR<ListingResponse>(`/listings/${id}`, { revalidateOnFocus: false });
+  const { data, error, mutate } = useSWR<ListingResponse>(`/listings/${encodeURIComponent(id)}`, { revalidateOnFocus: false });
   const meta = useMeta();
   if (error) return <ErrorState message="Не удалось загрузить вещь" onRetry={() => mutate()} />;
   if (!data || !meta) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;

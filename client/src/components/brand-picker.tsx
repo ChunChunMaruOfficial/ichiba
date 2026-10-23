@@ -32,12 +32,17 @@ export function BrandPicker({
   className,
   placeholder = "Например, Zara",
   error,
+  id,
+  "aria-describedby": describedBy,
 }: {
   value: string;
   onChange: (brand: string) => void;
   className?: string;
   placeholder?: string;
   error?: string;
+  /** Put on the input, so a <label htmlFor> (ui.tsx Field) names the combobox. */
+  id?: string;
+  "aria-describedby"?: string;
 }) {
   const [open, setOpen] = useState(false);
   const pop = usePresence(open);
@@ -50,9 +55,10 @@ export function BrandPicker({
   const options = typed && !exact ? [...items, `__custom__`] : items;
 
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    // pointerdown, not mousedown: iOS Safari fires no mousedown for a tap on a non-clickable area.
+    const onDoc = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, []);
 
   const pick = (b: string) => {
@@ -64,6 +70,8 @@ export function BrandPicker({
   return (
     <div ref={box} className="relative">
       <input
+        id={id}
+        aria-describedby={describedBy}
         role="combobox"
         aria-expanded={open && options.length > 0}
         aria-controls={listId}

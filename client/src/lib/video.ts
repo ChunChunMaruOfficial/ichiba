@@ -9,6 +9,9 @@ const MAX_SECONDS = 30;
 const MAX_CHAT_SECONDS = 180;
 const MAX_BYTES = 40 * 1024 * 1024;
 
+/** How long the browser gets to open a video before we give up (some codecs never fire an event). */
+const PROBE_TIMEOUT_MS = 10_000;
+
 /** Reads duration and size, and grabs a frame at ~0.5 s as the poster (the server never decodes video). */
 function probe(file: File): Promise<{ durationMs: number; width: number; height: number; poster: Blob }> {
   return new Promise((resolve, reject) => {
@@ -17,10 +20,21 @@ function probe(file: File): Promise<{ durationMs: number; width: number; height:
     v.preload = "metadata";
     v.muted = true;
     v.playsInline = true;
-    const fail = (msg: string) => {
+    let settled = false;
+    /** Runs once: detaches the video, frees the file URL and the decoder. */
+    const finish = () => {
+      if (settled) return false;
+      settled = true;
+      clearTimeout(timer);
+      v.onerror = v.onloadedmetadata = v.onseeked = null;
+      v.removeAttribute("src");
+      v.load();
       URL.revokeObjectURL(url);
-      reject(new Error(msg));
+      return true;
     };
+    const fail = (msg: string) => finish() && reject(new Error(msg));
+    // Safari with an HEVC file it can't decode, or a damaged file, may never answer: the «+» tile spun forever.
+    const timer = setTimeout(() => fail("Браузер не смог открыть это видео. Попробуйте MP4"), PROBE_TIMEOUT_MS);
     v.onerror = () => fail("Браузер не смог открыть это видео. Попробуйте MP4");
     v.onloadedmetadata = () => {
       if (!Number.isFinite(v.duration)) return fail("Не удалось определить длительность видео");
@@ -31,17 +45,20 @@ function probe(file: File): Promise<{ durationMs: number; width: number; height:
       canvas.width = v.videoWidth;
       canvas.height = v.videoHeight;
       canvas.getContext("2d")?.drawImage(v, 0, 0);
+      const meta = { durationMs: Math.round(v.duration * 1000), width: v.videoWidth, height: v.videoHeight };
       canvas.toBlob(
         (poster) => {
-          URL.revokeObjectURL(url);
-          if (!poster) return reject(new Error("Не удалось получить кадр из видео"));
-          resolve({ durationMs: Math.round(v.duration * 1000), width: v.videoWidth, height: v.videoHeight, poster });
+          canvas.width = canvas.height = 0;
+          if (!poster) return fail("Не удалось получить кадр из видео");
+          if (finish()) resolve({ ...meta, poster });
         },
         "image/jpeg",
         0.85,
       );
     };
     v.src = url;
+    // iOS Safari doesn't start loading a detached video's metadata until asked to.
+    v.load();
   });
 }
 

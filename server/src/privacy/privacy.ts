@@ -4,9 +4,11 @@ import type { Response } from 'express';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import { AUTH_COOKIE, AuthUser, CurrentUser, forgetSessionStatus } from '../auth/auth.guard.js';
+import { withJobLock } from '../common/job-lock.js';
 import { ZodPipe } from '../common/zod.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.js';
 import { ACTIVE_REQUEST } from '../requests/requests.service.js';
 
 const DAY = 24 * 3600 * 1000;
@@ -21,7 +23,15 @@ const DAY = 24 * 3600 * 1000;
 export class PrivacyService {
   private readonly logger = new Logger('Privacy');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  /** The nick as it is now: an admin may have renamed the account since its 30-day session token was issued. */
+  async usernameOf(userId: string) {
+    return (await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true } })).username;
+  }
 
   async deleteAccount(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
@@ -76,6 +86,7 @@ export class PrivacyService {
           bundleDiscounts: Prisma.DbNull,
           emailPrefs: Prisma.DbNull,
           deletedAt: new Date(),
+          sessionVersion: { increment: 1 },
         },
       }),
     ]);
@@ -83,18 +94,32 @@ export class PrivacyService {
     this.logger.log(`account ${userId} deleted by its owner`);
   }
 
-  /** Daily at 04:00: technical data is kept only as long as the policy says. */
+  /**
+   * Daily at 04:00: technical data is kept only as long as the policy says. Each table is cleared on its own, in
+   * batches, so a big backlog never holds one long transaction (and its locks) over every table at once.
+   */
   @Cron('0 4 * * *')
-  async retention() {
-    const ago = (days: number) => new Date(Date.now() - days * DAY);
-    const r = await this.prisma.$transaction([
-      this.prisma.verificationCode.deleteMany({ where: { createdAt: { lt: ago(1) } } }),
-      this.prisma.emailOutbox.deleteMany({ where: { status: { in: ['SENT', 'FAILED'] }, createdAt: { lt: ago(30) } } }),
-      this.prisma.aiRun.deleteMany({ where: { createdAt: { lt: ago(90) } } }),
-      this.prisma.notification.deleteMany({ where: { readAt: { not: null }, createdAt: { lt: ago(180) } } }),
-      this.prisma.signal.deleteMany({ where: { createdAt: { lt: ago(365) } } }),
-    ]);
-    this.logger.log(`retention: codes ${r[0].count}, emails ${r[1].count}, ai runs ${r[2].count}, notifications ${r[3].count}, signals ${r[4].count}`);
+  retention() {
+    return withJobLock(this.redis, 'privacy.retention', 3600_000, async () => {
+      const ago = (days: number) => new Date(Date.now() - days * DAY);
+      const batch = async (name: string, del: () => Promise<{ count: number }>) => {
+        let total = 0;
+        for (let i = 0; i < 200; i++) {
+          const { count } = await del();
+          total += count;
+          if (count < 5000) break;
+        }
+        return `${name} ${total}`;
+      };
+      const r = [
+        await batch('codes', () => this.prisma.verificationCode.deleteMany({ where: { createdAt: { lt: ago(1) } }, limit: 5000 })),
+        await batch('emails', () => this.prisma.emailOutbox.deleteMany({ where: { status: { in: ['SENT', 'FAILED'] }, createdAt: { lt: ago(30) } }, limit: 5000 })),
+        await batch('ai runs', () => this.prisma.aiRun.deleteMany({ where: { createdAt: { lt: ago(90) } }, limit: 5000 })),
+        await batch('notifications', () => this.prisma.notification.deleteMany({ where: { readAt: { not: null }, createdAt: { lt: ago(180) } }, limit: 5000 })),
+        await batch('signals', () => this.prisma.signal.deleteMany({ where: { createdAt: { lt: ago(365) } }, limit: 5000 })),
+      ];
+      this.logger.log(`retention: ${r.join(', ')}`);
+    });
   }
 }
 
@@ -108,7 +133,8 @@ export class PrivacyController {
   @Delete('me')
   @HttpCode(200)
   async deleteMe(@CurrentUser() user: AuthUser, @Body(new ZodPipe(DeleteDto)) dto: z.infer<typeof DeleteDto>, @Res({ passthrough: true }) res: Response) {
-    if (dto.confirm.replace(/^@/, '').toLowerCase() !== user.username.toLowerCase()) throw new ForbiddenException({ message: 'Ник не совпадает', fields: { confirm: 'Ник не совпадает' } });
+    const current = await this.privacy.usernameOf(user.id);
+    if (dto.confirm.replace(/^@/, '').toLowerCase() !== current.toLowerCase()) throw new ForbiddenException({ message: 'Ник не совпадает', fields: { confirm: 'Ник не совпадает' } });
     await this.privacy.deleteAccount(user.id);
     res.clearCookie(AUTH_COOKIE, { path: '/' });
     return { ok: true };

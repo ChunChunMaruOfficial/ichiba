@@ -17,11 +17,15 @@ const CreateDto = DeliveryDto.extend({
   listingIds: z.array(z.uuid()).min(1).max(20).optional(),
   /** «Купить» on a listing with several sizes: the size picked. */
   size: z.string().trim().min(1).max(20).optional(),
+  /** The total shown to the buyer at checkout; when it no longer matches, the request is refused with PRICE_CHANGED. */
+  expectedTotal: z.number().int().min(0).max(100_000_000).optional(),
 }).refine((d) => d.listingId || d.listingIds?.length, { message: 'Не выбрана вещь', path: ['listingId'] });
 
 const ReasonDto = z.object({ reason: z.string().max(300).nullish() });
 const TrackingDto = z.object({ trackingNumber: z.string().trim().min(4, 'Проверьте трек-номер').max(40) });
 const DisputeDto = z.object({ reason: z.string().trim().min(5, 'Опишите проблему').max(1000) });
+/** `offset` query parameter of a paged list: a non-negative integer, anything else is 0. */
+const offsetOf = (raw: string | undefined) => Math.min(Math.max(0, Math.floor(Number(raw)) || 0), 100_000);
 
 @Controller()
 export class RequestsController {
@@ -93,12 +97,12 @@ export class RequestsController {
   }
 
   @Get('purchases')
-  purchases(@CurrentUser() user: AuthUser, @Query('tab') tab: 'all' | 'active' | 'completed' | 'cancelled' = 'all') {
-    return this.requests.purchases(user.id, ['active', 'completed', 'cancelled'].includes(tab) ? tab : 'all');
+  purchases(@CurrentUser() user: AuthUser, @Query('tab') tab: 'all' | 'active' | 'completed' | 'cancelled' = 'all', @Query('offset') offset?: string) {
+    return this.requests.purchases(user.id, ['active', 'completed', 'cancelled'].includes(tab) ? tab : 'all', offsetOf(offset));
   }
 
   @Get('sales')
-  sales(@CurrentUser() user: AuthUser, @Query('tab') tab: 'all' | 'action' | 'deals' | 'sold' = 'all') {
-    return this.requests.sales(user.id, ['action', 'deals', 'sold'].includes(tab) ? tab : 'all');
+  sales(@CurrentUser() user: AuthUser, @Query('tab') tab: 'all' | 'action' | 'deals' | 'sold' = 'all', @Query('offset') offset?: string) {
+    return this.requests.sales(user.id, ['action', 'deals', 'sold'].includes(tab) ? tab : 'all', offsetOf(offset));
   }
 }

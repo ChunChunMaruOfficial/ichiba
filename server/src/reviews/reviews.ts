@@ -4,10 +4,12 @@ import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { findContacts, hasProfanity } from '../ai/text-rules.js';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
+import { withJobLock } from '../common/job-lock.js';
 import { ZodPipe } from '../common/zod.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.js';
 
 /**
  * Reviews (feature 3; decision: buyer → seller only). One review per completed deal within 30 days, editable
@@ -57,6 +59,7 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly redis: RedisService,
   ) {}
 
   serialize(r: ReviewRow, viewerId?: string) {
@@ -68,7 +71,9 @@ export class ReviewsService {
       reply: r.reply,
       repliedAt: r.repliedAt,
       createdAt: r.createdAt,
-      edited: r.updatedAt.getTime() - r.createdAt.getTime() > 60_000 && !r.repliedAt,
+      // Changed after it was written. The seller's reply also bumps updatedAt, so an update within seconds of the
+      // reply is the reply itself; an edit after the reply still shows (that is the one readers need to know about).
+      edited: r.updatedAt.getTime() - r.createdAt.getTime() > 60_000 && (!r.repliedAt || r.updatedAt.getTime() - r.repliedAt.getTime() > 5_000),
       author: r.author.username,
       listing: r.listing ? { id: r.listing.id, title: r.listing.title } : null,
       mine: viewerId === r.authorId,
@@ -121,13 +126,13 @@ export class ReviewsService {
   }
 
   /** Public reviews of a seller with a rating summary; newest first, cursor by createdAt. */
-  async forSeller(username: string, viewerId: string | undefined, opts: { before?: string; rating?: number }) {
+  async forSeller(username: string, viewerId: string | undefined, opts: { before?: Date; rating?: number }) {
     const seller = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
     if (!seller) throw new NotFoundException({ message: 'Такого гардероба нет' });
     const where: Prisma.ReviewWhereInput = { sellerId: seller.id, hidden: false };
     const [rows, groups] = await Promise.all([
       this.prisma.review.findMany({
-        where: { ...where, rating: opts.rating, createdAt: opts.before ? { lt: new Date(opts.before) } : undefined },
+        where: { ...where, rating: opts.rating, createdAt: opts.before ? { lt: opts.before } : undefined },
         include: reviewInclude,
         orderBy: { createdAt: 'desc' },
         take: 21,
@@ -157,20 +162,22 @@ export class ReviewsService {
 
   /** One reminder 3 days after completion if the buyer hasn't reviewed yet. */
   @Cron(CronExpression.EVERY_HOUR)
-  async remind() {
-    const due = await this.prisma.buyRequest.findMany({
-      where: { status: 'COMPLETED', completedAt: { lt: new Date(Date.now() - REMIND_AFTER_MS), gt: new Date(Date.now() - REMIND_AFTER_MS - 24 * 3600 * 1000) }, review: null },
-      select: { id: true, buyerId: true, seller: { select: { username: true } }, items: { take: 1, select: { listing: { select: { id: true, title: true } } } } },
-      take: 200,
+  remind() {
+    return withJobLock(this.redis, 'reviews.remind', 3600_000, async () => {
+      const due = await this.prisma.buyRequest.findMany({
+        where: { status: 'COMPLETED', completedAt: { lt: new Date(Date.now() - REMIND_AFTER_MS), gt: new Date(Date.now() - REMIND_AFTER_MS - 24 * 3600 * 1000) }, review: null },
+        select: { id: true, buyerId: true, seller: { select: { username: true } }, items: { take: 1, select: { listing: { select: { id: true, title: true } } } } },
+        take: 200,
+      });
+      let sent = 0;
+      for (const r of due) {
+        const already = await this.prisma.notification.count({ where: { userId: r.buyerId, type: 'review_request', payload: { path: ['requestId'], equals: r.id } } });
+        if (already >= 2) continue;
+        await this.notifications.notify(r.buyerId, 'review_request', { requestId: r.id, listingId: r.items[0]?.listing.id, title: r.items[0]?.listing.title, seller: r.seller.username, reminder: true });
+        sent++;
+      }
+      if (sent) this.logger.log(`review reminders: ${sent}`);
     });
-    let sent = 0;
-    for (const r of due) {
-      const already = await this.prisma.notification.count({ where: { userId: r.buyerId, type: 'review_request', payload: { path: ['requestId'], equals: r.id } } });
-      if (already >= 2) continue;
-      await this.notifications.notify(r.buyerId, 'review_request', { requestId: r.id, listingId: r.items[0]?.listing.id, title: r.items[0]?.listing.title, seller: r.seller.username, reminder: true });
-      sent++;
-    }
-    if (sent) this.logger.log(`review reminders: ${sent}`);
   }
 }
 
@@ -188,7 +195,9 @@ export class ReviewsController {
   @Get('users/:username/reviews')
   list(@CurrentUser() user: AuthUser | undefined, @Param('username') username: string, @Query('before') before?: string, @Query('rating') rating?: string) {
     const r = Number(rating);
-    return this.reviews.forSeller(username, user?.id, { before, rating: r >= 1 && r <= 5 ? r : undefined });
+    const cursor = before ? new Date(before) : undefined;
+    if (cursor && Number.isNaN(cursor.getTime())) throw new BadRequestException({ message: 'Некорректная дата' });
+    return this.reviews.forSeller(username, user?.id, { before: cursor, rating: Number.isInteger(r) && r >= 1 && r <= 5 ? r : undefined });
   }
 
   @Post('requests/:id/review')

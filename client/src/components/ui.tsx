@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { forwardRef, useEffect, useRef } from "react";
+import { cloneElement, forwardRef, isValidElement, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { DEAL_STATUS, LISTING_BADGE } from "@/lib/labels";
 import { usePresence } from "@/lib/presence";
@@ -295,30 +295,53 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
-export const Field = ({ label, error, hint, required, children, htmlFor }: {
+/**
+ * A labelled form row. The label is tied to the control even when the caller gives no `htmlFor`: an id is generated
+ * and handed to the single child element (unless it has its own), and the error or hint is wired as its
+ * aria-describedby, so screen readers read the label and the message with the field.
+ */
+export function Field({ label, error, hint, required, children, htmlFor }: {
   label: string;
   error?: string;
   hint?: string;
   required?: boolean;
   htmlFor?: string;
   children: React.ReactNode;
-}) => (
-  <div className="field flex flex-col gap-1.5" data-error={error ? "" : undefined}>
-    <label htmlFor={htmlFor} className="text-sm font-medium text-ink">
-      {label}
-      {required && <span className="text-danger"> ★</span>}
-    </label>
-    {children}
-    {error ? (
-      <p className="text-sm text-danger">{error}</p>
-    ) : hint ? (
-      // The hint unfolds only while the field is being used, so a form at rest is just labels and inputs.
-      <div className="field-hint">
-        <p className="overflow-hidden text-sm text-muted">{hint}</p>
-      </div>
-    ) : null}
-  </div>
-);
+}) {
+  const auto = useId();
+  const child = isValidElement<{ id?: string; "aria-describedby"?: string }>(children) ? children : null;
+  const id = htmlFor ?? child?.props.id ?? auto;
+  const noteId = `${auto}-note`;
+  const note = error || hint ? noteId : undefined;
+  const control =
+    child && (child.props.id !== id || note)
+      ? cloneElement(child, {
+          id: child.props.id ?? (htmlFor ? undefined : id),
+          "aria-describedby": [child.props["aria-describedby"], note].filter(Boolean).join(" ") || undefined,
+        })
+      : children;
+  return (
+    <div className="field flex flex-col gap-1.5" data-error={error ? "" : undefined}>
+      <label htmlFor={child || htmlFor ? id : undefined} className="text-sm font-medium text-ink">
+        {label}
+        {required && <span className="text-danger"> ★</span>}
+      </label>
+      {control}
+      {error ? (
+        <p id={noteId} className="text-sm text-danger">
+          {error}
+        </p>
+      ) : hint ? (
+        // The hint unfolds only while the field is being used, so a form at rest is just labels and inputs.
+        <div className="field-hint">
+          <p id={noteId} className="overflow-hidden text-sm text-muted">
+            {hint}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export const inputClass = (error?: string) =>
   clsx(
@@ -400,6 +423,81 @@ export function SheetHandle() {
   return <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-ink/15 md:hidden" />;
 }
 
+const FOCUSABLE =
+  'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), iframe, audio[controls], video[controls], [contenteditable]:not([contenteditable="false"]), [tabindex]:not([tabindex="-1"])';
+
+/** The elements Tab can reach inside `root`, in document order (hidden ones left out). */
+function focusables(root: HTMLElement) {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest("[inert]") && el.getClientRects().length > 0);
+}
+
+/**
+ * Makes everything outside an open overlay inert and keeps Tab inside it. Each ancestor of the panel up to <body>
+ * gets its siblings set `inert`, so it works the same for a portal at the end of <body> and for an overlay rendered
+ * inside the page; screen readers and Tab then see only the overlay. Elements marked `data-modal-keep` (the toasts
+ * with «Отменить») stay live. Only the elements this call made inert are restored, so a modal over a modal unwinds
+ * cleanly. With `autoFocus`, focus moves in on open (see `initialFocus`) and returns to the opener on close.
+ */
+export function useModalFocus(open: boolean, panelRef: React.RefObject<HTMLElement | null>, { autoFocus = true }: { autoFocus?: boolean } = {}) {
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const made: HTMLElement[] = [];
+    for (let node: HTMLElement = panel; node.parentElement && node !== document.body; node = node.parentElement) {
+      for (const sib of node.parentElement.children) {
+        if (sib === node || !(sib instanceof HTMLElement) || sib.inert || sib.hasAttribute("data-modal-keep")) continue;
+        // Next's route announcer must keep announcing page changes.
+        if (sib.tagName === "SCRIPT" || sib.tagName === "STYLE" || sib.tagName === "LINK" || sib.tagName === "NEXT-ROUTE-ANNOUNCER") continue;
+        sib.setAttribute("inert", "");
+        made.push(sib);
+      }
+    }
+    if (autoFocus && !panel.contains(document.activeElement)) initialFocus(panel)?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      // A modal opened over this one makes this panel inert: then the top one keeps Tab, not this one.
+      if (e.key !== "Tab" || !panel.isConnected || panel.closest("[inert]")) return;
+      const list = focusables(panel);
+      if (!list.length) {
+        e.preventDefault();
+        return;
+      }
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      if (!panel.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      for (const el of made) el.removeAttribute("inert");
+      if (autoFocus && opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [open, panelRef, autoFocus]);
+}
+
+/**
+ * Where focus lands when a modal opens: an element marked autofocus, else the form's first field (so typing starts
+ * right away), else the first focusable that is not the close ✕, else the ✕ itself.
+ */
+function initialFocus(panel: HTMLElement): HTMLElement | null {
+  const marked = panel.querySelector<HTMLElement>("[autofocus], [data-autofocus]");
+  if (marked) return marked;
+  const field = [...panel.querySelectorAll<HTMLElement>("form input, form textarea, form select")].find((el) => focusables(panel).includes(el));
+  if (field) return field;
+  const list = focusables(panel);
+  return list.find((el) => !el.hasAttribute("data-modal-close")) ?? list[0] ?? null;
+}
+
 export function Modal({
   open,
   onClose,
@@ -413,20 +511,30 @@ export function Modal({
   children: React.ReactNode;
   width?: string;
 }) {
-  const { panel, grab } = useSheetDrag(onClose);
+  // Parents pass a fresh arrow each render; the effects below must not re-run for it (that used to steal focus from a
+  // field after every keystroke), so they read the latest onClose through a ref.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  const { panel, grab } = useSheetDrag(() => onCloseRef.current());
+  useModalFocus(open, panel);
   useEffect(() => {
     if (!open) return;
-    const prev = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      // Only the topmost dialog closes: one under another modal sits in an inert subtree (useModalFocus).
+      if (e.key !== "Escape" || e.defaultPrevented || panel.current?.closest("[inert]")) return;
+      e.preventDefault();
+      onCloseRef.current();
+    };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
-    panel.current?.querySelector<HTMLElement>("input, button, [tabindex]")?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
-      prev?.focus();
     };
-  }, [open, onClose]);
+    // panel is a stable ref object from useSheetDrag.
+  }, [open, panel]);
 
   const { mounted, closing } = usePresence(open);
   if (!mounted) return null;
@@ -449,7 +557,7 @@ export function Modal({
           <SheetHandle />
           <div className="flex items-start justify-between gap-4">
             {title ? <h2 className="text-[22px] font-bold leading-tight">{title}</h2> : <span />}
-            <button aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 text-ink-2 hover:bg-ink/5">
+            <button data-modal-close aria-label="Закрыть" onClick={onClose} className="-m-2 rounded-full p-2 text-ink-2 hover:bg-ink/5">
               <IconX />
             </button>
           </div>

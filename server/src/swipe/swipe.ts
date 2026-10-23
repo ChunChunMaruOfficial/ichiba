@@ -44,7 +44,7 @@ export class SwipeController {
   ) {
     // Brands unless the second-hand market is asked for: the two are never shuffled into one deck.
     const market = marketRaw === 'resale' ? 'resale' : 'brands';
-    const limit = Math.min(Number(limitRaw) || 20, 40);
+    const limit = Math.min(Math.max(1, Math.floor(Number(limitRaw)) || 20), 40);
     const skip = skipRaw.split(',').filter((id) => /^[0-9a-f-]{36}$/.test(id)).slice(0, 300);
     let exclude = skip;
     if (user) {
@@ -53,7 +53,8 @@ export class SwipeController {
           where: { userId: user.id, type: { in: ['swipe_left', 'swipe_right'] }, createdAt: { gt: new Date(Date.now() - 7 * DAY) } },
           select: { listingId: true },
         }),
-        this.prisma.favorite.findMany({ where: { userId: user.id }, select: { listingId: true } }),
+        // The most recent 500 are enough to keep saved items out of the deck; all of them would make `notIn` unbounded.
+        this.prisma.favorite.findMany({ where: { userId: user.id }, select: { listingId: true }, orderBy: { createdAt: 'desc' }, take: 500 }),
       ]);
       exclude = [...new Set([...skip, ...swiped.map((s) => s.listingId!), ...favs.map((f) => f.listingId)].filter(Boolean))];
     }
@@ -84,14 +85,13 @@ export class SwipeController {
     const listing = await this.prisma.listing.findUnique({ where: { id: dto.listingId }, select: { status: true } });
     if (!listing || !['PUBLISHED', 'RESERVED', 'SOLD'].includes(listing.status)) throw new NotFoundException({ message: 'Такой вещи нет' });
     if (dto.direction === 'right') {
-      const existing = await this.prisma.favorite.findUnique({ where: { userId_listingId: { userId: user.id, listingId: dto.listingId } } });
-      if (!existing) {
-        await this.prisma.$transaction([
-          this.prisma.favorite.create({ data: { userId: user.id, listingId: dto.listingId, source: 'swipe' } }),
-          this.prisma.listing.update({ where: { id: dto.listingId }, data: { favoritesCount: { increment: 1 } } }),
-        ]);
-        this.stats.track(dto.listingId, 'favorites');
-      }
+      // skipDuplicates instead of check-then-create: a double swipe neither fails on the unique key nor counts twice.
+      const added = await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.favorite.createMany({ data: [{ userId: user.id, listingId: dto.listingId, source: 'swipe' }], skipDuplicates: true });
+        if (count) await tx.listing.update({ where: { id: dto.listingId }, data: { favoritesCount: { increment: count } } });
+        return count;
+      });
+      if (added) this.stats.track(dto.listingId, 'favorites');
       await this.recs.record(user.id, 'swipe_right', dto.listingId);
     } else {
       await this.recs.record(user.id, 'swipe_left', dto.listingId);

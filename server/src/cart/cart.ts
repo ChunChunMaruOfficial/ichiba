@@ -30,7 +30,7 @@ export class CartController {
   @Get()
   async list(@CurrentUser() user: AuthUser) {
     const rows = await this.prisma.cartItem.findMany({ where: { userId: user.id }, include: { listing: { include: CART_INCLUDE } }, orderBy: { addedAt: 'desc' } });
-    return this.groups(rows);
+    return this.groups(rows, user.id);
   }
 
   /**
@@ -40,18 +40,23 @@ export class CartController {
   @Public()
   @Post('preview')
   @HttpCode(200)
-  async preview(@Body(new ZodPipe(PreviewDto)) dto: z.infer<typeof PreviewDto>) {
+  async preview(@Body(new ZodPipe(PreviewDto)) dto: z.infer<typeof PreviewDto>, @CurrentUser() viewer?: AuthUser) {
     const listings = await this.prisma.listing.findMany({ where: { id: { in: dto.items.map((i) => i.listingId) } }, include: CART_INCLUDE });
     const byId = new Map(listings.map((l) => [l.id, l]));
-    return this.groups(dto.items.flatMap((i) => (byId.has(i.listingId) ? [{ listing: byId.get(i.listingId)!, size: i.size ?? null }] : [])));
+    return this.groups(
+      dto.items.flatMap((i) => (byId.has(i.listingId) ? [{ listing: byId.get(i.listingId)!, size: i.size ?? null }] : [])),
+      viewer?.id,
+    );
   }
 
-  private groups(rows: Array<{ listing: Prisma.ListingGetPayload<{ include: typeof CART_INCLUDE }>; size: string | null }>) {
+  private groups(rows: Array<{ listing: Prisma.ListingGetPayload<{ include: typeof CART_INCLUDE }>; size: string | null }>, viewerId?: string) {
     const groups = new Map<string, { seller: { id: string; username: string; city: string | null }; tiers: BundleTier[]; items: ReturnType<typeof serializeCard>[]; deliveryOptions: string[] }>();
     for (const r of rows) {
       const l = r.listing;
       // Never shown by id: a deleted item, someone's draft, or one a moderator blocked (its page hides it too).
       if (l.status === 'DELETED' || l.status === 'DRAFT' || l.status === 'BLOCKED') continue;
+      // A hidden item is private to its seller: the open preview endpoint would otherwise show it to anyone with the id.
+      if (l.status === 'HIDDEN' && l.sellerId !== viewerId) continue;
       const { bundleDiscounts, brandVerifiedAt: _brand, ...seller } = l.seller;
       const g = groups.get(l.sellerId) ?? { seller, tiers: tiersOf(bundleDiscounts), items: [], deliveryOptions: [...DELIVERY_ORDER] };
       // The size picked on a listing with several sizes replaces its «S · M · L».

@@ -173,7 +173,7 @@ export class AiService {
     condition?: string | null;
     defects?: string | null;
     material?: string | null;
-  }): Promise<string> {
+  }, userId?: string): Promise<string> {
     const condition = CONDITIONS.find((c) => c.value === fields.condition)?.label;
     const color = COLORS.find((c) => c.value === fields.color)?.label;
     const facts = [
@@ -198,6 +198,8 @@ export class AiService {
       tier: 'fast',
       temperature: 0.5,
       maxTokens: 500,
+      // Runs are attributed to the person, so heavy use shows up per account in AiRun.
+      subject: userId ? { type: 'user', id: userId } : undefined,
     });
     // Free text can't be voted on: take the best-weighted answer that passes the text checks.
     const best = [...votes]

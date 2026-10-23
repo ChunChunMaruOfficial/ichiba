@@ -60,13 +60,19 @@ export function videoUploadTicket(userId: string) {
 /** Played as MP4 (H.264), so an iPhone's HEVC .mov plays in every browser; quality picked by Cloudinary. */
 export const cloudinaryVideoUrl = (publicId: string) => `https://res.cloudinary.com/${cfg().cloud}/video/upload/q_auto/${publicId}.mp4`;
 
-/** A frame at 10 % of the video as the poster (always inside the clip, unlike a fixed second). */
-export const cloudinaryVideoPoster = (publicId: string, width: number, format: 'jpg' | 'webp' = 'jpg') =>
-  `https://res.cloudinary.com/${cfg().cloud}/video/upload/so_10p,c_limit,w_${width}/q_auto/${publicId}.${format}`;
+/** A frame at `at` % of the video (always inside the clip, unlike a fixed second). */
+const videoFrameUrl = (publicId: string, width: number, format: 'jpg' | 'webp', at: number) =>
+  `https://res.cloudinary.com/${cfg().cloud}/video/upload/so_${at}p,c_limit,w_${width}/q_auto/${publicId}.${format}`;
 
-/** Poster frame as WebP for server-side processing (moderation, AI). */
-export async function fetchCloudinaryVideoFrame(publicId: string, width: number): Promise<Buffer> {
-  const res = await fetch(cloudinaryVideoPoster(publicId, width, 'webp'), { signal: AbortSignal.timeout(20_000) });
+/** The frame at 10 % is the poster. */
+export const cloudinaryVideoPoster = (publicId: string, width: number, format: 'jpg' | 'webp' = 'jpg') => videoFrameUrl(publicId, width, format, 10);
+
+/** Frames moderation looks at: start, middle and end, so what's shown after the poster is checked too. */
+export const VIDEO_FRAME_OFFSETS = [10, 50, 90] as const;
+
+/** A frame (the poster by default) as WebP for server-side processing (moderation, AI). */
+export async function fetchCloudinaryVideoFrame(publicId: string, width: number, at = 10): Promise<Buffer> {
+  const res = await fetch(videoFrameUrl(publicId, width, 'webp', Math.min(99, Math.max(0, Math.round(at)))), { signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`cloudinary frame ${res.status} for ${publicId}`);
   return Buffer.from(await res.arrayBuffer());
 }

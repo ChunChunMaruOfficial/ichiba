@@ -4,7 +4,7 @@ import { findBrandInText, knownBrand, POPULAR_BRANDS } from '../catalog/brands.j
 import { CATEGORIES, CITIES, COLORS, CONDITIONS, SIZES, STYLE_TAGS } from '../catalog/catalog.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { majority, median, quorumSet } from './ensemble/aggregate.js';
-import { AiEnsemble, hashKey, TtlCache, Vote } from './ensemble/ensemble.js';
+import { AiEnsemble, hashKey, RunBudget, TtlCache, Vote } from './ensemble/ensemble.js';
 
 /**
  * Natural-language search (AI feature 6): «летнее платье на свадьбу до 50 BYN» → filters.
@@ -100,6 +100,8 @@ const MULTI_WORD_SUBCATEGORIES = SUBCATEGORIES.filter(({ s }) => labelWords(s.la
 @Injectable()
 export class SearchParser {
   private readonly cache = new TtlCache<SearchInterpretation>(60 * 60_000, 2000);
+  /** Model runs for text search, site-wide, per minute. */
+  private readonly budget = new RunBudget(60);
   private brands: { at: number; list: string[] } = { at: 0, list: POPULAR_BRANDS };
 
   constructor(
@@ -125,7 +127,10 @@ export class SearchParser {
     const rules = this.ruleParse(q, brands);
     const words = q.split(' ').filter(Boolean);
     // Short queries the rules fully understood don't need a model round-trip.
-    const needsAi = this.ensemble.available && (words.length >= 3 || /\d/.test(q) || rules.leftover.length > 0) && words.length >= 2;
+    const wantsAi = this.ensemble.available && (words.length >= 3 || /\d/.test(q) || rules.leftover.length > 0) && words.length >= 2;
+    // Guests search too: past the site-wide budget the rules alone answer (and the answer isn't cached), so a burst
+    // of searches never takes the providers away from listing moderation.
+    const needsAi = wantsAi && this.budget.take();
 
     let votes: Vote<VoteT>[] = [];
     if (needsAi) {
@@ -144,7 +149,7 @@ export class SearchParser {
       ).votes;
     }
     const result = this.combine(rules.vote, votes, brands);
-    this.cache.set(key, result);
+    if (needsAi || !wantsAi) this.cache.set(key, result);
     return result;
   }
 

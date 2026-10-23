@@ -18,13 +18,18 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { withJobLock } from '../common/job-lock.js';
 import { ZodPipe } from '../common/zod.js';
-import type { Auction, Bid, Listing, Prisma } from '../generated/prisma/client.js';
+import type { Auction, AuctionStatus, Bid, Listing, Prisma } from '../generated/prisma/client.js';
 import { auctionInclude, buyNowAvailable, EXTEND_WINDOW_MS, serializeAuction, WINNER_REPLY_MS } from './rules.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.js';
+
+/** Highest bid or auto-bid limit accepted at all: keeps amounts far from int4 and stops absurd griefing bids. */
+const MAX_AMOUNT = 1_000_000;
 
 @Injectable()
 export class AuctionsService {
@@ -34,6 +39,7 @@ export class AuctionsService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly listings: ListingsService,
+    private readonly redis: RedisService,
   ) {}
 
   activeFor(listingId: string) {
@@ -55,6 +61,12 @@ export class AuctionsService {
     if (!a) throw new NotFoundException({ message: 'Аукцион не найден' });
     if (a.status !== 'ACTIVE' || a.endsAt <= new Date() || a.listing.status !== 'PUBLISHED') throw new ConflictException({ message: 'Аукцион уже завершён' });
     return a;
+  }
+
+  /** Row lock for the closing job: unlike `lock`, it doesn't refuse an auction that has already ended. */
+  private async lockForClose(tx: Prisma.TransactionClient, auctionId: string) {
+    await tx.$queryRaw`SELECT id FROM "Auction" WHERE id = ${auctionId} FOR UPDATE`;
+    return tx.auction.findUnique({ where: { id: auctionId }, include: { listing: true } });
   }
 
   private top(tx: Prisma.TransactionClient, auctionId: string) {
@@ -118,6 +130,9 @@ export class AuctionsService {
       const before = await this.top(tx, auctionId);
       const minBid = before ? before.amount + a.step : a.startPrice;
       const leading = before?.bidderId === userId;
+      // A bid far above anything the item could fetch is a typo or griefing: capped by the buy-now price, or 50× the start.
+      const ceiling = Math.min(a.buyNowPrice ?? a.startPrice * 50, MAX_AMOUNT);
+      const tooHigh = (field: 'amount' | 'maxAmount') => new BadRequestException({ message: `Слишком большая сумма — не больше ${ceiling} BYN`, fields: { [field]: `Не больше ${ceiling} BYN` } });
 
       if (input.maxAmount != null) {
         const floor = leading ? before!.amount + a.step : minBid;
@@ -125,6 +140,7 @@ export class AuctionsService {
         if (a.buyNowPrice != null && input.maxAmount >= a.buyNowPrice && buyNowAvailable(a, before?.amount ?? null)) {
           throw new BadRequestException({ message: `Лимит не меньше цены «Купить сейчас» — просто выкупите вещь за ${a.buyNowPrice} BYN`, fields: { maxAmount: 'Выше цены «Купить сейчас»' }, code: 'USE_BUY_NOW' });
         }
+        if (input.maxAmount > ceiling) throw tooHigh('maxAmount');
         await tx.autoBid.upsert({
           where: { auctionId_bidderId: { auctionId, bidderId: userId } },
           create: { auctionId, bidderId: userId, maxAmount: input.maxAmount },
@@ -134,6 +150,7 @@ export class AuctionsService {
       } else {
         const amount = input.amount ?? minBid;
         if (amount < minBid) throw new BadRequestException({ message: `Минимальная ставка — ${minBid} BYN`, fields: { amount: `Не меньше ${minBid} BYN` }, minBid });
+        if (amount > ceiling) throw tooHigh('amount');
         if (leading) throw new ConflictException({ message: 'Ваша ставка уже самая высокая' });
         await tx.bid.create({ data: { auctionId, bidderId: userId, amount } });
       }
@@ -195,14 +212,16 @@ export class AuctionsService {
 
   /** The seller may cancel only while nobody has bid; the item becomes a fixed-price listing. */
   async cancel(sellerId: string, auctionId: string) {
-    const a = await this.prisma.auction.findUnique({ where: { id: auctionId }, include: { listing: true, _count: { select: { bids: true } } } });
-    if (!a || a.listing.sellerId !== sellerId) throw new NotFoundException({ message: 'Аукцион не найден' });
-    if (a.status !== 'ACTIVE') throw new ConflictException({ message: 'Аукцион уже завершён' });
-    if (a._count.bids > 0) throw new ConflictException({ message: 'Уже есть ставки — аукцион нельзя отменить' });
-    await this.prisma.$transaction([
-      this.prisma.auction.update({ where: { id: auctionId }, data: { status: 'CANCELLED' } }),
-      this.prisma.listing.update({ where: { id: a.listingId }, data: { saleType: 'FIXED' } }),
-    ]);
+    // Under the row lock bids queue behind us, so a bid can't slip in between the count and the cancel.
+    await this.prisma.$transaction(async (tx) => {
+      const a = await this.lockForClose(tx, auctionId);
+      if (!a || a.listing.sellerId !== sellerId) throw new NotFoundException({ message: 'Аукцион не найден' });
+      if (a.status !== 'ACTIVE') throw new ConflictException({ message: 'Аукцион уже завершён' });
+      if ((await tx.bid.count({ where: { auctionId } })) > 0) throw new ConflictException({ message: 'Уже есть ставки — аукцион нельзя отменить' });
+      const { count } = await tx.auction.updateMany({ where: { id: auctionId, status: 'ACTIVE' }, data: { status: 'CANCELLED' } });
+      if (!count) throw new ConflictException({ message: 'Аукцион уже завершён' });
+      await tx.listing.update({ where: { id: a.listingId }, data: { saleType: 'FIXED' } });
+    });
     return { ok: true };
   }
 
@@ -248,24 +267,31 @@ export class AuctionsService {
         events: { create: [{ status: 'CREATED', byUserId: bid.bidderId }, { status: 'ACCEPTED', reason }] },
       },
     });
-    await tx.auction.update({ where: { id: a.id }, data: { status: 'SOLD', requestId: r.id } });
+    // A first award closes a running auction; a runner-up award re-assigns one already sold. Anything else means
+    // another run got there first, and the whole transaction (reservation and deal included) is rolled back.
+    const { count } = await tx.auction.updateMany({ where: { id: a.id, status: runnerUp ? 'SOLD' : 'ACTIVE' }, data: { status: 'SOLD', requestId: r.id } });
+    if (!count) throw new ConflictException({ message: 'Аукцион уже завершён' });
     return r;
   }
 
-  /** Creates the winner's deal (same as an accepted offer) and tells both sides. */
-  private async awardTo(a: Auction & { listing: Listing }, bid: Bid, runnerUp: boolean) {
-    const request = await this.prisma.$transaction((tx) => this.awardTx(tx, a, bid, runnerUp ? 'Второе место в аукционе' : 'Победа в аукционе', runnerUp));
-    await this.notifications.notify(bid.bidderId, runnerUp ? 'auction_runner_up' : 'auction_won', { listingId: a.listingId, requestId: request.id, title: a.listing.title, amount: bid.amount });
-    await this.notifications.notify(a.listing.sellerId, 'auction_sold', { listingId: a.listingId, requestId: request.id, title: a.listing.title, amount: bid.amount, runnerUp });
-    return request;
+  /** Tells the winner (or runner-up) and the seller about the deal created by `awardTx`. */
+  private async notifyAward(a: Auction & { listing: Listing }, bid: Bid, requestId: string, runnerUp: boolean) {
+    await this.notifications.notify(bid.bidderId, runnerUp ? 'auction_runner_up' : 'auction_won', { listingId: a.listingId, requestId, title: a.listing.title, amount: bid.amount });
+    await this.notifications.notify(a.listing.sellerId, 'auction_sold', { listingId: a.listingId, requestId, title: a.listing.title, amount: bid.amount, runnerUp });
   }
 
-  /** No bids or reserve not met: the auction ends and the item stays on sale at its start price. */
-  private async noSale(a: Auction & { listing: Listing }, reason: 'no_bids' | 'reserve' | 'no_show') {
-    await this.prisma.$transaction([
-      this.prisma.auction.update({ where: { id: a.id }, data: { status: 'NO_SALE' } }),
-      this.prisma.listing.updateMany({ where: { id: a.listingId, status: { in: ['PUBLISHED', 'RESERVED'] } }, data: { status: 'PUBLISHED', saleType: 'FIXED' } }),
-    ]);
+  /**
+   * No bids, reserve not met or no buyer: the auction (still in status `from`) ends and the item stays on sale at a
+   * fixed price. Returns false when another run already moved it.
+   */
+  private async noSaleTx(tx: Prisma.TransactionClient, a: Pick<Auction, 'id' | 'listingId'>, from: AuctionStatus) {
+    const { count } = await tx.auction.updateMany({ where: { id: a.id, status: from }, data: { status: 'NO_SALE' } });
+    if (!count) return false;
+    await tx.listing.updateMany({ where: { id: a.listingId, status: { in: ['PUBLISHED', 'RESERVED'] } }, data: { status: 'PUBLISHED', saleType: 'FIXED' } });
+    return true;
+  }
+
+  private async notifyNoSale(a: Auction & { listing: Listing }, reason: 'no_bids' | 'reserve' | 'no_show') {
     await this.notifications.notify(a.listing.sellerId, 'auction_no_sale', { listingId: a.listingId, title: a.listing.title, reason });
     if (reason === 'reserve') {
       const bidders = await this.prisma.bid.findMany({ where: { auctionId: a.id }, select: { bidderId: true }, distinct: ['bidderId'] });
@@ -274,17 +300,36 @@ export class AuctionsService {
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
-  async closeEnded() {
-    const ended = await this.prisma.auction.findMany({ where: { status: 'ACTIVE', endsAt: { lt: new Date() } }, include: { listing: true } });
+  closeEnded() {
+    return withJobLock(this.redis, 'auctions.closeEnded', 60_000, () => this.closeEndedNow());
+  }
+
+  /**
+   * One ended auction, settled under its row lock and re-read inside the transaction: a bid that landed (and maybe
+   * extended the end) after the list was loaded is never ignored, and a concurrent buy-now or cancel wins cleanly.
+   */
+  private async closeOne(auctionId: string) {
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const a = await this.lockForClose(tx, auctionId);
+      if (!a || a.status !== 'ACTIVE' || a.endsAt >= new Date()) return null;
+      const top = await this.top(tx, a.id);
+      if (!top || (a.reservePrice != null && top.amount < a.reservePrice)) {
+        return (await this.noSaleTx(tx, a, 'ACTIVE')) ? ({ kind: 'no_sale', a, reason: top ? 'reserve' : 'no_bids' } as const) : null;
+      }
+      const request = await this.awardTx(tx, a, top, 'Победа в аукционе');
+      return { kind: 'sold', a, top, requestId: request.id } as const;
+    });
+    if (!outcome) return;
+    if (outcome.kind === 'no_sale') return this.notifyNoSale(outcome.a, outcome.reason);
+    await this.notifyAward(outcome.a, outcome.top, outcome.requestId, false);
+    await this.listings.declinePendingRequests(outcome.a.listingId, 'Вещь ушла с аукциона');
+  }
+
+  private async closeEndedNow() {
+    const ended = await this.prisma.auction.findMany({ where: { status: 'ACTIVE', endsAt: { lt: new Date() } }, select: { id: true }, orderBy: { endsAt: 'asc' }, take: 200 });
     for (const a of ended) {
       try {
-        const top = await this.prisma.bid.findFirst({ where: { auctionId: a.id }, orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }] });
-        if (!top) await this.noSale(a, 'no_bids');
-        else if (a.reservePrice != null && top.amount < a.reservePrice) await this.noSale(a, 'reserve');
-        else {
-          await this.awardTo(a, top, false);
-          await this.listings.declinePendingRequests(a.listingId, 'Вещь ушла с аукциона');
-        }
+        await this.closeOne(a.id);
       } catch (e) {
         this.logger.warn(`close ${a.id}: ${(e as Error).message}`);
       }
@@ -307,12 +352,19 @@ export class AuctionsService {
       const next = (await this.prisma.bid.findMany({ where: { auctionId: a.id }, orderBy: [{ amount: 'desc' }, { createdAt: 'asc' }] })).find(
         (b) => !b.isBuyNow && !triedIds.has(b.bidderId) && (a.reservePrice == null || b.amount >= a.reservePrice),
       );
-      if (next) {
-        await this.prisma.auction.update({ where: { id: a.id }, data: { requestId: null } });
-        await this.awardTo(a, next, true);
-      } else {
-        await this.noSale(a, 'no_show');
-        await this.listings.notifyWatchers(a.listingId, 'item_available', a.listing.title);
+      try {
+        if (next) {
+          const request = await this.prisma.$transaction(async (tx) => {
+            await tx.auction.updateMany({ where: { id: a.id, status: 'SOLD' }, data: { requestId: null } });
+            return this.awardTx(tx, a, next, 'Второе место в аукционе', true);
+          });
+          await this.notifyAward(a, next, request.id, true);
+        } else if (await this.prisma.$transaction((tx) => this.noSaleTx(tx, a, 'SOLD'))) {
+          await this.notifyNoSale(a, 'no_show');
+          await this.listings.notifyWatchers(a.listingId, 'item_available', a.listing.title);
+        }
+      } catch (e) {
+        this.logger.warn(`runner-up ${a.id}: ${(e as Error).message}`);
       }
     }
     if (ended.length || silent.length) this.logger.log(`closed ${ended.length} auctions, ${silent.length} silent winners`);
@@ -321,8 +373,8 @@ export class AuctionsService {
 
 const BidDto = z
   .object({
-    amount: z.coerce.number().int('Целое число').min(1, 'Введите сумму').optional(),
-    maxAmount: z.coerce.number().int('Целое число').min(1, 'Введите лимит').optional(),
+    amount: z.coerce.number().int('Целое число').min(1, 'Введите сумму').max(MAX_AMOUNT, 'Слишком большая сумма').optional(),
+    maxAmount: z.coerce.number().int('Целое число').min(1, 'Введите лимит').max(MAX_AMOUNT, 'Слишком большой лимит').optional(),
   })
   .refine((d) => d.amount != null || d.maxAmount != null, { message: 'Введите сумму', path: ['amount'] });
 

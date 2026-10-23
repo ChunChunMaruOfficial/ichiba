@@ -95,9 +95,15 @@ function parseWith<T>(schema: ZodType<T>, raw: unknown): T | null {
 
 // ---------- provider runtime: queue + circuit breaker ----------
 
+/**
+ * Features that keep a provider slot to themselves: publishing waits on them, so guests' searches (photo search, text
+ * search) must never take every slot.
+ */
+const PRIORITY_FEATURES = new Set(['listing_moderation', 'listing_photo_moderation']);
+
 class ProviderRuntime {
   private active = 0;
-  private readonly waiting: Array<() => void> = [];
+  private readonly waiting: Array<{ go: () => void; priority: boolean; limit: number }> = [];
   private lastStart = 0;
   /** Provider-level switch-off: only for a rejected key (affects every model). */
   private openUntil = 0;
@@ -139,23 +145,34 @@ class ProviderRuntime {
     };
   }
 
-  private async acquire(signal: AbortSignal) {
-    if (this.active >= this.provider.concurrency) {
+  /** Slots a request may fill: everything for moderation, all but one for the rest (when there are two or more). */
+  private limitFor(priority: boolean) {
+    return priority || this.provider.concurrency < 2 ? this.provider.concurrency : this.provider.concurrency - 1;
+  }
+
+  private async acquire(signal: AbortSignal, priority: boolean) {
+    const limit = this.limitFor(priority);
+    if (this.active < limit) this.active++;
+    else {
+      // The slot is counted by pump() before `go` runs, so two releases can't hand out the same slot twice.
       await new Promise<void>((resolve, reject) => {
+        const entry = {
+          priority,
+          limit,
+          go: () => {
+            signal.removeEventListener('abort', onAbort);
+            resolve();
+          },
+        };
         const onAbort = () => {
-          const i = this.waiting.indexOf(go);
+          const i = this.waiting.indexOf(entry);
           if (i >= 0) this.waiting.splice(i, 1);
           reject(new ProviderError('timeout in queue', 'timeout'));
         };
-        const go = () => {
-          signal.removeEventListener('abort', onAbort);
-          resolve();
-        };
         signal.addEventListener('abort', onAbort, { once: true });
-        this.waiting.push(go);
+        this.waiting.push(entry);
       });
     }
-    this.active++;
     const gap = this.lastStart + this.provider.minIntervalMs - Date.now();
     this.lastStart = Math.max(Date.now(), this.lastStart + this.provider.minIntervalMs);
     if (gap > 0) await new Promise((r) => setTimeout(r, gap));
@@ -167,7 +184,13 @@ class ProviderRuntime {
 
   private release() {
     this.active--;
-    this.waiting.shift()?.();
+    // Moderation first, then the others in arrival order, each within its own limit.
+    const first = this.waiting.findIndex((w) => w.priority && this.active < w.limit);
+    const i = first >= 0 ? first : this.waiting.findIndex((w) => this.active < w.limit);
+    if (i < 0) return;
+    const [next] = this.waiting.splice(i, 1);
+    this.active++;
+    next.go();
   }
 
   private record(model: string, ok: boolean, latency: number, error?: ProviderError) {
@@ -191,7 +214,7 @@ class ProviderRuntime {
   }
 
   /** Tries the model chain until one answers; returns the reply and the model that produced it. */
-  async run(models: string[], req: LlmRequest, onAttempt: (a: { model: string; ok: boolean; kind?: string; latencyMs: number; reply?: LlmReply }) => void) {
+  async run(models: string[], req: LlmRequest, onAttempt: (a: { model: string; ok: boolean; kind?: string; latencyMs: number; reply?: LlmReply }) => void, priority = false) {
     let lastError: ProviderError = new ProviderError('no models', 'bad_request');
     const attempts = models.flatMap((m) => [m, m]);
     for (let i = 0; i < attempts.length; i++) {
@@ -200,7 +223,7 @@ class ProviderRuntime {
       if (i % 2 === 1 && !['rate', 'overloaded'].includes(lastError.kind)) continue;
       if (i % 2 === 1) await new Promise((r) => setTimeout(r, 700));
       if (req.signal.aborted) throw new ProviderError('timeout', 'timeout');
-      await this.acquire(req.signal);
+      await this.acquire(req.signal, priority);
       const started = Date.now();
       try {
         const reply = await this.provider.call(model, req);
@@ -250,6 +273,29 @@ export class TtlCache<V> {
   set(key: string, v: V) {
     if (this.map.size >= this.max) this.map.delete(this.map.keys().next().value!);
     this.map.set(key, { v, exp: Date.now() + this.ttlMs });
+  }
+}
+
+/**
+ * A site-wide budget of runs per minute for a public feature (token bucket, refilled continuously): guests can't
+ * spend the providers' free quotas that listing moderation needs. Per process; each instance has its own.
+ */
+export class RunBudget {
+  private tokens: number;
+  private at = Date.now();
+
+  constructor(private readonly perMinute: number) {
+    this.tokens = perMinute;
+  }
+
+  /** Takes one run if there is one left. */
+  take(): boolean {
+    const now = Date.now();
+    this.tokens = Math.min(this.perMinute, this.tokens + ((now - this.at) / 60_000) * this.perMinute);
+    this.at = now;
+    if (this.tokens < 1) return false;
+    this.tokens -= 1;
+    return true;
   }
 }
 
@@ -345,8 +391,11 @@ export class AiEnsemble {
 
     for (const rt of eligible) {
       const id = rt.provider.id;
-      rt.run(rt.usable(rt.provider.models(tier, images.length > 0)), req, (a) =>
-        calls.push({ provider: id, model: a.model, ok: a.ok, kind: a.kind, latencyMs: a.latencyMs, inputTokens: a.reply?.inputTokens, outputTokens: a.reply?.outputTokens }),
+      rt.run(
+        rt.usable(rt.provider.models(tier, images.length > 0)),
+        req,
+        (a) => calls.push({ provider: id, model: a.model, ok: a.ok, kind: a.kind, latencyMs: a.latencyMs, inputTokens: a.reply?.inputTokens, outputTokens: a.reply?.outputTokens }),
+        PRIORITY_FEATURES.has(opts.feature),
       )
         .then(({ reply, model, latencyMs }) => {
           if (closed) return;

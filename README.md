@@ -38,6 +38,13 @@ TELEGRAM_BOT_TOKEN=…  TELEGRAM_BOT_USERNAME=…               # вход че�
 CLOUDINARY_CLOUD_NAME=…  CLOUDINARY_API_KEY=…  CLOUDINARY_API_SECRET=…   # иначе фото лежат на volume
 GEMINI_API_KEY=…  MISTRAL_API_KEY=…  ZAI_API_KEY=…                       # по желанию, ИИ
 TG_PASSWORD_HASHES='{"nenetstore":"$2b$10$…"}'   SHOP_PASSWORD_HASHES='{"iloveredhead":"$2b$10$…"}'   # пароли аккаунтов зеркалируемых магазинов (bcrypt)
+HAND_PASSWORD_HASHES='{"винтшмот":"$2b$10$…"}'                                                      # то же для продавцов, выставленных вручную (hand-listings.ts)
+# По желанию: TG_IMPORT=off / SHOP_IMPORT=off выключают импорт магазинов (в production он включён по умолчанию);
+# TRUST_PROXY=<число хопов> — сколько прокси перед API считать своими (на Railway по умолчанию 1: edge Railway
+# дописывает адрес посетителя последним, а rewrite Next.js передаёт заголовок как есть; «все» нельзя — клиент
+# подставил бы любой адрес и обошёл лимиты); PUBLIC_WS_URL — адрес сокета, если он не выводится из домена;
+# CRON_MODE=external — не крутить фоновые задачи в процессе (их дёргает /cron/tick); DIRECT_URL — прямое
+# подключение для миграций, когда DATABASE_URL ведёт на пулер.
 ```
 
 **client → Variables:**
@@ -50,7 +57,7 @@ NEXT_PUBLIC_LEGAL_EMAIL=c4erkaoui@gmail.com
 NEXT_PUBLIC_LEGAL_OPERATOR=<ИП или организация>   NEXT_PUBLIC_LEGAL_UNP=<УНП>   NEXT_PUBLIC_LEGAL_ADDRESS=<адрес>
 ```
 
-Чат работает по WebSocket прямо с сервера (`wss://<домен server>/ws`, адрес сервер берёт из `RAILWAY_PUBLIC_DOMAIN` сам). Фоновые задачи (аукционы, 48-часовые сроки, очередь писем, чистка фото) крутятся внутри процесса. Проверка: `https://<домен server>/health` → `{"ok":true,"db":true,…}`.
+Чат работает по WebSocket прямо с сервера (`wss://<домен server>/ws`, адрес сервер берёт из `RAILWAY_PUBLIC_DOMAIN` сам). Фоновые задачи (аукционы, 48-часовые сроки, очередь писем, чистка фото) крутятся внутри процесса. Проверка: `https://<домен server>/health` → `{"ok":true,"db":true,…}` (без базы отвечает 503, так что деплой без Postgres не пройдёт healthcheck).
 
 Свой домен: client → Settings → Networking → Custom Domain. Благодаря ссылкам `${{…}}` `WEB_ORIGIN`, `APP_URL` и `NEXT_PUBLIC_SITE_URL` подхватят его сами (`NEXT_PUBLIC_*` — после пересборки client).
 

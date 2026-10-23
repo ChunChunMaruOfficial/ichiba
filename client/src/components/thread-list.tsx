@@ -50,7 +50,12 @@ export function ThreadList({ activeId, compact }: { activeId?: string; compact?:
                 {t.lastMessage?.body}
               </p>
             </div>
-            {t.unread && <span className="mt-2 size-2.5 shrink-0 rounded-full bg-danger" aria-label="Непрочитано" />}
+            {/* aria-label on a bare span is ignored by screen readers: the word goes in as visually hidden text. */}
+            {t.unread && (
+              <span className="mt-2 size-2.5 shrink-0 rounded-full bg-danger">
+                <span className="sr-only">Непрочитано</span>
+              </span>
+            )}
             {!compact && t.request && !t.unread && (
               <span className="hidden shrink-0 self-center sm:block">
                 <DealBadge status={t.request.status} role={t.role} />

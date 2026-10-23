@@ -2,8 +2,11 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PRIVACY_VERSION } from '../auth/auth.service.js';
+import { withJobLock } from '../common/job-lock.js';
 import { MediaService } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.js';
+import { ADOPT_SELECT, importerMayAdopt } from '../tg/adopt.js';
 import type { ListingInputT } from './listings.dto.js';
 import { ListingsService } from './listings.service.js';
 
@@ -568,17 +571,27 @@ export class HandListingsService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly listings: ListingsService,
     private readonly media: MediaService,
+    private readonly redis: RedisService,
   ) {}
 
   onApplicationBootstrap() {
     if (process.env.NODE_ENV !== 'production') return;
-    setTimeout(() => void this.run().catch((e: Error) => this.logger.warn(`hand listings: ${e.message}`)), 20_000).unref();
+    // Locked: the old and the new container both start this during a deploy, and would list the same item twice.
+    setTimeout(() => void withJobLock(this.redis, 'hand.listings', 15 * 60_000, () => this.run()), 20_000).unref();
   }
 
   async run() {
     for (const batch of BATCHES) {
+      const existing = await this.prisma.user.findUnique({ where: { username: batch.username }, select: { id: true, passwordHash: true, ...ADOPT_SELECT } });
+      // A batch that owns its account (`account`) lists under it and sets its password: only an account this import
+      // made qualifies, never a person who happens to hold the nick. A batch without `account` lists for an existing
+      // seller who handed the items over, and never touches the password.
+      if (existing && batch.account && !importerMayAdopt(existing)) {
+        this.logger.warn(`@${batch.username}: the nick belongs to an account the import didn't create — batch skipped`);
+        continue;
+      }
       const seller =
-        (await this.prisma.user.findUnique({ where: { username: batch.username }, select: { id: true, passwordHash: true } })) ??
+        existing ??
         (batch.account
           ? await this.prisma.user.create({
               data: {

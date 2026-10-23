@@ -25,7 +25,12 @@ export async function serverFetch<T>(path: string, revalidate = 60): Promise<T |
   }
   if (res.status === 404 || res.status === 400) return null;
   if (!res.ok) return undefined;
-  return (await res.json()) as T;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    // A proxy's HTML error page with a 200, or a cut-off body: treat it as "the API couldn't answer".
+    return undefined;
+  }
 }
 
 /** JSON for <script type="application/ld+json">, safe against "</script>" in user text. */

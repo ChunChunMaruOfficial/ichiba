@@ -4,28 +4,30 @@ import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
-import { CATEGORIES, CATEGORY_SLUGS, COLORS } from '../catalog/catalog.js';
+import { CATEGORY_SLUGS, COLOR_VALUES } from '../catalog/catalog.js';
 import { ZodPipe } from '../common/zod.js';
-import { ListingsService } from '../listings/listings.service.js';
 import { MAX_UPLOAD_BYTES, MediaService } from '../media/media.service.js';
 import { AdminGuard } from '../moderation/moderation.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AiService } from './ai.service.js';
 import { AiEnsemble } from './ensemble/ensemble.js';
 import { PhotoChecker } from './photo-check.js';
+import { PhotoSearch } from './photo-search.js';
 import { PriceAdvisor } from './price.js';
 import { SearchParser } from './search-parse.js';
 
 const AnalyzeDto = z.object({ photoIds: z.array(z.uuid()).min(1).max(10) });
+/** An optional form field: an empty string means "not chosen". */
+const field = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === '' ? null : v), schema.nullish());
 const DescribeDto = z.object({
   title: z.string().min(1).max(80),
-  category: z.string().nullish(),
-  brand: z.string().nullish(),
-  color: z.string().nullish(),
-  size: z.string().nullish(),
-  condition: z.string().nullish(),
-  defects: z.string().nullish(),
-  material: z.string().nullish(),
+  category: field(z.enum(CATEGORY_SLUGS as [string, ...string[]])),
+  brand: field(z.string().max(60)),
+  color: field(z.enum(COLOR_VALUES as [string, ...string[]])),
+  size: field(z.string().max(60)),
+  condition: field(z.enum(['NEW_WITH_TAGS', 'LIKE_NEW', 'GOOD', 'VISIBLE_WEAR'])),
+  defects: field(z.string().max(500)),
+  material: field(z.string().max(60)),
 });
 const PriceDto = z.object({
   listingId: z.uuid().nullish(),
@@ -40,7 +42,7 @@ const PriceDto = z.object({
   size: z.string().max(20).nullish(),
   photoIds: z.array(z.uuid()).max(10).optional(),
 });
-const PhotoCheckDto = z.object({ photoIds: z.array(z.uuid()).min(1).max(10), category: z.string().nullish() });
+const PhotoCheckDto = z.object({ photoIds: z.array(z.uuid()).min(1).max(10), category: z.string().max(60).nullish() });
 const SearchParseDto = z.object({ q: z.string().trim().min(1).max(200) });
 
 @Controller('ai')
@@ -56,7 +58,7 @@ export class AiController {
     private readonly price: PriceAdvisor,
     private readonly photos: PhotoChecker,
     private readonly search: SearchParser,
-    private readonly listings: ListingsService,
+    private readonly photoSearcher: PhotoSearch,
   ) {}
 
   /** Add Item autofill from photos (frame 22). */
@@ -78,9 +80,9 @@ export class AiController {
 
   @Post('describe')
   @HttpCode(200)
-  async describe(@Body(new ZodPipe(DescribeDto)) dto: z.infer<typeof DescribeDto>) {
+  async describe(@CurrentUser() user: AuthUser, @Body(new ZodPipe(DescribeDto)) dto: z.infer<typeof DescribeDto>) {
     try {
-      return { description: await this.ai.describe(dto) };
+      return { description: await this.ai.describe(dto, user.id) };
     } catch (e) {
       this.logger.warn(`describe failed: ${(e as Error).message}`);
       return { description: null };
@@ -111,34 +113,21 @@ export class AiController {
   }
 
   /**
-   * Search by photo (guests too): the AI says what the item is, then items are ranked by those attributes and by
-   * how close their cover photos look. The uploaded photo is not stored.
+   * Search by photo (guests too), in two steps: the AI says what kind of item it is, then the items of that kind are
+   * ranked by how they look — colours, print, pattern — and the closest are compared with the photo by the vision
+   * models (ai/photo-search.ts). Returns the ranked ids; /search?ids=…&sort=similar pages, refines and filters them.
+   * The uploaded photo is not stored.
    */
   @Public()
   @Post('photo-search')
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } }))
-  async photoSearch(@UploadedFile() file?: Express.Multer.File, @CurrentUser() user?: AuthUser, @Query('market') marketRaw?: string) {
+  photoSearch(@UploadedFile() file?: Express.Multer.File, @CurrentUser() user?: AuthUser, @Query('market') marketRaw?: string) {
     if (!file) throw new BadRequestException({ message: 'Выберите фото' });
     // Brands unless the search started on «Вторичка» (or asked for both).
     const market = marketRaw === 'resale' || marketRaw === 'all' ? marketRaw : 'brands';
-    const { jpeg, dhash } = await this.media.searchImage(file.buffer);
-    const seen = this.ai.enabled
-      ? await this.ai.analyze([jpeg], user?.id).catch((e: Error) => {
-          this.logger.warn(`photo search: analyze failed: ${e.message}`);
-          return null;
-        })
-      : null;
-    // "Not clothing" isn't final (AI answers vary, drawings and bags confuse it): then only the photo ranks.
-    if (seen?.flags.not_clothing) return { label: null, look: {}, items: await this.listings.photoSearch({}, dhash, user?.id, market), notClothing: true };
-    const category = seen && seen.category.confidence >= 0.5 ? CATEGORIES.find((c) => c.slug === seen.category.value) : undefined;
-    const subcategory = category?.subcategories.find((sc) => sc.slug === seen?.subcategory.value);
-    const color = seen && seen.color.confidence >= 0.5 ? COLORS.find((c) => c.value === seen.color.value) : undefined;
-    const brand = seen && seen.brand.confidence >= 0.6 && seen.brand.value ? seen.brand.value : null;
-    const look = { category: category?.slug ?? null, subcategory: subcategory?.slug ?? null, color: color?.value ?? null, brand };
-    const label = [subcategory?.label ?? category?.label, color?.label.toLowerCase(), brand].filter(Boolean).join(', ') || null;
-    return { label, look, items: await this.listings.photoSearch(look, dhash, user?.id, market), notClothing: false };
+    return this.photoSearcher.search(file.buffer, market, user?.id);
   }
 
   /** Provider health and recent usage for the admin dashboard. */

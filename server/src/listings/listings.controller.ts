@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Ip, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
 import { POPULAR_BRANDS } from '../catalog/brands.js';
@@ -41,21 +41,23 @@ export class ListingsController {
 
   @Public()
   @Get('wardrobes')
-  wardrobes(@Query(new ZodPipe(PageQuery)) q: z.infer<typeof PageQuery>, @Query('q') text: string | undefined, @CurrentUser() user?: AuthUser) {
-    return this.listings.wardrobes(q.offset, q.limit, text, user?.id);
+  wardrobes(@Query(new ZodPipe(PageQuery)) q: z.infer<typeof PageQuery>, @Query('q') raw: string | string[] | undefined, @CurrentUser() user?: AuthUser) {
+    // `?q=a&q=b` arrives as an array: the first one is the search.
+    const text = (Array.isArray(raw) ? raw[0] : raw)?.slice(0, 64);
+    return this.listings.wardrobes(q.offset, q.limit, typeof text === 'string' ? text : undefined, user?.id);
   }
 
   @Public()
   @Get('wardrobes/:username')
   wardrobe(@Param('username') username: string, @Query(new ZodPipe(WardrobeQuery)) q: z.infer<typeof WardrobeQuery>, @CurrentUser() user?: AuthUser) {
-    return this.listings.wardrobe(username, user?.id, q.section, q.sort);
+    return this.listings.wardrobe(username, user?.id, q.section, q.sort, q.offset);
   }
 
   @Public()
   @Get('listings/:id')
-  get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: AuthUser, @Headers('x-ichiba-render') render?: string) {
-    // Server-side renders (and crawlers hitting them) are not views; the browser's own request counts.
-    return this.listings.get(id, user?.id, { trackView: render !== 'ssr' });
+  get(@Param('id', ParseUUIDPipe) id: string, @Ip() ip: string, @CurrentUser() user?: AuthUser, @Headers('x-ichiba-render') render?: string) {
+    // Server-side renders (and crawlers hitting them) are not views; the browser's own request counts, once a day.
+    return this.listings.get(id, user?.id, { trackView: render !== 'ssr', viewer: ip ? `ip:${ip}` : undefined });
   }
 
   /** «Не интересно»: hide the item from this person's feeds and search (DELETE brings it back). */

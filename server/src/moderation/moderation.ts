@@ -221,11 +221,13 @@ export class AdminController {
           : r.targetType === 'REVIEW'
             ? (await this.prisma.review.findUniqueOrThrow({ where: { id: r.targetId } })).authorId
             : (await this.prisma.listing.findUniqueOrThrow({ where: { id: r.targetId } })).sellerId;
+      if (userId === admin.id) throw new ForbiddenException({ message: 'Нельзя заблокировать себя' });
       await this.blockUser(admin.id, userId, dto.reason || r.reason);
     }
-    // Resolving one report closes all open reports on the same target.
+    // Resolving one report closes all open reports of the same kind on the same target (a seller's appeal about a
+    // listing is a separate matter from complaints about it).
     await this.prisma.report.updateMany({
-      where: { targetId: r.targetId, status: 'OPEN' },
+      where: { targetType: r.targetType, targetId: r.targetId, status: 'OPEN' },
       data: { status: dto.action === 'dismiss' ? 'REJECTED' : 'RESOLVED', resolution: dto.reason || dto.action, resolvedAt: new Date() },
     });
     return { ok: true };
@@ -301,7 +303,7 @@ export class AdminController {
 
   /** Blocked users can't sign in; their published items are hidden. */
   private async blockUser(adminId: string, userId: string, reason: string) {
-    await this.prisma.user.update({ where: { id: userId }, data: { blockedAt: new Date() } });
+    await this.prisma.user.update({ where: { id: userId }, data: { blockedAt: new Date(), sessionVersion: { increment: 1 } } });
     forgetSessionStatus(userId);
     await this.listings.hideForBlock(userId);
     await this.prisma.moderationAction.create({ data: { moderatorId: adminId, targetType: 'USER', targetId: userId, action: 'block', reason } });

@@ -2,7 +2,7 @@
 
 import { guestCart } from "@/lib/guest-cart";
 import { useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { api } from "@/lib/api";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
@@ -69,7 +69,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [realtime, setRealtime] = useState<RealtimeStatus>("connecting");
   // Without a live channel the header counters are refreshed by polling.
   const { data, isLoading, mutate } = useSWR<{ user: Me | null }>("/auth/me", { revalidateOnFocus: true, refreshInterval: (d) => (d?.user && realtime !== "live" ? 30_000 : 0) });
-  const { mutate: globalMutate } = useSWRConfig();
+  const { cache, mutate: globalMutate } = useSWRConfig();
   const toast = useToast();
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
@@ -147,11 +147,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     );
   }, [userId, mutate, globalMutate, toast, router]);
 
+  // Who the cached data belongs to, read by onSignedIn without making it depend on every /auth/me refresh.
+  const userIdRef = useRef(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  /**
+   * Forgets every cached answer but /auth/me and the static /meta, so the next person on this browser never sees
+   * the previous one's notifications, feed or ♡ — not even for a frame. SWR's filter form of mutate() skips the
+   * useSWRInfinite keys ($inf$…), which is how lists used to survive a logout; here each key is dropped from the
+   * cache and then mutated by name, which reaches the infinite hooks too and makes mounted lists refetch.
+   */
+  const resetCache = useCallback(async () => {
+    const keys = [...cache.keys()].filter((k) => k !== "/auth/me" && k !== "/meta");
+    for (const k of keys) cache.delete(k);
+    await Promise.all(keys.filter((k) => !k.startsWith("$sub$")).map((k) => globalMutate(k, undefined, { revalidate: true }).catch(() => undefined)));
+  }, [cache, globalMutate]);
+
   const onSignedIn = useCallback(
     async (me: Me, isNew?: boolean) => {
+      const switched = userIdRef.current !== me.id;
       await mutate({ user: me }, { revalidate: false });
-      // Personalised data (♡ flags, "Для вас") must refetch for the new user.
-      await globalMutate((key) => typeof key === "string" && key !== "/auth/me", undefined, { revalidate: true });
+      // Personalised data (♡ flags, "Для вас") must refetch for the new user, and nothing of another account may stay.
+      if (switched) await resetCache();
       setAuthOpen(false);
       const action = pending.current;
       pending.current = null;
@@ -163,17 +182,32 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (action) await action(me);
       else toast("Вы вошли");
     },
-    [mutate, globalMutate, toast, router],
+    [mutate, resetCache, toast, router],
   );
 
   const logout = useCallback(async () => {
     await api("/auth/logout", { method: "POST" });
     await mutate({ user: null }, { revalidate: false });
-    await globalMutate((key) => typeof key === "string" && key !== "/auth/me", undefined, { revalidate: true });
-  }, [mutate, globalMutate]);
+    await resetCache();
+    // Unsent chat drafts are personal too (composer.tsx keeps them per thread).
+    try {
+      for (const k of Object.keys(localStorage)) if (k.startsWith("ichiba:chat-draft:")) localStorage.removeItem(k);
+    } catch {
+      // Storage blocked (private mode): nothing was saved either.
+    }
+    // Ask the API who is signed in now rather than trusting the optimistic null.
+    void mutate();
+  }, [mutate, resetCache]);
+
+  const refresh = useCallback(() => mutate(), [mutate]);
+  // A stable value: every consumer of useSession() re-renders only when something in it actually changes.
+  const value = useMemo<SessionValue>(
+    () => ({ me: user, loading: isLoading, refresh, logout, requireAuth, openAuth, realtime }),
+    [user, isLoading, refresh, logout, requireAuth, openAuth, realtime],
+  );
 
   return (
-    <SessionContext.Provider value={{ me: user, loading: isLoading, refresh: () => mutate(), logout, requireAuth, openAuth, realtime }}>
+    <SessionContext.Provider value={value}>
       {children}
       <AuthModal
         open={authOpen}

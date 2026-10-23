@@ -15,20 +15,32 @@ const CLOUD_MAX_BYTES = 9.5 * 1024 * 1024;
 const API_MAX_BYTES = 4 * 1024 * 1024;
 const SHRINK_TO = 2560;
 
-async function shrink(file: File, maxBytes = CLOUD_MAX_BYTES): Promise<Blob> {
-  if (file.size <= maxBytes || !/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+/**
+ * A JPEG of the photo at most `maxSide` px on its longest side, when the file is over `maxBytes` (0: always). Files
+ * the browser can't decode, and other formats unless `anyType`, are returned as they are.
+ */
+export async function shrink(file: File, maxBytes = CLOUD_MAX_BYTES, { maxSide = SHRINK_TO, anyType = false, quality = 0.9 }: { maxSide?: number; anyType?: boolean; quality?: number } = {}): Promise<Blob> {
+  if ((maxBytes > 0 && file.size <= maxBytes) || (!anyType && !/^image\/(jpeg|png|webp)$/.test(file.type))) return file;
+  const canvas = document.createElement("canvas");
   try {
     // createImageBitmap applies the EXIF orientation, so the photo stays the right way up.
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, SHRINK_TO / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      bitmap.close();
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
-    return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob"))), "image/jpeg", 0.9));
+    return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob"))), "image/jpeg", quality));
   } catch {
     return file;
+  } finally {
+    // Frees the pixel buffer at once (iOS Safari caps the total canvas memory of a page).
+    canvas.width = canvas.height = 0;
   }
 }
 

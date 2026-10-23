@@ -85,8 +85,8 @@ export function ItemFields(props: FieldsProps) {
         <Field label="Название" required error={errors.title} hint={`${values.title.length}/80`}>
           <Input maxLength={80} value={values.title} onChange={(e) => setAiValue("title", { title: e.target.value }, e.target.value)} error={errors.title} placeholder="Чёрная кожаная куртка Zara" />
         </Field>
-        <Field label="Бренд">
-          <BrandPicker value={values.brand} onChange={(brand) => setAiValue("brand", { brand }, brand)} />
+        <Field label="Бренд" htmlFor="listing-brand">
+          <BrandPicker id="listing-brand" value={values.brand} onChange={(brand) => setAiValue("brand", { brand }, brand)} />
           {!values.brand.trim() && <BrandFromTitle title={values.title} onPick={(brand) => setAiValue("brand", { brand }, brand)} />}
         </Field>
       </div>
@@ -303,8 +303,8 @@ export function DetailFields(props: FieldsProps) {
         </Field>
       )}
 
-      <Field label="Описание" error={errors.description} hint={`${values.description.length}/2000`}>
-        <Textarea maxLength={2000} value={values.description} onChange={(e) => setAiValue("description", { description: e.target.value }, e.target.value)} className="min-h-32" placeholder="Фасон, посадка, детали…" />
+      <Field label="Описание" htmlFor="listing-description" error={errors.description} hint={`${values.description.length}/2000`}>
+        <Textarea id="listing-description" maxLength={2000} value={values.description} onChange={(e) => setAiValue("description", { description: e.target.value }, e.target.value)} className="min-h-32" placeholder="Фасон, посадка, детали…" />
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="secondary" loading={regenerating} onClick={regenerate} disabled={!values.title}>
             <IconSparkle className="size-4" /> {values.description ? "Переписать" : "Написать за меня"}

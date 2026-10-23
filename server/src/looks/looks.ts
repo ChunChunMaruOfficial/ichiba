@@ -18,6 +18,8 @@ const MAX_LOOKS = 30;
 /** What a look shows: items others can see; the viewer's own hidden items too. Never deleted ones or drafts. */
 const VISIBLE: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'SOLD'];
 
+type LookRow = { id: string; title: string; userId: string; createdAt: Date; items: Array<{ listingId: string; position: number }> };
+
 const LookDto = z.object({
   title: z.string().trim().min(1, 'Назовите образ').max(60, 'До 60 символов'),
   listingIds: z.array(z.uuid()).min(2, 'Выберите хотя бы 2 вещи').max(8, 'Не больше 8 вещей'),
@@ -30,32 +32,42 @@ export class LooksService {
     private readonly listings: ListingsService,
   ) {}
 
-  private async serialize(look: { id: string; title: string; userId: string; createdAt: Date; items: Array<{ listingId: string; position: number }> }, viewerId?: string) {
-    const order = new Map(look.items.map((i) => [i.listingId, i.position]));
-    const rows = await this.prisma.listing.findMany({
-      where: { id: { in: [...order.keys()] }, OR: [{ status: { in: VISIBLE } }, ...(viewerId ? [{ sellerId: viewerId, status: 'HIDDEN' as const }] : [])] },
-      include: cardInclude,
+  private async serialize(look: LookRow, viewerId?: string) {
+    return (await this.serializeMany([look], viewerId))[0];
+  }
+
+  /** Looks with their cards: one listing query and one favourites query for all of them, not one per look. */
+  private async serializeMany(looks: LookRow[], viewerId?: string) {
+    const ids = [...new Set(looks.flatMap((l) => l.items.map((i) => i.listingId)))];
+    const rows = ids.length
+      ? await this.prisma.listing.findMany({
+          where: { id: { in: ids }, OR: [{ status: { in: VISIBLE } }, ...(viewerId ? [{ sellerId: viewerId, status: 'HIDDEN' as const }] : [])] },
+          include: cardInclude,
+        })
+      : [];
+    const cards = await this.listings.cards(rows, viewerId);
+    const byId = new Map(rows.map((r, i) => [r.id, { row: r, card: cards[i] }]));
+    return looks.map((look) => {
+      const found = [...look.items].sort((a, b) => a.position - b.position).flatMap((i) => (byId.has(i.listingId) ? [byId.get(i.listingId)!] : []));
+      const onSale = found.filter((f) => f.row.status === 'PUBLISHED');
+      return {
+        id: look.id,
+        title: look.title,
+        createdAt: look.createdAt,
+        isOwner: viewerId === look.userId,
+        items: found.map((f) => f.card),
+        /** Price of what can still be bought, for «Всё в корзину». */
+        total: onSale.reduce((n, f) => n + (f.row.price ?? 0), 0),
+        available: onSale.length,
+      };
     });
-    rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-    const items = await this.listings.cards(rows, viewerId);
-    const onSale = rows.filter((r) => r.status === 'PUBLISHED');
-    return {
-      id: look.id,
-      title: look.title,
-      createdAt: look.createdAt,
-      isOwner: viewerId === look.userId,
-      items,
-      /** Price of what can still be bought, for «Всё в корзину». */
-      total: onSale.reduce((n, r) => n + (r.price ?? 0), 0),
-      available: onSale.length,
-    };
   }
 
   async byUser(username: string, viewerId?: string) {
-    const user = await this.prisma.user.findUnique({ where: { username }, select: { id: true } });
+    const user = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
     if (!user) throw new NotFoundException({ message: 'Такого гардероба нет' });
     const looks = await this.prisma.look.findMany({ where: { userId: user.id }, include: { items: true }, orderBy: { createdAt: 'desc' } });
-    const out = await Promise.all(looks.map((l) => this.serialize(l, viewerId)));
+    const out = await this.serializeMany(looks, viewerId);
     // A look whose items were all sold off and deleted has nothing left to show.
     return { items: out.filter((l) => l.items.length > 0) };
   }
@@ -70,7 +82,7 @@ export class LooksService {
 
   async withListing(listingId: string, viewerId?: string) {
     const looks = await this.prisma.look.findMany({ where: { items: { some: { listingId } } }, include: { items: true }, orderBy: { createdAt: 'desc' }, take: 3 });
-    const out = await Promise.all(looks.map((l) => this.serialize(l, viewerId)));
+    const out = await this.serializeMany(looks, viewerId);
     return { items: out.filter((l) => l.items.length > 1) };
   }
 
@@ -85,7 +97,7 @@ export class LooksService {
   /** «В образ» on an item page: the viewer's looks, to add the item to one of them. */
   async mine(userId: string) {
     const looks = await this.prisma.look.findMany({ where: { userId }, include: { items: true }, orderBy: { updatedAt: 'desc' } });
-    return { items: await Promise.all(looks.map((l) => this.serialize(l, userId))) };
+    return { items: await this.serializeMany(looks, userId) };
   }
 
   async addItem(userId: string, id: string, listingId: string) {

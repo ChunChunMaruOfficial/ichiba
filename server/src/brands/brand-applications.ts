@@ -21,6 +21,16 @@ type Kind = (typeof KINDS)[number];
 
 const LEGAL_FORMS = ['IP', 'LLC', 'SELF_EMPLOYED', 'PERSON'] as const;
 const opt = (max: number) => z.string().trim().max(max).nullish().transform((v) => v || null);
+/**
+ * A link the admin will open: http(s) only (no `javascript:` or `data:`), a bare «site.by/brand» gets https://.
+ * Empty fields of the form pass and are dropped.
+ */
+const link = z
+  .string()
+  .trim()
+  .max(200, 'До 200 символов')
+  .transform((v) => (v && !/^[a-z][a-z0-9+.-]*:/i.test(v) ? `https://${v}` : v))
+  .pipe(z.union([z.literal(''), z.url({ protocol: /^https?$/, error: 'Проверьте ссылку — нужен адрес сайта или соцсети' })]));
 
 const ApplicationDto = z
   .object({
@@ -38,7 +48,7 @@ const ApplicationDto = z
     email: z.email('Проверьте почту').nullish().or(z.literal('').transform(() => null)),
     phone: opt(30),
     telegram: opt(40),
-    links: z.array(z.string().trim().max(200)).max(5).default([]).transform((l) => l.filter(Boolean)),
+    links: z.array(link).max(10, 'Не больше 10 ссылок').default([]).transform((l) => l.filter(Boolean).slice(0, 5)),
     description: z.string().trim().min(20, 'Расскажите о бренде хотя бы в паре предложений').max(2000),
   })
   .refine((d) => d.email || d.phone || d.telegram, { message: 'Оставьте хотя бы один контакт', path: ['email'] })

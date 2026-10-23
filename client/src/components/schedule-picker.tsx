@@ -55,9 +55,10 @@ export function SchedulePicker({
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    // pointerdown, not mousedown: iOS Safari fires no mousedown for a tap on a non-clickable area.
+    const onDoc = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, [open]);
 
   // Bounds are fixed when the picker mounts (the server re-checks: at least 5 minutes ahead, at most 30 days).

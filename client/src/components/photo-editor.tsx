@@ -3,12 +3,12 @@
 import clsx from "clsx";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Button, Spinner } from "./ui";
+import { Button, Spinner, useModalFocus } from "./ui";
 
 /**
  * Full-screen editor for one listing photo, over the blurred page: crop (free or a fixed ratio), quarter turns,
  * straightening, mirroring, and drawing on the photo (circle a defect, point at a detail). On «Готово» the
- * photo is rendered in full size (up to 2560 px) into a JPEG and handed back as a File for a normal upload.
+ * crop region is rendered at full size (up to 2560 px) into a JPEG and handed back as a File for a normal upload.
  */
 
 type Pt = [number, number]; // share of the frame, 0…1
@@ -75,26 +75,41 @@ function drawStrokes(ctx: CanvasRenderingContext2D, strokes: Stroke[], w: number
   }
 }
 
-/** The turned, straightened and mirrored photo filling the frame (no empty corners), with the drawing on top. */
-function renderFrame(img: HTMLImageElement, e: Edit, scale: number) {
+/** Thrown when the browser refuses a 2D canvas (iOS does so once its canvas memory budget is spent). */
+const NO_CANVAS = "Не хватает памяти для редактирования фото. Закройте другие вкладки и попробуйте снова";
+
+function context2d(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error(NO_CANVAS);
+  return ctx;
+}
+
+/**
+ * Paints the turned, straightened and mirrored photo filling the frame (no empty corners), with the drawing on top,
+ * into `canvas` (sized by the caller). The frame is drawn at `scale` with its top-left corner at (-ox, -oy), so the
+ * export can paint just the crop region instead of the whole frame: iOS Safari caps canvas memory, and a full
+ * 48-megapixel frame plus a crop copy of it used to fail there.
+ */
+function paintFrame(canvas: HTMLCanvasElement, img: HTMLImageElement, e: Edit, scale: number, ox = 0, oy = 0) {
   const { w: fw, h: fh } = frameSize(img, e.quarter);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(fw * scale));
-  canvas.height = Math.max(1, Math.round(fh * scale));
-  const ctx = canvas.getContext("2d")!;
+  const ctx = context2d(canvas);
+  const W = fw * scale;
+  const H = fh * scale;
   const t = (Math.abs(e.straighten) * Math.PI) / 180;
   // Straightening turns the photo inside a frame of the same size: zoom in just enough to cover it.
   const cover = Math.max((fw * Math.cos(t) + fh * Math.sin(t)) / fw, (fw * Math.sin(t) + fh * Math.cos(t)) / fh);
   ctx.imageSmoothingQuality = "high";
   ctx.save();
-  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.translate(W / 2 - ox, H / 2 - oy);
   ctx.scale(e.flipH ? -1 : 1, e.flipV ? -1 : 1);
   ctx.rotate(((e.quarter * 90 + e.straighten) * Math.PI) / 180);
   ctx.scale(scale * cover, scale * cover);
   ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
   ctx.restore();
-  drawStrokes(ctx, e.strokes, canvas.width, canvas.height);
-  return canvas;
+  ctx.save();
+  ctx.translate(-ox, -oy);
+  drawStrokes(ctx, e.strokes, W, H);
+  ctx.restore();
 }
 
 /** Largest centred crop of the given pixel ratio inside a frame of fw × fh. */
@@ -113,7 +128,8 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open: boolean; onClose: () => void; onSave: (file: File) => void }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
-  const [failed, setFailed] = useState(false);
+  /** Why the photo can't be edited, shown instead of it. */
+  const [failed, setFailed] = useState<string | null>(null);
   const [edit, setEdit] = useState<Edit>(START);
   const [tab, setTab] = useState<"crop" | "draw">("crop");
   const [color, setColor] = useState(COLORS[0][0]);
@@ -143,13 +159,17 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
     // Stored photos come from the media host (CORS on): without this the canvas could not be exported.
     if (!src.startsWith("blob:") && !src.startsWith("data:")) el.crossOrigin = "anonymous";
     el.onload = () => setImg(el);
-    el.onerror = () => setFailed(true);
+    el.onerror = () => setFailed("Не получилось открыть фото для редактирования. Попробуйте загрузить его заново.");
     el.src = src;
     return () => {
       el.onload = null;
       el.onerror = null;
     };
   }, [src, open]);
+
+  const root = useRef<HTMLDivElement>(null);
+  // The page underneath is inert and Tab stays in the editor.
+  useModalFocus(open, root);
 
   // Esc cancels; the page underneath doesn't scroll.
   useEffect(() => {
@@ -164,15 +184,26 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
     };
   }, [open, onClose]);
 
-  // Live preview at screen size.
+  // Live preview at screen size, painted straight into the one on-screen canvas: no new canvas per pointer move,
+  // which on iOS ran into the canvas memory cap while drawing or dragging the crop.
   useLayoutEffect(() => {
     const target = preview.current;
     if (!img || !target) return;
     const { w, h } = frameSize(img, edit.quarter);
-    const frame = renderFrame(img, edit, Math.min(1, 1100 / Math.max(w, h)));
-    target.width = frame.width;
-    target.height = frame.height;
-    target.getContext("2d")!.drawImage(frame, 0, 0);
+    const scale = Math.min(1, 1100 / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w * scale));
+    const ch = Math.max(1, Math.round(h * scale));
+    // Resizing clears the canvas; a same-size frame is cleared by hand.
+    if (target.width !== cw || target.height !== ch) {
+      target.width = cw;
+      target.height = ch;
+    } else target.getContext("2d")?.clearRect(0, 0, cw, ch);
+    try {
+      paintFrame(target, img, edit, scale);
+    } catch (err) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the canvas failure is only known here
+      setFailed(err instanceof Error && err.message === NO_CANVAS ? NO_CANVAS : "Не получилось показать фото. Попробуйте загрузить его заново.");
+    }
   }, [img, edit]);
 
   /** Turns and mirrors change the frame: the crop starts over at the chosen ratio, the drawing moves along. */
@@ -285,19 +316,21 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
   const save = async () => {
     if (!img) return;
     setSaving(true);
+    // Only the crop region is painted, at most MAX_SIDE on its longest side: never the full-size frame.
+    const out = document.createElement("canvas");
     try {
       const { w, h } = frameSize(img, edit.quarter);
       const scale = Math.min(1, MAX_SIDE / Math.max(w * edit.crop.w, h * edit.crop.h));
-      const frame = renderFrame(img, edit, scale);
-      const out = document.createElement("canvas");
-      out.width = Math.max(1, Math.round(frame.width * edit.crop.w));
-      out.height = Math.max(1, Math.round(frame.height * edit.crop.h));
-      out.getContext("2d")!.drawImage(frame, -Math.round(frame.width * edit.crop.x), -Math.round(frame.height * edit.crop.y));
+      out.width = Math.max(1, Math.round(w * scale * edit.crop.w));
+      out.height = Math.max(1, Math.round(h * scale * edit.crop.h));
+      paintFrame(out, img, edit, scale, Math.round(w * scale * edit.crop.x), Math.round(h * scale * edit.crop.y));
       const blob = await new Promise<Blob>((resolve, reject) => out.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob"))), "image/jpeg", 0.92));
       onSave(new File([blob], "photo.jpg", { type: "image/jpeg" }));
-    } catch {
-      setFailed(true);
+    } catch (err) {
+      setFailed(err instanceof Error && err.message === NO_CANVAS ? NO_CANVAS : "Не получилось сохранить фото. Попробуйте ещё раз или загрузите его заново.");
     } finally {
+      // Hand the pixel memory back at once: Safari keeps a detached canvas's buffer until it is resized to nothing.
+      out.width = out.height = 0;
       setSaving(false);
     }
   };
@@ -315,7 +348,7 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
 
   if (!open) return null;
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label="Редактировать фото" className="fade-in fixed inset-0 z-[70] flex flex-col bg-paper/75 text-ink backdrop-blur-2xl">
+    <div ref={root} role="dialog" aria-modal="true" aria-label="Редактировать фото" className="fade-in fixed inset-0 z-[70] flex flex-col bg-paper/75 text-ink backdrop-blur-2xl">
       <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-2 pt-[env(safe-area-inset-top)] sm:px-4">
         <button type="button" onClick={onClose} className="h-10 rounded-full px-4 text-[15px] font-medium text-ink-2 hover:bg-ink/5">
           Отмена
@@ -333,7 +366,9 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
       {/* The photo, as large as the screen allows; the dimmed part is what gets cut off. */}
       <div ref={stage} className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5 sm:p-8">
         {failed ? (
-          <p className="max-w-xs text-center text-ink-2">Не получилось открыть фото для редактирования. Попробуйте загрузить его заново.</p>
+          <p role="alert" className="max-w-xs text-center text-ink-2">
+            {failed}
+          </p>
         ) : !img ? (
           <Spinner className="text-muted" />
         ) : (

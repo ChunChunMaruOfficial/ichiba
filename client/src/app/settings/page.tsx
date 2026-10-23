@@ -111,9 +111,16 @@ function SettingsNav({ items }: { items: ReadonlyArray<readonly [string, string,
 function Settings({ me }: { me: Me }) {
   const { logout } = useSession();
   const router = useRouter();
+  const toast = useToast();
   // Links like /settings#sizes land on the section once the page (rendered after the session loads) exists.
+  // getElementById, not querySelector: a hash like "#1" or "#a:b" is not a valid selector and used to throw.
   useEffect(() => {
-    if (window.location.hash) document.querySelector(window.location.hash)?.scrollIntoView({ block: "start" });
+    try {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (id) document.getElementById(id)?.scrollIntoView({ block: "start" });
+    } catch {
+      // A malformed %-escape in the hash: just stay at the top.
+    }
   }, []);
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
@@ -146,7 +153,13 @@ function Settings({ me }: { me: Me }) {
       <AccountActions
         me={me}
         onLogout={async () => {
-          await logout();
+          try {
+            await logout();
+          } catch (e) {
+            // No connection or the API is down: the session is still there, so say so instead of failing silently.
+            toast(e instanceof ApiError ? e.message : "Не удалось выйти. Повторите", { tone: "error" });
+            return;
+          }
           router.push("/");
         }}
       />

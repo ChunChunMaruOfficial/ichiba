@@ -2,8 +2,13 @@ import { z } from 'zod';
 import type { SizeSystem } from '../generated/prisma/client.js';
 import { CATEGORIES, CATEGORY_SLUGS, categoryBySlug, CITIES, COLOR_VALUES, MATERIALS, SELLER_SIZE_SYSTEMS, SIZES, STYLE_TAGS } from '../catalog/catalog.js';
 
+/**
+ * What the AI suggested for a field: a short scalar (or a few tags), never an arbitrary blob stored on the listing.
+ * Only the description draft is long (as long as the description itself).
+ */
+const aiValue = z.union([z.string().max(2000), z.number(), z.boolean(), z.null(), z.array(z.string().max(200)).max(10)]);
 const aiField = z.object({
-  value: z.unknown(),
+  value: aiValue,
   confidence: z.number().min(0).max(1),
   accepted_by_user: z.boolean(),
   edited_by_user: z.boolean(),
@@ -42,7 +47,11 @@ export const ListingInput = z
     .nullish(),
   description: z.string().trim().max(2000, 'До 2000 символов').nullish(),
   city: z.enum(CITIES as [string, ...string[]]).nullish(),
-  deliveryOptions: z.array(z.enum(['IN_PERSON', 'DELIVERY'])).optional(),
+  deliveryOptions: z
+    .array(z.enum(['IN_PERSON', 'DELIVERY']))
+    .max(3)
+    .transform((v) => [...new Set(v)])
+    .optional(),
   acceptsOffers: z.boolean().optional(),
   /** «Цена договорная»: no price; the listing is bought through an offer or a chat. */
   priceNegotiable: z.boolean().optional(),
@@ -51,7 +60,7 @@ export const ListingInput = z
   auctionReserve: z.number().int().min(1).max(100_000).nullish(),
   auctionHours: z.union([z.literal(24), z.literal(72), z.literal(168)]).nullish(),
   auctionBuyNow: z.number().int().min(2).max(100_000).nullish(),
-  minOfferPrice: z.number().int().min(1).nullish(),
+  minOfferPrice: z.number().int().min(1).max(1_000_000).nullish(),
   autoAcceptPrice: z.number().int().min(1).max(100_000).nullish(),
   originalPrice: z.number().int().min(1).max(1_000_000).nullish(),
   /** The seal a brand chooses for the item (one at most, shown on its card); ignored for non-brands. */
@@ -63,10 +72,18 @@ export const ListingInput = z
   sizes: z.array(z.string().trim().min(1).max(20)).max(15).optional(),
   videoId: z.uuid().nullish(),
   styleTags: z.array(z.enum(STYLE_TAGS as [string, ...string[]])).max(3).optional(),
-  aiAttributes: z.record(z.string(), aiField).nullish(),
+  aiAttributes: z
+    .record(z.string().max(40), aiField)
+    .refine((v) => Object.keys(v).length <= 30, 'Слишком много полей')
+    .refine((v) => Object.entries(v).every(([k, f]) => k === 'description' || typeof f.value !== 'string' || f.value.length <= 200), 'Слишком длинное значение')
+    .nullish(),
   aiModelVersion: z.string().max(80).nullish(),
   })
   .superRefine((v, ctx) => {
+    // Offers below the floor are declined automatically: a floor at or above the price would decline everything.
+    if (v.minOfferPrice != null && v.price != null && v.minOfferPrice >= v.price) {
+      ctx.addIssue({ code: 'custom', path: ['minOfferPrice'], message: 'Порог автоотказа должен быть ниже цены' });
+    }
     // A subcategory belongs to its category.
     const category = categoryBySlug(v.category);
     if (category && v.subcategory && !category.subcategories.some((x) => x.slug === v.subcategory)) {
@@ -90,14 +107,19 @@ export type ListingInputT = Omit<z.infer<typeof ListingInput>, 'sizeSystem' | 'm
   styleTags?: string[];
 };
 
+/** A list in the query string (`a,b` or repeated keys): at most 20 values of up to 60 characters. */
 const csv = z
-  .union([z.string(), z.array(z.string())])
-  .transform((v) => (Array.isArray(v) ? v : v.split(',')).map((s) => s.trim()).filter(Boolean))
+  .union([z.string().max(2000), z.array(z.string().max(200)).max(20)])
+  .transform((v) => (Array.isArray(v) ? v : v.split(',')).map((s) => s.trim().slice(0, 60)).filter(Boolean))
+  .pipe(z.array(z.string()).max(20, 'Не больше 20 значений'))
   .optional();
 const int = z.coerce.number().int().min(0).optional();
+const money = z.coerce.number().int().min(0).max(1_000_000).optional();
+/** `?q=a&q=b` arrives as an array: the first value counts. */
+const firstOf = (v: unknown) => (Array.isArray(v) ? v[0] : v);
 
 export const SearchQuery = z.object({
-  q: z.string().trim().max(100).optional(),
+  q: z.preprocess(firstOf, z.string().trim().max(100).optional()),
   category: csv,
   subcategory: csv,
   style: csv,
@@ -106,15 +128,23 @@ export const SearchQuery = z.object({
   condition: csv,
   color: csv,
   brand: csv,
-  city: z.string().optional(),
-  seller: z.string().optional(),
-  price_min: int,
-  price_max: int,
+  city: z.preprocess(firstOf, z.string().max(64).optional()),
+  seller: z.preprocess(firstOf, z.string().max(64).optional()),
+  price_min: money,
+  price_max: money,
   available: z.enum(['0', '1']).default('1'),
   my_size: z.enum(['0', '1']).optional(),
-  sort: z.enum(['new', 'cheap', 'expensive', 'popular', 'for_you']).default('new'),
-  offset: int.default(0),
+  /** similar: in the order of `ids` (a search by photo). */
+  sort: z.enum(['new', 'cheap', 'expensive', 'popular', 'for_you', 'similar']).default('new'),
+  /** Deep offsets are a full scan each; nobody pages 200 screens down. */
+  offset: z.coerce.number().int().min(0).max(5000).default(0),
   limit: z.coerce.number().int().min(1).max(48).default(24),
+  /** Search within these items only: the ranked result of a search by photo, refined by words, filters and sorting. */
+  ids: z
+    .union([z.string().max(5000), z.array(z.string().max(40)).max(120)])
+    .transform((v) => (Array.isArray(v) ? v : v.split(',')).map((s) => s.trim()).filter(Boolean))
+    .pipe(z.array(z.uuid()).max(120))
+    .optional(),
   /** brands = sellers with the brand status (the default), resale = everyone else («Вторичка»), all = both, on purpose. */
   market: z.enum(['brands', 'resale', 'all']).default('brands'),
 });
@@ -131,4 +161,6 @@ export const FeedQuery = z.object({
 export const WardrobeQuery = z.object({
   section: z.enum(['all', 'top', 'bottom', 'shoes', 'accessories', 'new', 'selling', 'sold']).default('all'),
   sort: z.enum(['new', 'old', 'cheap', 'expensive']).default('new'),
+  /** Pages of 200 items within the section (see `hasMore` in the response). */
+  offset: z.coerce.number().int().min(0).max(100_000).default(0),
 });

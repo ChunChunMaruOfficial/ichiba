@@ -9,7 +9,8 @@ import { guestCart, useGuestCart } from "@/lib/guest-cart";
 import { useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { ManekiNeko } from "@/components/shop/maneki-neko";
-import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconX, Input, OptionCard, PriceTag, Skeleton, StatusBadge, Textarea } from "@/components/ui";
+import { Nefuda } from "@/components/shop/nefuda";
+import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconX, Input, OptionCard, Skeleton, StatusBadge, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, items as itemsLabel, plural } from "@/lib/labels";
 import type { CartGroup, Deal, Me } from "@/lib/types";
@@ -98,6 +99,7 @@ function Cart({ me }: { me: Me | null }) {
                 void mutate();
                 void refresh();
               }}
+              onPriceChanged={() => void mutate()}
             />
           ))
         )}
@@ -106,7 +108,7 @@ function Cart({ me }: { me: Me | null }) {
   );
 }
 
-function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGroup; me: Me | null; index: number; onRemove: (id: string) => void; onSent: (d: Deal) => void }) {
+function SellerGroup({ group: g, me, index, onRemove, onSent, onPriceChanged }: { group: CartGroup; me: Me | null; index: number; onRemove: (id: string) => void; onSent: (d: Deal) => void; onPriceChanged?: () => void }) {
   const { requireAuth } = useSession();
   const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
@@ -140,13 +142,15 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
     setError(null);
     try {
       const d = await api<Deal>("/requests", {
-        body: { listingIds: available.map((i) => i.id), deliveryMethod: chosen, deliveryPoint: chosen === "DELIVERY" ? point : null, contactPhone: phone || null, buyerComment: comment || null },
+        // The total shown is sent along: a price the seller changed meanwhile comes back as PRICE_CHANGED, not a surprise.
+        body: { listingIds: available.map((i) => i.id), ...(!negotiable ? { expectedTotal: g.total } : {}), deliveryMethod: chosen, deliveryPoint: chosen === "DELIVERY" ? point : null, contactPhone: phone || null, buyerComment: comment || null },
       });
       onSent(d);
     } catch (e) {
       if (e instanceof ApiError) {
         setFields(e.fields);
         setError(Object.keys(e.fields).length ? null : e.message);
+        if (e.code === "PRICE_CHANGED") void onPriceChanged?.();
       } else setError("Не удалось отправить запрос. Проверьте соединение");
     } finally {
       setBusy(false);
@@ -212,10 +216,11 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
         <div className="flex flex-col gap-4 rounded-3xl bg-surface p-5 shadow-[var(--shadow-paper)]">
           <div className="flex items-center justify-between gap-3">
             {seller}
-            <PriceTag className="shrink-0">
-              {g.discountPercent > 0 && <s className="mr-2 text-sm font-normal opacity-60">{g.subtotal}</s>}
+            {/* The shop's paper tag, as on the item page and the cards: compact, so the seller's nick keeps its room. */}
+            <Nefuda className="tabular ml-4 shrink-0 text-[24px] font-bold leading-tight">
               {totalLabel}
-            </PriceTag>
+              {g.discountPercent > 0 && <s className="ml-1.5 text-sm font-medium opacity-60">{g.subtotal}</s>}
+            </Nefuda>
           </div>
           {/* A guest signs in here; their cart moves into the account and the page shows it as theirs. */}
           <Button size="lg" block onClick={() => (me ? setOpen(true) : requireAuth(() => undefined))}>
@@ -266,7 +271,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent }: { group: CartGro
               К оплате
               <span className="block text-sm text-muted">при получении</span>
             </span>
-            <PriceTag>{totalLabel}</PriceTag>
+            <Nefuda className="tabular ml-4 text-[28px] font-bold leading-tight">{totalLabel}</Nefuda>
           </div>
           {error && (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">

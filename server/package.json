@@ -24,8 +24,8 @@
     "@nestjs/platform-express": "^12.1.2",
     "@nestjs/schedule": "^12.0.2",
     "@nestjs/throttler": "^6.7.1",
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@vercel/functions": "^3.9.11",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -60,7 +60,7 @@
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
     "mailparser": "^3.9.34",
-    "prisma": "^7.10.0",
+    "prisma": "^7.10.1",
     "smtp-server": "^3.19.17",
     "tsx": "^4.23.15",
     "typescript": "~6.0.2",
@@ -68,6 +68,6 @@
   },
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   }
 }

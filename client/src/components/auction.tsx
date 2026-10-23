@@ -281,7 +281,10 @@ export function AuctionPanel({ auction: a, listingId, title, isOwner, onChange }
                   {b.buyNow && <span className="rounded bg-ink px-1.5 text-[11px] font-medium text-accent-ink">выкуп</span>}
                 </span>
                 <span className="flex items-center gap-3">
-                  <span className="text-xs text-muted">{timeAgo(b.at)}</span>
+                  {/* Relative to the clock, which differs between the server render and hydration: only cosmetic. */}
+                  <span className="text-xs text-muted" suppressHydrationWarning>
+                    {timeAgo(b.at)}
+                  </span>
                   <span className="tabular">{formatPrice(b.amount)}</span>
                 </span>
               </li>

@@ -80,9 +80,6 @@ export function SellBand() {
       <div>
         <h2 className="text-4xl font-bold leading-[1.05] md:text-5xl">Продайте то, что не носите</h2>
         <p className="mt-4 max-w-md text-[17px] leading-relaxed text-ink-2">У каждой вещи в шкафу есть кто-то, кто её давно ищет. Объявление занимает около минуты.</p>
-        <ButtonLink href="/sell" variant="shu" size="lg" className="mt-7">
-          Продать вещь
-        </ButtonLink>
       </div>
       <ol className="flex flex-col gap-6 self-center">
         {steps.map(([n, title, text]) => (
@@ -97,6 +94,10 @@ export function SellBand() {
           </li>
         ))}
       </ol>
+      {/* The call comes after the steps: at the very bottom of the band, across its whole width. */}
+      <ButtonLink href="/sell" variant="shu" size="lg" block className="-mt-2 md:col-span-2 md:-mt-4">
+        Продать вещь
+      </ButtonLink>
     </section>
   );
 }
@@ -172,6 +173,9 @@ export function FollowButton({ seller, onChange, size = "md", block }: { seller:
 
 /** "Гардеробы" section: nickname, counts, 2×2 collage, follow (frame 06). */
 /** Wardrobe cards: a 2×2 collage of the latest items, the nick and «Подписаться». A scrolling row, or a grid (`grid`). */
+/** A wardrobe whose collage is full: four photos, no empty grey cells (feed blocks show only these). */
+export const fullCollage = (w: { collage: (Cover | null)[] }) => w.collage.length >= 4 && w.collage.slice(0, 4).every(Boolean);
+
 export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: Array<SellerSummary & { collage: (Cover | null)[] }>; onFollowChange: (username: string, v: boolean) => void; grid?: boolean }) {
   const router = useRouter();
   const cards = wardrobes.map((w) => (

@@ -57,7 +57,17 @@ export function PhotoManager({
   /** Uploads a file into the draft `key` (a new tile, or an edited photo replacing its old version in place). */
   const upload = (key: string, file: File) =>
     uploadPhoto(file, (progress) => onChange((prev) => prev.map((p) => (p.key === key && p.status === "uploading" ? { ...p, progress } : p))))
-      .then((r) => onChange((prev) => prev.map((p) => (p.key === key ? { ...p, id: r.id, status: "done", progress: undefined, width: r.width, height: r.height } : p))))
+      .then((r) =>
+        onChange((prev) =>
+          prev.map((p) => {
+            if (p.key !== key) return p;
+            // The stored sizes replace the picked file: a HEIC original is a broken image in Chrome and Firefox, and
+            // the blob would otherwise stay in memory for as long as the form is open.
+            if (p.preview.startsWith("blob:")) URL.revokeObjectURL(p.preview);
+            return { ...p, id: r.id, status: "done", progress: undefined, width: r.width, height: r.height, preview: r.urls.m, original: r.urls.l };
+          }),
+        ),
+      )
       .catch((e) =>
         onChange((prev) =>
           prev.map((p) => (p.key === key ? { ...p, status: "error", error: e instanceof ApiError ? (e.code === "TOO_SMALL" ? "Фото слишком маленькое" : e.message) : "Не загрузилось" } : p)),
@@ -199,7 +209,8 @@ export function PhotoManager({
             <button type="button" aria-label="Удалить фото" onClick={() => onChange((prev) => prev.filter((x) => x.key !== p.key))} className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white">
               <IconX className="size-3.5" />
             </button>
-            <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            {/* Drag and drop doesn't work on touch screens: there the arrows are the only way to reorder, always shown. */}
+            <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100">
               <button type="button" aria-label="Сдвинуть влево" disabled={i === 0} onClick={() => move(p.key, -1)} className="grid size-6 place-items-center rounded-full bg-white/90 disabled:invisible">
                 <IconChevronLeft className="size-3.5" />
               </button>

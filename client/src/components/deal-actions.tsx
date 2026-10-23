@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice, timeAgo } from "@/lib/labels";
@@ -12,25 +12,6 @@ import { DeliveryLabel } from "./delivery-label";
 import { Button, ButtonLink, DealBadge, Field, Input, Modal } from "./ui";
 
 const DECLINE_REASONS = ["Уже продано", "Передумал продавать", "Не подходит способ получения", "Другое"];
-
-/** The conversation is where a deal lives: opens (or creates) the chat tied to it. */
-function useOpenDealChat() {
-  const router = useRouter();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  const open = async (deal: { id: string; threadId?: string | null }) => {
-    if (deal.threadId) return router.push(`/messages/${deal.threadId}`);
-    setBusy(true);
-    try {
-      const t = await api<{ id: string }>("/threads", { body: { requestId: deal.id } });
-      router.push(`/messages/${t.id}`);
-    } catch (e) {
-      toast(e instanceof ApiError ? e.message : "Не удалось открыть переписку", { tone: "error" });
-      setBusy(false);
-    }
-  };
-  return { open, busy };
-}
 
 /** Every deal action for the current role and status (frames 13–14). Calls `onChange` with the updated deal. */
 export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange: (d: Deal) => void; compact?: boolean }) {
@@ -186,26 +167,17 @@ export function DealActions({ deal, onChange, compact }: { deal: Deal; onChange:
  */
 export function DealCard({ deal, onChange, plain }: { deal: Deal; onChange: (d: Deal) => void; plain?: boolean }) {
   const item = deal.items[0];
-  const chat = useOpenDealChat();
+  // A real link (the title) rather than a clickable <article role="link"> wrapping buttons: links and buttons can't
+  // be nested for assistive tech. Its ::after covers the card, so a click anywhere still opens the conversation;
+  // the quick actions sit above it. /deals/:id opens (or creates) the deal's thread.
   const title = `${item?.title ?? "Сделка"}${deal.items.length > 1 ? ` и ещё ${deal.items.length - 1}` : ""}`;
+  const href = deal.threadId ? `/messages/${encodeURIComponent(deal.threadId)}` : `/deals/${encodeURIComponent(deal.id)}`;
   return (
     <article
-      role="link"
-      tabIndex={0}
-      aria-label={`${title} — открыть переписку`}
-      aria-busy={chat.busy}
-      onClick={() => void chat.open(deal)}
-      onKeyDown={(e) => {
-        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
-          e.preventDefault();
-          void chat.open(deal);
-        }
-      }}
       className={clsx(
-        "flex cursor-pointer gap-4 outline-none focus-visible:ring-3 focus-visible:ring-indigo/40",
+        "relative flex cursor-pointer gap-4 has-[.deal-open:focus-visible]:ring-3 has-[.deal-open:focus-visible]:ring-indigo/40",
         // `plain`: a row in a list (wardrobe "Требует действия"), not a raised card; the status goes without saying there.
         plain ? "py-4" : "rise rounded-3xl bg-surface p-4 shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-0.5 md:p-5",
-        chat.busy && "opacity-70",
       )}
     >
       <div className={clsx("shrink-0 overflow-hidden rounded-xl bg-skeleton", plain ? "w-16" : "w-20")} style={{ aspectRatio: "4 / 5" }}>
@@ -221,7 +193,9 @@ export function DealCard({ deal, onChange, plain }: { deal: Deal; onChange: (d: 
           </div>
         )}
         <p className="truncate font-medium">
-          {title}
+          <Link href={href} aria-label={`${title} — открыть переписку`} className="deal-open outline-none after:absolute after:inset-0 after:content-['']">
+            {title}
+          </Link>
           {deal.items.length === 1 && item?.size && <span className="text-ink-2">, {item.size}</span>}
         </p>
         <p className="text-sm text-ink-2">
@@ -240,7 +214,7 @@ export function DealCard({ deal, onChange, plain }: { deal: Deal; onChange: (d: 
           {deal.sellerCity ? `, ${deal.sellerCity}` : ""} · {timeAgo(deal.createdAt)}
         </p>
         {/* Quick actions answer right here; they must not also open the chat. */}
-        <div className="mt-1 empty:hidden" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <div className="relative z-10 mt-1 empty:hidden">
           <DealActions deal={deal} onChange={onChange} compact />
         </div>
       </div>

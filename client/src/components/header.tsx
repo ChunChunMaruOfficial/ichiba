@@ -40,29 +40,46 @@ function Logo({ className }: { className?: string }) {
 
 const SEARCH_EXAMPLES = ["Пуховик на зиму", "Levi's 501", "Кроссовки 42 размер", "Платье на выпускной", "Винтажная джинсовка", "Nike Air Force", "Свитер оверсайз"];
 
+/** How many examples the placeholder types before it rests on the last one (WCAG 2.2.2: motion must end). */
+const PLACEHOLDER_CYCLES = 3;
+
 /**
  * Placeholder that types an example query, holds it, erases it and moves to the next one. Stops on the
- * full current example while the field is focused or filled, and for people who prefer reduced motion.
+ * full current example while the field is focused or filled, while the tab is hidden (no timers in the background),
+ * after PLACEHOLDER_CYCLES examples, and for people who prefer reduced motion.
  */
 function useTypedPlaceholder(active: boolean) {
-  const [state, setState] = useState({ i: 0, len: SEARCH_EXAMPLES[0].length, deleting: false });
+  const [state, setState] = useState({ i: 0, len: SEARCH_EXAMPLES[0].length, deleting: false, cycle: 0 });
+  const [hidden, setHidden] = useState(false);
   useEffect(() => {
-    if (!active || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const onVisibility = () => setHidden(document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+  const running = active && !hidden;
+  useEffect(() => {
+    if (!running || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const word = SEARCH_EXAMPLES[state.i];
     const done = !state.deleting && state.len === word.length;
     const empty = state.deleting && state.len === 0;
+    // The last example stays typed out: the motion ends there.
+    if (done && state.cycle >= PLACEHOLDER_CYCLES - 1) return;
     const delay = done ? 1800 : empty ? 350 : state.deleting ? 35 : 75 + Math.random() * 60;
     const t = setTimeout(
       () =>
         setState((s) =>
-          done ? { ...s, deleting: true } : empty ? { i: (s.i + 1) % SEARCH_EXAMPLES.length, len: 0, deleting: false } : { ...s, len: s.len + (s.deleting ? -1 : 1) },
+          done
+            ? { ...s, deleting: true }
+            : empty
+              ? { i: (s.i + 1) % SEARCH_EXAMPLES.length, len: 0, deleting: false, cycle: s.cycle + 1 }
+              : { ...s, len: s.len + (s.deleting ? -1 : 1) },
         ),
       delay,
     );
     return () => clearTimeout(t);
-  }, [active, state]);
+  }, [running, state]);
   const word = SEARCH_EXAMPLES[state.i];
-  return active && state.len < word.length ? word.slice(0, state.len) + "|" : word;
+  return running && state.len < word.length ? word.slice(0, state.len) + "|" : word;
 }
 
 function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: boolean }) {
@@ -71,7 +88,8 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
   const pathname = usePathname();
   const meta = useMeta();
   const zone = useMarketZone();
-  const urlQ = pathname === "/search" ? (params.get("q") ?? "") : "";
+  // A search by photo keeps its refining words in its own bar, not here.
+  const urlQ = pathname === "/search" && !params.get("photo") ? (params.get("q") ?? "") : "";
   const [q, setQ] = useState(urlQ);
   const [prevUrlQ, setPrevUrlQ] = useState(urlQ);
   if (urlQ !== prevUrlQ) {
@@ -86,9 +104,10 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    // pointerdown, not mousedown: iOS Safari fires no mousedown for a tap on a non-clickable area.
+    const onDoc = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, []);
 
   const go = (value: string) => {
@@ -189,9 +208,10 @@ function NotificationsMenu({ unread }: { unread: number }) {
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    // pointerdown, not mousedown: iOS Safari fires no mousedown for a tap on a non-clickable area.
+    const onDoc = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, []);
 
   useEffect(() => {
@@ -254,9 +274,10 @@ function AccountMenu() {
   const pop = usePresence(open);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    // pointerdown, not mousedown: iOS Safari fires no mousedown for a tap on a non-clickable area.
+    const onDoc = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, []);
   if (!me) return null;
   // Only what the header doesn't already show (♡, messages, notifications and cart are icons next to it).
@@ -299,7 +320,8 @@ function AccountMenu() {
 export function Header() {
   const { me, loading, openAuth } = useSession();
   const pathname = usePathname();
-  const showMobileSearch = pathname === "/";
+  // The phone search row under the header: on the brands' catalogue and on «Вторичка», each searching its own market.
+  const showMobileSearch = pathname === "/" || pathname === "/resale";
   const resaleZone = pathname.startsWith("/resale") || pathname.startsWith("/wardrobes");
   const header = useRef<HTMLElement>(null);
   const [hidden, setHidden] = useState(false);

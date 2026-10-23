@@ -14,7 +14,10 @@ const CloudinaryPhotoDto = z.object({
   signature: z.string().regex(/^[0-9a-fA-F]{40}$/),
 });
 
-/** `?for=chat` relaxes the listing-only rules (minimum photo size, 30 s video). */
+/**
+ * `?for=chat` relaxes the listing-only rules (minimum photo size, 30 s video). Nothing stored remembers the purpose,
+ * so ListingsService checks the listing rules again when media is attached to a listing.
+ */
 const purpose = (v?: string): MediaPurpose => (v === 'chat' || v === 'avatar' ? v : 'listing');
 
 @Controller('media')

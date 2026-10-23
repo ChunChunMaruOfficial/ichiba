@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
 import { PRIVATE_SECTIONS } from "./src/lib/private-routes";
 
-const API_URL = (process.env.API_URL ?? (process.env.VERCEL ? "" : "http://localhost:4000")).replace(/\/$/, "");
-if (!API_URL) throw new Error("API_URL is not set: address of the deployed API, e.g. https://ichiba-api.vercel.app");
-
 const production = process.env.NODE_ENV === "production";
+
+// The /api rewrite is fixed at build time: a production build without API_URL would bake http://localhost:4000 into
+// the deployed site and every request would fail. Local development keeps the localhost default.
+const API_URL = (process.env.API_URL ?? (production || process.env.VERCEL ? "" : "http://localhost:4000")).replace(/\/$/, "");
+if (!API_URL) throw new Error("API_URL is not set: address of the deployed API, e.g. https://ichiba-api.vercel.app");
 
 /**
  * Scripts only from our own origin: Next's inline bootstrap needs 'unsafe-inline' (nonces would make every page

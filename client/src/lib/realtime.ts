@@ -1,4 +1,17 @@
+import { mutate } from "swr";
 import { api } from "./api";
+
+/** No frame (not even a pong to our 30 s ping) for this long: the socket is presumed dead. */
+const STALE_MS = 40_000;
+
+/**
+ * After a reconnect, events sent while the socket was down are lost: the header counters (/auth/me) and the thread
+ * list are fetched again. Not on the first connect, the page has just loaded them.
+ */
+function catchUp() {
+  void mutate("/auth/me");
+  void mutate("/threads");
+}
 
 /** Mirrors GET /realtime/config. */
 interface RealtimeConfig {
@@ -46,6 +59,8 @@ function viaWebSocket(configured: string | null, onEvent: Handler, onStatus: (s:
   let attempt = 0;
   let retry: ReturnType<typeof setTimeout> | undefined;
   let ping: ReturnType<typeof setInterval> | undefined;
+  let lastFrameAt = 0;
+  let wasLive = false;
 
   const schedule = () => {
     if (isClosed()) return;
@@ -64,13 +79,19 @@ function viaWebSocket(configured: string | null, onEvent: Handler, onStatus: (s:
       return schedule();
     }
     if (isClosed()) return;
+    // A socket still connecting is not stale: the clock starts now.
+    lastFrameAt = Date.now();
     ws = new WebSocket(`${base}${base.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`);
     ws.onopen = () => {
       attempt = 0;
+      lastFrameAt = Date.now();
       onStatus("live");
+      if (wasLive) catchUp();
+      wasLive = true;
       ping = setInterval(() => ws?.readyState === WebSocket.OPEN && ws.send("ping"), 30_000);
     };
     ws.onmessage = (e) => {
+      lastFrameAt = Date.now();
       if (e.data === "pong") return;
       try {
         const { type, data } = JSON.parse(e.data as string) as { type: string; data: unknown };
@@ -88,7 +109,17 @@ function viaWebSocket(configured: string | null, onEvent: Handler, onStatus: (s:
 
   // Back online or tab woke up: reconnect right away instead of waiting for the backoff.
   const wake = () => {
-    if (ws || isClosed()) return;
+    if (isClosed() || document.visibilityState === "hidden") return;
+    // A phone that slept with the tab in the background often keeps a "zombie" socket: still OPEN on our side, but
+    // the server dropped it long ago and nothing arrives. Silence past STALE_MS means it is dead: start over.
+    if (ws && Date.now() - lastFrameAt > STALE_MS) {
+      ws.onclose = null;
+      ws.onmessage = null;
+      ws.close();
+      ws = null;
+      clearInterval(ping);
+    }
+    if (ws) return;
     clearTimeout(retry);
     attempt = 0;
     void open();
@@ -133,8 +164,13 @@ async function viaPusher(
       },
     },
   });
+  let wasLive = false;
   pusher.connection.bind("state_change", ({ current }: { current: string }) => {
     onStatus(current === "connected" ? "live" : current === "connecting" || current === "initialized" ? "connecting" : "offline");
+    if (current === "connected") {
+      if (wasLive) catchUp();
+      wasLive = true;
+    }
   });
   const channel = pusher.subscribe(`private-user-${userId}`);
   channel.bind_global((event: string, data: unknown) => {

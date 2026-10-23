@@ -9,7 +9,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   return [
     { url: SITE_URL, lastModified: now, changeFrequency: "hourly", priority: 1 },
-    { url: `${SITE_URL}/search`, lastModified: now, changeFrequency: "hourly", priority: 0.6 },
+    // /search is not listed: its pages are noindex (search/page.tsx).
+    { url: `${SITE_URL}/wardrobes`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
     { url: `${SITE_URL}/resale`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${SITE_URL}/privacy`, lastModified: new Date("2026-10-11"), changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/terms`, lastModified: new Date("2026-10-11"), changeFrequency: "yearly", priority: 0.2 },

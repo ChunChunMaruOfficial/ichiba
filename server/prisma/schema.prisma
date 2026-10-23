@@ -163,6 +163,9 @@ model User {
   shopSources     ShopSource[]
   brandApplications BrandApplication[]
   blockedAt       DateTime?
+  /// Bumped when every session of the account must end (password reset, block, deletion): tokens carry the
+  /// version they were issued with and are refused once it moves on.
+  sessionVersion  Int            @default(0)
 }
 
 model VerificationCode {
@@ -175,6 +178,9 @@ model VerificationCode {
   expiresAt  DateTime
   consumedAt DateTime?
   createdAt  DateTime    @default(now())
+  /// A pending password registration travels with its code ({ username, passwordHash }): the account is created
+  /// only when the address owner enters this very code, so nobody can plant a password on an address they don't own.
+  payload    Json?
 
   @@index([target, purpose])
   /// Hourly per-address limit and daily retention cleanup.
@@ -317,6 +323,8 @@ model Photo {
   quality   Json?
   /// 64-bit difference hash (hex) of the image: near-identical photos differ in a few bits.
   dhash     String?
+  /// Colour signature for search by photo (media/palette.ts): 28 base-36 digits.
+  palette   String?
   /// Sent in chat: the message this photo belongs to (an album keeps `order`).
   messageId String?
   message   Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
@@ -325,6 +333,7 @@ model Photo {
   @@index([listingId, order])
   @@index([messageId])
   @@index([key])
+  @@index([ownerId])
 }
 
 /// Short video of a listing (up to 30 s). The file is `${key}.${ext}`, the poster frame `${key}_{320,640}.webp`.
@@ -349,6 +358,7 @@ model Video {
 
   @@index([ownerId])
   @@index([messageId])
+  @@index([key])
 }
 
 model Favorite {
@@ -523,6 +533,8 @@ model CartItem {
   addedAt   DateTime @default(now())
 
   @@id([userId, listingId])
+  /// Checkout and dispute resolution clear every cart holding a listing.
+  @@index([listingId])
 }
 
 /// One conversation per (listing, buyer); linked to the deal when there is one (frame 15).
@@ -546,6 +558,8 @@ model Thread {
   @@unique([listingId, buyerId])
   @@index([buyerId, lastMessageAt])
   @@index([sellerId, lastMessageAt])
+  /// Every deal page loads its threads by request.
+  @@index([requestId])
 }
 
 enum MessageKind {
@@ -634,6 +648,7 @@ model CollectionItem {
   addedAt      DateTime   @default(now())
 
   @@id([collectionId, listingId])
+  @@index([listingId])
 }
 
 enum ReportTarget {
@@ -794,6 +809,7 @@ model Review {
   updatedAt DateTime   @updatedAt
 
   @@index([sellerId, createdAt])
+  @@index([listingId])
 }
 
 /// Daily per-listing counters for seller statistics.

@@ -33,6 +33,8 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
       <h1 className="text-2xl font-semibold tracking-tight">Вход в админку</h1>
       <form
         className="mt-6 flex flex-col gap-4"
+        // The login may be a nick, not an email: the browser must not reject it before the API sees it.
+        noValidate
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
@@ -48,7 +50,7 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
         }}
       >
         <Field label="Логин" htmlFor="admin-login">
-          <Input id="admin-login" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} type="email" placeholder="Email" autoFocus />
+          <Input id="admin-login" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} type="text" inputMode="email" autoCapitalize="none" spellCheck={false} placeholder="Email или ник" autoFocus />
         </Field>
         <Field label="Пароль" htmlFor="admin-password" error={error ?? undefined}>
           <Input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} error={error ?? undefined} />

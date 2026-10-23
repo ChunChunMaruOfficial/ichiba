@@ -9,7 +9,8 @@ import useSWR from "swr";
 import { DealCard } from "@/components/deal-actions";
 import { OfferCard } from "@/components/offer";
 import { RequireAuth } from "@/components/require-auth";
-import { ButtonLink, Chip, EmptyState, ErrorState, Skeleton } from "@/components/ui";
+import { Button, ButtonLink, Chip, EmptyState, ErrorState, Skeleton } from "@/components/ui";
+import { useMorePages } from "@/lib/hooks";
 import { formatPrice, plural } from "@/lib/labels";
 import type { Deal, Offer } from "@/lib/types";
 
@@ -22,6 +23,7 @@ const TABS: Array<[Tab, string]> = [
 
 interface SalesData {
   items: Deal[];
+  hasMore?: boolean;
   soldTotal: number | null;
   summary: { newRequests: number; waitingHandover: number; offers: number };
 }
@@ -49,6 +51,7 @@ function Sales() {
   const toggle = (t: Tab) => router.replace(tab === t ? "?" : `?tab=${t}`, { scroll: false });
   const setTab = (t: Tab) => router.replace(`?tab=${t}`, { scroll: false });
   const { data, error, mutate } = useSWR<SalesData>(`/sales?tab=${tab ?? "all"}`);
+  const deals = useMorePages<Deal>(`/sales?tab=${tab ?? "all"}`, data);
   const offers = useSWR<{ items: Offer[] }>(tab === "action" ? "/offers?role=seller&turn=mine" : "/offers?role=seller");
   const s = data?.summary;
   return (
@@ -108,9 +111,14 @@ function Sales() {
         ) : (
           <>
             {tab !== "sold" && offers.data?.items.map((o) => <OfferCard key={o.id} offer={o} onChange={() => (void offers.mutate(), void mutate())} />)}
-            {data.items.map((d) => (
+            {deals.items.map((d) => (
               <DealCard key={d.id} deal={d} onChange={() => mutate()} />
             ))}
+            {deals.hasMore && (
+              <Button variant="secondary" onClick={() => void deals.loadMore()} disabled={deals.busy} className="self-center">
+                {deals.busy ? "Загружаем…" : "Показать ещё"}
+              </Button>
+            )}
           </>
         )}
       </div>

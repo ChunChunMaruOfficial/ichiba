@@ -13,15 +13,20 @@ import * as bcrypt from 'bcryptjs';
 import { createHash, createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import type { CodePurpose, User } from '../generated/prisma/client.js';
+import type { CodePurpose, Prisma, User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { forgetSessionStatus } from './auth.guard.js';
 import { CodeSenderService } from './code-sender.service.js';
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 const MAX_CODE_ATTEMPTS = 5;
-/** Per address: protects users from being spammed with codes. */
+/** Per address and purpose: protects users from being spammed with codes, without letting a stranger's sign-in attempts lock the owner out of a password reset. */
 const MAX_CODES_PER_HOUR = 5;
+/** Compared against when the account doesn't exist, so a wrong address costs the same time as a wrong password. */
+const DUMMY_HASH = bcrypt.hashSync('ichiba-no-such-account', 10);
+/** A password registration waiting for its code: created as an account only by `verify`. */
+type PendingRegistration = { username: string; passwordHash: string };
 const SIGNUP_TOKEN_TTL = '30m';
 /** Bump when the privacy policy changes materially; stored with each consent. */
 export const PRIVACY_VERSION = '2026-10-13';
@@ -34,7 +39,7 @@ export const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 /** Nicks an account made by hand may carry (a shop named in Cyrillic): what signing in by nick accepts. */
 const LOGIN_NICK_RE = /^[a-z0-9_а-яё]{3,24}$/;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_RE = /^[a-z0-9!#$%&'*+/=?^_`{|}~.-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
 
 /** Sign-in is by email only (no SMS gateway): the address is lower-cased and checked. */
 function normalizeLogin(raw: string): { kind: 'email' | 'phone'; value: string } {
@@ -108,8 +113,8 @@ export class AuthService {
     return this.jwt.signAsync({ sub: userId, purpose: 'admin' }, { expiresIn: '8h' });
   }
 
-  sign(user: Pick<User, 'id' | 'username' | 'role'>) {
-    return this.jwt.signAsync({ sub: user.id, username: user.username, role: user.role });
+  sign(user: Pick<User, 'id' | 'username' | 'role' | 'sessionVersion'>) {
+    return this.jwt.signAsync({ sub: user.id, username: user.username, role: user.role, sv: user.sessionVersion });
   }
 
   async usernameAvailability(raw: string) {
@@ -126,7 +131,7 @@ export class AuthService {
       const candidate = `${stem}${suffix}`;
       if (!(await this.prisma.user.findUnique({ where: { username: candidate } }))) return candidate;
     }
-    return `${stem}_${Date.now().toString(36)}`;
+    return `${stem.slice(0, 16)}_${Date.now().toString(36)}`;
   }
 
   private findByContact(login: { kind: 'email' | 'phone'; value: string }) {
@@ -154,7 +159,7 @@ export class AuthService {
       if (existing.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
       const user = await this.prisma.user.update({
         where: { id: existing.id },
-        data: login.kind === 'email' ? { emailVerifiedAt: existing.emailVerifiedAt ?? new Date() } : { phoneVerifiedAt: existing.phoneVerifiedAt ?? new Date() },
+        data: { ...this.adoptUnverified(existing, login.kind), ...(login.kind === 'email' ? { emailVerifiedAt: existing.emailVerifiedAt ?? new Date() } : { phoneVerifiedAt: existing.phoneVerifiedAt ?? new Date() }) },
       });
       return { session: { user, isNew: !user.onboardedAt } };
     }
@@ -186,7 +191,7 @@ export class AuthService {
       if (existing) return { user: existing, isNew: false };
       await this.assertUsername(name);
       const byEmail = claims.email ? await this.prisma.user.findUnique({ where: { email: claims.email } }) : null;
-      if (byEmail) return { user: await this.prisma.user.update({ where: { id: byEmail.id }, data: { googleSub: claims.sub, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() } }), isNew: false };
+      if (byEmail) return { user: await this.prisma.user.update({ where: { id: byEmail.id }, data: { ...this.adoptUnverified(byEmail, 'email'), googleSub: claims.sub, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() } }), isNew: false };
       const user = await this.prisma.user.create({ data: { username: name, googleSub: claims.sub, email: claims.email ?? null, emailVerifiedAt: claims.email ? new Date() : null, ...consent } });
       return { user, isNew: true };
     }
@@ -207,6 +212,16 @@ export class AuthService {
       data: { username: name, ...(login.kind === 'email' ? { email: login.value, emailVerifiedAt: new Date() } : { phone: login.value, phoneVerifiedAt: new Date() }), ...consent },
     });
     return { user, isNew: true };
+  }
+
+  /**
+   * An address proven by a code or an identity provider may find an older row that was registered with a password
+   * but never verified: that password was set by whoever typed the address first, so it is dropped. The person who
+   * proved the address keeps the row and sets a password through «Забыли пароль» if they want one.
+   */
+  private adoptUnverified(existing: User, kind: 'email' | 'phone'): Prisma.UserUpdateInput {
+    const verified = kind === 'email' ? existing.emailVerifiedAt : existing.phoneVerifiedAt;
+    return !verified && existing.passwordHash ? { passwordHash: null } : {};
   }
 
   private async assertUsername(name: string) {
@@ -230,24 +245,43 @@ export class AuthService {
     if (existing && (existing.emailVerifiedAt || existing.phoneVerifiedAt)) {
       throw new ConflictException({ message: 'Аккаунт с таким email уже есть — Войти?', code: 'ACCOUNT_EXISTS' });
     }
-    const passwordHash = await bcrypt.hash(input.password, 10);
-    // An unverified leftover registration is overwritten so the address is not locked forever.
-    const data = { username, passwordHash, [login.kind]: login.value, privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION };
-    if (existing) await this.prisma.user.update({ where: { id: existing.id }, data });
-    else await this.prisma.user.create({ data });
-
-    await this.issueCode(login.value, 'VERIFY');
+    // The nick and password travel inside the code: the account appears only when the address owner enters it,
+    // so nobody can plant a password on an address they don't own (and nothing is overwritten by a second attempt).
+    await this.issueCode(login.value, 'VERIFY', { username, passwordHash: await bcrypt.hash(input.password, 10) });
     return { needsVerification: true, target: login.value };
   }
 
   async verify(rawLogin: string, code: string) {
     const login = normalizeLogin(rawLogin);
-    await this.consumeCode(login.value, 'VERIFY', code);
-    const user = await this.prisma.user.update({
-      where: login.kind === 'email' ? { email: login.value } : { phone: login.value },
-      data: login.kind === 'email' ? { emailVerifiedAt: new Date() } : { phoneVerifiedAt: new Date() },
+    const record = await this.consumeCode(login.value, 'VERIFY', code);
+    const pending = this.pendingOf(record.payload);
+    const existing = await this.findByContact(login);
+    const verifiedAt = login.kind === 'email' ? { emailVerifiedAt: new Date() } : { phoneVerifiedAt: new Date() };
+    const consent = { privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION };
+    if (existing) {
+      if (existing.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
+      const verified = login.kind === 'email' ? existing.emailVerifiedAt : existing.phoneVerifiedAt;
+      let data: Prisma.UserUpdateInput = verified ? {} : this.adoptUnverified(existing, login.kind);
+      if (pending && !verified) {
+        // The row is an unverified leftover: it takes what this person chose, nothing from whoever typed the address before.
+        if (pending.username !== existing.username) await this.assertUsername(pending.username);
+        data = { username: pending.username, passwordHash: pending.passwordHash, ...consent };
+      }
+      const user = await this.prisma.user.update({ where: { id: existing.id }, data: { ...data, ...verifiedAt } });
+      return { user, isNew: !user.onboardedAt };
+    }
+    if (!pending) throw new UnauthorizedException({ message: 'Регистрация не найдена — начните заново', code: 'SIGNUP_EXPIRED' });
+    await this.assertUsername(pending.username);
+    const user = await this.prisma.user.create({
+      data: { username: pending.username, passwordHash: pending.passwordHash, [login.kind]: login.value, ...verifiedAt, ...consent },
     });
-    return { user, isNew: !user.onboardedAt };
+    return { user, isNew: true };
+  }
+
+  private pendingOf(payload: Prisma.JsonValue | null): PendingRegistration | null {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    const { username, passwordHash } = payload as Record<string, unknown>;
+    return typeof username === 'string' && USERNAME_RE.test(username) && typeof passwordHash === 'string' ? { username, passwordHash } : null;
   }
 
   async login(rawLogin: string, password: string) {
@@ -263,13 +297,15 @@ export class AuthService {
     }
     const login = normalizeLogin(rawLogin);
     const user = await this.prisma.user.findUnique({ where: login.kind === 'email' ? { email: login.value } : { phone: login.value } });
-    if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+    // Unknown addresses still pay for a hash comparison, so timing doesn't tell them apart from wrong passwords.
+    if (!(await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH)) || !user?.passwordHash) {
       throw new UnauthorizedException({ message: 'Неверный email или пароль' });
     }
     if (user.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
     const verified = login.kind === 'email' ? user.emailVerifiedAt : user.phoneVerifiedAt;
     if (!verified) {
-      await this.issueCode(login.value, 'VERIFY');
+      // The password was just proven: it rides along with the code, so verifying keeps it (verify() drops unproven ones).
+      await this.issueCode(login.value, 'VERIFY', { username: user.username, passwordHash: user.passwordHash });
       return { needsVerification: true as const, target: login.value };
     }
     return { user, isNew: false };
@@ -277,7 +313,17 @@ export class AuthService {
 
   async resend(rawLogin: string, purpose: CodePurpose) {
     const login = normalizeLogin(rawLogin);
-    await this.issueCode(login.value, purpose);
+    const user = await this.findByContact(login);
+    if (purpose === 'VERIFY') {
+      // A fresh code for a registration still waiting carries the same nick and password; for a nobody, nothing is sent.
+      const last = await this.prisma.verificationCode.findFirst({ where: { target: login.value, purpose, consumedAt: null }, orderBy: { createdAt: 'desc' } });
+      const pending = this.pendingOf(last?.payload ?? null);
+      if (!pending && !user) return { ok: true };
+      await this.issueCode(login.value, purpose, pending ?? undefined);
+      return { ok: true };
+    }
+    // RESET: same answer whether or not the account exists (no enumeration), a code only when it does.
+    if (user) await this.issueCode(login.value, purpose);
     return { ok: true };
   }
 
@@ -292,14 +338,20 @@ export class AuthService {
   async confirmReset(rawLogin: string, code: string, password: string) {
     const login = normalizeLogin(rawLogin);
     await this.consumeCode(login.value, 'RESET', code);
+    const existing = await this.findByContact(login);
+    if (!existing) throw new BadRequestException({ message: 'Код устарел — запросите новый', fields: { code: 'Код устарел' } });
+    if (existing.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
     const user = await this.prisma.user.update({
-      where: login.kind === 'email' ? { email: login.value } : { phone: login.value },
+      where: { id: existing.id },
       data: {
         passwordHash: await bcrypt.hash(password, 10),
+        // A new password ends every other session of the account (a stolen cookie included); the caller starts a fresh one.
+        sessionVersion: { increment: 1 },
         // Receiving the code proves ownership of the address.
         ...(login.kind === 'email' ? { emailVerifiedAt: new Date() } : { phoneVerifiedAt: new Date() }),
       },
     });
+    forgetSessionStatus(user.id);
     return { user, isNew: false };
   }
 
@@ -383,7 +435,7 @@ export class AuthService {
       if (byEmail) {
         const user = await this.prisma.user.update({
           where: { id: byEmail.id },
-          data: { [field]: sub, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() },
+          data: { ...this.adoptUnverified(byEmail, 'email'), [field]: sub, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() },
         });
         return { user, isNew: false };
       }
@@ -396,17 +448,17 @@ export class AuthService {
     return { user, isNew: true };
   }
 
-  private async issueCode(target: string, purpose: CodePurpose) {
+  private async issueCode(target: string, purpose: CodePurpose, payload?: PendingRegistration) {
     const last = await this.prisma.verificationCode.findFirst({ where: { target, purpose }, orderBy: { createdAt: 'desc' } });
     if (last && Date.now() - last.createdAt.getTime() < RESEND_COOLDOWN_MS) {
       const wait = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - last.createdAt.getTime())) / 1000);
       throw new HttpException({ message: `Код уже отправлен — повторить можно через ${wait} с`, resendIn: wait }, HttpStatus.TOO_MANY_REQUESTS);
     }
-    const lastHour = await this.prisma.verificationCode.count({ where: { target, createdAt: { gt: new Date(Date.now() - 3600_000) } } });
+    const lastHour = await this.prisma.verificationCode.count({ where: { target, purpose, createdAt: { gt: new Date(Date.now() - 3600_000) } } });
     if (lastHour >= MAX_CODES_PER_HOUR) throw new HttpException({ message: 'Слишком много кодов за час — попробуйте позже' }, HttpStatus.TOO_MANY_REQUESTS);
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     const record = await this.prisma.verificationCode.create({
-      data: { target, purpose, codeHash: await bcrypt.hash(code, 8), expiresAt: new Date(Date.now() + CODE_TTL_MS) },
+      data: { target, purpose, codeHash: await bcrypt.hash(code, 8), expiresAt: new Date(Date.now() + CODE_TTL_MS), payload: payload ?? undefined },
     });
     try {
       await this.codes.send(target, code, purpose);
@@ -423,13 +475,14 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
     if (!record) throw new BadRequestException({ message: 'Код устарел — запросите новый', fields: { code: 'Код устарел' } });
-    if (record.attempts >= MAX_CODE_ATTEMPTS) {
-      throw new HttpException({ message: 'Слишком много попыток — повторите через 5 минут' }, HttpStatus.TOO_MANY_REQUESTS);
-    }
+    // The attempt is taken before the comparison, so parallel guesses can't share the same five tries.
+    const claimed = await this.prisma.verificationCode.updateMany({ where: { id: record.id, attempts: { lt: MAX_CODE_ATTEMPTS }, consumedAt: null }, data: { attempts: { increment: 1 } } });
+    if (!claimed.count) throw new HttpException({ message: 'Слишком много попыток — запросите новый код' }, HttpStatus.TOO_MANY_REQUESTS);
     if (!DEV_ANY_CODE && !(await bcrypt.compare(code, record.codeHash))) {
-      await this.prisma.verificationCode.update({ where: { id: record.id }, data: { attempts: { increment: 1 } } });
       throw new BadRequestException({ message: 'Код неверный', fields: { code: 'Код неверный' } });
     }
-    await this.prisma.verificationCode.update({ where: { id: record.id }, data: { consumedAt: new Date() } });
+    const consumed = await this.prisma.verificationCode.updateMany({ where: { id: record.id, consumedAt: null }, data: { consumedAt: new Date() } });
+    if (!consumed.count) throw new BadRequestException({ message: 'Код устарел — запросите новый', fields: { code: 'Код устарел' } });
+    return record;
   }
 }

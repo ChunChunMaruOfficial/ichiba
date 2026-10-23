@@ -13,7 +13,7 @@ import { PhotoManager } from "@/components/photo-manager";
 import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
 import { usePriceSuggestion } from "@/components/ai-hints";
 import { RequireAuth } from "@/components/require-auth";
-import { useMeta, useSession } from "@/components/session";
+import { useMeta } from "@/components/session";
 import { IconTrash } from "@/components/chat/icons";
 import { useToast } from "@/components/toast";
 import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, IconX, Spinner } from "@/components/ui";
@@ -26,7 +26,6 @@ type Step = 1 | 2 | 3;
 const STEPS = ["Информация", "Цена"];
 
 export default function SellPage() {
-  const { me } = useSession();
   return (
     <RequireAuth reason="чтобы выставить вещь на продажу">
       {(me) => (
@@ -212,7 +211,11 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
   // Leaving with unsaved progress.
   useEffect(() => {
     if (published || !photos.length) return;
-    const onBefore = (e: BeforeUnloadEvent) => e.preventDefault();
+    const onBefore = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Older Safari and Chromium only ask "leave the page?" when returnValue is set too (deprecated, still needed).
+      e.returnValue = "";
+    };
     window.addEventListener("beforeunload", onBefore);
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [photos.length, published]);

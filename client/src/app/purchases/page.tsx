@@ -8,9 +8,10 @@ import useSWR from "swr";
 import { DealCard } from "@/components/deal-actions";
 import { OfferCard } from "@/components/offer";
 import { RequireAuth } from "@/components/require-auth";
-import { ButtonLink, Chip, EmptyState, ErrorState, Skeleton } from "@/components/ui";
+import { Button, ButtonLink, Chip, EmptyState, ErrorState, Skeleton } from "@/components/ui";
 import { AuctionTimer } from "@/components/auction";
 import { Badge } from "@/components/ui";
+import { useMorePages } from "@/lib/hooks";
 import { formatPrice } from "@/lib/labels";
 import type { AuctionView, Card, Deal, Offer } from "@/lib/types";
 
@@ -42,7 +43,9 @@ function Purchases() {
   const filter = (FILTERS.find(([k]) => k === params.get("tab"))?.[0] ?? null) as Filter | null;
   const toggle = (f: Filter) => router.replace(filter === f ? "?" : `?tab=${f}`, { scroll: false });
   const dealFilter = filter === "offers" || filter === "bids" ? null : (filter as DealFilter | null);
-  const { data, error, mutate } = useSWR<{ items: Deal[]; counts: Record<DealFilter, number> }>(filter === "offers" || filter === "bids" ? null : `/purchases?tab=${dealFilter ?? "all"}`);
+  const dealsPath = filter === "offers" || filter === "bids" ? null : `/purchases?tab=${dealFilter ?? "all"}`;
+  const { data, error, mutate } = useSWR<{ items: Deal[]; hasMore?: boolean; counts: Record<DealFilter, number> }>(dealsPath);
+  const deals = useMorePages<Deal>(dealsPath, data);
   // Counts for every chip, even while another one is on.
   const counts = useSWR<{ counts: Record<DealFilter, number> }>("/purchases?tab=active");
   const bids = useSWR<{ items: Array<{ listing: Card; auction: AuctionView }> }>("/auctions/mine");
@@ -90,7 +93,12 @@ function Purchases() {
           )
         ) : (
           <>
-            {showDeals && data?.items.map((d) => <DealCard key={d.id} deal={d} onChange={() => mutate()} />)}
+            {showDeals && deals.items.map((d) => <DealCard key={d.id} deal={d} onChange={() => mutate()} />)}
+            {showDeals && deals.hasMore && (
+              <Button variant="secondary" onClick={() => void deals.loadMore()} disabled={deals.busy} className="self-center">
+                {deals.busy ? "Загружаем…" : "Показать ещё"}
+              </Button>
+            )}
             {showOffers && offers.data?.items.map((o) => <OfferCard key={o.id} offer={o} onChange={() => offers.mutate()} />)}
             {showBids && bids.data?.items.map(({ listing, auction }) => <BidRow key={auction.id} listing={listing} auction={auction} />)}
           </>

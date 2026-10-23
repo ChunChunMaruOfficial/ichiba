@@ -19,6 +19,8 @@ export interface TgChannelData {
   posts: TgPostData[];
 }
 
+import { safeFetch, safeFetchText, telegramHost } from './fetch-safe.js';
+
 const UA = 'Mozilla/5.0 (compatible; ichiba-import/1.0)';
 
 const decode = (s: string) =>
@@ -60,10 +62,9 @@ export function parsePage(html: string): TgChannelData {
   return { title: decode(title).trim(), description: toText(description), avatarUrl, posts };
 }
 
-async function get(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return res.text();
+/** A channel page: only Telegram's own hosts, however the page or a redirect points elsewhere. */
+function get(url: string): Promise<string> {
+  return safeFetchText(url, { allow: telegramHost, userAgent: UA });
 }
 
 /**
@@ -98,8 +99,7 @@ export async function fetchAvatarUrl(channel: string): Promise<string | null> {
   return /<meta property="og:image" content="([^"]+)"/.exec(await get(`https://t.me/${channel}`))?.[1] ?? null;
 }
 
-export async function download(url: string): Promise<Buffer> {
-  const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(30_000) });
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+/** A photo or avatar URL taken from a channel page: Telegram's CDNs only, an image, at most 15 MB. */
+export function download(url: string): Promise<Buffer> {
+  return safeFetch(url, { allow: telegramHost, userAgent: UA, image: true });
 }

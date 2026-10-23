@@ -25,6 +25,8 @@ export class FavoritesController {
       where: { userId: user.id, listing: available === '1' ? { status: 'PUBLISHED' } : { status: { notIn: ['DELETED', 'BLOCKED', 'DRAFT'] } } },
       include: { listing: { include: cardInclude } },
       orderBy: { createdAt: 'desc' },
+      // The newest 200: the page shows no more, and sorting by price within them keeps the request cheap.
+      take: 200,
     });
     let items = favs.map((f) => serializeCard(f.listing, new Set([f.listingId])));
     if (sort === 'cheap') items = items.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
@@ -40,12 +42,13 @@ export class FavoritesController {
     // Only listings others can see: no ♡ on drafts, hidden or deleted items (and no 500 on a wrong id).
     const listing = await this.prisma.listing.findUnique({ where: { id: listingId }, select: { status: true } });
     if (!listing || !['PUBLISHED', 'RESERVED', 'SOLD'].includes(listing.status)) throw new NotFoundException({ message: 'Такой вещи нет' });
-    const existing = await this.prisma.favorite.findUnique({ where: { userId_listingId: { userId: user.id, listingId } } });
-    if (!existing) {
-      await this.prisma.$transaction([
-        this.prisma.favorite.create({ data: { userId: user.id, listingId, source: dto.source } }),
-        this.prisma.listing.update({ where: { id: listingId }, data: { favoritesCount: { increment: 1 } } }),
-      ]);
+    // skipDuplicates instead of check-then-create: a double tap neither fails on the unique key nor counts twice.
+    const added = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.favorite.createMany({ data: [{ userId: user.id, listingId, source: dto.source }], skipDuplicates: true });
+      if (count) await tx.listing.update({ where: { id: listingId }, data: { favoritesCount: { increment: count } } });
+      return count;
+    });
+    if (added) {
       await this.recs.record(user.id, dto.source === 'swipe' ? 'swipe_right' : 'favorite', listingId);
       this.stats.track(listingId, 'favorites');
     }

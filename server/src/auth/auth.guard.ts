@@ -22,6 +22,16 @@ export interface AuthUser {
   role: 'USER' | 'ADMIN';
 }
 
+/** What a session token carries; `sv` is the account's session version at sign-in (see User.sessionVersion). */
+export interface SessionClaims {
+  sub: string;
+  username: string;
+  role: AuthUser['role'];
+  sv?: number;
+  typ?: string;
+  purpose?: string;
+}
+
 type AuthedRequest = Request & { user?: AuthUser };
 
 const PUBLIC_KEY = 'isPublic';
@@ -32,10 +42,25 @@ export const CurrentUser = createParamDecorator(
   (_: unknown, ctx: ExecutionContext) => ctx.switchToHttp().getRequest<AuthedRequest>().user,
 );
 
-/** userId → whether the account may still use its sessions; short cache keeps this off the hot path. */
-const sessionStatus = new Map<string, { ok: boolean; until: number }>();
-/** Call after deleting or blocking an account so its sessions stop working at once, not after the cache TTL. */
+/** userId → whether the account may still use its sessions, and which session version is current; short cache keeps this off the hot path. */
+const sessionStatus = new Map<string, { ok: boolean; version: number; until: number }>();
+/** Call after deleting, blocking or re-keying an account so its sessions stop working at once, not after the cache TTL. */
 export const forgetSessionStatus = (userId: string) => sessionStatus.delete(userId);
+
+/**
+ * Whether a token issued at session version `sv` still opens a session for the account: the account exists, is not
+ * blocked, and nothing (password reset, block, deletion) has ended its sessions since. Shared by the HTTP guard and
+ * the WebSocket handshake.
+ */
+export async function sessionOk(prisma: PrismaService, userId: string, sv: number) {
+  const hit = sessionStatus.get(userId);
+  if (hit && hit.until > Date.now()) return hit.ok && hit.version === sv;
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true, blockedAt: true, sessionVersion: true } });
+  const ok = !!u && !u.deletedAt && !u.blockedAt;
+  if (sessionStatus.size > 10_000) sessionStatus.clear();
+  sessionStatus.set(userId, { ok, version: u?.sessionVersion ?? 0, until: Date.now() + 60_000 });
+  return ok && (u?.sessionVersion ?? 0) === sv;
+}
 
 /** Global guard: every route requires a session unless marked @Public(). */
 @Injectable()
@@ -46,25 +71,16 @@ export class AuthGuard implements CanActivate {
     private readonly prisma: PrismaService,
   ) {}
 
-  /** Deleted or blocked accounts lose all their sessions within a minute, on every device. */
-  private async active(userId: string) {
-    const hit = sessionStatus.get(userId);
-    if (hit && hit.until > Date.now()) return hit.ok;
-    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true, blockedAt: true } });
-    const ok = !!u && !u.deletedAt && !u.blockedAt;
-    if (sessionStatus.size > 10_000) sessionStatus.clear();
-    sessionStatus.set(userId, { ok, until: Date.now() + 60_000 });
-    return ok;
-  }
-
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<AuthedRequest>();
     const token = req.cookies?.[AUTH_COOKIE] ?? req.headers.authorization?.replace(/^Bearer /, '');
     if (token) {
       try {
-        const payload = await this.jwt.verifyAsync<{ sub: string; username: string; role: AuthUser['role']; typ?: string; purpose?: string }>(token);
+        const payload = await this.jwt.verifyAsync<SessionClaims>(token);
         // Only session tokens open a session: WebSocket tickets and admin/unsubscribe tokens are signed with the same key.
-        if (!payload.typ && !payload.purpose && payload.username && (await this.active(payload.sub))) req.user = { id: payload.sub, username: payload.username, role: payload.role };
+        if (!payload.typ && !payload.purpose && payload.username && (await sessionOk(this.prisma, payload.sub, payload.sv ?? 0))) {
+          req.user = { id: payload.sub, username: payload.username, role: payload.role };
+        }
       } catch {
         // Expired or forged token: treat as a guest.
       }

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, HttpCode, Injectable, NotFoundException, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Injectable, NotFoundException, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { ChatGuard, MessageRisk } from '../ai/chat-guard.js';
@@ -6,7 +6,7 @@ import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import { background } from '../common/background.js';
 import { EventsService } from '../events/events.js';
-import { Prisma } from '../generated/prisma/client.js';
+import { type ListingStatus, Prisma } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { photoUrls, serializeVideo, videoPoster } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -53,6 +53,8 @@ const MAX_MEDIA = 10;
 const PAGE = 50;
 
 const LOCATION_BODY = '📍 Местоположение';
+/** Statuses of an item a buyer can open a chat about (a sold one still has questions: returns, a second one). */
+const OPEN_TO_CHAT: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'SOLD'];
 
 /** One line for lists and quotes: "🖼 Фото", "🎬 Видео · подпись", "📍 Местоположение". */
 function previewText(m: Pick<PreviewRow, 'body' | 'kind' | '_count'>) {
@@ -164,7 +166,8 @@ export class ChatService {
       requestId = r.id;
     } else if (input.listingId) {
       const l = await this.prisma.listing.findUnique({ where: { id: input.listingId } });
-      if (!l || l.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
+      // Only an item anyone can see can be asked about: a draft, hidden or blocked one isn't there for buyers.
+      if (!l || !OPEN_TO_CHAT.includes(l.status) || l.hiddenByAdmin) throw new NotFoundException({ message: 'Такой вещи нет' });
       if (l.sellerId === userId) throw new BadRequestException({ message: 'Это ваша вещь' });
       listingId = l.id;
       buyerId = userId;
@@ -354,6 +357,8 @@ export class ChatService {
     if (Date.now() - m.createdAt.getTime() > EDIT_WINDOW_MS) throw new BadRequestException({ message: 'Сообщение можно изменить в течение 48 часов' });
     if (!raw && m.kind === 'TEXT') throw new BadRequestException({ message: 'Напишите сообщение' });
     if (raw === m.body) return this.message(m, userId);
+    // A flagged message is evidence (for the warning the recipient saw and for moderators): editing it would wipe both.
+    if (m.risk) throw new ConflictException({ message: 'Это сообщение нельзя изменить' });
 
     const check = raw ? this.guard.prepare(raw) : null;
     const updated = await this.prisma.message.update({
@@ -444,15 +449,20 @@ export class ChatService {
 
   /** Threads whose latest message is from the other side and newer than my read mark. */
   async unreadCount(userId: string) {
-    const rows = await this.prisma.thread.findMany({
-      where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
-      select: { buyerId: true, buyerReadAt: true, sellerReadAt: true, messages: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 1, select: { senderId: true, createdAt: true } } },
-    });
-    return rows.filter((t) => {
-      const last = t.messages[0];
-      const readAt = t.buyerId === userId ? t.buyerReadAt : t.sellerReadAt;
-      return last && last.senderId !== userId && (!readAt || readAt < last.createdAt);
-    }).length;
+    // One query: the newest live message of each of my threads (index threadId+createdAt), counted in the database
+    // instead of loading every thread on each badge refresh.
+    const [row] = await this.prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT COUNT(*)::int AS n
+      FROM "Thread" t
+      CROSS JOIN LATERAL (
+        SELECT m."senderId", m."createdAt" FROM "Message" m
+        WHERE m."threadId" = t.id AND m."deletedAt" IS NULL
+        ORDER BY m."createdAt" DESC LIMIT 1
+      ) last
+      WHERE (t."buyerId" = ${userId} OR t."sellerId" = ${userId})
+        AND last."senderId" <> ${userId}
+        AND COALESCE(CASE WHEN t."buyerId" = ${userId} THEN t."buyerReadAt" ELSE t."sellerReadAt" END, '-infinity'::timestamp) < last."createdAt"`;
+    return row?.n ?? 0;
   }
 }
 

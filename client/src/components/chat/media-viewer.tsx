@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { IconChevronLeft, IconChevronRight, IconX } from "@/components/ui";
+import { IconChevronLeft, IconChevronRight, IconX, useModalFocus } from "@/components/ui";
 import type { ChatMedia } from "@/lib/types";
 import { IconDownload } from "./icons";
 
@@ -10,6 +10,9 @@ import { IconDownload } from "./icons";
 export function MediaViewer({ media, start, title, onClose }: { media: ChatMedia[]; start: number; title: string; onClose: () => void }) {
   const [at, setAt] = useState(start);
   const touch = useRef<{ x: number; y: number } | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // Mounted only while shown: the chat behind is inert and Tab stays on the viewer's buttons.
+  useModalFocus(true, root);
   const item = media[at];
   const go = (d: number) => setAt((i) => Math.min(media.length - 1, Math.max(0, i + d)));
 
@@ -31,6 +34,7 @@ export function MediaViewer({ media, start, title, onClose }: { media: ChatMedia
   const href = item.type === "photo" ? item.urls.l : item.url;
   return createPortal(
     <div
+      ref={root}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -55,7 +59,7 @@ export function MediaViewer({ media, start, title, onClose }: { media: ChatMedia
           <a href={href} target="_blank" rel="noopener noreferrer" download aria-label="Скачать" title="Скачать" className="grid size-10 place-items-center rounded-full hover:bg-white/10">
             <IconDownload />
           </a>
-          <button type="button" onClick={onClose} aria-label="Закрыть" className="grid size-10 place-items-center rounded-full hover:bg-white/10">
+          <button type="button" data-autofocus onClick={onClose} aria-label="Закрыть" className="grid size-10 place-items-center rounded-full hover:bg-white/10">
             <IconX />
           </button>
         </div>

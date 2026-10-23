@@ -25,7 +25,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (message, opts = {}) => {
       const id = ++seq.current;
       setToasts((t) => [...t.slice(-2), { id, message, action: opts.action, tone: opts.tone }]);
-      setTimeout(() => dismiss(id), opts.duration ?? (opts.action ? 5000 : 4000));
+      // A toast with an action («Отменить», «Избранное») stays at least 10 s: 5 s is too short to read it and reach the
+      // button (WCAG 2.2.1), and an undo that is gone before the reader gets to it is no undo at all.
+      setTimeout(() => dismiss(id), opts.action ? Math.max(opts.duration ?? 0, 10_000) : (opts.duration ?? 4000));
     },
     [dismiss],
   );
@@ -33,7 +35,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
+      {/* data-modal-keep: an open modal makes the rest of the page inert, but an undo toast must stay clickable. */}
       <div
+        data-modal-keep
         aria-live="polite"
         className="pointer-events-none fixed inset-x-0 bottom-[calc(80px+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 px-4 md:bottom-6"
       >

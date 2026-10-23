@@ -14,25 +14,56 @@ export interface Rates {
 }
 
 const TTL_MS = 6 * 3600 * 1000;
+/** After a failed refresh the sources aren't asked again for this long (each request would otherwise wait on them). */
+const FAILURE_TTL_MS = 5 * 60 * 1000;
+/** A rate that moved more than this since the last good one is treated as a bad answer, not as the market. */
+const MAX_JUMP = 0.2;
+
+const CODES = ['USD', 'EUR', 'RUB'] as const;
+const sane = (r: Rates) => CODES.every((c) => Number.isFinite(r.perByn[c]) && r.perByn[c] > 0);
+const jumped = (r: Rates, last: Rates) => CODES.some((c) => Math.abs(r.perByn[c] / last.perByn[c] - 1) > MAX_JUMP);
 
 @Injectable()
 export class RatesService {
   private readonly logger = new Logger('Rates');
   private cache: { rates: Rates; until: number } | null = null;
   private pending: Promise<Rates | null> | null = null;
+  private failedUntil = 0;
 
   async get(): Promise<Rates | null> {
     if (this.cache && this.cache.until > Date.now()) return this.cache.rates;
+    if (this.failedUntil > Date.now()) return this.cache?.rates ?? null;
     this.pending ??= this.load().finally(() => (this.pending = null));
     const fresh = await this.pending;
     // A failed refresh keeps showing the last known rates rather than nothing.
     return fresh ?? this.cache?.rates ?? null;
   }
 
+  /**
+   * Rates are used to convert shop prices, so a broken answer (zero, NaN, a unit mix-up) must never get through:
+   * each source's answer is checked, and one far from the last good rates is refused in favour of those.
+   */
   private async load(): Promise<Rates | null> {
-    const rates = (await this.fromNbrb().catch(() => null)) ?? (await this.fromOpen().catch(() => null));
-    if (rates) this.cache = { rates, until: Date.now() + TTL_MS };
-    else this.logger.warn('no exchange rates from either source');
+    const checked = (r: Rates | null) => {
+      if (!r) return null;
+      if (!sane(r)) {
+        this.logger.warn(`${r.source}: rates rejected, not positive numbers`);
+        return null;
+      }
+      if (this.cache && jumped(r, this.cache.rates)) {
+        this.logger.warn(`${r.source}: rates rejected, more than ${MAX_JUMP * 100}% off the last known`);
+        return null;
+      }
+      return r;
+    };
+    const rates = checked(await this.fromNbrb().catch(() => null)) ?? checked(await this.fromOpen().catch(() => null));
+    if (rates) {
+      this.cache = { rates, until: Date.now() + TTL_MS };
+      this.failedUntil = 0;
+    } else {
+      this.failedUntil = Date.now() + FAILURE_TTL_MS;
+      this.logger.warn('no exchange rates from either source');
+    }
     return rates;
   }
 

@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useMarketZone, withMarket } from "@/lib/market";
 import { searchByPhoto } from "@/lib/photo-search";
@@ -23,6 +23,10 @@ export function PhotoSearchButton({ className, children }: { className?: string;
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const zone = useMarketZone();
+  // The search takes seconds: if the reader leaves meanwhile, the request is cancelled and nothing navigates them
+  // back to /search behind their back.
+  const pending = useRef<AbortController | null>(null);
+  useEffect(() => () => pending.current?.abort(), []);
   return (
     <>
       <button
@@ -44,14 +48,21 @@ export function PhotoSearchButton({ className, children }: { className?: string;
           const file = e.target.files?.[0];
           e.target.value = "";
           if (!file) return;
+          pending.current?.abort();
+          const ctrl = new AbortController();
+          pending.current = ctrl;
           setBusy(true);
           try {
-            const r = await searchByPhoto(file, zone);
-            router.push(withMarket(`/search?photo=${r.id}`, zone));
+            const r = await searchByPhoto(file, zone, ctrl.signal);
+            if (!ctrl.signal.aborted) router.push(withMarket(`/search?photo=${r.id}`, zone));
           } catch (err) {
+            if (ctrl.signal.aborted) return;
             toast(err instanceof ApiError ? err.message : "Не получилось найти по фото", { tone: "error" });
           } finally {
-            setBusy(false);
+            if (pending.current === ctrl) {
+              pending.current = null;
+              if (!ctrl.signal.aborted) setBusy(false);
+            }
           }
         }}
       />

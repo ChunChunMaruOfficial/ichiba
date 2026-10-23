@@ -52,8 +52,11 @@ export async function reclassifySeller(db: ListingUpdater, sellerId: string, sel
   if (!catalogSeller(seller)) return db.listing.updateMany({ where: base, data: { market: 'RESALE' } });
   // A reseller's new item without tags stays on «Вторичка» (see marketFor); a brand's is in the catalogue.
   const untagged: Prisma.ListingWhereInput = seller.brandVerifiedAt ? { id: { in: [] } } : { condition: { in: NEW_CONDITIONS }, hasTags: false };
+  // Spelled out rather than NOT(untagged): in SQL `NOT (hasTags = false)` is NULL for a NULL hasTags, so a new item
+  // whose tags weren't stated would silently never move to the catalogue.
+  const tagsOk: Prisma.ListingWhereInput = seller.brandVerifiedAt ? {} : { OR: [{ hasTags: true }, { hasTags: null }] };
   const [toCatalog, toResale] = await Promise.all([
-    db.listing.updateMany({ where: { ...base, OR: [{ condition: null }, { condition: { in: NEW_CONDITIONS } }], NOT: untagged }, data: { market: 'CATALOG' } }),
+    db.listing.updateMany({ where: { ...base, OR: [{ condition: null }, { AND: [{ condition: { in: NEW_CONDITIONS } }, tagsOk] }] }, data: { market: 'CATALOG' } }),
     db.listing.updateMany({ where: { ...base, OR: [{ condition: { notIn: NEW_CONDITIONS } }, untagged] }, data: { market: 'RESALE' } }),
   ]);
   return { count: toCatalog.count + toResale.count };

@@ -21,7 +21,7 @@ function ToChat({ id }: { id: string }) {
   useEffect(() => {
     let alive = true;
     api<{ id: string }>("/threads", { body: { requestId: id } })
-      .then((t) => alive && router.replace(`/messages/${t.id}${window.location.hash}`))
+      .then((t) => alive && router.replace(`/messages/${encodeURIComponent(t.id)}${window.location.hash}`))
       .catch(() => alive && setMissing(true));
     return () => {
       alive = false;

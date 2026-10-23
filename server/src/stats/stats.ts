@@ -130,6 +130,8 @@ export class StatsService {
       where: { sellerId, status: { in: ['PUBLISHED', 'RESERVED', 'HIDDEN', 'SOLD'] } },
       include: cardInclude,
       orderBy: { publishedAt: 'desc' },
+      // The newest 500: a shop with thousands of items would otherwise load them all, cards and stats included.
+      take: 500,
     });
     const ids = listings.map((l) => l.id);
     const [current, previous, salesNow, salesPrev] = await Promise.all([

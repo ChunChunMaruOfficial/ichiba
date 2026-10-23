@@ -26,13 +26,13 @@ export default function BuyPage() {
 
 function BuyRequest({ id, me }: { id: string; me: Me }) {
   const router = useRouter();
-  const { data, error: loadError, mutate } = useSWR<ListingResponse>(`/listings/${id}`);
+  const { data, error: loadError, mutate } = useSWR<ListingResponse>(`/listings/${encodeURIComponent(id)}`);
   // After an accepted offer the deal already exists (ACCEPTED): the buyer only picks delivery (frame 13).
   const params = useSearchParams();
   const requestId = params.get("request");
   /** «Несколько размеров»: the size picked on the item page. */
   const size = params.get("size");
-  const { data: agreed } = useSWR<Deal>(requestId ? `/requests/${encodeURIComponent(requestId)}` : null);
+  const { data: agreed, error: agreedError, mutate: mutateAgreed } = useSWR<Deal>(requestId ? `/requests/${encodeURIComponent(requestId)}` : null);
   const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
   const [phone, setPhone] = useState(me.phone ?? "");
@@ -43,6 +43,8 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
   const [sent, setSent] = useState<Deal | null>(null);
 
   if (loadError) return <ErrorState message="Не удалось загрузить вещь" onRetry={() => mutate()} />;
+  // Without this the skeleton below stayed forever when the agreed deal couldn't be loaded.
+  if (requestId && agreedError) return <ErrorState message="Не удалось загрузить сделку" onRetry={() => mutateAgreed()} />;
   if (!data || (requestId && !agreed)) {
     return (
       <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-6">
@@ -127,12 +129,15 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
         router.push(deal.threadId ? `/messages/${deal.threadId}` : `/deals/${deal.id}`);
         return;
       }
-      const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...(size ? { size } : {}), ...body } });
+      // The price on screen goes along: if the seller changed it meanwhile the API answers PRICE_CHANGED instead of
+      // quietly charging the new one, and the page reloads the item to show it.
+      const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...(size ? { size } : {}), ...(l.price != null ? { expectedTotal: l.price } : {}), ...body } });
       setSent(deal);
     } catch (e) {
       if (e instanceof ApiError) {
         setFields(e.fields);
         setError({ message: e.message, code: e.code, requestId: e.data.requestId as string | undefined });
+        if (e.code === "PRICE_CHANGED") void mutate();
       } else setError({ message: "Не удалось отправить запрос. Проверьте соединение" });
     } finally {
       setBusy(false);

@@ -5,7 +5,7 @@ import Pusher from 'pusher';
 import { Subject } from 'rxjs';
 import { WebSocket, WebSocketServer } from 'ws';
 import { z } from 'zod';
-import { AUTH_COOKIE, AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
+import { AUTH_COOKIE, AuthUser, CurrentUser, Public, SessionClaims } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import { RedisService } from '../redis/redis.js';
 
@@ -76,7 +76,8 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     if (this.driver === 'ws') {
       const sub = this.redis.duplicate('realtime-sub');
       if (sub) {
-        void sub.subscribe(REDIS_CHANNEL);
+        // Redis down at boot must not take the process down with an unhandled rejection: sockets on this instance still get local events.
+        sub.subscribe(REDIS_CHANNEL).catch((e: Error) => this.logger.warn(`subscribe: ${e.message}`));
         sub.on('message', (_channel, raw: string) => {
           try {
             this.local.next(JSON.parse(raw) as Envelope);
@@ -98,8 +99,15 @@ export class EventsService implements OnModuleInit, OnModuleDestroy {
     try {
       if (this.driver === 'pusher') await this.pusher!.trigger(userChannel(userId), event.type, event.data);
       else if (this.driver === 'ws') {
-        if (this.redis.client) await this.redis.client.publish(REDIS_CHANNEL, JSON.stringify({ userId, event }));
-        else this.local.next({ userId, event });
+        if (this.redis.client) {
+          try {
+            await this.redis.client.publish(REDIS_CHANNEL, JSON.stringify({ userId, event }));
+          } catch (e) {
+            // Redis unreachable: sockets on this instance still hear the event.
+            this.logger.warn(`publish ${event.type}: ${(e as Error).message}`);
+            this.local.next({ userId, event });
+          }
+        } else this.local.next({ userId, event });
       }
     } catch (e) {
       this.logger.warn(`emit ${event.type}: ${(e as Error).message}`);
@@ -169,18 +177,32 @@ function cookieValue(header: string | undefined, name: string) {
   return undefined;
 }
 
+/** Sockets one account may hold at once (tabs and devices); more are refused, not queued. */
+const MAX_SOCKETS_PER_USER = 10;
+
 /**
  * Serves `/ws` on the API's HTTP server (ws driver). Auth: `?token=` from GET /realtime/token, or the
- * session cookie when the socket is same-origin. Server → client frames are `{ type, data }`.
+ * session cookie when the socket is same-origin (checked like an HTTP session: claims, block and session version).
+ * Server → client frames are `{ type, data }`.
  */
-export function attachWebSockets(server: Server, events: EventsService, jwt: JwtService) {
+export function attachWebSockets(server: Server, events: EventsService, jwt: JwtService, sessionOk: (userId: string, sv: number) => Promise<boolean>) {
   const logger = new Logger('WebSocket');
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
   const sockets = new Map<string, Set<WebSocket>>();
+  // Browsers always send Origin on a WebSocket handshake: only the site itself may open one (cross-site hijacking).
+  const origins = new Set((process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',').map((o) => o.trim()).filter(Boolean));
+
+  const refuse = (socket: import('stream').Duplex, status: string) => {
+    socket.write(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`);
+    socket.destroy();
+  };
 
   server.on('upgrade', (req, socket, head) => {
+    // A reset during the handshake must not surface as an unhandled 'error' (which would end the process).
+    socket.on('error', () => socket.destroy());
     const url = new URL(req.url ?? '/', 'http://localhost');
-    if (url.pathname !== '/ws') return;
+    if (url.pathname !== '/ws') return refuse(socket, '404 Not Found');
+    if (req.headers.origin && !origins.has(req.headers.origin)) return refuse(socket, '403 Forbidden');
     void (async () => {
       try {
         const ticket = url.searchParams.get('token');
@@ -192,12 +214,14 @@ export function attachWebSockets(server: Server, events: EventsService, jwt: Jwt
         } else {
           const cookie = cookieValue(req.headers.cookie, AUTH_COOKIE);
           if (!cookie) throw new Error('no credentials');
-          userId = (await jwt.verifyAsync<{ sub: string }>(cookie)).sub;
+          const p = await jwt.verifyAsync<SessionClaims>(cookie);
+          if (p.typ || p.purpose || !p.username || !(await sessionOk(p.sub, p.sv ?? 0))) throw new Error('not a live session');
+          userId = p.sub;
         }
+        if ((sockets.get(userId)?.size ?? 0) >= MAX_SOCKETS_PER_USER) return refuse(socket, '429 Too Many Requests');
         wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, userId));
       } catch {
-        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
-        socket.destroy();
+        refuse(socket, '401 Unauthorized');
       }
     })();
   });
@@ -207,6 +231,8 @@ export function attachWebSockets(server: Server, events: EventsService, jwt: Jwt
     set.add(ws);
     sockets.set(userId, set);
     ws.alive = true;
+    // An oversized or malformed frame is reported as 'error'; without a listener it would crash the whole API.
+    ws.on('error', () => ws.terminate());
     ws.on('pong', () => (ws.alive = true));
     // The channel is server → client only; a client "ping" frame is answered so it can detect dead links.
     ws.on('message', (raw) => {

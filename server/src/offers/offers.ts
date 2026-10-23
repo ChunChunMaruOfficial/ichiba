@@ -19,11 +19,13 @@ import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { NegotiationAdvisor } from '../ai/negotiation.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { withJobLock } from '../common/job-lock.js';
 import { ZodPipe } from '../common/zod.js';
 import type { Offer, Prisma } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.js';
 import { RequestsService } from '../requests/requests.service.js';
 import { StatsService } from '../stats/stats.js';
 
@@ -34,6 +36,11 @@ const MIN_SHARE = 0.3;
 const COOLDOWN_AFTER_DECLINE_MS = 24 * 3600 * 1000;
 /** "Скидка лайкнувшим": one mailing per listing per 3 days, so likers aren't spammed. */
 const LIKERS_COOLDOWN_MS = 72 * 3600 * 1000;
+/** Highest amount accepted at all: keeps sums far from int4 overflow and absurd values out. */
+const MAX_AMOUNT = 1_000_000;
+
+/** A unique-constraint violation (here: the one-pending-offer-per-buyer partial index). */
+const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === 'P2002';
 
 const offerInclude = {
   listing: { include: cardInclude },
@@ -52,6 +59,7 @@ export class OffersService {
     private readonly requests: RequestsService,
     private readonly negotiation: NegotiationAdvisor,
     private readonly stats: StatsService,
+    private readonly redis: RedisService,
   ) {}
 
   private serialize(o: OfferRow, viewerId: string, history: Offer[] = []) {
@@ -97,12 +105,36 @@ export class OffersService {
     return o;
   }
 
+  /** Rounds of the latest negotiation, oldest first, from that pair's offers newest first. */
+  private static rounds(newestFirst: Offer[]) {
+    const rows = newestFirst.slice(0, MAX_ROUNDS);
+    const lastStart = rows.findIndex((r) => r.round === 1);
+    return (lastStart === -1 ? rows : rows.slice(0, lastStart + 1)).reverse();
+  }
+
   private history(o: { listingId: string; buyerId: string; createdAt: Date }) {
     // Rounds of the same negotiation: same listing + buyer, started within the round-1 window.
-    return this.prisma.offer.findMany({ where: { listingId: o.listingId, buyerId: o.buyerId }, orderBy: { createdAt: 'desc' }, take: MAX_ROUNDS }).then((rows) => {
-      const lastStart = rows.findIndex((r) => r.round === 1);
-      return (lastStart === -1 ? rows : rows.slice(0, lastStart + 1)).reverse();
+    return this.prisma.offer.findMany({ where: { listingId: o.listingId, buyerId: o.buyerId }, orderBy: { createdAt: 'desc' }, take: MAX_ROUNDS }).then(OffersService.rounds);
+  }
+
+  /** `history` for many negotiations in one query, keyed by `listingId:buyerId`. */
+  private async histories(offers: Array<{ listingId: string; buyerId: string }>) {
+    const out = new Map<string, Offer[]>();
+    if (!offers.length) return out;
+    const rows = await this.prisma.offer.findMany({
+      where: { OR: offers.map((o) => ({ listingId: o.listingId, buyerId: o.buyerId })) },
+      orderBy: { createdAt: 'desc' },
     });
+    const byPair = new Map<string, Offer[]>();
+    for (const r of rows) {
+      const key = `${r.listingId}:${r.buyerId}`;
+      const list = byPair.get(key) ?? [];
+      // Only the newest rounds matter; older negotiations on the same pair are dropped as they come.
+      if (list.length < MAX_ROUNDS) list.push(r);
+      byPair.set(key, list);
+    }
+    for (const [key, list] of byPair) out.set(key, OffersService.rounds(list));
+    return out;
   }
 
   /** The buyer's current negotiation on a listing (shown on Product instead of the offer button). */
@@ -149,20 +181,28 @@ export class OffersService {
 
     // Below the seller's hidden minimum the offer is declined automatically (frame 13 hypothesis).
     const autoDecline = listing.minOfferPrice != null && amount < listing.minOfferPrice;
-    const offer = await this.prisma.offer.create({
-      data: {
-        listingId,
-        buyerId,
-        sellerId: listing.sellerId,
-        round: 1,
-        amount,
-        size: multi ? size : null,
-        from: 'BUYER',
-        status: autoDecline ? 'DECLINED' : 'PENDING',
-        expiresAt: new Date(Date.now() + OFFER_TTL_MS),
-      },
-      include: offerInclude,
-    });
+    // An expired offer the sweep hasn't reached yet still holds the one-pending-offer slot: it is closed first.
+    await this.prisma.offer.updateMany({ where: { listingId, buyerId, status: 'PENDING', expiresAt: { lte: new Date() } }, data: { status: 'EXPIRED' } });
+    const offer = await this.prisma.offer
+      .create({
+        data: {
+          listingId,
+          buyerId,
+          sellerId: listing.sellerId,
+          round: 1,
+          amount,
+          size: multi ? size : null,
+          from: 'BUYER',
+          status: autoDecline ? 'DECLINED' : 'PENDING',
+          expiresAt: new Date(Date.now() + OFFER_TTL_MS),
+        },
+        include: offerInclude,
+      })
+      .catch((e: unknown) => {
+        // Two taps at once: the partial unique index lets only one pending offer per buyer and item through.
+        if (isUniqueViolation(e)) throw new ConflictException({ message: 'Предложение уже отправлено' });
+        throw e;
+      });
     this.stats.track(listingId, 'offers');
     if (autoDecline) {
       await this.notifications.notify(buyerId, 'offer_declined', { listingId, title: listing.title, amount, auto: true });
@@ -272,6 +312,8 @@ export class OffersService {
     if (!listing || listing.sellerId !== sellerId || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
     if (listing.status !== 'PUBLISHED' || !listing.price) throw new ConflictException({ message: 'Скидку можно отправить только по вещи в продаже' });
     if (listing.saleType === 'AUCTION') throw new BadRequestException({ message: 'Для аукциона скидка не отправляется' });
+    // A likers' offer carries no size, and a deal on an item in several sizes needs one, so it could never be accepted.
+    if (listing.sizes.length > 1) throw new BadRequestException({ message: 'Скидку лайкнувшим нельзя отправить по вещи с несколькими размерами — снизьте цену' });
     if (amount >= listing.price) throw new BadRequestException({ message: 'Цена со скидкой должна быть ниже текущей', fields: { amount: 'Ниже текущей цены' } });
     if (amount < Math.ceil(listing.price * 0.5)) throw new BadRequestException({ message: 'Скидка больше 50% — лучше просто снизить цену', fields: { amount: 'Не ниже 50% цены' } });
     if (listing.likersOfferAt && Date.now() - listing.likersOfferAt.getTime() < LIKERS_COOLDOWN_MS) {
@@ -284,8 +326,12 @@ export class OffersService {
     // Guarded on likersOfferAt, so two clicks can't send two mailings.
     const { count } = await this.prisma.listing.updateMany({ where: { id: listingId, likersOfferAt: listing.likersOfferAt }, data: { likersOfferAt: new Date() } });
     if (!count) throw new ConflictException({ message: 'Скидка уже отправлена' });
+    // Expired-but-unswept offers would collide with the one-pending-offer index; whoever still collides (a buyer who
+    // offered a moment ago) keeps their own offer.
+    await this.prisma.offer.updateMany({ where: { listingId, status: 'PENDING', expiresAt: { lte: new Date() } }, data: { status: 'EXPIRED' } });
     await this.prisma.offer.createMany({
       data: recipients.map((buyerId) => ({ listingId, buyerId, sellerId, round: 1, amount, from: 'SELLER' as const, expiresAt })),
+      skipDuplicates: true,
     });
     const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { username: true } });
     await this.notifications.notifyMany(recipients, 'offer_likers', { listingId, title: listing.title, amount, price: listing.price, seller: seller?.username });
@@ -294,7 +340,9 @@ export class OffersService {
 
   async decline(actorId: string, id: string) {
     const { o, role } = await this.answerable(id, actorId);
-    await this.prisma.offer.update({ where: { id }, data: { status: 'DECLINED' } });
+    // Guarded: an accept, counter or expiry that got there first is not overwritten.
+    const { count } = await this.prisma.offer.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'DECLINED' } });
+    if (!count) throw new ConflictException({ message: 'Предложение уже неактуально' });
     const to = role === 'seller' ? o.buyerId : o.sellerId;
     await this.notifications.notify(to, 'offer_declined', { offerId: id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
     return { ok: true };
@@ -305,7 +353,8 @@ export class OffersService {
     const o = await this.load(id, actorId);
     const role = o.buyerId === actorId ? 'buyer' : 'seller';
     if (o.status !== 'PENDING' || (o.from === 'BUYER') !== (role === 'buyer')) throw new ConflictException({ message: 'Это предложение нельзя отменить' });
-    await this.prisma.offer.update({ where: { id }, data: { status: 'CANCELLED' } });
+    const { count } = await this.prisma.offer.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
+    if (!count) throw new ConflictException({ message: 'Это предложение нельзя отменить' });
     return { ok: true };
   }
 
@@ -328,22 +377,25 @@ export class OffersService {
       seen.add(key);
       return true;
     });
-    return { items: await Promise.all(latest.map(async (o) => this.serialize(o, userId, await this.history(o)))) };
+    const histories = await this.histories(latest);
+    return { items: latest.map((o) => this.serialize(o, userId, histories.get(`${o.listingId}:${o.buyerId}`) ?? [])) };
   }
 
   @Cron(CronExpression.EVERY_10_MINUTES)
-  async expire() {
-    const stale = await this.prisma.offer.findMany({ where: { status: 'PENDING', expiresAt: { lt: new Date() } }, include: { listing: { select: { title: true } } } });
-    for (const o of stale) {
-      const { count } = await this.prisma.offer.updateMany({ where: { id: o.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
-      // Unanswered "скидка лайкнувшим" offers expire quietly: one note per liker would flood the seller.
-      if (count && !(o.round === 1 && o.from === 'SELLER')) await this.notifications.notify(o.from === 'BUYER' ? o.buyerId : o.sellerId, 'offer_expired', { offerId: o.id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
-    }
-    if (stale.length) this.logger.log(`expired ${stale.length} offers`);
+  expire() {
+    return withJobLock(this.redis, 'offers.expire', 10 * 60_000, async () => {
+      const stale = await this.prisma.offer.findMany({ where: { status: 'PENDING', expiresAt: { lt: new Date() } }, include: { listing: { select: { title: true } } } });
+      for (const o of stale) {
+        const { count } = await this.prisma.offer.updateMany({ where: { id: o.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
+        // Unanswered "скидка лайкнувшим" offers expire quietly: one note per liker would flood the seller.
+        if (count && !(o.round === 1 && o.from === 'SELLER')) await this.notifications.notify(o.from === 'BUYER' ? o.buyerId : o.sellerId, 'offer_expired', { offerId: o.id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
+      }
+      if (stale.length) this.logger.log(`expired ${stale.length} offers`);
+    });
   }
 }
 
-const AmountDto = z.object({ amount: z.coerce.number().int('Целое число').min(1, 'Введите сумму') });
+const AmountDto = z.object({ amount: z.coerce.number().int('Целое число').min(1, 'Введите сумму').max(MAX_AMOUNT, 'Слишком большая сумма') });
 const CreateDto = AmountDto.extend({ listingId: z.uuid(), size: z.string().trim().min(1).max(20).optional() });
 
 @Controller('offers')

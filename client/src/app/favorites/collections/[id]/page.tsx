@@ -21,7 +21,7 @@ export default function CollectionPage() {
 
 /** Collection page (frame 11 page 9): editable name, items, delete (items stay in Favorites). */
 function Collection({ id }: { id: string }) {
-  const { data, error, mutate } = useSWR<{ id: string; name: string; items: Card[] }>(`/collections/${id}`);
+  const { data, error, mutate } = useSWR<{ id: string; name: string; items: Card[] }>(`/collections/${encodeURIComponent(id)}`);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const router = useRouter();
@@ -32,7 +32,7 @@ function Collection({ id }: { id: string }) {
 
   const rename = async () => {
     try {
-      await api(`/collections/${id}`, { method: "PATCH", body: { name } });
+      await api(`/collections/${encodeURIComponent(id)}`, { method: "PATCH", body: { name } });
       setEditing(false);
       void mutate();
     } catch (e) {
@@ -73,7 +73,7 @@ function Collection({ id }: { id: string }) {
           className="text-danger"
           onClick={async () => {
             if (!(await confirm({ title: "Удалить коллекцию?", message: "Вещи останутся в избранном.", confirmLabel: "Удалить", danger: true }))) return;
-            await api(`/collections/${id}`, { method: "DELETE" });
+            await api(`/collections/${encodeURIComponent(id)}`, { method: "DELETE" });
             toast("Коллекция удалена");
             router.push("/favorites?tab=collections");
           }}
@@ -98,7 +98,7 @@ function Collection({ id }: { id: string }) {
                   aria-label={`Убрать «${i.title}» из коллекции`}
                   onClick={async () => {
                     await mutate((d) => d && { ...d, items: d.items.filter((x) => x.id !== i.id) }, { revalidate: false });
-                    await api(`/collections/${id}/items/${i.id}`, { method: "DELETE" }).catch(() => mutate());
+                    await api(`/collections/${encodeURIComponent(id)}/items/${i.id}`, { method: "DELETE" }).catch(() => mutate());
                   }}
                   className="absolute left-2.5 top-2.5 grid size-9 place-items-center on-photo rounded-full text-ink hover:scale-105"
                 >

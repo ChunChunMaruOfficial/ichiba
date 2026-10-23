@@ -129,10 +129,14 @@ function TouchMenu({
 
   useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("resize", onClose);
+    // Only a change of width (rotation, a resized window) moves the message out from under the menu. On phones the
+    // height changes all the time (the address bar hides, the keyboard opens) and used to close the menu at once.
+    const width = window.innerWidth;
+    const onResize = () => window.innerWidth !== width && onClose();
+    window.addEventListener("resize", onResize);
     document.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("resize", onClose);
+      window.removeEventListener("resize", onResize);
       document.removeEventListener("keydown", onKey);
     };
   }, [onClose]);

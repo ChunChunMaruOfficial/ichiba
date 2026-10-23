@@ -29,6 +29,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: "#f4efe6",
   viewportFit: "cover",
+  // The on-screen keyboard shrinks the layout viewport (Chrome on Android), so bottom sheets, the chat composer and
+  // fixed bars stay above it instead of under it.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

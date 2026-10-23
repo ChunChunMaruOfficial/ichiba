@@ -11,7 +11,7 @@ import type { Gender, Meta } from "@/lib/types";
 import { useBrandSuggestions } from "./brand-picker";
 import { useMeta } from "./session";
 import { Kamon } from "./shop/kamon";
-import { IconChevronDown, IconChevronRight, IconSearch, IconX } from "./ui";
+import { IconChevronDown, IconChevronRight, IconSearch, IconX, useModalFocus } from "./ui";
 
 type Category = Meta["categories"][number];
 /** Audience filter of the menu: "" = everything. */
@@ -197,12 +197,13 @@ function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLE
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && close();
+    // pointerdown, not mousedown: iOS Safari fires no mousedown for a tap on a non-clickable area.
+    const onDoc = (e: PointerEvent) => ref.current && !ref.current.contains(e.target as Node) && close();
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("pointerdown", onDoc);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("pointerdown", onDoc);
     };
   }, [open, close, ref]);
 }
@@ -315,6 +316,9 @@ export function MobileCatalog() {
     setPrevPath(pathname);
     setOpen(false);
   }
+  const panel = useRef<HTMLDivElement>(null);
+  // The page behind the drawer is inert and Tab stays inside it.
+  useModalFocus(open, panel);
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -343,12 +347,13 @@ export function MobileCatalog() {
       {/* Portal: the header's backdrop-filter would otherwise trap position:fixed inside the header box. */}
       {pop.mounted &&
         createPortal(
-          <div data-closing={pop.closing || undefined} className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label="Каталог">
-            <button type="button" aria-label="Закрыть каталог" className="fade-in absolute inset-0 bg-[var(--scrim)]" onClick={close} />
+          <div ref={panel} data-closing={pop.closing || undefined} className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label="Каталог">
+            {/* The scrim is for taps; keyboard users have Esc and the ✕, so Tab skips it. */}
+            <button type="button" tabIndex={-1} data-modal-close aria-label="Закрыть каталог" className="fade-in absolute inset-0 bg-[var(--scrim)]" onClick={close} />
             <div className="aizome slide-in-left absolute inset-y-0 left-0 flex w-[min(88vw,380px)] flex-col pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-float)]">
               <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-4">
                 <p className="font-display text-xl font-bold">Каталог</p>
-                <button type="button" aria-label="Закрыть" onClick={close} className="-mr-2 grid size-11 place-items-center rounded-full hover:bg-ink/5">
+                <button type="button" data-modal-close aria-label="Закрыть" onClick={close} className="-mr-2 grid size-11 place-items-center rounded-full hover:bg-ink/5">
                   <IconX />
                 </button>
               </div>

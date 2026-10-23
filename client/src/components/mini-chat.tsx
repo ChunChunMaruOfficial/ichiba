@@ -172,7 +172,8 @@ function MiniChatCard({ id, closing, onClose }: { id: string; closing: boolean; 
   // Esc closes.
   const last = data?.messages.at(-1)?.createdAt;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose(last);
+    // Escape belongs to an open modal (a dispute, a confirmation) first: the mini-chat stays while one is open.
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !e.defaultPrevented && !document.querySelector('[role="dialog"][aria-modal="true"]') && onClose(last);
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, last]);
