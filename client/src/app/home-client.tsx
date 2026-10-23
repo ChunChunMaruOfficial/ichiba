@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useLayoutEffect, useState } from "react";
 import useSWR from "swr";
+import { FeedShell } from "@/components/feed-shell";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CategoryTiles, SectionHeader, WardrobeCards } from "@/components/sections";
 import { useSession } from "@/components/session";
@@ -192,7 +193,7 @@ function HomeFeed() {
 
 export default function HomePage() {
   return (
-    <Suspense>
+    <Suspense fallback={<FeedShell />}>
       <HomeFeed />
     </Suspense>
   );

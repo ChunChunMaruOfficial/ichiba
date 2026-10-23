@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import { useBrandSuggestions } from "@/components/brand-picker";
+import { FeedShell } from "@/components/feed-shell";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { CardRow, CategoryTiles, SectionHeader } from "@/components/sections";
 import { useMeta, useSession } from "@/components/session";
@@ -680,7 +681,7 @@ function SearchRoute() {
 
 export default function SearchPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<FeedShell wide={false} />}>
       <SearchRoute />
     </Suspense>
   );

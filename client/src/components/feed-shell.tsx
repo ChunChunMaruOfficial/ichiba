@@ -1,7 +1,11 @@
+"use client";
+
 import { MasonrySkeleton } from "./masonry";
 
 /**
- * What a feed page's HTML holds before the client takes over. The feeds read the address (search params), so
+ * What a feed page's HTML holds before the client takes over. It is the fallback of the feed's own Suspense boundary
+ * (the nearest one above useSearchParams, where the prerender bails out to the browser): a fallback on the page's
+ * outer boundary never reaches the HTML. The feeds read the address (search params), so
  * Next renders them only in the browser: without this the server HTML had an empty <main>, the footer sat right
  * under the header and was pushed a screen's worth down once the cards arrived — a layout shift of ~0.9 on every
  * first visit. The skeleton keeps the footer where the content will be; the feed's own skeleton then takes over
