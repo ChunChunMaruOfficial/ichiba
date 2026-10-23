@@ -357,7 +357,13 @@ export function Header() {
           setHidden(false);
           return;
         }
-        if (y < 0 || y > max - 2) return; // rubber band at the top or bottom
+        if (y < 0) return; // rubber band at the top
+        // The very end: everything comes back, so the footer stands right on the tab bar (and the rubber band is ignored).
+        if (y >= max - 2) {
+          travel = 0;
+          setHidden(false);
+          return;
+        }
         travel = Math.sign(dy) === Math.sign(travel) ? travel + dy : dy;
         if (travel > 24) setHidden(true);
         else if (travel < -32) setHidden(false);
@@ -470,8 +476,11 @@ export function Header() {
 /** Mobile bottom navigation, 5 items (frame 05). Hidden on flows that pin their own bottom bar. */
 /** A conversation fills the screen like a messenger: no bottom tabs, and no room kept for them. */
 const isThread = (pathname: string) => /^\/messages\/.+/.test(pathname);
+/** Focused flows pin their own bottom bar (or need the whole screen): no tab bar and no footer there. */
+export const focusedFlow = (pathname: string) =>
+  pathname.startsWith("/sell") || pathname.startsWith("/buy/") || pathname.startsWith("/welcome") || pathname.startsWith("/admin") || isThread(pathname) || pathname.endsWith("/edit");
 
-/** The page area; on phones it keeps room at the bottom for the tab bar wherever the bar is shown. */
+/** The page area; on phones the room for the tab bar is kept under the footer (footer.tsx), or here in focused flows for their own bar. */
 export function Main({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // A short fade on every page change. Opacity only: a transform on <main> would carry the pages' fixed bars
@@ -489,7 +498,8 @@ export function Main({ children }: { children: React.ReactNode }) {
     main.current?.animate([{ opacity: flight === "back" ? 0.35 : 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
   }, [pathname]);
   return (
-    <main ref={main} id="main" data-chrome="main" tabIndex={-1} className={clsx(!isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
+    // Room at the bottom only for a flow's own fixed bar; elsewhere the footer keeps the tab bar's room below itself.
+    <main ref={main} id="main" data-chrome="main" tabIndex={-1} className={clsx(focusedFlow(pathname) && !isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
       {children}
     </main>
   );
@@ -498,14 +508,7 @@ export function Main({ children }: { children: React.ReactNode }) {
 export function BottomNav() {
   const pathname = usePathname();
   const { me } = useSession();
-  const hidden =
-    pathname.startsWith("/sell") ||
-    pathname.startsWith("/buy/") ||
-    pathname.startsWith("/welcome") ||
-    pathname.startsWith("/admin") ||
-    isThread(pathname) ||
-    pathname.endsWith("/edit");
-  if (hidden) return null;
+  if (focusedFlow(pathname)) return null;
 
   const item = (href: string, label: string, Icon: typeof IconHome, opts: { badge?: number } = {}) => {
     const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
@@ -531,7 +534,7 @@ export function BottomNav() {
   };
 
   return (
-    <nav data-chrome="bottom-nav" aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none md:hidden">
+    <nav data-chrome="bottom-nav" aria-label="Основная навигация" className="fixed inset-x-0 bottom-0 z-40 flex h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none md:hidden">
       {item("/", "Главная", IconHome)}
       {/* The second-hand market has its own page; the home page is the brands' showcase. */}
       {item("/resale", "Вторичка", IconTag)}

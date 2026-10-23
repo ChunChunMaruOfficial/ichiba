@@ -19,6 +19,8 @@
  * with data-theme="dark", which the site sets only when DARK_THEME_ENABLED (lib/theme.ts) is on.
  */
 :root {
+  /* The phone tab bar's own height (BottomNav), without the home-indicator inset: the footer stops right on it. */
+  --tabbar-h: 64px;
   --paper: #f4efe6;
   --surface: #fbf8f2;
   --surface-sunk: #ece5d8;

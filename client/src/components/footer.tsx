@@ -4,6 +4,7 @@ import { SakuraBranch } from "./shop/sakura-branch";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "./logo";
+import { focusedFlow } from "./header";
 import { Kamon } from "./shop/kamon";
 
 const COLUMNS: Array<[string, Array<[string, string]>]> = [
@@ -42,11 +43,11 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
  */
 export function Footer() {
   const pathname = usePathname();
-  const hidden =
-    pathname.startsWith("/sell") || pathname.startsWith("/buy/") || pathname.startsWith("/welcome") || pathname.startsWith("/admin") || /^\/messages\/.+/.test(pathname) || pathname.endsWith("/edit");
-  if (hidden) return null;
+  if (focusedFlow(pathname)) return null;
   return (
-    <div data-chrome="footer" className="relative mt-12 md:mt-16">
+    // On phones the tab bar's room is kept below the cloth, not in it: at the end of the page the footer ends right on the
+    // bar. The cloth tucks 1 px under the bar's top edge, so a fractional page height never leaves a hairline of paper.
+    <div data-chrome="footer" className="relative mt-12 pb-[calc(var(--tabbar-h)-1px+env(safe-area-inset-bottom))] md:mt-16 md:pb-0">
       {/* A cherry branch in bloom behind the page: it grows out from the footer's edge and whatever sits above (cards) covers it. */}
       <SakuraBranch className="pointer-events-none absolute bottom-full right-0 -z-10 w-[340px] md:right-6 md:w-[600px]" />
     <footer className="aizome aizome-fade-in">
@@ -91,7 +92,6 @@ export function Footer() {
       <div aria-hidden className="pointer-events-none relative -mb-[4.5vw] mt-6 select-none px-2 text-ink md:-mb-[3.5vw]">
         <Wordmark className="h-auto w-full opacity-95" />
       </div>
-      <div className="h-[calc(76px+env(safe-area-inset-bottom))] md:hidden" />
     </footer>
     </div>
   );
