@@ -141,6 +141,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           if (type === "message_delete") void mutate();
         } else if (type === "thread_pins") {
           window.dispatchEvent(new CustomEvent(LIVE_PINS_EVENT, { detail: data }));
+        } else if (type === "counters") {
+          // The account changed elsewhere (e.g. Telegram linked from the bot): fetch /auth/me again.
+          void mutate();
         }
       },
       setRealtime,

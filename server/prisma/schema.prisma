@@ -121,6 +121,16 @@ model User {
   /// Where a seller or brand gets notification emails (a buy request, an offer…); set only after its owner entered
   /// the code sent there, so it is always confirmed. Null = notifications stay on the site.
   notifyEmail       String?
+  /// Telegram chat that gets this account's notifications (linked from settings through the bot's /start link).
+  /// Not unique: one person may link several shops to the same Telegram.
+  tgChatId             String?
+  tgUsername           String?
+  tgLinkedAt           DateTime?
+  /// Which groups go to Telegram: { deals, offers, auctions, chat, favorites, account } — all on when absent.
+  tgPrefs              Json?
+  /// SHA-256 of the one-time /start token from «Подключить Telegram», and until when it works.
+  tgLinkTokenHash      String?   @unique
+  tgLinkTokenExpiresAt DateTime?
   /// Consent to personal data processing (Belarus Law No. 99-Z): when and which policy version.
   privacyAcceptedAt DateTime?
   privacyVersion    String?
@@ -171,6 +181,8 @@ model User {
   /// Bumped when every session of the account must end (password reset, block, deletion): tokens carry the
   /// version they were issued with and are refused once it moves on.
   sessionVersion  Int            @default(0)
+
+  @@index([tgChatId])
 }
 
 model VerificationCode {

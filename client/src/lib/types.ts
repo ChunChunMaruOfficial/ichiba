@@ -48,6 +48,8 @@ export interface Me {
   emailPrefs: { deals: boolean };
   /** Confirmed address for notification emails (settings → «Уведомления на почту»); null = site only. */
   notifyEmail: string | null;
+  /** Notifications in Telegram (settings → Telegram). */
+  telegram?: { available: boolean; linked: boolean; username: string | null; linkedAt: string | null; prefs: TelegramPrefs };
   sizes: PreferredSizes | null;
   bodyMeasurements: BodyMeasurements | null;
   bundleDiscounts: BundleTier[];
@@ -60,6 +62,16 @@ export interface Me {
   isSeller: boolean;
   /** Brand status: the sell form offers the seals then. */
   isBrand?: boolean;
+}
+
+/** Groups the Telegram bot sends; all on until switched off. */
+export interface TelegramPrefs {
+  deals: boolean;
+  offers: boolean;
+  auctions: boolean;
+  chat: boolean;
+  favorites: boolean;
+  account: boolean;
 }
 
 export interface PreferredSizes {

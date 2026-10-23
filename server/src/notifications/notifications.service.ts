@@ -6,6 +6,7 @@ import { EventsService } from '../events/events.js';
 import { NotifyEmails } from '../mail/mail.module.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TelegramNotifier } from '../telegram/notifier.js';
 
 export type NotificationType =
   | 'request_new'
@@ -51,7 +52,7 @@ export type NotificationType =
 
 /**
  * In-app notifications, pushed live over SSE (frame 15). The ones that matter are also emailed to sellers and
- * brands who bound an address in settings (NotifyEmails).
+ * brands who bound an address in settings (NotifyEmails), and everything goes to a linked Telegram (TelegramNotifier).
  */
 @Injectable()
 export class NotificationsService {
@@ -60,6 +61,7 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
     private readonly emails: NotifyEmails,
+    private readonly telegram: TelegramNotifier,
   ) {}
 
   /** Never delays or fails the action because of email. */
@@ -67,10 +69,16 @@ export class NotificationsService {
     background(this.emails.send(userIds, type, payload as Record<string, unknown>), `email for ${type}`);
   }
 
+  /** Same for Telegram: each recipient's copy goes out on its own. */
+  private telegramCopy(userIds: string[], type: NotificationType, payload: Prisma.InputJsonValue) {
+    for (const id of userIds) background(this.telegram.notification(id, type, payload), `telegram for ${type}`);
+  }
+
   async notify(userId: string, type: NotificationType, payload: Prisma.InputJsonValue) {
     const n = await this.prisma.notification.create({ data: { userId, type, payload } });
     await this.events.emit(userId, { type: 'notification', data: n });
     this.email([userId], type, payload);
+    this.telegramCopy([userId], type, payload);
     return n;
   }
 
@@ -80,6 +88,7 @@ export class NotificationsService {
     const rows = await this.prisma.notification.createManyAndReturn({ data: unique.map((userId) => ({ userId, type, payload })) });
     await Promise.all(rows.map((n) => this.events.emit(n.userId, { type: 'notification', data: n })));
     this.email(unique, type, payload);
+    this.telegramCopy(unique, type, payload);
   }
 
   unreadCount(userId: string) {
@@ -140,5 +149,5 @@ class NotificationsController {
   }
 }
 
-@Module({ providers: [NotificationsService], controllers: [NotificationsController], exports: [NotificationsService] })
+@Module({ providers: [NotificationsService, TelegramNotifier], controllers: [NotificationsController], exports: [NotificationsService, TelegramNotifier] })
 export class NotificationsModule {}

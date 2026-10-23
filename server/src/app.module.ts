@@ -55,6 +55,7 @@ import { AdminBrandApplicationsController, BrandApplicationsController, BrandApp
 import { TgImportService } from './tg/tg-import.service.js';
 import { HandListingsService } from './listings/hand-listings.js';
 import { ShopImportService } from './shops/shop-import.service.js';
+import { TelegramBotService, TelegramController } from './telegram/telegram.js';
 
 /** A platform edge that sets X-Real-IP sits in front (see main.ts for the trusted hops). */
 const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL);
@@ -117,6 +118,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     MaintenanceController,
     BrandApplicationsController,
     AdminBrandApplicationsController,
+    TelegramController,
   ],
   providers: [
     AuthService,
@@ -151,6 +153,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     MaintenanceService,
     RatesService,
     LooksService,
+    TelegramBotService,
     // Order matters: the session is read first so the rate limit can key on the account.
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },

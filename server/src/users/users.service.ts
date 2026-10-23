@@ -11,6 +11,8 @@ import { BodyMeasurementsDto, SizesDto } from '../listings/fit.js';
 import { emailPrefsOf } from '../mail/mail.module.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { botEnabled } from '../telegram/bot-api.js';
+import { tgPrefsOf } from '../telegram/texts.js';
 
 @Injectable()
 export class UsersService {
@@ -38,6 +40,10 @@ export class UsersService {
           bundleDiscounts: true,
           emailPrefs: true,
           notifyEmail: true,
+          tgChatId: true,
+          tgUsername: true,
+          tgLinkedAt: true,
+          tgPrefs: true,
           role: true,
           onboardedAt: true,
           createdAt: true,
@@ -55,7 +61,7 @@ export class UsersService {
       this.chat.unreadCount(userId),
       this.prisma.listing.count({ where: { sellerId: userId, status: { not: 'DELETED' } } }),
     ]);
-    const { emailVerifiedAt, emailPrefs, avatar, brandVerifiedAt, ...profile } = user;
+    const { emailVerifiedAt, emailPrefs, avatar, brandVerifiedAt, tgChatId, tgUsername, tgLinkedAt, tgPrefs, ...profile } = user;
     return {
       ...profile,
       avatar: avatar ? photoUrls(avatar) : null,
@@ -71,6 +77,8 @@ export class UsersService {
       isSeller: listings > 0,
       /** Brand status: the sell form offers the seals («Бренд», «Новинка»…) only then. */
       isBrand: !!brandVerifiedAt,
+      /** Notifications in Telegram (settings · Telegram): whether the bot is configured and this account linked. */
+      telegram: { available: botEnabled(), linked: !!tgChatId, username: tgUsername, linkedAt: tgLinkedAt, prefs: tgPrefsOf(tgPrefs) },
     };
   }
 }

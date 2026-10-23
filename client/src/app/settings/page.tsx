@@ -2,6 +2,7 @@
 
 import { BrandSection } from "@/components/brand-application";
 import { NotifyEmailSection } from "@/components/notify-email";
+import { TelegramSection } from "@/components/telegram-settings";
 import { TitleWithKanji } from "@/components/sections";
 import clsx from "clsx";
 import Link from "next/link";
@@ -141,6 +142,7 @@ function Settings({ me }: { me: Me }) {
           ["sizes", "寸", "Мои размеры"],
           ...(me.isSeller ? ([["bundle", "組", "Скидка за комплект"]] as const) : []),
           ...(me.isSeller || me.isBrand ? ([["notify", "便", "Уведомления на почту"]] as const) : []),
+          ...(me.telegram?.available || me.telegram?.linked ? ([["telegram", "報", "Telegram"]] as const) : []),
           ["brand", "銘", "Статус бренда"],
           ["danger", "出", "Выход и удаление"],
         ]}
@@ -150,6 +152,7 @@ function Settings({ me }: { me: Me }) {
       <SizesSection me={me} />
       {me.isSeller && <BundleSection me={me} />}
       {(me.isSeller || me.isBrand) && <NotifyEmailSection me={me} Section={Section} />}
+      <TelegramSection me={me} Section={Section} />
       <BrandSection Section={Section} />
       {DARK_THEME_ENABLED && <ThemeSection />}
       {/* The only place to sign out (it is not in the account menu) and to delete the account. */}

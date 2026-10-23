@@ -11,6 +11,7 @@ import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { photoUrls, serializeVideo, videoPoster } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StatsService } from '../stats/stats.js';
+import { TelegramNotifier } from '../telegram/notifier.js';
 
 /** What a message needs for its preview line (thread list, reply quote, pinned bar). */
 const previewSelect = {
@@ -74,6 +75,7 @@ export class ChatService {
     private readonly events: EventsService,
     private readonly guard: ChatGuard,
     private readonly stats: StatsService,
+    private readonly telegram: TelegramNotifier,
   ) {}
 
   private quote(m: PreviewRow | null, viewerId: string) {
@@ -268,10 +270,12 @@ export class ChatService {
     const m = await this.prisma.message.findUniqueOrThrow({ where: { id }, include: messageInclude });
     const other = t.buyerId === userId ? t.sellerId : t.buyerId;
     const me = t.buyerId === userId ? t.buyer : t.seller;
+    const preview = previewText({ ...m, _count: { photos: m.photos.length, videos: m.videos.length } });
     await this.events.emit(other, {
       type: 'message',
-      data: { threadId: t.id, message: { ...this.message(m, other), preview: previewText({ ...m, _count: { photos: m.photos.length, videos: m.videos.length } }), from: me.username, title: t.listing.title } },
+      data: { threadId: t.id, message: { ...this.message(m, other), preview, from: me.username, title: t.listing.title } },
     });
+    background(this.telegram.chat(other, { threadId: t.id, from: me.username, title: t.listing.title, preview }), 'telegram for message');
     return { ...this.message(m, userId), notice };
   }
 
