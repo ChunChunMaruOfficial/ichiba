@@ -280,7 +280,7 @@ export class TgImportService implements OnApplicationBootstrap {
       // Old posts keep their date, so a first import doesn't flood «Новое» and followers aren't notified.
       if (publishedAt) await this.prisma.listing.update({ where: { id: draft.id }, data: { publishedAt, liftedAt: publishedAt } });
       // Hand-split items are different things even when their product shots hash alike (black hoodies on white).
-      await this.listings.publish(userId, draft.id, { trustedPhotos: handChecked });
+      await this.listings.publish(userId, draft.id, { trustedPhotos: handChecked, allowUnchecked: true });
     } catch (e) {
       await this.listings.remove(userId, draft.id).catch(() => undefined);
       throw e;

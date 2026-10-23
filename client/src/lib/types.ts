@@ -3,7 +3,8 @@ import type { PhotoUrls } from "./api";
 export type ListingStatus = "DRAFT" | "PUBLISHED" | "RESERVED" | "SOLD" | "HIDDEN" | "BLOCKED" | "DELETED";
 export type Condition = "NEW_WITH_TAGS" | "LIKE_NEW" | "GOOD" | "VISIBLE_WEAR";
 export type DeliveryMethod = "IN_PERSON" | "PICKUP" | "DELIVERY";
-export type SizeSystem = "ALPHA" | "SHOE_EU" | "JEANS_W" | "OTHER";
+/** OTHER only on imported items with an unknown size («Уточняйте»); sellers pick from the grids. */
+export type SizeSystem = "ALPHA" | "RU" | "SHOE_EU" | "JEANS_W" | "OTHER";
 /** "Для кого"; null (or a legacy UNISEX) means the item fits anyone. */
 export type Gender = "FEMALE" | "MALE";
 export type MeasurementKey = "shoulders" | "chest" | "waist" | "hips" | "length" | "sleeve" | "inseam" | "foot_length";
@@ -366,7 +367,7 @@ interface Category {
 export interface Meta {
   categories: Category[];
   genders: Array<{ value: Gender; label: string; menu: string }>;
-  sizes: { ALPHA: string[]; SHOE_EU: string[]; JEANS_W: string[] };
+  sizes: { ALPHA: string[]; RU: string[]; SHOE_EU: string[]; JEANS_W: string[] };
   conditions: Array<{ value: Condition; label: string; hint: string }>;
   colors: Array<{ value: string; label: string; hex: string }>;
   materials: string[];

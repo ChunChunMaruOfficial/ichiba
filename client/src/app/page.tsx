@@ -38,14 +38,15 @@ function HomeFeed() {
   const home = useSWR<HomeData>(sessionLoading ? null : "/home");
   const forYou = !!home.data?.forYouAvailable;
   // Default chip: «Для вас» for returning users, «Новое» for new ones (frame 06).
-  const chip = params.get("chip") ?? (forYou ? "for_you" : "new");
+  // Only a known chip goes into the feed request: anything else in the address falls back to the default.
+  const chip = CHIPS.find(([key]) => key === params.get("chip"))?.[0] ?? (forYou ? "for_you" : "new");
   const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) =>
     sessionLoading || !home.data ? null : `/feed?chip=${chip}&market=brands&offset=${offset}&limit=${FIRST_SCREEN}`,
   );
   const sentinel = useSentinel(feed.loadMore, !feed.done);
 
   const setChip = (c: string) => router.replace(c === (forYou ? "for_you" : "new") ? "/" : `/?chip=${c}`, { scroll: false });
-  const isDefaultChip = !params.get("chip");
+  const isDefaultChip = !CHIPS.some(([key]) => key === params.get("chip"));
   const smallCatalog = (home.data?.totalVisible ?? 0) < 8;
   const [first, rest] = [feed.items.slice(0, FIRST_SCREEN), feed.items.slice(FIRST_SCREEN)];
 

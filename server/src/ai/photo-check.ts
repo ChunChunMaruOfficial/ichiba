@@ -31,12 +31,15 @@ export interface PhotoCheckResult {
 }
 
 const bool = z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]).catch(false);
+const boolYes = z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]).catch(true);
 const MISSING_CODES = ['label', 'back', 'full_front', 'detail', 'on_body'] as const;
 const PhotoVote = z.object({
   photos: z.array(
     z.object({
       index: z.coerce.number().int().min(1),
       shows_item: bool,
+      is_real_photo: boolYes,
+      inappropriate: bool,
       item_fully_visible: bool,
       cluttered_background: bool,
       blurry: bool,
@@ -62,6 +65,8 @@ const MISSING_TEXT: Record<(typeof MISSING_CODES)[number], string> = {
 const SYSTEM = `Ты проверяешь фотографии объявления на маркетплейсе б/у одежды. Фото пронумерованы по порядку, начиная с 1; фото 1 сейчас обложка.
 Для каждого фото оцени:
 - shows_item — на фото видна вещь для продажи (одежда, обувь, сумка, аксессуар), а не посторонний предмет;
+- is_real_photo — это настоящая фотография реальной вещи, а не рисунок, арт, аниме/фурри-персонаж, 3D-рендер, скриншот или сгенерированная картинка;
+- inappropriate — нагота, сексуальный или фетиш-контент (в том числе нарисованный), насилие, оружие, наркотики; бельё или купальник в обычной позе — не нарушение;
 - item_fully_visible — вещь видна целиком, не обрезана;
 - cluttered_background — фон захламлён и отвлекает;
 - blurry — фото нерезкое; too_dark — слишком тёмное;
@@ -106,7 +111,8 @@ export class PhotoChecker {
       schema: PhotoVote,
       tier: 'fast',
       timeoutMs: 12_000,
-      maxTokens: 900,
+      maxTokens: 1000,
+      classifyUnsafe: true,
       subject: { type: 'user', id: userId },
     });
     // Keep only votes that describe the photos we sent.
@@ -131,7 +137,10 @@ export class PhotoChecker {
       const overexposed = !!q && q.brightness > 235 && q.contrast < 25;
       const blurry = (q && q.sharpness < 25 && q.contrast >= 20) || yes((p) => p.blurry);
       const issues: PhotoIssue[] = [];
-      if (answers.length && yes((p) => !p.shows_item)) issues.push({ code: 'no_item', severity: 'error', text: 'На фото не видно вещи' });
+      // The same lines as publication (moderation.ts): one model is enough for the warning about content.
+      if (answers.some((a) => a.value.inappropriate)) issues.push({ code: 'inappropriate', severity: 'error', text: 'Фото нарушает правила площадки — такое не опубликовать' });
+      else if (answers.length && yes((p) => !p.is_real_photo)) issues.push({ code: 'not_photo', severity: 'error', text: 'Нужно настоящее фото вещи, а не рисунок или скриншот' });
+      else if (answers.length && yes((p) => !p.shows_item)) issues.push({ code: 'no_item', severity: 'error', text: 'На фото не видно вещи' });
       if (blurry) issues.push({ code: 'blurry', severity: 'warn', text: 'Фото нерезкое — переснимите, держа телефон ровно' });
       if (dark) issues.push({ code: 'dark', severity: 'warn', text: 'Фото тёмное — снимите при дневном свете' });
       if (overexposed) issues.push({ code: 'overexposed', severity: 'warn', text: 'Фото пересвечено — уберите вспышку' });

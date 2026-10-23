@@ -35,7 +35,7 @@ export interface SearchInterpretation {
   source: 'rules' | 'ai';
 }
 
-const ALL_SIZES = [...SIZES.ALPHA, ...SIZES.SHOE_EU, ...SIZES.JEANS_W];
+const ALL_SIZES = [...new Set([...SIZES.ALPHA, ...SIZES.RU, ...SIZES.SHOE_EU, ...SIZES.JEANS_W])];
 const GENDERS = ['MALE', 'FEMALE'];
 
 const Vote_ = z.object({

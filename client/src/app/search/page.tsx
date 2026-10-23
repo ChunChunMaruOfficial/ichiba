@@ -145,6 +145,7 @@ function FilterPanel({ value, onChange, meta }: { value: Filters; onChange: (f: 
       <Group title="Размер">
         <div className="flex flex-col gap-3">
           {pills("size", meta.sizes.ALPHA.map((s) => [s, s] as const))}
+          {pills("size", meta.sizes.RU.map((s) => [s, s] as const))}
           {shoes && pills("size", meta.sizes.SHOE_EU.map((s) => [s, s] as const))}
           {(value.category.includes("jeans") || value.category.includes("trousers")) && pills("size", meta.sizes.JEANS_W.map((s) => [s, s] as const))}
         </div>

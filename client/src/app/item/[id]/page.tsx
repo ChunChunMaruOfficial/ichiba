@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function load(id: string) {
   if (!UUID.test(id)) return null;
-  return serverFetch<ListingResponse>(`/listings/${id}`);
+  return serverFetch<ListingResponse>(`/listings/${encodeURIComponent(id)}`);
 }
 
 const isDetail = (l: ListingResponse | null | undefined): l is ListingDetail => !!l && !("unavailable" in l);

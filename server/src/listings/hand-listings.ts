@@ -289,7 +289,7 @@ const BATCHES: Array<{ username: string; folder: string; account?: { bio: string
         input: {
           title: 'Светло-голубые джинсы, новые',
           category: 'jeans', subcategory: 'straight', sizeSystem: 'ALPHA', sizeValue: 'S', price: 25,
-          condition: 'NEW_WITH_TAGS', defectsPresent: false, brand: null, color: 'lightblue', gender: 'FEMALE', material: 'Деним',
+          condition: 'NEW_WITH_TAGS', hasTags: false, defectsPresent: false, brand: null, color: 'lightblue', gender: 'FEMALE', material: 'Деним',
           description: 'Новые светло-голубые джинсы, не носились. Размер S.',
         },
       },
@@ -588,7 +588,9 @@ export class HandListingsService implements OnApplicationBootstrap {
       }
       for (const item of batch.items) {
         const title = item.input.title!;
-        if (await this.prisma.listing.findFirst({ where: { sellerId: seller.id, title }, select: { id: true } })) continue;
+        // A draft that failed to publish (deleted right away, never shown) doesn't count: the item is tried again.
+        const listed = { sellerId: seller.id, title, NOT: { status: 'DELETED' as const, publishedAt: null } };
+        if (await this.prisma.listing.findFirst({ where: listed, select: { id: true } })) continue;
         try {
           const photos: { id: string; isDefect: boolean }[] = [];
           for (const name of item.photos) {
@@ -597,7 +599,7 @@ export class HandListingsService implements OnApplicationBootstrap {
           }
           const draft = await this.listings.create(seller.id, { ...item.input, photos, deliveryOptions: ['IN_PERSON', 'DELIVERY'], acceptsOffers: true, saleType: 'FIXED' });
           try {
-            await this.listings.publish(seller.id, draft.id, { trustedPhotos: true });
+            await this.listings.publish(seller.id, draft.id, { trustedPhotos: true, allowUnchecked: true });
           } catch (e) {
             await this.listings.remove(seller.id, draft.id).catch(() => undefined);
             throw e;

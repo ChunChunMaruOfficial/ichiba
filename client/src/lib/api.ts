@@ -14,7 +14,19 @@ export class ApiError extends Error {
 
 type Body = Record<string, unknown> | unknown[] | FormData | undefined;
 
+/**
+ * Paths are built from route params and query values: "/deals/../admin/db/User" (or "%2e%2e", which fetch
+ * treats the same) would reach another endpoint with the visitor's session. Such a path is never sent.
+ */
+export function assertApiPath(path: string) {
+  const pathname = path.split(/[?#]/, 1)[0];
+  if (!pathname.startsWith("/") || pathname.includes("\\") || pathname.split("/").some((s) => /^(\.|%2e){1,2}$/i.test(s))) {
+    throw new ApiError(400, "Некорректный адрес");
+  }
+}
+
 export async function api<T>(path: string, init: { method?: string; body?: Body; signal?: AbortSignal } = {}): Promise<T> {
+  assertApiPath(path);
   const isForm = init.body instanceof FormData;
   let res: Response;
   try {

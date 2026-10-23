@@ -3,7 +3,7 @@
 
 export type WardrobeSection = 'top' | 'bottom' | 'shoes' | 'accessories';
 export type ChipGroup = 'clothing' | 'shoes' | 'accessories' | 'bags';
-type SizeSystemKey = 'ALPHA' | 'SHOE_EU' | 'JEANS_W' | 'OTHER';
+type SizeSystemKey = 'ALPHA' | 'RU' | 'SHOE_EU' | 'JEANS_W' | 'OTHER';
 export type GenderKey = 'FEMALE' | 'MALE';
 
 export interface Category {
@@ -21,47 +21,47 @@ const sub = (pairs: string[][]) => pairs.map(([slug, label]) => ({ slug, label }
 
 export const CATEGORIES: Category[] = [
   {
-    slug: 'outerwear', label: 'Верхняя одежда', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
+    slug: 'outerwear', label: 'Верхняя одежда', section: 'top', group: 'clothing', sizeSystems: ['ALPHA', 'RU'],
     subcategories: sub([['jacket', 'Куртка'], ['leather-jacket', 'Кожаная куртка'], ['denim-jacket', 'Джинсовка'], ['bomber', 'Бомбер'], ['windbreaker', 'Ветровка'], ['parka', 'Парка'], ['coat', 'Пальто'], ['puffer', 'Пуховик'], ['trench', 'Тренч'], ['raincoat', 'Плащ'], ['fur', 'Шуба'], ['sheepskin', 'Дублёнка'], ['vest', 'Жилет']]),
   },
   {
-    slug: 'tshirts', label: 'Футболки', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
+    slug: 'tshirts', label: 'Футболки', section: 'top', group: 'clothing', sizeSystems: ['ALPHA', 'RU'],
     subcategories: sub([['tshirt', 'Футболка'], ['longsleeve', 'Лонгслив'], ['top', 'Топ'], ['tank', 'Майка'], ['polo', 'Поло']]),
   },
   {
-    slug: 'shirts', label: 'Рубашки', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
+    slug: 'shirts', label: 'Рубашки', section: 'top', group: 'clothing', sizeSystems: ['ALPHA', 'RU'],
     subcategories: sub([['shirt', 'Рубашка'], ['blouse', 'Блузка'], ['overshirt', 'Овершот'], ['tunic', 'Туника']]),
   },
   {
-    slug: 'knitwear', label: 'Свитера и худи', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
+    slug: 'knitwear', label: 'Свитера и худи', section: 'top', group: 'clothing', sizeSystems: ['ALPHA', 'RU'],
     subcategories: sub([['sweater', 'Свитер'], ['turtleneck', 'Водолазка'], ['hoodie', 'Худи'], ['zip-hoodie', 'Зип-худи'], ['sweatshirt', 'Свитшот'], ['cardigan', 'Кардиган']]),
   },
   {
-    slug: 'trousers', label: 'Брюки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA', 'JEANS_W'],
+    slug: 'trousers', label: 'Брюки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA', 'RU', 'JEANS_W'],
     subcategories: sub([['trousers', 'Брюки'], ['chinos', 'Чиносы'], ['cargo', 'Карго'], ['joggers', 'Джоггеры'], ['sweatpants', 'Спортивные штаны'], ['leggings', 'Леггинсы']]),
   },
   {
-    slug: 'jeans', label: 'Джинсы', section: 'bottom', group: 'clothing', sizeSystems: ['JEANS_W', 'ALPHA'],
+    slug: 'jeans', label: 'Джинсы', section: 'bottom', group: 'clothing', sizeSystems: ['JEANS_W', 'ALPHA', 'RU'],
     subcategories: sub([['straight', 'Прямые'], ['slim', 'Слим'], ['skinny', 'Скинни'], ['wide', 'Широкие'], ['mom', 'Мом'], ['baggy', 'Багги'], ['flare', 'Клёш']]),
   },
   {
-    slug: 'shorts', label: 'Шорты', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA', 'JEANS_W'],
+    slug: 'shorts', label: 'Шорты', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA', 'RU', 'JEANS_W'],
     subcategories: sub([['shorts', 'Шорты'], ['denim-shorts', 'Джинсовые шорты'], ['sport-shorts', 'Спортивные шорты'], ['bermuda', 'Бермуды']]),
   },
   {
-    slug: 'skirts', label: 'Юбки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE'],
+    slug: 'skirts', label: 'Юбки', section: 'bottom', group: 'clothing', sizeSystems: ['ALPHA', 'RU'], genders: ['FEMALE'],
     subcategories: sub([['mini', 'Мини'], ['midi', 'Миди'], ['maxi', 'Макси'], ['pleated', 'Плиссе'], ['pencil', 'Карандаш'], ['denim-skirt', 'Джинсовая юбка']]),
   },
   {
-    slug: 'dresses', label: 'Платья', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'], genders: ['FEMALE'],
+    slug: 'dresses', label: 'Платья', section: 'top', group: 'clothing', sizeSystems: ['ALPHA', 'RU'], genders: ['FEMALE'],
     subcategories: sub([['dress', 'Платье'], ['evening-dress', 'Вечернее платье'], ['shirt-dress', 'Платье-рубашка'], ['knit-dress', 'Трикотажное платье'], ['sundress', 'Сарафан'], ['jumpsuit', 'Комбинезон']]),
   },
   {
-    slug: 'suits', label: 'Костюмы', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
+    slug: 'suits', label: 'Костюмы', section: 'top', group: 'clothing', sizeSystems: ['ALPHA', 'RU'],
     subcategories: sub([['suit', 'Костюм'], ['pantsuit', 'Брючный костюм'], ['blazer', 'Пиджак'], ['tracksuit', 'Спортивный костюм']]),
   },
   {
-    slug: 'swimwear', label: 'Купальники и домашнее', section: 'top', group: 'clothing', sizeSystems: ['ALPHA'],
+    slug: 'swimwear', label: 'Купальники и домашнее', section: 'top', group: 'clothing', sizeSystems: ['ALPHA', 'RU'],
     subcategories: sub([['swimsuit', 'Купальник'], ['swim-trunks', 'Плавки'], ['pajamas', 'Пижама'], ['robe', 'Халат'], ['homewear', 'Домашний костюм']]),
   },
   {
@@ -86,11 +86,18 @@ export const categoriesInSection = (section: WardrobeSection) => CATEGORIES.filt
 /** Categories whose items must carry a size (clothing and shoes). */
 export const sizeRequired = (slug?: string | null) => (categoryBySlug(slug)?.sizeSystems.length ?? 0) > 0;
 
+/**
+ * The only sizes a seller can give: international letters, Russian numbers (42–64, even), EU shoes and jeans W.
+ * OTHER is not offered to sellers; it is kept for imported items whose size is unknown («Уточняйте»).
+ */
 export const SIZES = {
-  ALPHA: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+  ALPHA: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
+  RU: Array.from({ length: 12 }, (_, i) => String(42 + i * 2)),
   SHOE_EU: Array.from({ length: 12 }, (_, i) => String(35 + i)),
   JEANS_W: Array.from({ length: 13 }, (_, i) => `W${26 + i}`),
 };
+export type SellerSizeSystem = keyof typeof SIZES;
+export const SELLER_SIZE_SYSTEMS = ['ALPHA', 'RU', 'SHOE_EU', 'JEANS_W'] as const satisfies readonly SellerSizeSystem[];
 
 /** "Для кого": not chosen means the item fits anyone. */
 export const GENDERS: Array<{ value: GenderKey; label: string; menu: string }> = [

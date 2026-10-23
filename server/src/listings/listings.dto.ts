@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { CATEGORY_SLUGS, CITIES, COLOR_VALUES } from '../catalog/catalog.js';
+import type { SizeSystem } from '../generated/prisma/client.js';
+import { CATEGORIES, CATEGORY_SLUGS, categoryBySlug, CITIES, COLOR_VALUES, MATERIALS, SELLER_SIZE_SYSTEMS, SIZES, STYLE_TAGS } from '../catalog/catalog.js';
 
 const aiField = z.object({
   value: z.unknown(),
@@ -14,12 +15,18 @@ const measurement = z.number().positive().max(300).nullish();
 /** The seals a brand can put on an item: 銘柄 бренд, 新作 новинка, 人気 хит, 正規 оригинал. */
 export const LISTING_LABELS = ['brand', 'new', 'hit', 'original'] as const;
 
-export const ListingInput = z.object({
+const SUBCATEGORY_SLUGS = new Set(CATEGORIES.flatMap((c) => c.subcategories.map((x) => x.slug)));
+const ALL_SIZES = new Set(Object.values(SIZES).flat());
+const sizeError = 'Выберите размер из списка';
+
+export const ListingInput = z
+  .object({
   photos: z.array(z.object({ id: z.uuid(), isDefect: z.boolean().default(false) })).max(10).optional(),
   title: z.string().trim().max(80, 'До 80 символов').optional(),
   category: z.enum(CATEGORY_SLUGS as [string, ...string[]]).nullish(),
-  subcategory: z.string().max(40).nullish(),
-  sizeSystem: z.enum(['ALPHA', 'SHOE_EU', 'JEANS_W', 'OTHER']).nullish(),
+  subcategory: z.string().max(40).refine((v) => SUBCATEGORY_SLUGS.has(v), 'Выберите подкатегорию из списка').nullish(),
+  // Sizes come only from the grids (SIZES): free text here once let anything through as a «size».
+  sizeSystem: z.enum(SELLER_SIZE_SYSTEMS, { error: sizeError }).nullish(),
   sizeValue: z.string().trim().max(20).nullish(),
   condition: z.enum(['NEW_WITH_TAGS', 'LIKE_NEW', 'GOOD', 'VISIBLE_WEAR']).nullish(),
   /** «Новое»: the tags are still on (true) or not (false). Ignored for worn items. */
@@ -29,7 +36,7 @@ export const ListingInput = z.object({
   defectsDescription: z.string().trim().max(1000).nullish(),
   brand: z.string().trim().max(60).nullish(),
   color: z.enum(COLOR_VALUES as [string, ...string[]]).nullish(),
-  material: z.string().max(40).nullish(),
+  material: z.enum(MATERIALS as [string, ...string[]], { error: 'Выберите материал из списка' }).nullish(),
   measurements: z
     .object({ shoulders: measurement, chest: measurement, waist: measurement, hips: measurement, length: measurement, sleeve: measurement, inseam: measurement, foot_length: measurement })
     .nullish(),
@@ -55,11 +62,33 @@ export const ListingInput = z.object({
   /** «Несколько размеров»: every size in stock; the buyer picks one. */
   sizes: z.array(z.string().trim().min(1).max(20)).max(15).optional(),
   videoId: z.uuid().nullish(),
-  styleTags: z.array(z.string().max(30)).max(3).optional(),
+  styleTags: z.array(z.enum(STYLE_TAGS as [string, ...string[]])).max(3).optional(),
   aiAttributes: z.record(z.string(), aiField).nullish(),
   aiModelVersion: z.string().max(80).nullish(),
-});
-export type ListingInputT = z.infer<typeof ListingInput>;
+  })
+  .superRefine((v, ctx) => {
+    // A subcategory belongs to its category.
+    const category = categoryBySlug(v.category);
+    if (category && v.subcategory && !category.subcategories.some((x) => x.slug === v.subcategory)) {
+      ctx.addIssue({ code: 'custom', path: ['subcategory'], message: 'Выберите подкатегорию из списка' });
+    }
+    // Every size is a value of its grid; without a grid given (a partial edit) it must be in one of them.
+    const grid = v.sizeSystem ? new Set<string>(SIZES[v.sizeSystem]) : ALL_SIZES;
+    const given = [v.sizeValue, ...(v.sizes ?? []), ...(v.extraSizes ?? [])].filter((x): x is string => !!x);
+    if (given.some((x) => !grid.has(x))) ctx.addIssue({ code: 'custom', path: ['size'], message: sizeError });
+    else if (v.sizeSystem && category && !category.sizeSystems.includes(v.sizeSystem)) {
+      ctx.addIssue({ code: 'custom', path: ['size'], message: 'Эта размерная сетка не подходит к категории' });
+    }
+  });
+/**
+ * What the service accepts. Imports and seeds call it directly with values a seller can't send over HTTP:
+ * the OTHER size grid («Уточняйте»), a shop's own material or style wording.
+ */
+export type ListingInputT = Omit<z.infer<typeof ListingInput>, 'sizeSystem' | 'material' | 'styleTags'> & {
+  sizeSystem?: SizeSystem | null;
+  material?: string | null;
+  styleTags?: string[];
+};
 
 const csv = z
   .union([z.string(), z.array(z.string())])

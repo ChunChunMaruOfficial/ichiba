@@ -17,9 +17,13 @@ import { counterfeitSignal, findContacts, hasProfanity, isGibberish, mentionsIte
  * Layer 2 — ensemble vote on text + first photos: is the title a real wearable item, does it match the
  * category and photos, prohibited goods, inappropriate images, hidden contacts.
  *
- * Decisions: a model can reject only by strict majority of the providers that answered; a lone model is
- * never enough on its own — it sends the listing to manual review instead (published, but in the admin
- * queue). When no provider is reachable the listing is published as "unchecked" and re-checked by cron.
+ * Decisions on text: a model can reject only by strict majority of the providers that answered; a lone model
+ * is never enough on its own — it sends the listing to manual review instead (published, but in the admin queue).
+ *
+ * Photos are stricter, because a picture is on every feed the moment it goes live: every photo (and the video
+ * frame) is looked at, and one model seeing nudity or sexual content, a provider refusing the images for safety,
+ * a majority seeing a drawing/screenshot instead of a photo of a real item, or no answer at all, keeps the
+ * listing from going live. Only imports (`allowUnchecked`) still go out unchecked and are re-checked by cron.
  */
 
 type ModerationDecision = 'allow' | 'review' | 'reject';
@@ -33,6 +37,8 @@ export interface ModerationVerdict {
   providers: string[];
   hash: string;
   checked: boolean;
+  /** Rejected only because no model could look at the photos: worth trying again shortly. */
+  retry?: boolean;
 }
 
 export interface ModeratedListing {
@@ -48,12 +54,25 @@ export interface ModeratedListing {
 }
 
 const bool = z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]).catch(false);
+/** A missing answer to "is this a real photo" must not read as "no" and reject an honest listing. */
+const boolYes = z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]).catch(true);
+const photoNumbers = z.array(z.coerce.number().int().min(1)).catch([]);
+
+/** The photo half of a vote: asked together with the text for the first photos, alone for the rest. */
+const PhotoFields = {
+  photos_show_item: bool,
+  photos_real: boolYes,
+  photos_inappropriate: bool,
+  bad_photos: photoNumbers,
+};
+const PhotoVote = z.object({ ...PhotoFields, reason: z.string().catch('') });
+type PhotoVoteT = z.infer<typeof PhotoVote>;
+
 const ModerationVote = z.object({
   title_is_item: bool,
   title_matches_category: bool,
-  photos_show_item: bool,
+  ...PhotoFields,
   photos_match_title: bool,
-  photos_inappropriate: bool,
   prohibited_item: bool,
   counterfeit: bool,
   offensive_text: bool,
@@ -62,19 +81,38 @@ const ModerationVote = z.object({
   reason: z.string().catch(''),
 });
 type ModerationVoteT = z.infer<typeof ModerationVote>;
+interface ModerationVotes {
+  votes: Vote<ModerationVoteT>[];
+  blocked: string[];
+  /** One entry per batch of images: the first batch is the text check itself. */
+  photoBatches: Array<{ votes: Vote<PhotoVoteT>[]; blocked: string[] }>;
+}
+
+/** The photo rules, shared by the full check and the photo-only check of the remaining photos. */
+const PHOTO_RULES = `- photos_show_item — на КАЖДОМ фото видна одежда, обувь, сумка, головной убор, аксессуар или украшение, которые можно купить и носить. Люди без вещи в кадре, животные, еда, техника, пейзажи, мемы, текст, пустые кадры — false. Если фото нет — true.
+- photos_real — ВСЕ фото — настоящие фотографии реальной вещи (сделаны камерой). Рисунок, арт, аниме, мультяшный или фурри-персонаж, 3D-рендер, коллаж, скриншот, сгенерированная картинка — false, даже если на рисунке нарисована одежда. Если фото нет — true.
+- photos_inappropriate — хотя бы на одном фото: нагота (обнажённые грудь, ягодицы, гениталии), сексуальный или фетиш-контент (БДСМ, связывание, кляп, ошейник на теле в сексуальном контексте, телесные жидкости), в том числе нарисованный (хентай, фурри, аниме); любые сексуализированные изображения детей или персонажей, похожих на детей; насилие, кровь, оружие, наркотики, символика ненависти. Бельё, купальник или одежда на человеке в обычной позе для показа вещи — это нормально, не нарушение.
+- bad_photos — номера фото (с 1, по порядку приложения), которые нарушают любой из пунктов выше; пустой список, если всё в порядке.
+При сомнении в photos_inappropriate отвечай true: лучше лишний раз остановить объявление.`;
 
 const SYSTEM = `Ты модератор C2C-маркетплейса б/у одежды, обуви, сумок и аксессуаров. Проверь объявление (текст и фото) и ответь по каждому пункту.
 - title_is_item — название называет конкретную вещь, которую носят (одежда, обувь, сумка, аксессуар, украшение), и понятно, что продаётся. Только бренд или модель без типа вещи («Nike», «Zara 2023») — false. Животные, техника, телефоны, еда, мебель, услуги, бессмыслица, шутки, оскорбления — false. Бренд + модель известной обуви/одежды («Air Max 90», «Levi's 501») — true.
 - title_matches_category — название соответствует выбранной категории (кроссовки не в «Платьях»).
-- photos_show_item — на фото видна одежда, обувь, сумка, аксессуар или украшение (оценивай само фото, независимо от названия). Если фото нет — true.
+${PHOTO_RULES}
 - photos_match_title — фото соответствуют названию (на фото куртка, в названии куртка). Если фото нет — true.
-- photos_inappropriate — нагота, сексуальный контент, насилие, символика ненависти.
 - prohibited_item — запрещённый товар: оружие, наркотики, табак и вейпы, алкоголь, лекарства, документы, животные.
 - counterfeit — продавец сам указывает, что это копия/реплика бренда, или явный фейк известного бренда.
 - offensive_text — оскорбления, мат, угрозы, дискриминация в тексте.
 - contacts_in_text — в тексте есть телефон, мессенджер, ссылка, соцсеть, в том числе замаскированные («восемь ноль два девять…», «тг: ...»).
 - confidence — от 0 до 1; reason — коротко по-русски, что не так (или пустая строка).
 Обычные описания б/у вещей, следы носки и дефекты — это нормально.`;
+
+const PHOTO_SYSTEM = `Ты модератор фото на маркетплейсе одежды, обуви, сумок и аксессуаров. Проверь приложенные фото объявления и ответь по каждому пункту.
+${PHOTO_RULES}
+reason — коротко по-русски, что не так (или пустая строка).`;
+
+/** Images per model call: the first batch rides with the text check, the rest go photo-only, in parallel. */
+const PHOTO_BATCH = 5;
 
 const TEXT_FIELDS = ['title', 'description', 'brand', 'defectsDescription'] as const;
 
@@ -88,7 +126,9 @@ const MSG = {
   prohibited: 'Этот товар запрещено продавать на площадке',
   photosNoItem: 'На фото не видно вещи — добавьте фото того, что продаёте',
   photosMismatch: 'Фото не совпадают с названием',
-  photosInappropriate: 'Фото нарушают правила площадки',
+  photosInappropriate: 'Фото нарушают правила площадки: только реальные фото вещи, без откровенного и запрещённого контента',
+  photosNotReal: 'Нужны настоящие фото вещи: рисунки, арты, скриншоты и сгенерированные картинки не подходят',
+  photosUnchecked: 'Не получилось проверить фото — опубликуйте ещё раз через минуту',
   offensive: 'Текст нарушает правила площадки',
 };
 
@@ -106,7 +146,8 @@ export class ListingModerator {
     return hashKey(l.title, l.description, l.brand, l.defectsDescription, l.category, l.subcategory, photoKeys);
   }
 
-  async check(l: ModeratedListing, photoKeys: string[]): Promise<ModerationVerdict> {
+  /** `allowUnchecked`: an import may go live while no model answers (re-checked by cron); a seller's listing may not. */
+  async check(l: ModeratedListing, photoKeys: string[], opts: { allowUnchecked?: boolean } = {}): Promise<ModerationVerdict> {
     const hash = this.contentHash(l, photoKeys);
     const prev = l.moderation as { hash?: string; status?: string } | null | undefined;
     // Unchanged content that already passed (or is already in review) isn't checked again.
@@ -161,21 +202,17 @@ export class ListingModerator {
     }
 
     if (photoKeys.length) {
-      if (majority((x) => !x.photos_show_item)) {
-        if (n >= 2) reject('photos', MSG.photosNoItem, `На фото нет вещи (${of((x) => !x.photos_show_item)})`);
+      const photos = this.photoFindings(votes);
+      if (photos.reject) reject('photos', photos.reject.msg, photos.reject.reason);
+      else if (photos.unchecked) {
+        if (opts.allowUnchecked) reasons.push('Фото не проверены: ИИ недоступен');
         else {
-          review = true;
-          reasons.push('На фото может не быть вещи (1 модель)');
+          fields.photos ??= MSG.photosUnchecked;
+          return { decision: 'reject', fields, reasons: [...reasons, 'Фото не проверены: ИИ недоступен'], votes: n, providers: v.map((x) => x.provider), hash, checked: false, retry: true };
         }
       } else if (n >= 2 && majority((x) => !x.photos_match_title)) {
         review = true;
         reasons.push(`Фото не совпадают с названием (${of((x) => !x.photos_match_title)})`);
-      }
-      const inappropriate = count(v, (x) => x.photos_inappropriate) + votes.blocked.length;
-      if (n >= 2 && majority((x) => x.photos_inappropriate)) reject('photos', MSG.photosInappropriate, `Неприемлемые фото (${of((x) => x.photos_inappropriate)})`);
-      else if (inappropriate > 0) {
-        review = true;
-        reasons.push(votes.blocked.length ? `Провайдер отказался обрабатывать фото: ${votes.blocked.join(', ')}` : 'Фото могут быть неприемлемыми (1 модель)');
       }
     }
 
@@ -203,9 +240,40 @@ export class ListingModerator {
     return { decision, fields, reasons, votes: n, providers: v.map((x) => x.provider), hash, checked: n > 0 };
   }
 
-  private async askEnsemble(l: ModeratedListing, photoKeys: string[]): Promise<{ votes: Vote<ModerationVoteT>[]; blocked: string[] }> {
-    if (!this.ensemble.available) return { votes: [], blocked: [] };
-    const images = (await Promise.all(photoKeys.slice(0, 3).map((k) => this.media.imageForAi(k, 384).catch(() => null)))).filter((b): b is Buffer => !!b);
+  /**
+   * Photo verdict over every batch. One batch is enough to stop the listing; a batch no model answered (and no
+   * provider refused) leaves the photos unchecked.
+   */
+  private photoFindings(votes: ModerationVotes): { reject?: { msg: string; reason: string }; unchecked?: boolean } {
+    let unchecked = false;
+    for (const [i, batch] of votes.photoBatches.entries()) {
+      const answers = batch.votes.map((v) => v.value);
+      const n = answers.length;
+      const numbers = [...new Set(answers.flatMap((a) => a.bad_photos.map((p) => p + i * PHOTO_BATCH)))].sort((a, b) => a - b);
+      const which = numbers.length ? ` (фото ${numbers.join(', ')})` : '';
+      const votesFor = (pick: (x: PhotoVoteT) => boolean) => answers.filter(pick).length;
+      // A provider that refuses the images for safety reasons is itself the strongest signal there is.
+      if (batch.blocked.length) return { reject: { msg: MSG.photosInappropriate, reason: `Провайдер отказался обрабатывать фото${which}: ${batch.blocked.join(', ')}` } };
+      if (!n) {
+        unchecked = true;
+        continue;
+      }
+      const bad = votesFor((x) => x.photos_inappropriate);
+      if (bad > 0) return { reject: { msg: MSG.photosInappropriate, reason: `Неприемлемые фото${which} (${bad} из ${n})` } };
+      const drawn = votesFor((x) => !x.photos_real);
+      if (drawn > n / 2) return { reject: { msg: MSG.photosNotReal, reason: `Не фото реальной вещи${which} (${drawn} из ${n})` } };
+      const empty = votesFor((x) => !x.photos_show_item);
+      if (empty > n / 2) return { reject: { msg: MSG.photosNoItem, reason: `На фото нет вещи${which} (${empty} из ${n})` } };
+    }
+    return { unchecked };
+  }
+
+  private async askEnsemble(l: ModeratedListing, photoKeys: string[]): Promise<ModerationVotes> {
+    const none = { votes: [], blocked: [] };
+    if (!this.ensemble.available) return { ...none, photoBatches: photoKeys.length ? [none] : [] };
+    // Every photo and the video frame (at most 11): a bad picture fourth in line must not get through.
+    const images = (await Promise.all(photoKeys.map((k) => this.media.imageForAi(k, 448).catch(() => null)))).filter((b): b is Buffer => !!b);
+    const batches = Array.from({ length: Math.ceil(images.length / PHOTO_BATCH) }, (_, i) => images.slice(i * PHOTO_BATCH, (i + 1) * PHOTO_BATCH));
     const category = categoryBySlug(l.category);
     const text = [
       `Название: ${l.title}`,
@@ -213,23 +281,23 @@ export class ListingModerator {
       l.brand && `Бренд: ${l.brand}`,
       l.description && `Описание: ${l.description.slice(0, 1500)}`,
       l.defectsDescription && `Дефекты: ${l.defectsDescription.slice(0, 500)}`,
-      `Фото: ${images.length ? `${images.length} шт. (приложены)` : 'нет'}`,
+      `Фото: ${batches[0]?.length ? `${batches[0].length} шт. (приложены)` : 'нет'}`,
     ].filter(Boolean);
-    const { votes, blocked } = await this.ensemble.run({
-      feature: 'listing_moderation',
-      system: SYSTEM,
-      prompt: text.join('\n'),
-      images,
-      schema: ModerationVote,
-      tier: 'fast',
-      timeoutMs: 14_000,
-      graceMs: 3_500,
-      maxTokens: 400,
-      temperature: 0,
-      classifyUnsafe: true,
-      subject: { type: 'listing', id: l.id },
-    });
-    return { votes, blocked };
+    const common = { tier: 'fast' as const, timeoutMs: 16_000, graceMs: 4_000, temperature: 0, classifyUnsafe: true, subject: { type: 'listing', id: l.id } };
+    const [main, ...rest] = await Promise.all([
+      this.ensemble.run({ ...common, feature: 'listing_moderation', system: SYSTEM, prompt: text.join('\n'), images: batches[0] ?? [], schema: ModerationVote, maxTokens: 450 }),
+      ...batches.slice(1).map((batch, i) => {
+        const from = (i + 1) * PHOTO_BATCH + 1;
+        return this.ensemble.run({ ...common, feature: 'listing_photo_moderation', system: PHOTO_SYSTEM, prompt: `Фото ${from}–${from + batch.length - 1} объявления «${l.title}», приложено ${batch.length} шт.`, images: batch, schema: PhotoVote, maxTokens: 250 });
+      }),
+    ]);
+    // A photo that couldn't be read still has to be looked at: it counts as an unchecked batch.
+    const unread = images.length < photoKeys.length ? [none] : [];
+    return {
+      votes: main.votes,
+      blocked: main.blocked,
+      photoBatches: [...(images.length ? [{ votes: main.votes, blocked: main.blocked }, ...rest.map((r) => ({ votes: r.votes, blocked: r.blocked }))] : []), ...unread],
+    };
   }
 
   /** Stores the verdict on the listing and queues "review" verdicts for moderators. */
@@ -265,7 +333,7 @@ export class ListingModerator {
     });
     for (const l of rows) {
       try {
-        const verdict = await this.check({ ...l, moderation: null }, l.photos.map((p) => p.key));
+        const verdict = await this.check({ ...l, moderation: null }, l.photos.map((p) => p.key), { allowUnchecked: true });
         // After publication a rejection is not applied automatically: a moderator decides.
         await this.record(l, verdict.decision === 'reject' ? { ...verdict, decision: 'review' } : verdict);
       } catch (e) {

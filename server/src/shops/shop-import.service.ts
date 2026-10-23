@@ -163,7 +163,7 @@ export class ShopImportService implements OnApplicationBootstrap {
 
         if (live.status === 'DRAFT') {
           // A run cut short left the draft: finish it.
-          await this.listings.publish(userId, live.id, { trustedPhotos: true });
+          await this.listings.publish(userId, live.id, { trustedPhotos: true, allowUnchecked: true });
         }
         // Photos the shop was too slow to give last time: the listing gets the full set once it can be fetched.
         if (live.status !== 'RESERVED' && (await this.prisma.photo.count({ where: { listingId: live.id } })) < offer.photos.length) {

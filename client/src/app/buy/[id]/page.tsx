@@ -32,7 +32,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
   const requestId = params.get("request");
   /** «Несколько размеров»: the size picked on the item page. */
   const size = params.get("size");
-  const { data: agreed } = useSWR<Deal>(requestId ? `/requests/${requestId}` : null);
+  const { data: agreed } = useSWR<Deal>(requestId ? `/requests/${encodeURIComponent(requestId)}` : null);
   const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
   const [phone, setPhone] = useState(me.phone ?? "");

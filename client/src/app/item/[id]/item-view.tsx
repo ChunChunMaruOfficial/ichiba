@@ -255,6 +255,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         ) : (
           <b>{l.size}</b>
         )}
+        {/* «48» alone could be read as a shoe size: Russian clothing sizes say so. */}
+        {l.sizeSystem === "RU" && <span className="ml-1.5 text-sm text-muted">RU</span>}
         {l.fit && !l.isOwner && !sold && <FitNote fit={l.fit} />}
         {measurements.length > 0 && (
           <button className="ml-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => setShowMeasurements((v) => !v)} aria-expanded={showMeasurements}>

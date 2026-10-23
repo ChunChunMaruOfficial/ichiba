@@ -42,7 +42,7 @@ export default function SellPage() {
 function DraftLoader({ me }: { me: Me }) {
   const params = useSearchParams();
   const draftParam = params.get("draft");
-  const { data, error } = useSWR<ListingResponse>(draftParam ? `/listings/${draftParam}` : null, { revalidateOnFocus: false });
+  const { data, error } = useSWR<ListingResponse>(draftParam ? `/listings/${encodeURIComponent(draftParam)}` : null, { revalidateOnFocus: false });
   if (draftParam && !data && !error) return <div className="flex justify-center py-24 text-muted"><Spinner /></div>;
   const own = data && !("unavailable" in data) && data.isOwner ? data : null;
   const draft = own?.status === "DRAFT" ? own : null;

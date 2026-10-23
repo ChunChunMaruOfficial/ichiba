@@ -32,7 +32,8 @@ function ResaleFeed() {
   const router = useRouter();
   const params = useSearchParams();
   const { me, loading: sessionLoading } = useSession();
-  const chip = params.get("chip") ?? "new";
+  // Only a known chip goes into the feed request: anything else in the address falls back to «Новое».
+  const chip = CHIPS.find(([key]) => key === params.get("chip"))?.[0] ?? "new";
   const setChip = (c: string) => router.replace(c === "new" ? "/resale" : `/resale?chip=${c}`, { scroll: false });
   const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) =>
     sessionLoading ? null : `/feed?chip=${chip}&market=resale&offset=${offset}&limit=${PAGE}`,

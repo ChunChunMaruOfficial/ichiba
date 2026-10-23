@@ -15,7 +15,8 @@ import { Select } from "./select";
 /** Condition as the rank stamp of a Japanese second-hand shop: 新 new, 美 as new, 良 good, 並 ordinary wear. */
 const CONDITION_GRADE = { NEW_WITH_TAGS: "新", LIKE_NEW: "美", GOOD: "良", VISIBLE_WEAR: "並" } as const;
 
-const SIZE_SYSTEM_LABEL: Record<SizeSystem, string> = { ALPHA: "Одежда", SHOE_EU: "Обувь EU", JEANS_W: "Джинсы W", OTHER: "Другой" };
+type GridSystem = Exclude<SizeSystem, "OTHER">;
+const SIZE_SYSTEM_LABEL: Record<GridSystem, string> = { ALPHA: "Международный", RU: "Российский", SHOE_EU: "Обувь EU", JEANS_W: "Джинсы W" };
 
 export interface FieldsProps {
   values: ListingValues;
@@ -96,14 +97,12 @@ export function ItemFields(props: FieldsProps) {
 /** Size, condition and defects. */
 export function SizeConditionFields({ values, set, errors, meta, photos, setPhotos, locked }: FieldsProps) {
   const category = meta.categories.find((c) => c.slug === values.category);
-  const systems = category?.sizeSystems ?? [];
-  const activeSystem = values.sizeSystem && systems.includes(values.sizeSystem) ? values.sizeSystem : systems[0];
-  const sizeList = (s: Exclude<SizeSystem, "OTHER">) => meta.sizes[s];
-  const [otherSize, setOtherSize] = useState(values.sizeSystem === "OTHER");
+  const systems = (category?.sizeSystems ?? []).filter((s): s is GridSystem => s !== "OTHER");
+  const activeSystem = systems.find((s) => s === values.sizeSystem) ?? systems[0];
+  const sizeList = (s: GridSystem) => meta.sizes[s];
   // «Несколько размеров»: chips pick several sizes of one listing; the buyer chooses one when buying.
   const [multi, setMulti] = useState(values.sizes.length > 1);
-  const pick = (system: Exclude<SizeSystem, "OTHER">, s: string) => {
-    setOtherSize(false);
+  const pick = (system: GridSystem, s: string) => {
     if (!multi) return set({ sizeSystem: system, sizeValue: s, sizes: [] });
     const order = sizeList(system);
     const next = (values.sizes.includes(s) ? values.sizes.filter((x) => x !== s) : [...values.sizes, s]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
@@ -112,50 +111,40 @@ export function SizeConditionFields({ values, set, errors, meta, photos, setPhot
   const toggleMulti = () => {
     const on = !multi;
     setMulti(on);
-    setOtherSize(false);
     if (on) set({ sizes: values.sizeValue && values.sizeSystem !== "OTHER" ? [values.sizeValue] : [] });
     else set({ sizes: [], sizeValue: values.sizes[0] ?? values.sizeValue });
   };
 
   return (
     <>
-      {systems.length > 0 ? (
+      {systems.length > 0 && activeSystem ? (
+        // Only the grids: a size is picked, never typed (free text once let anything through as a «size»).
         <Field label="Размер" required error={errors.size} hint={lockedHint(locked)}>
           {systems.length > 1 && (
             <div className="flex gap-4 text-sm">
               {systems.map((s) => (
-                <button key={s} type="button" disabled={locked} onClick={() => (setOtherSize(false), set({ sizeSystem: s, sizeValue: null, sizes: [] }))} className={clsx(activeSystem === s && !otherSize ? "font-semibold underline underline-offset-4" : "text-ink-2")}>
+                <button key={s} type="button" disabled={locked} onClick={() => set({ sizeSystem: s, sizeValue: null, sizes: [] })} className={clsx(activeSystem === s ? "font-semibold underline underline-offset-4" : "text-ink-2")}>
                   {SIZE_SYSTEM_LABEL[s]}
                 </button>
               ))}
             </div>
           )}
           <div className="flex flex-wrap gap-2">
-            {activeSystem &&
-              activeSystem !== "OTHER" &&
-              sizeList(activeSystem).map((s) => (
-                <Chip key={s} disabled={locked} active={!otherSize && (multi ? values.sizes.includes(s) : values.sizeValue === s)} onClick={() => pick(activeSystem, s)} className="min-w-12 justify-center">
-                  {s}
-                </Chip>
-              ))}
-            {!multi && (
-              <Chip disabled={locked} active={otherSize} onClick={() => (setOtherSize(true), set({ sizeSystem: "OTHER", sizeValue: null, sizes: [] }))}>
-                Другой
+            {sizeList(activeSystem).map((s) => (
+              <Chip key={s} disabled={locked} active={values.sizeSystem === activeSystem && (multi ? values.sizes.includes(s) : values.sizeValue === s)} onClick={() => pick(activeSystem, s)} className="min-w-12 justify-center">
+                {s}
               </Chip>
-            )}
+            ))}
           </div>
-          {activeSystem && activeSystem !== "OTHER" && (
-            <label className={clsx("mt-1 flex items-center gap-2.5 text-sm", locked && "opacity-60")}>
-              <input type="checkbox" className="size-4 accent-[var(--accent)]" disabled={locked} checked={multi} onChange={toggleMulti} />
-              <span>
-                Несколько размеров
-                <span className="block text-xs text-muted">
-                  {multi ? (values.sizes.length > 1 ? `В наличии: ${values.sizes.join(" · ")} — покупатель выберет свой. Размер закончился — снимите его здесь` : "Отметьте все размеры, что есть в наличии") : "Одна модель в разных размерах — одним объявлением"}
-                </span>
+          <label className={clsx("mt-1 flex items-center gap-2.5 text-sm", locked && "opacity-60")}>
+            <input type="checkbox" className="size-4 accent-[var(--accent)]" disabled={locked} checked={multi} onChange={toggleMulti} />
+            <span>
+              Несколько размеров
+              <span className="block text-xs text-muted">
+                {multi ? (values.sizes.length > 1 ? `В наличии: ${values.sizes.join(" · ")} — покупатель выберет свой. Размер закончился — снимите его здесь` : "Отметьте все размеры, что есть в наличии") : "Одна модель в разных размерах — одним объявлением"}
               </span>
-            </label>
-          )}
-          {otherSize && <Input aria-label="Свой размер" placeholder="Например, 44 RU или One size" disabled={locked} value={values.sizeValue ?? ""} onChange={(e) => set({ sizeSystem: "OTHER", sizeValue: e.target.value || null })} className="max-w-xs" />}
+            </span>
+          </label>
         </Field>
       ) : (
         <p className="text-sm text-muted">Сначала выберите категорию — появятся размеры</p>

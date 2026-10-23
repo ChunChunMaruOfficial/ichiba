@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { checkEnv } from './config/env.js';
@@ -20,6 +21,12 @@ async function bootstrap() {
   if (trustProxy) app.set('trust proxy', trustProxy === 'true' ? true : Number(trustProxy) || trustProxy);
   // Security headers; photos are loaded by the site from another origin, hence cross-origin resource policy.
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, hsts: production }));
+  // Answers carry the visitor's own data (profile, deals, chats): no browser or proxy keeps them.
+  // Photos under /media/ are left to the static handler, which only sets its year-long cache on a bare response.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (!req.path.startsWith('/media/')) res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(cookieParser());
   const origins = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',').map((o) => o.trim());
   app.enableCors({ origin: origins, credentials: true });

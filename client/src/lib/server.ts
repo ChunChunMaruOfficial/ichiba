@@ -1,4 +1,5 @@
 import "server-only";
+import { assertApiPath } from "./api";
 
 /** Base URL of the public site (canonical links, sitemap, Open Graph). */
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -11,6 +12,11 @@ const API_URL = (process.env.API_URL ?? "http://localhost:4000").replace(/\/$/, 
  * (the page then renders the client shell, which retries and shows its own error state).
  */
 export async function serverFetch<T>(path: string, revalidate = 60): Promise<T | null | undefined> {
+  try {
+    assertApiPath(path);
+  } catch {
+    return null;
+  }
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, { headers: { "x-ichiba-render": "ssr" }, next: { revalidate } });

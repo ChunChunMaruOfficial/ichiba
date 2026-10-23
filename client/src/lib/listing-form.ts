@@ -195,7 +195,12 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
   if (step === "describe" || step === "all") {
     if (!photos.some((p) => p.status === "done")) e.photos = "Добавьте хотя бы одно фото";
     if (!values.category) e.category = "Выберите категорию";
-    if (sizeRequired(meta, values.category) && !values.sizeValue) e.size = "Укажите размер";
+    if (sizeRequired(meta, values.category)) {
+      // A size from before the grids (typed by hand, or «Уточняйте» of an import) has to be picked again.
+      const grid = values.sizeSystem && values.sizeSystem !== "OTHER" ? meta?.sizes[values.sizeSystem] : undefined;
+      if (!values.sizeValue) e.size = "Укажите размер";
+      else if (meta && !grid?.includes(values.sizeValue)) e.size = "Выберите размер из списка";
+    }
     if (!values.condition) e.condition = "Выберите состояние";
     else if (values.condition === "NEW_WITH_TAGS" && values.hasTags == null) e.hasTags = "Укажите, есть ли бирка";
     if (values.defectsPresent == null) e.defects = "Укажите, есть ли дефекты";

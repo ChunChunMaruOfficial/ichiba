@@ -113,7 +113,7 @@ export class ListingsService {
     const prospective = { ...listing, ...Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) } as typeof listing;
     if (live && (MODERATED_FIELDS.some((f) => f in data && data[f] !== listing[f]) || input.photos || input.videoId)) {
       verdict = await this.moderator.check(prospective, await this.moderationKeys(userId, id, input.photos, input.videoId));
-      if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Изменения не прошли проверку', code: 'MODERATION', fields: verdict.fields });
+      if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Изменения не прошли проверку', code: 'MODERATION', fields: verdict.fields, retry: !!verdict.retry });
     }
 
     // A new condition or tags can change the section (a worn item leaves the catalogue), unless an admin placed the item.
@@ -247,14 +247,15 @@ export class ListingsService {
   /**
    * `trustedPhotos`: the photos were checked by hand as different items (a shop import), so the photo half of the
    * duplicate check is skipped; the text check and moderation still apply.
+   * `allowUnchecked`: an import may go live while no model can look at the photos (cron checks them later).
    */
-  async publish(userId: string, id: string, opts: { trustedPhotos?: boolean } = {}) {
+  async publish(userId: string, id: string, opts: { trustedPhotos?: boolean; allowUnchecked?: boolean } = {}) {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'PUBLISHED') return this.getForOwner(userId, id);
     if (!['DRAFT', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя опубликовать' });
     if (listing.hiddenByAdmin) throw new ConflictException({ message: 'Объявления этого аккаунта скрыты администрацией' });
 
-    const verdict = await this.checkPublishable(userId, listing, opts.trustedPhotos);
+    const verdict = await this.checkPublishable(userId, listing, opts.trustedPhotos, opts.allowUnchecked);
     // An account whose listings an admin hid: new items (the shop import too) are saved hidden as well.
     const seller = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { listingsHiddenAt: true, brandVerifiedAt: true, catalogApprovedAt: true } });
     const hidden = !!seller.listingsHiddenAt;
@@ -297,7 +298,7 @@ export class ListingsService {
   }
 
   /** Required fields, then automatic moderation (rules + AI ensemble); violations come back as field errors. */
-  private async checkPublishable(userId: string, listing: Listing, trustedPhotos = false) {
+  private async checkPublishable(userId: string, listing: Listing, trustedPhotos = false, allowUnchecked = false) {
     const keys = await this.moderationKeys(userId, listing.id);
     const photoCount = await this.prisma.photo.count({ where: { listingId: listing.id } });
     const fields = this.publishErrors(listing, photoCount);
@@ -311,8 +312,8 @@ export class ListingsService {
         fields: { [duplicate.by === 'photo' ? 'photos' : 'title']: `Похоже на вашу вещь «${duplicate.title}». Поднимите или отредактируйте её вместо нового объявления` },
       });
     }
-    const verdict = await this.moderator.check(listing, keys);
-    if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields });
+    const verdict = await this.moderator.check(listing, keys, { allowUnchecked });
+    if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields, retry: !!verdict.retry });
     return verdict;
   }
 
@@ -380,6 +381,8 @@ export class ListingsService {
         await this.publish(l.sellerId, l.id);
         await this.notifications.notify(l.sellerId, 'listing_scheduled_published', { listingId: l.id, title: l.title });
       } catch (e) {
+        // No model could look at the photos this minute: the listing stays scheduled and is tried again.
+        if (e instanceof BadRequestException && (e.getResponse() as { retry?: boolean }).retry) continue;
         // Something changed since scheduling (moderation rules, a deleted photo): back to a plain draft.
         await this.prisma.listing.update({ where: { id: l.id }, data: { scheduledAt: null } });
         const reason = e instanceof BadRequestException || e instanceof ConflictException ? ((e.getResponse() as { message?: string }).message ?? null) : null;
