@@ -10,8 +10,9 @@ import { ListingsService } from './listings.service.js';
 /**
  * Items the owner hands over to list for a seller (photos in seed-data/<folder>, rotated and sized by hand): listed
  * once after a deploy, never twice — an item whose title the seller has ever had (even deleted) is skipped.
- * A batch with `account` makes the seller's account first if there is none (no address, no password: the owner sets
- * one in the admin with «Задать новый пароль» and the seller signs in with nick and password).
+ * A batch with `account` makes the seller's account first if there is none. It has no address: the seller signs in
+ * with nick and password, the password's bcrypt hash coming from HAND_PASSWORD_HASHES='{"nick":"$2b$10$…"}' (kept out
+ * of the public repository, like TG_PASSWORD_HASHES) and set only while the account has none.
  */
 interface HandItem {
   photos: string[];
@@ -548,6 +549,15 @@ const BATCHES: Array<{ username: string; folder: string; account?: { bio: string
   },
 ];
 
+function passwordHash(nick: string): string | null {
+  try {
+    const hash = (JSON.parse(process.env.HAND_PASSWORD_HASHES ?? '{}') as Record<string, unknown>)[nick];
+    return typeof hash === 'string' && hash.startsWith('$2') ? hash : null;
+  } catch {
+    return null;
+  }
+}
+
 const fileOf = (buffer: Buffer, name: string) => ({ buffer, mimetype: 'image/jpeg', originalname: name, size: buffer.length }) as Express.Multer.File;
 
 @Injectable()
@@ -568,7 +578,7 @@ export class HandListingsService implements OnApplicationBootstrap {
   async run() {
     for (const batch of BATCHES) {
       const seller =
-        (await this.prisma.user.findUnique({ where: { username: batch.username }, select: { id: true } })) ??
+        (await this.prisma.user.findUnique({ where: { username: batch.username }, select: { id: true, passwordHash: true } })) ??
         (batch.account
           ? await this.prisma.user.create({
               data: {
@@ -579,12 +589,17 @@ export class HandListingsService implements OnApplicationBootstrap {
                 privacyVersion: PRIVACY_VERSION,
                 onboardedAt: new Date(),
               },
-              select: { id: true },
+              select: { id: true, passwordHash: true },
             })
           : null);
       if (!seller) {
         this.logger.warn(`@${batch.username}: no such account`);
         continue;
+      }
+      const hash = batch.account && !seller.passwordHash ? passwordHash(batch.username) : null;
+      if (hash) {
+        await this.prisma.user.update({ where: { id: seller.id }, data: { passwordHash: hash } });
+        this.logger.log(`@${batch.username}: password set`);
       }
       for (const item of batch.items) {
         const title = item.input.title!;
