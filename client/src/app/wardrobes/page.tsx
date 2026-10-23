@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { FeedShell } from "@/components/feed-shell";
 import WardrobesClient from "./wardrobes-client";
 
 export const metadata: Metadata = {
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function WardrobesPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<FeedShell />}>
       <WardrobesClient />
     </Suspense>
   );

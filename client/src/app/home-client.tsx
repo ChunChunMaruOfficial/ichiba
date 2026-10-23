@@ -35,13 +35,14 @@ function HomeFeed() {
   const router = useRouter();
   const params = useSearchParams();
   const { me, loading: sessionLoading } = useSession();
-  const home = useSWR<HomeData>(sessionLoading ? null : "/home");
+  // The cookie goes with the request, so /home needn't wait for /auth/me: one round trip less before the first photo.
+  const home = useSWR<HomeData>("/home");
   const forYou = !!home.data?.forYouAvailable;
   // Default chip: «Для вас» for returning users, «Новое» for new ones (frame 06).
   // Only a known chip goes into the feed request: anything else in the address falls back to the default.
   const chip = CHIPS.find(([key]) => key === params.get("chip"))?.[0] ?? (forYou ? "for_you" : "new");
   const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) =>
-    sessionLoading || !home.data ? null : `/feed?chip=${chip}&market=brands&offset=${offset}&limit=${FIRST_SCREEN}`,
+    !home.data ? null : `/feed?chip=${chip}&market=brands&offset=${offset}&limit=${FIRST_SCREEN}`,
   );
   const sentinel = useSentinel(feed.loadMore, !feed.done);
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { FeedShell } from "@/components/feed-shell";
 import ResaleClient from "./resale-client";
 
 export const metadata: Metadata = {
@@ -12,7 +13,7 @@ export default function ResalePage() {
   return (
     <>
       <h1 className="sr-only">Вторичка — вещи с историей</h1>
-      <Suspense>
+      <Suspense fallback={<FeedShell />}>
         <ResaleClient />
       </Suspense>
     </>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { FeedShell } from "@/components/feed-shell";
 import SearchClient from "./search-client";
 
 // Result pages for arbitrary queries are thin and endless: crawlers follow the items, but don't index the lists.
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function SearchPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<FeedShell wide={false} />}>
       <SearchClient />
     </Suspense>
   );

@@ -36,7 +36,7 @@ function ResaleFeed() {
   const chip = CHIPS.find(([key]) => key === params.get("chip"))?.[0] ?? "new";
   const setChip = (c: string) => router.replace(c === "new" ? "/resale" : `/resale?chip=${c}`, { scroll: false });
   const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) =>
-    sessionLoading ? null : `/feed?chip=${chip}&market=resale&offset=${offset}&limit=${PAGE}`,
+    `/feed?chip=${chip}&market=resale&offset=${offset}&limit=${PAGE}`,
   );
   const sentinel = useSentinel(feed.loadMore, !feed.done);
   // A few more than the row shows: wardrobes with one or two items (a half-empty collage) stay out of it.
