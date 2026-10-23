@@ -55,6 +55,9 @@ import { TgImportService } from './tg/tg-import.service.js';
 import { HandListingsService } from './listings/hand-listings.js';
 import { ShopImportService } from './shops/shop-import.service.js';
 
+/** A platform edge that sets X-Real-IP sits in front (see main.ts for the trusted hops). */
+const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL);
+
 /** Single monolith (frame 28: no microservices); modules are grouped by controller/service pairs. */
 @Module({
   imports: [
@@ -70,7 +73,13 @@ import { ShopImportService } from './shops/shop-import.service.js';
       useFactory: (redis: RedisService) => ({
         throttlers: [{ ttl: 60_000, limit: 300 }],
         // Signed-in visitors are counted per account, guests per address (the guard runs after AuthGuard, see providers).
-        getTracker: (req: Record<string, unknown>) => (req.user as { id?: string } | undefined)?.id ?? (req.ip as string | undefined) ?? 'unknown',
+        // Behind a trusted edge the address is its X-Real-IP (Railway's edge overwrites a client's copy; measured),
+        // which also survives the Next.js rewrite; elsewhere req.ip as Express resolves it with `trust proxy`.
+        getTracker: (req: Record<string, unknown>) => {
+          const user = req.user as { id?: string } | undefined;
+          const realIp = BEHIND_EDGE ? ((req.headers as Record<string, string | undefined>)['x-real-ip'] ?? '').split(',')[0].trim() : '';
+          return user?.id ?? (realIp || (req.ip as string | undefined) || 'unknown');
+        },
         // Shared counters across instances when Redis is configured; in-memory otherwise.
         storage: redis.client ? new RedisThrottlerStorage(redis.client) : undefined,
       }),

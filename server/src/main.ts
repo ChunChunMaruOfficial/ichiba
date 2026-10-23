@@ -27,11 +27,11 @@ async function bootstrap() {
   });
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Behind a proxy (nginx, Railway/Vercel edge, the Next.js rewrite): take the client IP from X-Forwarded-For,
-  // otherwise rate limits see one IP for everyone. Only the nearest hop is trusted (TRUST_PROXY to override):
-  // Railway's edge appends the real client address last, and the Next.js rewrite passes the header on without adding
-  // its own hop, so the rightmost entry is the visitor and anything a client wrote into the header before it is
-  // ignored. `true` (every hop) would let a request name its own address and walk past every rate limit.
-  const trustProxy = process.env.TRUST_PROXY || (process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL ? '1' : '');
+  // otherwise rate limits see one IP for everyone. Measured on Railway: the edge rewrites the header to
+  // "<visitor>, <edge node>" (whatever the client sent is dropped) and the Next.js rewrite passes it on without
+  // adding a hop, so two trusted hops put req.ip on the visitor on both paths; TRUST_PROXY overrides for other hosts.
+  // `true` (every hop) would let a request name its own address and walk past every rate limit on a plain proxy.
+  const trustProxy = process.env.TRUST_PROXY || (process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL ? '2' : '');
   if (trustProxy) app.set('trust proxy', trustProxy === 'true' ? true : Number(trustProxy) || trustProxy);
   // Security headers; photos are loaded by the site from another origin, hence cross-origin resource policy.
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, hsts: production }));
