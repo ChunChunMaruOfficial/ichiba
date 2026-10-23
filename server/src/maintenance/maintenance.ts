@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { Controller, Get, Headers, Injectable, Logger, NestMiddleware, Res, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Headers, Injectable, Logger, NestMiddleware, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { NextFunction, Request, Response } from 'express';
 import { ListingModerator } from '../ai/moderation.js';
@@ -140,7 +140,12 @@ export class MaintenanceController {
    * that can't reach Postgres must not go live); Redis is optional, so its absence only shows in the body.
    */
   @Get('health')
-  async health(@Res({ passthrough: true }) res: Response) {
+  async health(@Res({ passthrough: true }) res: Response, @Req() req?: Request) {
+    // Temporary probe (removed after the proxy headers are confirmed): what the platform's edge sends, in the log only.
+    if (req?.query?.ipprobe) {
+      const h = req.headers;
+      Logger.log(`ipprobe ip=${req.ip} ips=${JSON.stringify(req.ips)} xff=${h['x-forwarded-for']} xri=${h['x-real-ip']} xfh=${h['x-forwarded-host']} remote=${req.socket?.remoteAddress}`, 'Probe');
+    }
     const within = <T>(work: Promise<T>, ms: number) => Promise.race([work, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms).unref())]);
     const db = await within(this.prisma.$queryRaw`SELECT 1`, 3_000).then(() => true).catch(() => false);
     const redis = await within(this.redis.ping(), 2_000).catch(() => false);

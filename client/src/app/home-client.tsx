@@ -75,7 +75,6 @@ function HomeFeed() {
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
-      <h1 className="sr-only">ichiba — вещи из открытых гардеробов</h1>
       {/* Discovery bar */}
       <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         {/* One row that scrolls as a whole on phones: the mode switch travels with the chips. */}

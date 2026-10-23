@@ -89,7 +89,6 @@ function ResaleFeed() {
   if (swipeMode) {
     return (
       <div className="mx-auto max-w-[1440px] px-4 md:px-6">
-        <h1 className="sr-only">Вторичка — вещи с историей</h1>
         <div className="flex pt-4">{modeSwitch}</div>
         <div className="py-6">
           <SwipeDeck context="swipe_mode" market="resale" limit={30} onEmpty={onSwipeEmpty} />
@@ -104,7 +103,6 @@ function ResaleFeed() {
   const sections = chip === "new" && feed.items.length > 0;
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
-      <h1 className="sr-only">Вторичка — вещи с историей</h1>
       <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         <DragRow viewportClassName="-mx-4 -my-2 md:-mx-6" className="items-center gap-3 px-4 py-2 md:px-6">
           {modeSwitch}

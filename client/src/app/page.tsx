@@ -9,8 +9,12 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <Suspense>
-      <HomeClient />
-    </Suspense>
+    <>
+      {/* The feed bails out of server rendering (search params), so the page's heading is written here, in the HTML. */}
+      <h1 className="sr-only">ichiba — вещи из открытых гардеробов</h1>
+      <Suspense>
+        <HomeClient />
+      </Suspense>
+    </>
   );
 }

@@ -10,8 +10,11 @@ export const metadata: Metadata = {
 
 export default function ResalePage() {
   return (
-    <Suspense>
-      <ResaleClient />
-    </Suspense>
+    <>
+      <h1 className="sr-only">Вторичка — вещи с историей</h1>
+      <Suspense>
+        <ResaleClient />
+      </Suspense>
+    </>
   );
 }
