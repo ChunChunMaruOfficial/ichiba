@@ -9,6 +9,7 @@ import { RedisService } from '../redis/redis.js';
 import { ADOPT_SELECT, importerMayAdopt } from '../tg/adopt.js';
 import type { ListingInputT } from './listings.dto.js';
 import { ListingsService } from './listings.service.js';
+import { reclassifySeller } from './market.js';
 
 /**
  * Items the owner hands over to list for a seller (photos in seed-data/<folder>, rotated and sized by hand): listed
@@ -16,13 +17,15 @@ import { ListingsService } from './listings.service.js';
  * A batch with `account` makes the seller's account first if there is none. It has no address: the seller signs in
  * with nick and password, the password's bcrypt hash coming from HAND_PASSWORD_HASHES='{"nick":"$2b$10$…"}' (kept out
  * of the public repository, like TG_PASSWORD_HASHES) and set only while the account has none.
+ * `account.brandName` makes it a verified brand (its new items go to the catalogue) and `account.logo`, a square image
+ * in the batch's folder, becomes its profile photo while it has none.
  */
 interface HandItem {
   photos: string[];
   input: Omit<ListingInputT, 'photos'>;
 }
 
-const BATCHES: Array<{ username: string; folder: string; account?: { bio: string }; items: HandItem[] }> = [
+const BATCHES: Array<{ username: string; folder: string; account?: { bio: string; brandName?: string; logo?: string }; items: HandItem[] }> = [
   {
     // 2026-10-15, «Вторичка», sizes and prices exactly as the owner gave them.
     username: 'bodrowa2007',
@@ -550,6 +553,35 @@ const BATCHES: Array<{ username: string; folder: string; account?: { bio: string
       },
     ],
   },
+  {
+    // 2026-10-24, a brand (vandal.era, streetwear from Grodno, t.me/vandal_era): new items in two sizes each, logo from
+    // the channel. The nick follows the channel: a dot isn't allowed in nicks.
+    username: 'vandal_era',
+    folder: 'vandal_era',
+    account: { bio: 'vandal.era — streetwear-бренд из Гродно.', brandName: 'vandal.era', logo: 'logo.jpg' },
+    items: [
+      {
+        photos: ['1-1.jpg'],
+        input: {
+          title: 'Шорты vandal.era «Camo blade»',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'ALPHA', sizeValue: 'M', sizes: ['M', 'L'], price: 87,
+          condition: 'NEW_WITH_TAGS', hasTags: true, defectsPresent: false, brand: 'vandal.era', color: 'gray', gender: null,
+          material: 'Хлопок', styleTags: ['Streetwear'], labels: ['new'],
+          description: 'Серые трикотажные шорты vandal.era «Camo blade»: камуфляжные вставки-лезвия спереди и сзади, пояс на резинке со шнурком, необработанный низ. Размеры M и L.',
+        },
+      },
+      {
+        photos: ['2-1.jpg'],
+        input: {
+          title: 'Джинсы vandal.era «School pants»',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'ALPHA', sizeValue: 'M', sizes: ['M', 'L'], price: 86,
+          condition: 'NEW_WITH_TAGS', hasTags: true, defectsPresent: false, brand: 'vandal.era', color: 'black', gender: null,
+          material: 'Деним', styleTags: ['Streetwear'], labels: ['new'],
+          description: 'Чёрные широкие джинсы vandal.era «School pants» с вышивкой у кармана. Размеры M и L.',
+        },
+      },
+    ],
+  },
 ];
 
 function passwordHash(nick: string): string | null {
@@ -582,7 +614,10 @@ export class HandListingsService implements OnApplicationBootstrap {
 
   async run() {
     for (const batch of BATCHES) {
-      const existing = await this.prisma.user.findUnique({ where: { username: batch.username }, select: { id: true, passwordHash: true, ...ADOPT_SELECT } });
+      const existing = await this.prisma.user.findUnique({
+        where: { username: batch.username },
+        select: { id: true, passwordHash: true, brandVerifiedAt: true, catalogApprovedAt: true, avatarId: true, ...ADOPT_SELECT },
+      });
       // A batch that owns its account (`account`) lists under it and sets its password: only an account this import
       // made qualifies, never a person who happens to hold the nick. A batch without `account` lists for an existing
       // seller who handed the items over, and never touches the password.
@@ -598,11 +633,12 @@ export class HandListingsService implements OnApplicationBootstrap {
                 username: batch.username,
                 bio: batch.account.bio,
                 city: 'Минск',
+                ...(batch.account.brandName ? { brandName: batch.account.brandName, brandVerifiedAt: new Date() } : {}),
                 privacyAcceptedAt: new Date(),
                 privacyVersion: PRIVACY_VERSION,
                 onboardedAt: new Date(),
               },
-              select: { id: true, passwordHash: true },
+              select: { id: true, passwordHash: true, brandVerifiedAt: true, catalogApprovedAt: true, avatarId: true },
             })
           : null);
       if (!seller) {
@@ -613,6 +649,20 @@ export class HandListingsService implements OnApplicationBootstrap {
       if (hash) {
         await this.prisma.user.update({ where: { id: seller.id }, data: { passwordHash: hash } });
         this.logger.log(`@${batch.username}: password set`);
+      }
+      if (batch.account?.brandName && !seller.brandVerifiedAt) {
+        const brandVerifiedAt = new Date();
+        await this.prisma.user.update({ where: { id: seller.id }, data: { brandName: batch.account.brandName, brandVerifiedAt } });
+        await reclassifySeller(this.prisma, seller.id, { brandVerifiedAt, catalogApprovedAt: seller.catalogApprovedAt });
+      }
+      if (batch.account?.logo && !seller.avatarId) {
+        try {
+          const buffer = await readFile(resolve(process.cwd(), 'seed-data', batch.folder, batch.account.logo));
+          const photo = await this.media.upload(seller.id, fileOf(buffer, batch.account.logo), 'avatar');
+          await this.prisma.user.update({ where: { id: seller.id }, data: { avatarId: photo.id } });
+        } catch (e) {
+          this.logger.warn(`@${batch.username}: avatar not set: ${(e as Error).message}`);
+        }
       }
       for (const item of batch.items) {
         const title = item.input.title!;
