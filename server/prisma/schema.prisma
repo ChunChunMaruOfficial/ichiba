@@ -353,6 +353,20 @@ model Photo {
   @@index([ownerId])
 }
 
+/// Image embedding of a listing photo for search by photo (ai/photo-index.ts), one per photo file and model.
+/// Keyed by the photo's storage key: size copies of a listing share their files. An empty `vec` marks a photo
+/// that couldn't be read, so it isn't tried again.
+model PhotoVector {
+  key       String
+  model     String
+  /// Float32 little-endian, L2-normalised.
+  vec       Bytes
+  createdAt DateTime @default(now())
+
+  @@id([key, model])
+  @@index([model, createdAt])
+}
+
 /// Short video of a listing (up to 30 s). The file is `${key}.${ext}`, the poster frame `${key}_{320,640}.webp`.
 model Video {
   id         String        @id @default(uuid())

@@ -20,7 +20,7 @@ import type { Card, Meta, SearchInterpretation } from "@/lib/types";
 import { Select } from "@/components/select";
 import { IconCameraSearch, PhotoSearchButton } from "@/components/photo-search-button";
 import { DragRow } from "@/components/drag-row";
-import { withMarket } from "@/lib/market";
+import { type Zone, withMarket } from "@/lib/market";
 import { photoSearchResult } from "@/lib/photo-search";
 
 const LIST_KEYS = ["category", "subcategory", "style", "gender", "size", "condition", "color", "brand"] as const;
@@ -555,7 +555,10 @@ function PhotoResults({ id }: { id: string }) {
     setInput(q);
   }
   const inputRef = useRef<HTMLInputElement>(null);
-  const ids = result?.ids.join(",") ?? "";
+  // The market shown: the one searched, or the other one switched to (its ranking came with the same answer).
+  const zone: Zone = filters.market === "resale" ? "resale" : "brands";
+  const shown = result?.other && result.other.market === zone && filters.market !== "all" ? result.other.ids : result?.ids;
+  const ids = shown?.join(",") ?? "";
   const scope = useMemo(() => ({ ids, sort }), [ids, sort]);
 
   const navigate = (f: Filters, extra: { q?: string; sort?: string } = {}) => {
@@ -625,6 +628,15 @@ function PhotoResults({ id }: { id: string }) {
             <IconFilter className="size-[18px]" />
           </button>
         </div>
+        {result?.other && (
+          <div role="group" aria-label="Где искать" className="mt-1 flex gap-2 py-1">
+            {(["brands", "resale"] as const).map((m) => (
+              <Chip key={m} active={zone === m} onClick={() => zone !== m && navigate({ ...filters, market: m === "resale" ? "resale" : undefined, from: undefined })}>
+                {m === "brands" ? "Бренды" : "Вторичка"}
+              </Chip>
+            ))}
+          </div>
+        )}
         {chips.length > 0 && (
           <DragRow viewportClassName="mt-1" className="items-center gap-2 py-1">
             {chips.map((c) => (
@@ -646,7 +658,7 @@ function PhotoResults({ id }: { id: string }) {
               <IconCameraSearch className="size-5" /> Загрузить фото
             </PhotoSearchButton>
           </EmptyState>
-        ) : !result.ids.length ? (
+        ) : !shown?.length ? (
           <EmptyState title="Похожих вещей пока нет" hint="Загляните позже — новые вещи появляются каждый день" />
         ) : results.error ? (
           <ErrorState message="Не удалось загрузить результаты" onRetry={() => results.mutate()} />

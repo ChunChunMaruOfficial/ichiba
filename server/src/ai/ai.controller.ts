@@ -113,10 +113,9 @@ export class AiController {
   }
 
   /**
-   * Search by photo (guests too), in two steps: the AI says what kind of item it is, then the items of that kind are
-   * ranked by how they look — colours, print, pattern — and the closest are compared with the photo by the vision
-   * models (ai/photo-search.ts). Returns the ranked ids; /search?ids=…&sort=similar pages, refines and filters them.
-   * The uploaded photo is not stored.
+   * Search by photo (guests too): every photo of everything on sale is compared with this one by image embeddings,
+   * the AI names the item for the results page (ai/photo-search.ts). Returns the ranked ids of the market asked for
+   * and of the other one; /search?ids=…&sort=similar pages, refines and filters them. The uploaded photo is not stored.
    */
   @Public()
   @Post('photo-search')

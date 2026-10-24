@@ -10,6 +10,8 @@ import { AiEnsemble } from './ai/ensemble/ensemble.js';
 import { ListingModerator } from './ai/moderation.js';
 import { NegotiationAdvisor } from './ai/negotiation.js';
 import { PhotoChecker } from './ai/photo-check.js';
+import { ImageEmbedders } from './ai/embeddings.js';
+import { PhotoIndex } from './ai/photo-index.js';
 import { PhotoSearch } from './ai/photo-search.js';
 import { PriceAdvisor } from './ai/price.js';
 import { SearchParser } from './ai/search-parse.js';
@@ -130,6 +132,8 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     AiService,
     PriceAdvisor,
     PhotoChecker,
+    ImageEmbedders,
+    PhotoIndex,
     PhotoSearch,
     ListingModerator,
     NegotiationAdvisor,

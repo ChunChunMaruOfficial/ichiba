@@ -11,6 +11,8 @@ export interface PhotoSearchResult {
   /** What the AI saw («Шапка, чёрный, с пламенем»), for the thumbnail's description. */
   label: string | null;
   ids: string[];
+  /** The same search in the other market, for the «Бренды / Вторичка» switch (older saved results have none). */
+  other?: { market: Zone; ids: string[] } | null;
   notClothing: boolean;
   market: Zone;
   /** A small JPEG of the picked photo for the search bar; kept with the result, so a reload still shows it. */
@@ -63,8 +65,8 @@ export async function searchByPhoto(file: File, market: Zone = "brands", signal?
   const small = await shrink(file, 0, { maxSide: SEARCH_SIDE, anyType: true, quality: 0.85 });
   const form = new FormData();
   form.append("file", small, small === file ? file.name : "photo.jpg");
-  const [res, thumb] = await Promise.all([api<{ label: string | null; ids: string[]; notClothing: boolean }>(`/ai/photo-search?market=${market}`, { body: form, signal }), thumbnail(small)]);
-  const result: PhotoSearchResult = { id: Date.now().toString(36), label: res.label, ids: res.ids, notClothing: res.notClothing, market, thumb };
+  const [res, thumb] = await Promise.all([api<{ label: string | null; ids: string[]; other: { market: Zone; ids: string[] } | null; notClothing: boolean }>(`/ai/photo-search?market=${market}`, { body: form, signal }), thumbnail(small)]);
+  const result: PhotoSearchResult = { id: Date.now().toString(36), label: res.label, ids: res.ids, other: res.other, notClothing: res.notClothing, market, thumb };
   last = result;
   try {
     sessionStorage.setItem(KEY, JSON.stringify([result, ...readSaved().filter((r) => r.id !== result.id)].slice(0, KEEP)));

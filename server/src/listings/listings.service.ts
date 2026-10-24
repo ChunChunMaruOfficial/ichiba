@@ -989,35 +989,35 @@ export class ListingsService {
   }
 
   /**
-   * Search by photo: what the AI recognised (category, subcategory, brand, colour — confident answers only) plus
-   * how close each cover photo looks. The category only weighs in, it doesn't filter: when the AI files the item
-   * under a neighbouring category (a backpack as an accessory), a close photo still comes out on top.
+   * Candidates for a search by photo (ai/photo-search.ts ranks them): everything on sale in the market, whatever its
+   * type — the photo's own look decides, the AI's idea of the category only weighs in. Every photo but the defect
+   * close-ups, cover first: another angle of the item is often what the visitor photographed.
    */
-  /**
-   * Candidates for a search by photo (ai/photo-search.ts ranks them): what's on sale in the market, of the type the
-   * AI saw (any type when it couldn't tell), with the cover photo and the words that describe the item.
-   */
-  async photoCandidates(category: string | null, market: Market, viewerId?: string) {
+  async photoCandidates(market: Market, viewerId?: string) {
     return this.prisma.listing.findMany({
       where: {
         status: { in: VISIBLE_IN_FEED },
         ...marketWhere(market),
-        ...(category ? { category } : {}),
         ...(viewerId ? { sellerId: { not: viewerId } } : {}),
         ...(await this.notInterested(viewerId)),
       },
       select: {
         id: true,
+        market: true,
         title: true,
-        description: true,
         category: true,
         subcategory: true,
         color: true,
         brand: true,
-        photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1, select: { id: true, key: true, provider: true, dhash: true, palette: true } },
+        photos: {
+          where: { isDefect: false },
+          orderBy: [{ isCover: 'desc' }, { order: 'asc' }],
+          take: 12,
+          select: { id: true, key: true, provider: true, dhash: true, palette: true },
+        },
       },
       orderBy: [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }],
-      take: category ? 400 : 600,
+      take: 3000,
     });
   }
 

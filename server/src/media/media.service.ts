@@ -413,14 +413,18 @@ export class MediaService implements OnModuleInit {
     return withSharp(() => openImage(webp).resize(size, size, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer());
   }
 
-  /** A photo the visitor searches by (never stored): upright, downscaled JPEG for the AI plus its difference hash and colours. */
-  async searchImage(file: Buffer): Promise<{ jpeg: Buffer; dhash: string; palette: string }> {
+  /**
+   * A photo the visitor searches by (never stored): upright, downscaled JPEG for the AI plus its difference hash and
+   * colours, and a larger copy to cut the items out of (a beanie on someone's head is a small part of the photo).
+   */
+  async searchImage(file: Buffer): Promise<{ jpeg: Buffer; large: Buffer; dhash: string; palette: string }> {
     return withSharp(async () => {
       try {
         const { image } = await probeImage(file);
-        const jpeg = await image.rotate().resize(512, 512, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
+        const large = await image.rotate().resize(1280, 1280, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
+        const jpeg = await openImage(large).resize(512, 512, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer();
         const [dhash, palette] = await Promise.all([differenceHash(jpeg), colorPalette(jpeg)]);
-        return { jpeg, dhash, palette };
+        return { jpeg, large, dhash, palette };
       } catch (e) {
         if (e instanceof BadRequestException) throw e;
         throw new BadRequestException({ message: 'Не получилось открыть фото — попробуйте JPG или PNG' });
