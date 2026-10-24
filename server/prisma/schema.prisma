@@ -160,6 +160,7 @@ model User {
   purchases       BuyRequest[]   @relation("buyer")
   sales           BuyRequest[]   @relation("seller")
   signals         Signal[]
+  feedImpressions FeedImpression[]
   notifications   Notification[]
   offersMade      Offer[]        @relation("offerBuyer")
   offersGot       Offer[]        @relation("offerSeller")
@@ -292,6 +293,7 @@ model Listing {
   stats           ListingStat[]
   reviews         Review[]
   signals         Signal[]
+  feedImpressions FeedImpression[]
   offers          Offer[]
   cartItems       CartItem[]
   threads         Thread[]
@@ -431,6 +433,20 @@ model Signal {
 
   @@index([userId, createdAt])
   @@index([listingId, createdAt])
+}
+
+/// How often an item was shown to a person in a feed (counted from the last two weeks): scrolled past many times
+/// without a click, it gives way to others in «Для вас».
+model FeedImpression {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  count     Int      @default(1)
+  lastAt    DateTime @default(now())
+
+  @@id([userId, listingId])
+  @@index([lastAt])
 }
 
 model BuyRequest {

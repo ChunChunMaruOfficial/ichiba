@@ -2,11 +2,13 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { canonicalBrand } from '../catalog/brands.js';
 import { CATEGORIES, COLORS } from '../catalog/catalog.js';
+import { background } from '../common/background.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { type Market, marketOf } from '../listings/market.js';
 import { openImage, withSharp } from '../media/image.js';
 import { hashDistance, MediaService, type StoredPhoto, usableHash } from '../media/media.service.js';
 import { paletteSimilarity } from '../media/palette.js';
+import { RecommendationsService } from '../recommendations/recommendations.service.js';
 import { cosine, ImageEmbedder } from './embeddings.js';
 import { majority, median, quorumSet, share } from './ensemble/aggregate.js';
 import { AiEnsemble, hashKey, RunBudget, TtlCache, Vote } from './ensemble/ensemble.js';
@@ -254,6 +256,7 @@ export class PhotoSearch {
     private readonly media: MediaService,
     private readonly listings: ListingsService,
     private readonly index: PhotoIndex,
+    private readonly recs: RecommendationsService,
   ) {}
 
   async search(file: Buffer, market: Market, viewerId?: string): Promise<PhotoSearchResult> {
@@ -302,6 +305,8 @@ export class PhotoSearch {
       notClothing,
     };
     this.cache.set(key, result);
+    // The look searched for shapes «Для вас»: the best match stands for it.
+    if (viewerId && !notClothing && all[0]) background(this.recs.record(viewerId, 'photo_search', all[0].id), 'photo search signal');
     return result;
   }
 

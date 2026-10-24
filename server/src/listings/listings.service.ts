@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { kindOf, RANK_SELECT, RecommendationsService, spread } from '../recommendations/recommendations.service.js';
 import { AUCTION_DURATIONS, auctionInclude, defaultStep, serializeAuction } from '../auctions/rules.js';
 import { ListingModerator, ModerationVerdict } from '../ai/moderation.js';
+import { cosine } from '../ai/embeddings.js';
 import { nextBumpAt, StatsService } from '../stats/stats.js';
 import { canonicalBrand } from '../catalog/brands.js';
 import { withJobLock } from '../common/job-lock.js';
@@ -968,11 +969,20 @@ export class ListingsService {
       orderBy: { liftedAt: 'desc' },
       take: pool,
     });
-    // Stored hashes only (no image reads on a public page); a photo without one simply gives no visual signal.
-    const myCover = await this.prisma.photo.findFirst({ where: { listingId: listing.id }, orderBy: [{ isCover: 'desc' }, { order: 'asc' }], select: { dhash: true } });
+    // How alike the photos are: the photo vectors (the same look as «Для вас», on a z-scale over the candidates);
+    // the cover's stored hash only where an item has no vector yet. No image reads on a public page.
+    const [myCover, looks] = await Promise.all([
+      this.prisma.photo.findFirst({ where: { listingId: listing.id }, orderBy: [{ isCover: 'desc' }, { order: 'asc' }], select: { dhash: true } }),
+      this.recs.lookVectors(),
+    ]);
     const mine = usableHash(myCover?.dhash);
+    const myLook = looks.get(listing.id);
+    const sims = rows.map((l) => (myLook && looks.has(l.id) ? cosine(myLook, looks.get(l.id)!) : null));
+    const known = sims.filter((x): x is number => x != null);
+    const mean = known.reduce((a, b) => a + b, 0) / (known.length || 1);
+    const sd = Math.sqrt(known.reduce((a, b) => a + (b - mean) ** 2, 0) / (known.length || 1)) || 1;
     const price = listing.price ?? 0;
-    const scored = rows.map((l) => {
+    const scored = rows.map((l, i) => {
       let s = 0;
       if (listing.subcategory && l.subcategory === listing.subcategory) s += 3;
       if (listing.brand && l.brand && l.brand.toLowerCase() === listing.brand.toLowerCase()) s += 2;
@@ -980,9 +990,13 @@ export class ListingsService {
       if (listing.gender && (l.gender === listing.gender || l.gender == null || l.gender === 'UNISEX')) s += 0.5;
       if (listing.sizeValue && l.sizeValue === listing.sizeValue) s += 0.5;
       if (price && l.price) s -= Math.min(2, Math.abs(l.price - price) / price) * 1.5;
-      const h = mine ? usableHash(l.photos[0]?.dhash) : null;
-      // Photos within ~20 of 64 bits share composition and tones: a weak but useful visual signal.
-      if (mine && h) s += Math.max(0, (20 - hashDistance(mine, h)) / 20) * 2;
+      // Measured on the site's items (scripts/recs-eval.ts): 30% → 36% of the first 8 from the same taste.
+      if (sims[i] != null) s += ((sims[i]! - mean) / sd) * 2;
+      else {
+        const h = mine ? usableHash(l.photos[0]?.dhash) : null;
+        // Photos within ~20 of 64 bits share composition and tones: a weak but useful visual signal.
+        if (mine && h) s += Math.max(0, (20 - hashDistance(mine, h)) / 20) * 2;
+      }
       return { l, s };
     });
     return scored.sort((a, b) => b.s - a.s).map((x) => x.l);
@@ -1055,7 +1069,7 @@ export class ListingsService {
     let forYou: Awaited<ReturnType<ListingsService['cards']>> = [];
     if (viewerId && (await this.recs.hasProfile(viewerId))) {
       const exclude = new Set([id, ...similar.map((s) => s.id), ...fromSeller.map((s) => s.id)]);
-      forYou = (await this.feed('for_you', 0, 16, viewerId, marketOf(listing))).items.filter((c) => !exclude.has(c.id)).slice(0, 8);
+      forYou = (await this.feed('for_you', 0, 16, viewerId, marketOf(listing), `item:${marketOf(listing)}`)).items.filter((c) => !exclude.has(c.id)).slice(0, 8);
     }
     return {
       similar: await this.cards(similar, viewerId),
@@ -1090,7 +1104,8 @@ export class ListingsService {
     return { ok: true };
   }
 
-  async feed(chip: string, offset: number, limit: number, viewerId?: string, market?: Market) {
+  /** `orderKey`: which «Для вас» order to page through (the home feed's, or a block of its own like the item page's). */
+  async feed(chip: string, offset: number, limit: number, viewerId?: string, market?: Market, orderKey: string = market ?? 'brands') {
     // Guests have no «Для вас»: they get «Новое». A signed-in person without a profile yet sees the popular items.
     const effective = chip === 'for_you' && !viewerId ? 'new' : chip;
     const notInterested = await this.notInterestedIds(viewerId);
@@ -1104,7 +1119,10 @@ export class ListingsService {
       );
       const hidden = new Set(notInterested);
       const pool = shared.filter((p) => p.sellerId !== viewerId && !hidden.has(p.id));
-      const ids = effective === 'for_you' && (await this.recs.hasProfile(viewerId!)) ? await this.recs.rankForUser(viewerId!, pool) : await this.recs.rankPopular(pool);
+      const ids =
+        effective === 'for_you' && (await this.recs.hasProfile(viewerId!))
+          ? await this.recs.forYou(viewerId!, orderKey, pool, offset === 0)
+          : await this.recs.rankPopular(pool);
       return { chip: effective, items: await this.cardsByIds(ids.slice(offset, offset + limit), viewerId), total: ids.length };
     }
 

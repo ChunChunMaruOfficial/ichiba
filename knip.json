@@ -4,8 +4,8 @@
   "workspaces": {
     ".": {},
     "server": {
-      "entry": ["src/main.ts", "prisma/seed-auctions.ts", "_*.mjs"],
-      "project": ["src/**/*.ts", "prisma/**/*.ts"],
+      "entry": ["src/main.ts", "prisma/seed-auctions.ts", "_*.mjs", "scripts/recs-eval.ts"],
+      "project": ["src/**/*.ts", "prisma/**/*.ts", "scripts/**/*.ts"],
       "ignoreDependencies": ["@prisma/client"]
     },
     "client": {

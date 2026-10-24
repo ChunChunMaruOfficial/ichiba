@@ -5,6 +5,7 @@ import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useImpression } from "@/lib/engagement";
 import { useFavorite } from "@/lib/hooks";
 import { conditionLabel, formatPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
@@ -178,10 +179,12 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
   // One's own items (drafts included) can't be liked, and only live items have «Похожие».
   const mine = me?.id === card.seller.id;
   const live = card.status === "PUBLISHED" || card.status === "RESERVED" || card.status === "SOLD";
+  // Feed cards a signed-in person scrolls past shape their «Для вас» (lib/engagement.ts).
+  const shownRef = useImpression(variant === "feed" && me && !mine ? card.id : null);
 
   if (variant === "feed") {
     return (
-      <article className="reveal group relative">
+      <article ref={shownRef} className="reveal group relative">
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
         <Link href={`/item/${card.id}`} className="relative block overflow-hidden rounded-[18px]">
           <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />

@@ -26,6 +26,7 @@ import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline }
 import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
+import { useItemEngagement } from "@/lib/engagement";
 import { useFavorite } from "@/lib/hooks";
 import { conditionLabel, formatPrice, listingPrice, plural, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
@@ -123,6 +124,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
   const { isFavorite, toggle } = useFavorite({ id: l.id, title: l.title, isFavorite: l.isFavorite }, "product");
   const actions = useListingActions(refresh);
   const { me, refresh: refreshMe } = useSession();
+  // How long the page was looked at and how many photos: a long look and a quick exit both teach «Для вас».
+  useItemEngagement(l.id, !!me && !l.isOwner, photo);
   const offerKey = me && !l.isOwner ? `/offers/listing/${l.id}` : null;
   const { data: offerData, mutate: mutateOffer } = useSWR<{ offer: Offer | null }>(offerKey);
   const offer = offerData?.offer && offerData.offer.status !== "CANCELLED" ? offerData.offer : null;

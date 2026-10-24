@@ -25,6 +25,7 @@ import type { Offer, Prisma } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RecommendationsService } from '../recommendations/recommendations.service.js';
 import { RedisService } from '../redis/redis.js';
 import { RequestsService } from '../requests/requests.service.js';
 import { StatsService } from '../stats/stats.js';
@@ -60,6 +61,7 @@ export class OffersService {
     private readonly negotiation: NegotiationAdvisor,
     private readonly stats: StatsService,
     private readonly redis: RedisService,
+    private readonly recs: RecommendationsService,
   ) {}
 
   private serialize(o: OfferRow, viewerId: string, history: Offer[] = []) {
@@ -204,6 +206,7 @@ export class OffersService {
         throw e;
       });
     this.stats.track(listingId, 'offers');
+    await this.recs.record(buyerId, 'offer', listingId);
     if (autoDecline) {
       await this.notifications.notify(buyerId, 'offer_declined', { listingId, title: listing.title, amount, auto: true });
     } else if (listing.autoAcceptPrice != null && amount >= listing.autoAcceptPrice) {

@@ -1,45 +1,27 @@
 import { Injectable } from '@nestjs/common';
+import { PhotoIndex } from '../ai/photo-index.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { HALF_LIFE_MS, meanVector, rankForYou, SIGNAL_WEIGHTS, spread, type SignalMeta, type SignalType, type TasteEvent } from './taste.js';
+
+export { kindOf, SIGNAL_WEIGHTS, spread, type SignalMeta, type SignalType } from './taste.js';
 
 /**
- * Recommendations, the way second-hand marketplaces (Vinted, Depop, Poshmark, Avito) do it without ML: every action
- * is a weighted signal about the item's traits; signals fade with time, so the feed follows what the person does
- * now rather than what they did when the account was made. Rules, not a model: easy to reason about and to tune.
+ * Recommendations, the way fashion marketplaces and Pinterest build them at our size: every action is a weighted
+ * signal about an item, fading with time; «Для вас» ranks by the items' traits and by how they look (photo vectors).
+ * The model itself is taste.ts; this service collects the signals and the data it needs. docs/RECOMMENDATIONS.md.
  */
-const SIGNAL_WEIGHTS = {
-  view: 1,
-  /** A search or a filter: what the person is looking for right now (traits in Signal.meta). */
-  search: 3,
-  filter: 2,
-  favorite: 5,
-  swipe_right: 5,
-  offer: 6,
-  cart: 6,
-  request: 8,
-  follow: 10,
-  swipe_left: -3,
-  /** «Не интересно» on the item page: the item leaves this person's feeds and search for good. */
-  not_interested: -6,
-} as const;
-export type SignalType = keyof typeof SIGNAL_WEIGHTS;
-
-/** Traits a search or filter was about, kept with its signal. */
-export interface SignalMeta {
-  category?: string[];
-  brand?: string[];
-  style?: string[];
-  size?: string[];
-  color?: string[];
-}
 
 const DAY = 24 * 3600 * 1000;
-/** A signal counts half after two weeks, a quarter after four: the profile drifts with the person's taste. */
-const HALF_LIFE_MS = 14 * DAY;
-const FRESH_MS = 72 * 3600 * 1000;
-const MAX_SAME_SELLER_IN_A_ROW = 3;
-/** Every n-th item of «Для вас» comes from outside the profile, so tastes can widen. */
-const EXPLORE_EVERY = 5;
+/** Impressions older than this are forgotten: an item scrolled past last month may deserve another look. */
+const IMPRESSIONS_MS = 14 * DAY;
+/**
+ * «Для вас» keeps its order while the person scrolls (up to 30 min); the first page is ranked afresh once the order
+ * is a minute old — not on every refetch of it, or the pages already loaded would no longer follow it.
+ */
+const FOR_YOU_TTL_MS = 30 * 60_000;
+const FOR_YOU_FRESH_MS = 60_000;
+const LOOK_TTL_MS = 60_000;
 
 /** What ranking needs from a listing; feeds select exactly this. */
 export const RANK_SELECT = {
@@ -60,49 +42,61 @@ export const RANK_SELECT = {
 } satisfies Prisma.ListingSelect;
 export type Candidate = Prisma.ListingGetPayload<{ select: typeof RANK_SELECT }>;
 
-type Weights = Map<string, number>;
-const bump = (m: Weights, k: string | null | undefined, w: number) => {
-  if (k) m.set(k, (m.get(k) ?? 0) + w);
-};
-/** Share of the strongest positive weight, 0..1 (negatives push below 0). */
-const share = (m: Weights, k: string | null | undefined) => {
-  if (!k) return 0;
-  const top = Math.max(0, ...m.values());
-  return top ? Math.max(-1, (m.get(k) ?? 0) / top) : 0;
-};
-
-const HEADWEAR = new Set(['hat', 'cap', 'beanie']);
-/** The kind of thing an item is, for «not two of a kind in a row»: the category; accessories split by what they are. */
-export const kindOf = (c: Pick<Candidate, 'category' | 'subcategory'>) =>
-  c.category === 'accessories' ? (HEADWEAR.has(c.subcategory ?? '') ? 'headwear' : (c.subcategory ?? 'accessories')) : (c.category ?? '');
-
-/**
- * Keeps a feed's order but never puts two items of one kind side by side (three jackets, then four hats looks like a
- * dump, not a shop window), nor more than 3 in a row from one seller. When only one kind is left, it runs on.
- */
-export function spread<T extends Pick<Candidate, 'category' | 'subcategory' | 'sellerId'>>(items: T[]): T[] {
-  const out: T[] = [];
-  const pending = [...items];
-  while (pending.length) {
-    const prev = out.at(-1);
-    const tail = out.slice(-MAX_SAME_SELLER_IN_A_ROW);
-    const blockedSeller = tail.length === MAX_SAME_SELLER_IN_A_ROW && tail.every((t) => t.sellerId === tail[0].sellerId) ? tail[0].sellerId : null;
-    const kindOk = (p: T) => !prev || kindOf(p) !== kindOf(prev);
-    const sellerOk = (p: T) => p.sellerId !== blockedSeller;
-    let idx = pending.findIndex((p) => kindOk(p) && sellerOk(p));
-    if (idx === -1) idx = pending.findIndex(kindOk);
-    if (idx === -1) idx = pending.findIndex(sellerOk);
-    out.push(pending.splice(Math.max(0, idx), 1)[0]);
-  }
-  return out;
-}
+const TRAITS_SELECT = {
+  id: true,
+  sellerId: true,
+  category: true,
+  subcategory: true,
+  brand: true,
+  color: true,
+  sizeValue: true,
+  sizes: true,
+  styleTags: true,
+  gender: true,
+  price: true,
+  publishedAt: true,
+} satisfies Prisma.ListingSelect;
 
 @Injectable()
 export class RecommendationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly photos: PhotoIndex,
+  ) {}
+
+  private looks: { exp: number; v: Promise<Map<string, Float32Array>> } | null = null;
+  private readonly forYouCache = new Map<string, { at: number; ids: string[] }>();
 
   async record(userId: string, type: SignalType, listingId?: string, meta?: SignalMeta) {
     await this.prisma.signal.create({ data: { userId, type, weight: SIGNAL_WEIGHTS[type], listingId, meta: meta ? { ...meta } : undefined } });
+  }
+
+  /** Records a signal unless the same one was recorded for the item within `withinMs` (one message, not every message). */
+  async recordOnce(userId: string, type: SignalType, listingId: string, withinMs: number) {
+    const recent = await this.prisma.signal.count({ where: { userId, type, listingId, createdAt: { gt: new Date(Date.now() - withinMs) } } });
+    if (!recent) await this.record(userId, type, listingId);
+  }
+
+  /**
+   * How a visit to an item page ended: a long look (20+ s, or 3+ photos) says more than the click itself; leaving
+   * within 4 s says the click was a miss. Counted once per item per half hour.
+   */
+  async engagement(userId: string, listingId: string, ms: number, photos: number) {
+    const type: SignalType | null = ms >= 20_000 || photos >= 3 ? 'dwell' : ms < 4_000 && photos <= 1 ? 'bounce' : null;
+    if (!type) return;
+    const recent = await this.prisma.signal.count({ where: { userId, listingId, type: { in: ['dwell', 'bounce'] }, createdAt: { gt: new Date(Date.now() - 30 * 60_000) } } });
+    if (!recent) await this.record(userId, type, listingId);
+  }
+
+  /** Items a feed showed the person (counted by the client when a card has been on screen for a moment). */
+  async impressions(userId: string, listingIds: string[]) {
+    if (!listingIds.length) return;
+    const since = new Date(Date.now() - IMPRESSIONS_MS);
+    await this.prisma.$executeRaw`
+      INSERT INTO "FeedImpression" ("userId", "listingId", "count", "lastAt")
+      SELECT ${userId}, l."id", 1, now() FROM "Listing" l WHERE l."id" = ANY(${listingIds}::text[])
+      ON CONFLICT ("userId", "listingId") DO UPDATE
+      SET "count" = CASE WHEN "FeedImpression"."lastAt" < ${since} THEN 1 ELSE "FeedImpression"."count" + 1 END, "lastAt" = now()`;
   }
 
   /** Enough to say what the person likes: a few actions, or sizes picked at onboarding. */
@@ -122,7 +116,7 @@ export class RecommendationsService {
   async popularity(candidates: Pick<Candidate, 'id' | 'viewsCount' | 'favoritesCount'>[]): Promise<Map<string, number>> {
     const ids = candidates.map((c) => c.id);
     const recent = await this.prisma.signal.findMany({
-      where: { listingId: { in: ids }, createdAt: { gt: new Date(Date.now() - 30 * DAY) }, type: { in: ['favorite', 'swipe_right', 'cart', 'offer', 'request'] } },
+      where: { listingId: { in: ids }, createdAt: { gt: new Date(Date.now() - 30 * DAY) }, type: { in: ['favorite', 'swipe_right', 'cart', 'offer', 'message', 'request'] } },
       select: { listingId: true, weight: true, createdAt: true },
     });
     const now = Date.now();
@@ -139,94 +133,73 @@ export class RecommendationsService {
   }
 
   /**
-   * «Для вас»: items like the ones the person engaged with lately come first (style, kind, brand, size, colour,
-   * price), then the popular rest; every few items one comes from outside the profile.
+   * The look of every listing with indexed photos: the mean of its photos' vectors in the model that indexes every
+   * photo (the local one, unmetered; Gemini only when the local one is off). Rebuilt once a minute.
+   */
+  lookVectors(): Promise<Map<string, Float32Array>> {
+    if (this.looks && this.looks.exp > Date.now()) return this.looks.v;
+    const v = this.loadLooks();
+    this.looks = { exp: Date.now() + LOOK_TTL_MS, v };
+    v.catch(() => (this.looks = null));
+    return v;
+  }
+
+  private async loadLooks() {
+    const embedder = this.photos.embedders.all.find((e) => !e.metered) ?? this.photos.embedders.all[0];
+    const out = new Map<string, Float32Array>();
+    if (!embedder) return out;
+    const [vectors, photos] = await Promise.all([
+      this.photos.vectors(embedder.id),
+      this.prisma.photo.findMany({ where: { isDefect: false, listing: { status: { in: ['PUBLISHED', 'RESERVED', 'SOLD'] } } }, select: { listingId: true, key: true } }),
+    ]);
+    const byListing = new Map<string, Float32Array[]>();
+    for (const p of photos) {
+      const v = vectors.get(p.key);
+      if (v && p.listingId) (byListing.get(p.listingId) ?? byListing.set(p.listingId, []).get(p.listingId)!).push(v);
+    }
+    for (const [id, vs] of byListing) out.set(id, meanVector(vs)!);
+    return out;
+  }
+
+  /**
+   * «Для вас» for a feed that pages through it: the next page continues the same order; the first page ranks again
+   * with whatever the person did meanwhile.
+   */
+  async forYou(userId: string, key: string, candidates: Candidate[], firstPage: boolean): Promise<string[]> {
+    const cacheKey = `${userId}:${key}`;
+    const hit = this.forYouCache.get(cacheKey);
+    const age = hit ? Date.now() - hit.at : Infinity;
+    if (age < (firstPage ? FOR_YOU_FRESH_MS : FOR_YOU_TTL_MS)) return hit!.ids;
+    const ids = await this.rankForUser(userId, candidates);
+    if (this.forYouCache.size >= 1000) this.forYouCache.clear();
+    this.forYouCache.set(cacheKey, { at: Date.now(), ids });
+    return ids;
+  }
+
+  /**
+   * «Для вас»: items like the ones the person engaged with lately — by traits and by look — come first, with one in
+   * eight from the popular rest; items scrolled past again and again give way to others.
    */
   async rankForUser(userId: string, candidates: Candidate[]): Promise<string[]> {
-    const [signals, follows, user, popularity] = await Promise.all([
+    const now = Date.now();
+    const [signals, follows, user, impressions, popularity, vectors] = await Promise.all([
       this.prisma.signal.findMany({
-        where: { userId, createdAt: { gt: new Date(Date.now() - 90 * DAY) } },
+        where: { userId, createdAt: { gt: new Date(now - 90 * DAY) } },
         orderBy: { createdAt: 'desc' },
         take: 800,
-        include: { listing: { select: { category: true, subcategory: true, brand: true, color: true, sizeValue: true, sizes: true, styleTags: true, gender: true, price: true, sellerId: true } } },
+        include: { listing: { select: TRAITS_SELECT } },
       }),
       this.prisma.follow.findMany({ where: { followerId: userId }, select: { sellerId: true } }),
       this.prisma.user.findUnique({ where: { id: userId }, select: { sizes: true } }),
+      this.prisma.feedImpression.findMany({ where: { userId, lastAt: { gt: new Date(now - IMPRESSIONS_MS) } }, select: { listingId: true, count: true } }),
       this.popularity(candidates),
+      this.lookVectors(),
     ]);
-
-    const now = Date.now();
-    const w = { category: new Map(), subcategory: new Map(), brand: new Map(), style: new Map(), size: new Map(), color: new Map(), gender: new Map(), seller: new Map() } satisfies Record<string, Weights>;
-    const prices: Array<[number, number]> = [];
-    const hidden = new Set<string>();
-    for (const s of signals) {
-      const decay = 0.5 ** ((now - s.createdAt.getTime()) / HALF_LIFE_MS);
-      const weight = s.weight * decay;
-      const l = s.listing;
-      if (l) {
-        bump(w.category, l.category, weight);
-        bump(w.subcategory, l.subcategory, weight);
-        bump(w.brand, l.brand, weight);
-        bump(w.color, l.color, weight);
-        bump(w.gender, l.gender, weight);
-        bump(w.seller, l.sellerId, weight);
-        for (const t of l.styleTags) bump(w.style, t, weight);
-        if (weight > 0) for (const size of l.sizes.length ? l.sizes : [l.sizeValue]) bump(w.size, size, weight);
-        if (weight > 0 && l.price) prices.push([l.price, weight]);
-      }
-      const meta = (s.meta ?? {}) as SignalMeta;
-      for (const c of meta.category ?? []) bump(w.category, c, weight);
-      for (const b of meta.brand ?? []) bump(w.brand, b, weight);
-      for (const t of meta.style ?? []) bump(w.style, t, weight);
-      for (const size of meta.size ?? []) bump(w.size, size, weight);
-      for (const c of meta.color ?? []) bump(w.color, c, weight);
-      // «Не моё» hides that exact item for a week; «Не интересно» is filtered out by the feed itself.
-      if (s.type === 'swipe_left' && now - s.createdAt.getTime() < 7 * DAY && s.listingId) hidden.add(s.listingId);
-    }
-    // Sizes from onboarding count as a steady, mild preference.
-    for (const list of Object.values((user?.sizes ?? {}) as Record<string, string[] | undefined>)) for (const size of list ?? []) bump(w.size, size, 2);
-
-    // The price band the person engages with: weighted 20th–80th percentile.
-    prices.sort((a, b) => a[0] - b[0]);
-    const total = prices.reduce((n, p) => n + p[1], 0);
-    const quantile = (q: number) => {
-      let acc = 0;
-      for (const [price, weight] of prices) if ((acc += weight) >= total * q) return price;
-      return prices.at(-1)?.[0];
-    };
-    const [low, high] = prices.length >= 3 ? [quantile(0.2)! * 0.8, quantile(0.8)! * 1.25] : [0, Infinity];
-    const followed = new Set(follows.map((f) => f.sellerId));
-    const maxPop = Math.max(1, ...popularity.values());
-
-    const scored = candidates
-      .filter((c) => !hidden.has(c.id))
-      .map((c) => {
-        const sizes = c.sizes.length ? c.sizes : [c.sizeValue];
-        const affinity =
-          share(w.style, c.styleTags[0]) * 1.5 +
-          Math.max(0, ...c.styleTags.slice(1).map((t) => share(w.style, t))) * 0.75 +
-          share(w.category, c.category) * 2 +
-          share(w.subcategory, c.subcategory) * 2 +
-          share(w.brand, c.brand) * 1.5 +
-          Math.max(0, ...sizes.map((s) => share(w.size, s))) * 1.5 +
-          share(w.color, c.color) * 0.75 +
-          share(w.gender, c.gender) * 0.5 +
-          share(w.seller, c.sellerId) * 1 +
-          (c.price != null && c.price >= low && c.price <= high ? 0.5 : 0) +
-          (followed.has(c.sellerId) ? 1.5 : 0);
-        const pop = (popularity.get(c.id) ?? 0) / maxPop;
-        const fresh = c.publishedAt && now - c.publishedAt.getTime() < FRESH_MS ? 0.3 : 0;
-        return { c, affinity, score: affinity + pop * 0.8 + fresh, pop };
-      });
-
-    // Profile matches first (best first), then the popular rest; one in EXPLORE_EVERY comes from that rest.
-    const matched = scored.filter((s) => s.affinity >= 1).sort((a, b) => b.score - a.score);
-    const rest = scored.filter((s) => s.affinity < 1).sort((a, b) => b.pop - a.pop || b.score - a.score);
-    const merged: Candidate[] = [];
-    while (matched.length || rest.length) {
-      const explore = rest.length && (!matched.length || (merged.length + 1) % EXPLORE_EVERY === 0);
-      merged.push((explore ? rest.shift() : matched.shift())!.c);
-    }
-    return spread(merged).map((c) => c.id);
+    const events: TasteEvent[] = signals.map((s) => ({ type: s.type, weight: s.weight, at: s.createdAt.getTime(), listing: s.listing, meta: s.meta as SignalMeta | null }));
+    // Shown, never opened: the first showing is free, every repeat after it counts.
+    const touched = new Set(signals.map((s) => s.listingId));
+    const ignored = new Map(impressions.filter((i) => !touched.has(i.listingId) && i.count > 1).map((i) => [i.listingId, i.count - 1]));
+    const sizes = Object.values((user?.sizes ?? {}) as Record<string, string[] | undefined>).flatMap((s) => s ?? []);
+    return rankForYou({ now, events, vectors, followed: new Set(follows.map((f) => f.sellerId)), sizes, popularity, ignored }, candidates).map((c) => c.id);
   }
 }

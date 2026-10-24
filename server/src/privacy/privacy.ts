@@ -56,6 +56,7 @@ export class PrivacyService {
       this.prisma.cartItem.deleteMany({ where: { userId } }),
       this.prisma.collection.deleteMany({ where: { userId } }),
       this.prisma.signal.deleteMany({ where: { userId } }),
+      this.prisma.feedImpression.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
       this.prisma.emailOutbox.deleteMany({ where: { userId } }),
       // Photos and videos outside listings (drafts, chat) are detached; the nightly media cleanup deletes the files.
@@ -124,6 +125,7 @@ export class PrivacyService {
         await batch('ai runs', () => this.prisma.aiRun.deleteMany({ where: { createdAt: { lt: ago(90) } }, limit: 5000 })),
         await batch('notifications', () => this.prisma.notification.deleteMany({ where: { readAt: { not: null }, createdAt: { lt: ago(180) } }, limit: 5000 })),
         await batch('signals', () => this.prisma.signal.deleteMany({ where: { createdAt: { lt: ago(365) } }, limit: 5000 })),
+        await batch('impressions', () => this.prisma.feedImpression.deleteMany({ where: { lastAt: { lt: ago(14) } }, limit: 5000 })),
       ];
       this.logger.log(`retention: ${r.join(', ')}`);
     });

@@ -10,6 +10,7 @@ import { type ListingStatus, Prisma } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { photoUrls, serializeVideo, videoPoster } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RecommendationsService } from '../recommendations/recommendations.service.js';
 import { StatsService } from '../stats/stats.js';
 import { TelegramNotifier } from '../telegram/notifier.js';
 
@@ -76,6 +77,7 @@ export class ChatService {
     private readonly guard: ChatGuard,
     private readonly stats: StatsService,
     private readonly telegram: TelegramNotifier,
+    private readonly recs: RecommendationsService,
   ) {}
 
   private quote(m: PreviewRow | null, viewerId: string) {
@@ -319,6 +321,8 @@ export class ChatService {
       return created;
     });
     const other = t.buyerId === userId ? t.sellerId : t.buyerId;
+    // Writing to the seller about an item is a strong sign of interest (once a month per item, not per message).
+    if (t.buyerId === userId) background(this.recs.recordOnce(userId, 'message', t.listingId, 30 * 24 * 3600_000), 'message signal');
     if (check?.needsAi) {
       // The ensemble verdict arrives later as a "message_risk" event; sending is never blocked on it.
       background(this.guard.review({ messageId: m.id, threadId: id, senderId: userId, recipientId: other, signals: check.signals, masked: check.masked, immediate: check.immediate }));

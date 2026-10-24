@@ -5,14 +5,20 @@ import { POPULAR_BRANDS } from '../catalog/brands.js';
 import * as catalog from '../catalog/catalog.js';
 import { ZodPipe } from '../common/zod.js';
 import { FeedQuery, ListingInput, ListingInputT, SearchQuery, SearchQueryT, WardrobeQuery } from './listings.dto.js';
+import { RecommendationsService } from '../recommendations/recommendations.service.js';
 import { ListingsService } from './listings.service.js';
 
 const ScheduleDto = z.object({ at: z.coerce.date() });
+const EngagementDto = z.object({ ms: z.number().int().min(0).max(24 * 3600_000), photos: z.number().int().min(0).max(100) });
+const ImpressionsDto = z.object({ ids: z.array(z.string().uuid()).min(1).max(100) });
 const PageQuery = z.object({ offset: z.coerce.number().int().min(0).default(0), limit: z.coerce.number().int().min(1).max(48).default(24) });
 
 @Controller()
 export class ListingsController {
-  constructor(private readonly listings: ListingsService) {}
+  constructor(
+    private readonly listings: ListingsService,
+    private readonly recs: RecommendationsService,
+  ) {}
 
   @Public()
   @Get('meta')
@@ -58,6 +64,20 @@ export class ListingsController {
   get(@Param('id', ParseUUIDPipe) id: string, @Ip() ip: string, @CurrentUser() user?: AuthUser, @Headers('x-ichiba-render') render?: string) {
     // Server-side renders (and crawlers hitting them) are not views; the browser's own request counts, once a day.
     return this.listings.get(id, user?.id, { trackView: render !== 'ssr', viewer: ip ? `ip:${ip}` : undefined });
+  }
+
+  /** How a visit to the item page ended (sent as the page is left): time on it and photos looked at. */
+  @Post('listings/:id/engagement')
+  @HttpCode(204)
+  async engagement(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(EngagementDto)) dto: z.infer<typeof EngagementDto>) {
+    await this.recs.engagement(user.id, id, dto.ms, dto.photos);
+  }
+
+  /** Cards a feed showed the person: «Для вас» lets items scrolled past again and again give way. */
+  @Post('feed/impressions')
+  @HttpCode(204)
+  async impressions(@CurrentUser() user: AuthUser, @Body(new ZodPipe(ImpressionsDto)) dto: z.infer<typeof ImpressionsDto>) {
+    await this.recs.impressions(user.id, [...new Set(dto.ids)]);
   }
 
   /** «Не интересно»: hide the item from this person's feeds and search (DELETE brings it back). */

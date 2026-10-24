@@ -9,7 +9,7 @@ import { StatsService } from '../stats/stats.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { RecommendationsService } from '../recommendations/recommendations.service.js';
+import { RecommendationsService, SIGNAL_WEIGHTS } from '../recommendations/recommendations.service.js';
 import { RedisService } from '../redis/redis.js';
 
 const REPLY_MS = 48 * 3600 * 1000;
@@ -492,6 +492,8 @@ export class RequestsService {
     const single = deal.items.filter((i) => !multiSize(i.listing)).map((i) => i.listingId);
     const multi = deal.items.filter((i) => multiSize(i.listing)).map((i) => i.listingId);
     await tx.listing.updateMany({ where: { id: { in: single } }, data: { status: 'SOLD', soldAt: new Date() } });
+    // Bought: the strongest word on taste there is (on top of the request's signal).
+    await tx.signal.createMany({ data: deal.items.map((i) => ({ userId: deal.buyerId, listingId: i.listingId, type: 'purchase', weight: SIGNAL_WEIGHTS.purchase })) });
     await tx.cartItem.deleteMany({ where: { OR: [{ listingId: { in: single } }, { listingId: { in: multi }, userId: deal.buyerId }] } });
     return true;
   }
