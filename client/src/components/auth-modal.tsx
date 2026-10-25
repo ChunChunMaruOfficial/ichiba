@@ -12,7 +12,7 @@ import { Button, Field, Input, Modal } from "./ui";
  * Sign-in and sign-up in one flow, the way Avito, Kufar and Vinted do it:
  *   1. Google / Telegram — or an email → we send a one-time code (no password to invent);
  *   2. the code from the email;
- *   3. only for new people: a nickname + consent to personal data processing → account created.
+ *   3. only for new people: a nickname → account created (continuing accepts the terms and the privacy policy).
  * Password sign-in stays available for accounts that have a password.
  */
 type Step = "start" | "code" | "profile" | "password" | "reset" | "reset-confirm";
@@ -69,7 +69,6 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [signup, setSignup] = useState<Signup | null>(null);
   const [username, setUsername] = useState("");
-  const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -135,10 +134,6 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
 
   const completeSignup = () =>
     run(async () => {
-      if (!consent) {
-        setFields({ acceptPrivacy: "Без согласия мы не можем создать аккаунт" });
-        throw new ApiError(400, "Нужно согласие на обработку персональных данных", { acceptPrivacy: "Без согласия мы не можем создать аккаунт" });
-      }
       finish(await api<SessionResult>("/auth/complete", { body: { token: signup!.token, username, acceptPrivacy: true } }));
     });
 
@@ -284,17 +279,17 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
                 </button>
               )}
             </Field>
-            <label className="flex items-start gap-3 text-sm text-ink-2">
-              <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]" checked={consent} onChange={(e) => (setConsent(e.target.checked), setFields({}))} />
-              <span>
-                Даю согласие на обработку моих персональных данных, включая их передачу за рубеж, на условиях{" "}
-                <Link href="/privacy" target="_blank" className="font-medium text-ink underline underline-offset-4">
-                  Политики конфиденциальности
-                </Link>
-                . Мне есть 16 лет.
-                {fields.acceptPrivacy && <span className="mt-1 block text-danger">{fields.acceptPrivacy}</span>}
-              </span>
-            </label>
+            {/* Creating the account is the consent: the button sends acceptPrivacy and the server records it. */}
+            <p className="text-sm text-ink-2">
+              Продолжая, вы принимаете{" "}
+              <Link href="/terms" target="_blank" className="font-medium text-ink underline underline-offset-4">
+                Соглашение
+              </Link>{" "}
+              и{" "}
+              <Link href="/privacy" target="_blank" className="font-medium text-ink underline underline-offset-4">
+                Политику конфиденциальности
+              </Link>
+            </p>
           </>
         )}
 
