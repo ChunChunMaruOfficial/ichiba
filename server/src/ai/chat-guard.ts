@@ -5,7 +5,8 @@ import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { quorumSet } from './ensemble/aggregate.js';
 import { AiEnsemble } from './ensemble/ensemble.js';
-import { FraudCategory, FraudSignals, fraudSignals, maskCardNumbers } from './text-rules.js';
+import { appUrl } from '../mail/templates.js';
+import { ContactKind, FraudCategory, FraudSignals, fraudSignals, hideContacts, maskCardNumbers } from './text-rules.js';
 
 /**
  * Chat antifraud (AI feature 11).
@@ -38,6 +39,17 @@ const WARNING: Record<FraudCategory, string> = {
   pressure: 'Вас торопят — частый приём мошенников. Не спешите',
   other: 'Будьте осторожны с этим сообщением',
 };
+
+/** Hidden contacts: a firmer notice from the third message in a week, a report to moderators from the fifth. */
+const CONTACT_WINDOW_MS = 7 * 24 * 3600_000;
+const CONTACT_WARN_AT = 3;
+const CONTACT_REPORT_AT = 5;
+export const OFF_PLATFORM_REASON = 'Уводит сделку с площадки';
+const CONTACTS_NOTICE = {
+  buyer: 'Контакты не отправлены: до сделки телефоны, ники и ссылки в чате не видны собеседнику. Нажмите «Купить» — когда продавец подтвердит, телефоны откроются, а у сделки будут история, спор через ichiba и отзыв',
+  seller: 'Контакты не отправлены: до сделки телефоны, ники и ссылки в чате не видны собеседнику. Когда покупатель оформит покупку и вы её подтвердите, телефоны откроются, а продажа принесёт отзыв в ваш рейтинг',
+};
+const CONTACTS_REPEAT = '. Повторные попытки договориться в обход сделки могут ограничить аккаунт';
 
 const RiskVote = z.object({
   risk: z.enum(['none', 'low', 'medium', 'high']).catch('none'),
@@ -84,6 +96,37 @@ export class ChatGuard {
     const immediate: MessageRisk | null =
       ruleLevel && (signals.certain || !this.ensemble.available) ? { level: ruleLevel, categories: signals.categories, text: warningFor(signals.categories, masked), source: 'rules' } : null;
     return { body: text, masked, signals, immediate, needsAi: needsAi && this.ensemble.available };
+  }
+
+  /**
+   * Before a deal is on, contacts in chat are hidden (as Airbnb and Upwork do until a booking or a contract): the deal
+   * is where the phone numbers open up. The sender is told what happened; repeated attempts get a firmer notice and,
+   * past a limit, go to moderators — a person decides on any restriction.
+   */
+  async hideContacts(senderId: string, body: string, role: 'buyer' | 'seller'): Promise<{ body: string; hidden: ContactKind[]; notice: string | null }> {
+    const r = hideContacts(body, [new URL(appUrl()).hostname]);
+    if (!r.hidden.length) return { body, hidden: [], notice: null };
+    // This message is not stored yet: the count is of the earlier ones.
+    const earlier = await this.prisma.message.count({ where: { senderId, createdAt: { gte: new Date(Date.now() - CONTACT_WINDOW_MS) }, NOT: { hiddenContacts: { isEmpty: true } } } });
+    const attempts = earlier + 1;
+    if (attempts >= CONTACT_REPORT_AT) await this.reportContacts(senderId, attempts);
+    return { body: r.text, hidden: r.hidden, notice: attempts >= CONTACT_WARN_AT ? `${CONTACTS_NOTICE[role]}${CONTACTS_REPEAT}` : CONTACTS_NOTICE[role] };
+  }
+
+  private async reportContacts(senderId: string, attempts: number) {
+    const open = await this.prisma.report.findFirst({ where: { targetType: 'USER', targetId: senderId, source: 'ai', status: 'OPEN', reason: OFF_PLATFORM_REASON } });
+    if (open) return;
+    await this.prisma.report.create({
+      data: {
+        reporterId: null,
+        source: 'ai',
+        targetType: 'USER',
+        targetId: senderId,
+        reason: OFF_PLATFORM_REASON,
+        comment: `Антифрод: ${attempts} сообщений с контактами до сделки за 7 дней`,
+      },
+    });
+    this.logger.warn(`user ${senderId} reported: ${attempts} messages with contacts before a deal`);
   }
 
   /** Background part: ensemble verdict → message.risk → realtime update for the recipient. */

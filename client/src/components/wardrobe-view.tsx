@@ -17,7 +17,7 @@ import { DealCard } from "./deal-actions";
 import { LookEditor, LookHighlights } from "./looks";
 import { ReportModal } from "./report-modal";
 import { ReviewsSection } from "./reviews";
-import { BundleNote, RatingInline } from "./trust";
+import { BundleNote, DealsInline, RatingInline } from "./trust";
 import { OfferCard } from "./offer";
 import { Avatar } from "./avatar";
 import { Masonry, MasonrySkeleton } from "./masonry";
@@ -305,6 +305,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
               </div>
             </dl>
             <RatingInline rating={s.rating} username={s.username} className="mt-3" />
+            <DealsInline count={s.completedDeals} className="mt-1" />
             {s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>}
           </div>
           <div className="flex flex-wrap gap-2 empty:hidden max-md:[&>*]:flex-1">

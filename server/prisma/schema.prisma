@@ -631,6 +631,8 @@ model Message {
   accuracy  Float?
   /// Antifraud verdict: { level: warn|high, categories, source: rules|ai }.
   risk      Json?
+  /// Contacts removed from the text before a deal (phone, email, link, handle); the contacts themselves are not stored.
+  hiddenContacts String[]       @default([])
   /// Quoted message (reply), Telegram-style.
   replyToId String?
   replyTo   Message?          @relation("messageReply", fields: [replyToId], references: [id], onDelete: SetNull)

@@ -6,7 +6,7 @@ import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import { background } from '../common/background.js';
 import { EventsService } from '../events/events.js';
-import { type ListingStatus, Prisma } from '../generated/prisma/client.js';
+import { type ListingStatus, Prisma, type RequestStatus } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { photoUrls, serializeVideo, videoPoster } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -55,6 +55,13 @@ const MAX_MEDIA = 10;
 const PAGE = 50;
 
 const LOCATION_BODY = '📍 Местоположение';
+/**
+ * Deal states in which the two sides need each other's contacts to hand the item over: phones, names and links in
+ * chat go through. Before the seller accepts (and once the deal is over) they are hidden.
+ */
+const CONTACTS_OPEN: RequestStatus[] = ['WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED', 'DISPUTED'];
+const contactsOpen = (status: RequestStatus | null | undefined) => !!status && CONTACTS_OPEN.includes(status);
+const notices = (...parts: Array<string | null | undefined>) => parts.filter(Boolean).join('. ') || null;
 /** Statuses of an item a buyer can open a chat about (a sold one still has questions: returns, a second one). */
 const OPEN_TO_CHAT: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'SOLD'];
 
@@ -143,9 +150,9 @@ export class ChatService {
 
   /** Participants only; returns the other side. */
   private async members(id: string, userId: string) {
-    const t = await this.prisma.thread.findUnique({ where: { id }, select: { buyerId: true, sellerId: true } });
+    const t = await this.prisma.thread.findUnique({ where: { id }, select: { buyerId: true, sellerId: true, request: { select: { status: true } } } });
     if (!t || (t.buyerId !== userId && t.sellerId !== userId)) throw new NotFoundException({ message: 'Диалог не найден' });
-    return { other: t.buyerId === userId ? t.sellerId : t.buyerId };
+    return { other: t.buyerId === userId ? t.sellerId : t.buyerId, role: t.buyerId === userId ? ('buyer' as const) : ('seller' as const), requestStatus: t.request?.status ?? null };
   }
 
   /** A message of this thread that the viewer can still see. */
@@ -303,12 +310,19 @@ export class ChatService {
     const now = new Date();
     // Card numbers are masked before storage; obvious scam patterns are flagged right away.
     const check = input.body ? this.guard.prepare(input.body) : null;
+    const contacts = check && !contactsOpen(t.request?.status) ? await this.guard.hideContacts(userId, check.body, t.buyerId === userId ? 'buyer' : 'seller') : null;
+    if (contacts?.hidden.length && !contacts.body && !hasMedia) {
+      // Only a contact: nothing to deliver. Stored deleted for both sides — it still counts towards the warnings.
+      await this.prisma.message.create({ data: { threadId: id, senderId: userId, body: '', hiddenContacts: contacts.hidden, deletedAt: now, createdAt: now } });
+      throw new BadRequestException({ message: contacts.notice, code: 'CONTACTS' });
+    }
     const m = await this.prisma.$transaction(async (tx) => {
       const created = await tx.message.create({
         data: {
           threadId: id,
           senderId: userId,
-          body: check?.body ?? '',
+          body: contacts?.body ?? check?.body ?? '',
+          hiddenContacts: contacts?.hidden ?? [],
           kind: hasMedia ? 'MEDIA' : 'TEXT',
           replyToId,
           createdAt: now,
@@ -327,7 +341,7 @@ export class ChatService {
       // The ensemble verdict arrives later as a "message_risk" event; sending is never blocked on it.
       background(this.guard.review({ messageId: m.id, threadId: id, senderId: userId, recipientId: other, signals: check.signals, masked: check.masked, immediate: check.immediate }));
     }
-    return this.deliver(t, userId, m.id, check?.masked ? CARD_NOTICE : null);
+    return this.deliver(t, userId, m.id, notices(check?.masked ? CARD_NOTICE : null, contacts?.notice));
   }
 
   /** Shares a point on the map, like a location message in Telegram. The body is the preview line for lists. */
@@ -358,7 +372,7 @@ export class ChatService {
 
   /** Edits my text or caption within 48 h. The new text goes through the same antifraud checks. */
   async edit(userId: string, id: string, messageId: string, raw: string) {
-    const { other } = await this.members(id, userId);
+    const { other, role, requestStatus } = await this.members(id, userId);
     const m = await this.target(id, messageId, userId);
     if (m.senderId !== userId) throw new ForbiddenException({ message: 'Можно изменить только своё сообщение' });
     if (m.kind === 'LOCATION') throw new BadRequestException({ message: 'Местоположение нельзя изменить' });
@@ -369,16 +383,18 @@ export class ChatService {
     if (m.risk) throw new ConflictException({ message: 'Это сообщение нельзя изменить' });
 
     const check = raw ? this.guard.prepare(raw) : null;
+    const contacts = check && !contactsOpen(requestStatus) ? await this.guard.hideContacts(userId, check.body, role) : null;
+    if (contacts?.hidden.length && !contacts.body && m.kind === 'TEXT') throw new BadRequestException({ message: contacts.notice, code: 'CONTACTS' });
     const updated = await this.prisma.message.update({
       where: { id: messageId },
-      data: { body: check?.body ?? '', editedAt: new Date(), risk: check?.immediate ? (check.immediate as unknown as Prisma.InputJsonValue) : Prisma.DbNull },
+      data: { body: contacts?.body ?? check?.body ?? '', hiddenContacts: contacts?.hidden ?? [], editedAt: new Date(), risk: check?.immediate ? (check.immediate as unknown as Prisma.InputJsonValue) : Prisma.DbNull },
       include: messageInclude,
     });
     await this.events.emit(other, { type: 'message_update', data: { threadId: id, message: this.message(updated, other) } });
     if (check?.needsAi) {
       background(this.guard.review({ messageId, threadId: id, senderId: userId, recipientId: other, signals: check.signals, masked: check.masked, immediate: check.immediate }));
     }
-    return { ...this.message(updated, userId), notice: check?.masked ? CARD_NOTICE : null };
+    return { ...this.message(updated, userId), notice: notices(check?.masked ? CARD_NOTICE : null, contacts?.notice) };
   }
 
   /**

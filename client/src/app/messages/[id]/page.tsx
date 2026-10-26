@@ -33,6 +33,9 @@ import { api, ApiError } from "@/lib/api";
 import { formatPrice } from "@/lib/labels";
 import type { ChatLocation, ChatMedia, ChatMessage, ChatPin, ChatQuote, ChatReaction, Deal, ThreadSummary } from "@/lib/types";
 
+/** Deal states in which contacts in chat go through (the same list as the server's). */
+const CONTACTS_OPEN = ["WAITING_HANDOVER", "HANDED_OVER", "IN_TRANSIT", "RECEIVED", "DISPUTED"];
+
 type ThreadData = { thread: ThreadSummary; messages: ChatMessage[]; hasMore: boolean; pins?: ChatPin[] };
 
 const EDIT_WINDOW_MS = 48 * 3600_000;
@@ -757,6 +760,13 @@ function Thread({ id }: { id: string }) {
           </div>
         )}
         {messages.length === 0 && <p className="py-10 text-center text-sm text-muted">Напишите продавцу — например, есть ли замеры или можно ли посмотреть вещь вживую.</p>}
+        {/* Until the seller accepts a deal, the server hides contacts in messages: say so before anyone tries. */}
+        {!(deal.data && CONTACTS_OPEN.includes(deal.data.status)) && (
+          <p className="mx-auto mb-2 max-w-sm rounded-xl bg-ink/5 px-3 py-2 text-center text-xs leading-snug text-muted">
+            До сделки телефоны, ники и ссылки в чате не видны собеседнику.{" "}
+            {t.role === "seller" ? "Когда покупатель оформит покупку и вы её подтвердите, контакты откроются." : "Когда продавец подтвердит покупку, контакты откроются, а у сделки будут спор через ichiba и отзыв."}
+          </p>
+        )}
         <ol className="flex flex-col">
           {messages.map((m, i) => {
             const day = dayLabel(m.createdAt);

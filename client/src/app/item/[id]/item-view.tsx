@@ -22,7 +22,7 @@ import { AddToLook, LooksWithItem } from "@/components/looks";
 import { Avatar } from "@/components/avatar";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
-import { BundleNote, FitNote, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
+import { BundleNote, FitNote, DealsInline, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
 import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
@@ -599,6 +599,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
               </div>
             </dl>
             <RatingInline rating={seller.rating} username={seller.username} className="mt-1.5" />
+            <DealsInline count={seller.completedDeals} className="mt-1" />
           </div>
           <div className="hidden shrink-0 flex-col gap-2 md:flex">
             {!l.isOwner && <FollowButton seller={seller} onChange={(v) => setSeller((s) => ({ ...s, isFollowing: v, followers: s.followers + (v ? 1 : -1) }))} />}

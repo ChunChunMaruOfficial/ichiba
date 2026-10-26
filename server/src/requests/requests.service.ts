@@ -1,10 +1,12 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { hideContacts } from '../ai/text-rules.js';
 import { withJobLock } from '../common/job-lock.js';
 import type { DeliveryMethod, Prisma, RequestSource, RequestStatus } from '../generated/prisma/client.js';
 import { applyDiscount, discountFor, tiersOf } from '../listings/bundle.js';
 import { ChatService } from '../chat/chat.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
+import { appUrl } from '../mail/templates.js';
 import { StatsService } from '../stats/stats.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -57,6 +59,11 @@ const sizeInStock = (l: { sizes: string[]; sizeValue: string | null }, size: str
   !size || l.sizes.includes(size) || (l.sizes.length <= 1 && l.sizeValue === size);
 /** Deal states in which the seller already has the buyer's contacts (the same gate as the phone number). */
 const CONTACTS_SHOWN: RequestStatus[] = ['WAITING_HANDOVER', 'HANDED_OVER', 'IN_TRANSIT', 'RECEIVED', 'COMPLETED', 'DISPUTED'];
+/** The buyer's comment as the seller sees it on the request: contacts hidden, as in chat before a deal. */
+const commentOf = (comment: string | null | undefined) => {
+  const body = comment?.trim();
+  return body ? hideContacts(body, [new URL(appUrl()).hostname]).text : null;
+};
 /** «Минск, ул. Ленина 1, кв. 5» → «Минск»: what a seller sees of the address before the deal is on. */
 const cityOf = (point: string | null) => {
   const parts = point?.split(',') ?? [];
@@ -217,7 +224,7 @@ export class RequestsService {
         deliveryMethod: input.deliveryMethod,
         deliveryPoint: input.deliveryPoint?.trim() || null,
         contactPhone: input.contactPhone?.trim() || null,
-        buyerComment: input.buyerComment?.trim() || null,
+        buyerComment: commentOf(input.buyerComment),
         status: 'PENDING_SELLER',
         expiresAt: new Date(Date.now() + REPLY_MS),
         items: { create: listings.map((l, i) => ({ listingId: l.id, price: priced.itemPrices[i], size: multiSize(l) ? picked[l.id] : null })) },
@@ -290,7 +297,7 @@ export class RequestsService {
         deliveryMethod: input.deliveryMethod,
         deliveryPoint: input.deliveryPoint?.trim() || null,
         contactPhone: input.contactPhone?.trim() || null,
-        buyerComment: input.buyerComment?.trim() || null,
+        buyerComment: commentOf(input.buyerComment),
         expiresAt: null,
       },
     });

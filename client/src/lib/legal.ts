@@ -11,8 +11,8 @@ export const LEGAL = {
   address: env(process.env.NEXT_PUBLIC_LEGAL_ADDRESS),
   email: env(process.env.NEXT_PUBLIC_LEGAL_EMAIL) ?? "c4erkaoui@gmail.com",
   /** Must match PRIVACY_VERSION in server/src/auth/auth.service.ts. */
-  version: "2026-10-13",
-  updated: "13 октября 2026 г.",
+  version: "2026-10-26",
+  updated: "26 октября 2026 г.",
 };
 
 /** "ИП Иванов И. И., УНП 123456789, адрес: …" with whatever requisites are configured. */

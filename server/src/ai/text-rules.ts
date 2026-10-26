@@ -117,6 +117,100 @@ export function findContacts(text: string): ContactHit[] {
 
 const findLinks = (text: string) => text.match(URL) ?? [];
 
+// ---------- hiding contacts in chat ----------
+
+/** Digits written as words: «восемь ноль двадцать девять…». Tens and a following unit add up («двадцать девять» → 29). */
+const UNITS: Record<string, number> = { ноль: 0, нуль: 0, один: 1, одна: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5, шесть: 6, семь: 7, восемь: 8, девять: 9 };
+const TEENS: Record<string, number> = { десять: 10, одиннадцать: 11, двенадцать: 12, тринадцать: 13, четырнадцать: 14, пятнадцать: 15, шестнадцать: 16, семнадцать: 17, восемнадцать: 18, девятнадцать: 19 };
+const TENS: Record<string, number> = { двадцать: 20, тридцать: 30, сорок: 40, пятьдесят: 50, шестьдесят: 60, семьдесят: 70, восемьдесят: 80, девяносто: 90 };
+const NUMBER_WORD = [...Object.keys(UNITS), ...Object.keys(TEENS), ...Object.keys(TENS)].join('|');
+/** A run of digits and number words with separators between them, at least seven pieces long. */
+const NUMBER_RUN = U(new RegExp(String.raw`(?:\+\s*)?(?:(?:\d+|(?:${NUMBER_WORD})\b)[\s.,()\-–—/]*){7,}`, 'gi'));
+
+/** The digits a run spells out: «восемь ноль 29» → «8029». */
+function spelledDigits(run: string): string {
+  let out = '';
+  let tens: number | null = null;
+  const flush = () => {
+    if (tens != null) out += String(tens);
+    tens = null;
+  };
+  for (const piece of run.toLowerCase().match(new RegExp(String.raw`\d+|[а-яё]+`, 'g')) ?? []) {
+    if (/^\d+$/.test(piece)) {
+      flush();
+      out += piece;
+    } else if (piece in TENS) {
+      flush();
+      tens = TENS[piece];
+    } else if (piece in UNITS) {
+      out += tens != null ? String(tens + UNITS[piece]) : String(UNITS[piece]);
+      tens = null;
+    } else if (piece in TEENS) {
+      flush();
+      out += String(TEENS[piece]);
+    }
+  }
+  flush();
+  return out;
+}
+
+/**
+ * A phone number once only its digits are left: a Belarusian one (375 / 80 and an operator code) or a Russian mobile
+ * (7 / 8 and 9…). Any other run counts only with a leading «+»: «70 61 52 48 …» is a list of sizes.
+ */
+const isPhoneDigits = (digits: string, plus: boolean) =>
+  /^(?:375|80)(?:17|25|29|33|44)\d{7}$/.test(digits) || /^[78]9\d{9}$/.test(digits) || (plus && /^\d{10,15}$/.test(digits));
+
+const PHONE_G = new RegExp(PHONE.source, `${PHONE.flags}g`);
+const EMAIL_G = new RegExp(EMAIL.source, 'gi');
+/** t.me/name, «t . me / name», wa.me/…, vk.com/…: the one-letter domains the generic link pattern doesn't cover. */
+const SHORT_LINK = /\b(?:t|wa)\s*[.,]\s*me\s*\/\s*[\w+]+|\bvk\s*[.,]\s*com\s*\/\s*[\w.]+|\binstagram\s*[.,]\s*com\s*\/\s*[\w.]+/gi;
+/** A name right after a messenger word: «тг mirar_wear», «инст: nenet.store», «телеграм @shop». */
+const NAME_AFTER_MESSENGER = U(/(\b(?:тг|tg|телеграм\w*|телег[аеиу]|telegram|инст[аеуы]?|инстаграм\w*|insta|instagram|вайбер\w*|viber|ватсап\w*|вотсап\w*|whatsapp|ник)\b\s*[:\-–—]?\s*)@?([a-z][a-z0-9_.]{3,})/gi);
+const HANDLE_G = /(^|\s)@[a-z0-9_]{4,}/gi;
+
+export type ContactKind = ContactHit['kind'];
+
+/**
+ * Removes contacts from a chat message before it is stored: phone numbers (also spelled out in words or split by
+ * spaces), e-mails, links, @names and names after a messenger word. The other side sees the message without them,
+ * with no mark where they were. Links to our own site and to delivery services (a tracking page) stay. Returns the
+ * text to store (possibly empty) and which kinds were removed.
+ */
+export function hideContacts(text: string, allowedHosts: string[] = []): { text: string; hidden: ContactKind[] } {
+  const hidden = new Set<ContactKind>();
+  const allowed = [...allowedHosts, ...OFFICIAL_DOMAINS];
+  let out = text;
+  out = out.replace(EMAIL_G, () => (hidden.add('email'), ''));
+  out = out.replace(URL, (link) => {
+    const host = link.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[/?#]/)[0].toLowerCase();
+    if (allowed.some((d) => host === d || host.endsWith(`.${d}`))) return link;
+    hidden.add('link');
+    return '';
+  });
+  out = out.replace(SHORT_LINK, () => (hidden.add('link'), ''));
+  // «звоните 8029…»: the phone word in front of the number stays, only the number goes.
+  out = out.replace(PHONE_G, (m) => (hidden.add('phone'), m.match(/^\p{L}[^\d+]*/u)?.[0] ?? ''));
+  out = out.replace(NUMBER_RUN, (run) => {
+    const digits = spelledDigits(run);
+    if (!isPhoneDigits(digits, run.trimStart().startsWith('+'))) return run;
+    hidden.add('phone');
+    // Keep the separator the run swallowed, so the next word doesn't stick to the previous one.
+    return /\s$/.test(run) ? ' ' : '';
+  });
+  out = out.replace(NAME_AFTER_MESSENGER, (_m, word: string) => (hidden.add('handle'), word));
+  out = out.replace(HANDLE_G, (_m, lead: string) => (hidden.add('handle'), lead));
+  if (!hidden.size) return { text, hidden: [] };
+  // What a removed contact leaves behind: double spaces, a space before punctuation, empty lines.
+  out = out
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/ +([,.!?:;])/g, '$1')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return { text: out, hidden: [...hidden] };
+}
+
 // ---------- gibberish / "is this an item" ----------
 
 const KEYBOARD_RUNS = ['йцук', 'цуке', 'укен', 'кенг', 'фыва', 'ывап', 'вапр', 'апро', 'ячсм', 'чсми', 'qwer', 'wert', 'erty', 'asdf', 'sdfg', 'dfgh', 'zxcv', 'xcvb'];
@@ -221,7 +315,7 @@ const RULES: Array<{ re: RegExp; category: FraudCategory; weight: number }> = [
   { re: U(/безопасн\w* сделк|гарант\w* сделк|оплат\w* по ссылке|ссылк\w* (?:на|для) оплат|получи\w* (?:деньги|оплату|средства) по ссылке|форм\w* (?:для )?получени\w* (?:денег|оплаты)/i), category: 'phishing_link', weight: 3 },
   { re: U(/оформ\w* доставк\w* по ссылке|курьер\w* (?:сам )?заберет.*ссылк|доставк\w* через (?:сайт|ссылку)/i), category: 'fake_delivery', weight: 3 },
   { re: U(/предоплат|переведи\w*|перевод\w* на карт|скинь\w* (?:деньги|денег|на карту)|кин\w* на карт|задат(?:ок|ка)|оплат\w* на карт|на номер карты/i), category: 'prepayment', weight: 2 },
-  { re: U(/телеграм|телег[аеиу]\b|\bтг\b|telegram|вайбер|viber|ватсап|вотсап|вацап|whatsapp|\bt\.me\b|\bwa\.me\b|\bпиши\w* (?:мне )?в (?:лс|личку)/i), category: 'off_platform', weight: 1 },
+  { re: U(/телеграм|телег[аеиу]\b|\bтг\b|telegram|вайбер|viber|ватсап|вотсап|вацап|whatsapp|инстаграм|instagram|\bинст[аеуы]?\b|\binsta\b|\bt\.me\b|\bwa\.me\b|\bпиши\w* (?:мне )?в (?:лс|личку)/i), category: 'off_platform', weight: 1 },
   { re: U(/срочно|только сегодня|прямо сейчас|иначе (?:продам|отдам)|последний шанс/i), category: 'pressure', weight: 1 },
   { re: U(/служб\w* (?:безопасности|поддержки)|администраци\w* (?:сайта|площадки)|модератор\w* (?:сайта|площадки)|представител\w* банка/i), category: 'impersonation', weight: 2 },
 ];

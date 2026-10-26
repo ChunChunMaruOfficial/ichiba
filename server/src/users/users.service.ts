@@ -1,6 +1,7 @@
 import {
   ConflictException, BadRequestException, Body, Controller, Injectable, Patch } from '@nestjs/common';
 import { z } from 'zod';
+import { findContacts } from '../ai/text-rules.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { CITIES } from '../catalog/catalog.js';
 import { ZodPipe } from '../common/zod.js';
@@ -85,7 +86,13 @@ export class UsersService {
 
 const UpdateMeDto = z.object({
   city: z.enum(CITIES as [string, ...string[]]).nullish(),
-  bio: z.string().trim().max(160, 'До 160 символов').nullish(),
+  bio: z
+    .string()
+    .trim()
+    .max(160, 'До 160 символов')
+    // The profile is not a way around the deal: buyers write in the chat here, and contacts open up once a deal is on.
+    .refine((v) => !findContacts(v).length, 'Контакты и ссылки в профиле запрещены — покупатели напишут вам в чат ichiba')
+    .nullish(),
   phone: z
     .string()
     .trim()

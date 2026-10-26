@@ -49,6 +49,19 @@ export function RatingInline({ rating, username, className }: { rating: { avg: n
   );
 }
 
+/**
+ * Deals completed through ichiba: a record a seller only builds here (an off-site sale leaves no trace, no review),
+ * which is why it sits next to the rating.
+ */
+export function DealsInline({ count, className }: { count: number; className?: string }) {
+  if (!count) return null;
+  return (
+    <p className={clsx("text-sm text-ink-2", className)}>
+      <b className="tabular text-ink">{count}</b> {plural(count, "сделка", "сделки", "сделок")} через ichiba
+    </p>
+  );
+}
+
 /** Interactive 1–5 star picker. */
 export function StarInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [hover, setHover] = useState(0);

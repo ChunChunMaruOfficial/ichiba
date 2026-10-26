@@ -29,7 +29,7 @@ const DUMMY_HASH = bcrypt.hashSync('ichiba-no-such-account', 10);
 type PendingRegistration = { username: string; passwordHash: string };
 const SIGNUP_TOKEN_TTL = '30m';
 /** Bump when the privacy policy changes materially; stored with each consent. */
-export const PRIVACY_VERSION = '2026-10-13';
+export const PRIVACY_VERSION = '2026-10-26';
 /** Dev only: any 6-digit code passes verification. Never enabled in production. */
 export const DEV_ANY_CODE = process.env.AUTH_DEV_ANY_CODE === 'true' && process.env.NODE_ENV !== 'production';
 
