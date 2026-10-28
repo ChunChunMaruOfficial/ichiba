@@ -338,6 +338,36 @@ html[data-chrome-away] [data-chrome="bottom-nav"] {
   visibility: hidden;
   transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 300ms;
 }
+/*
+ * Keyboard (lib/keyboard.ts). While a field has focus on a touch screen, the bars fixed to the bottom step aside: on
+ * Android the page shrinks above the keyboard and they would sit on top of it, over the field being typed in.
+ */
+html[data-typing] [data-chrome="bottom-nav"],
+html[data-typing] [data-chrome="cookie"] {
+  display: none;
+}
+@media (max-width: 767px) {
+  html[data-typing] [data-chrome="action-bar"] {
+    display: none;
+  }
+  /* The mini chat drops to just above the keys (the tab bar it sat on is gone). */
+  html[data-typing] [data-chrome="mini-chat"] {
+    bottom: calc(var(--kb, 0px) + 0.5rem);
+  }
+}
+/* iOS lays the keyboard over the page instead: sheets and the chat are fitted into the part still visible above it. */
+html[data-keyboard] [data-sheet-layer] {
+  top: var(--vv-top);
+  bottom: auto;
+  height: var(--vvh);
+}
+@media (max-width: 1023px) {
+  html[data-keyboard] [data-chrome="thread-layout"] {
+    height: var(--vvh);
+    transform: translateY(var(--vv-top));
+  }
+}
+
 html[data-immersive] [data-chrome="main"] {
   padding-bottom: env(safe-area-inset-bottom);
 }

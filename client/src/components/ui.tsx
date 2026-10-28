@@ -343,9 +343,13 @@ export function Field({ label, error, hint, required, children, htmlFor }: {
   );
 }
 
+/**
+ * Phones and tablets get 16 px: iOS Safari zooms the whole page into any field set smaller than that as soon as it is
+ * focused (the sign-in sheet blew up past the screen edges).
+ */
 export const inputClass = (error?: string) =>
   clsx(
-    "h-11 w-full rounded-xl border bg-surface px-3.5 text-[15px] outline-none transition-[border-color,box-shadow] placeholder:text-muted hover:border-ink-2 focus-visible:border-indigo focus-visible:ring-3 focus-visible:ring-indigo/20",
+    "h-11 w-full rounded-xl border bg-surface px-3.5 text-[15px] outline-none pointer-coarse:text-base transition-[border-color,box-shadow] placeholder:text-muted hover:border-ink-2 focus-visible:border-indigo focus-visible:ring-3 focus-visible:ring-indigo/20",
     error ? "border-danger border-2" : "border-line-control",
   );
 
@@ -490,6 +494,13 @@ export function useModalFocus(open: boolean, panelRef: React.RefObject<HTMLEleme
  * right away), else the first focusable that is not the close ✕, else the ✕ itself.
  */
 function initialFocus(panel: HTMLElement): HTMLElement | null {
+  // A touch screen opens its keyboard for a focused field, and the keys covered half of the sheet before it was even
+  // read (sign-in). There the sheet itself takes focus — screen readers still land in it — and the keyboard waits for
+  // a tap on a field.
+  if (window.matchMedia("(pointer: coarse)").matches) {
+    if (!panel.hasAttribute("tabindex")) panel.tabIndex = -1;
+    return panel;
+  }
   const marked = panel.querySelector<HTMLElement>("[autofocus], [data-autofocus]");
   if (marked) return marked;
   const field = [...panel.querySelectorAll<HTMLElement>("form input, form textarea, form select")].find((el) => focusables(panel).includes(el));
@@ -541,7 +552,7 @@ export function Modal({
   // Rendered at the end of <body>: a modal opened from inside a positioned panel (the chat, a deal card) must not be
   // painted under that panel's own layers.
   return createPortal(
-    <div data-closing={closing || undefined} className="fade-in fixed inset-0 z-[60] flex items-end justify-center bg-[var(--scrim)] md:items-center md:p-6" onMouseDown={onClose}>
+    <div data-closing={closing || undefined} data-sheet-layer className="fade-in fixed inset-0 z-[60] flex items-end justify-center bg-[var(--scrim)] md:items-center md:p-6" onMouseDown={onClose}>
       <div
         ref={panel}
         role="dialog"
@@ -549,7 +560,7 @@ export function Modal({
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
         className={clsx(
-          "sheet-up relative isolate max-h-[90vh] w-full overflow-y-auto overscroll-contain rounded-t-[28px] bg-surface p-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-float)] md:rounded-[28px] md:pb-6 md:pt-6",
+          "sheet-up relative isolate max-h-[90%] w-full overflow-y-auto overscroll-contain rounded-t-[28px] bg-surface p-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-float)] md:rounded-[28px] md:pb-6 md:pt-6",
           width,
         )}
       >

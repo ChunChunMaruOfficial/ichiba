@@ -139,7 +139,7 @@ function SearchBox({ className, autoFocus }: { className?: string; autoFocus?: b
             }}
             onBlur={() => setFocused(false)}
             placeholder={placeholder}
-            className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted"
+            className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted pointer-coarse:text-base"
             enterKeyHint="search"
           />
           {q && (

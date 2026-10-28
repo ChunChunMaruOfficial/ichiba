@@ -450,7 +450,7 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
 
       {/* No bar on the photo screen: the first photo moves on by itself. */}
       {step !== 1 && (
-        <div className="sheet-up fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mt-10 md:justify-end md:border-0 md:bg-transparent md:p-0">
+        <div data-chrome="action-bar" className="sheet-up fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mt-10 md:justify-end md:border-0 md:bg-transparent md:p-0">
           {/* Desktop: equal buttons of one width. Phone: "Назад" and "Запланировать" shrink to icons so the main action fits. */}
           {step > 2 && (
             <Button variant="secondary" size="lgTight" aria-label="Назад" className="w-13 shrink-0 md:w-48" onClick={() => goTo((step - 1) as Step)}>

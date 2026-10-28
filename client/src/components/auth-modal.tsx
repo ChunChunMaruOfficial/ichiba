@@ -221,7 +221,9 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
               spellCheck={false}
               autoCapitalize="none"
               autoComplete="username"
-              autoFocus
+              // Not autoFocus: the sheet decides (useModalFocus) — on a phone the keys waited for a tap, so Google and
+              // Telegram stay in sight.
+              data-autofocus
               value={login}
               onChange={(e) => setLogin(e.target.value)}
               error={fields.login}

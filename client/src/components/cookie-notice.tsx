@@ -56,6 +56,7 @@ export function CookieNotice() {
       role="region"
       aria-label="Уведомление о cookie"
       data-closing={leaving || undefined}
+      data-chrome="cookie"
       className="panel fade-in fixed inset-x-3 bottom-[calc(84px+env(safe-area-inset-bottom))] z-50 rounded-3xl p-4 md:inset-x-auto md:bottom-5 md:left-5 md:max-w-sm"
     >
       <p className="text-sm leading-relaxed text-ink-2">

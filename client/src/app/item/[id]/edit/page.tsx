@@ -213,7 +213,7 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:sticky md:bottom-4 md:mt-10 md:justify-end md:rounded-2xl md:border md:shadow-lg">
+      <div data-chrome="action-bar" className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:sticky md:bottom-4 md:mt-10 md:justify-end md:rounded-2xl md:border md:shadow-lg">
         {draft ? (
           <>
             <Button variant="secondary" loading={saving} disabled={!dirty} onClick={() => save(false)}>

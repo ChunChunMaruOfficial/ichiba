@@ -415,7 +415,7 @@ export const Composer = forwardRef<
             }
           }}
           placeholder={editing ? "Изменить сообщение…" : items.length ? "Подпись…" : "Сообщение…"}
-          className="max-h-40 min-h-11 flex-1 resize-none rounded-[22px] border border-line-strong bg-surface px-4 py-2.5 text-[15px] leading-snug outline-none focus-visible:border-ink focus-visible:ring-3 focus-visible:ring-accent/15"
+          className="max-h-40 min-h-11 flex-1 resize-none rounded-[22px] border border-line-strong bg-surface px-4 py-2.5 text-[15px] leading-snug outline-none pointer-coarse:text-base focus-visible:border-ink focus-visible:ring-3 focus-visible:ring-accent/15"
         />
         {/* The send button appears only once there is something to send: it slides in, growing and turning
             into place, and leaves the same way when the field is cleared. */}

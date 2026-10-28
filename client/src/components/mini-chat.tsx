@@ -322,7 +322,7 @@ function MiniChatCard({ id, closing, onClose }: { id: string; closing: boolean; 
           placeholder={t ? `Ответить @${t.counterpart.username}…` : "Ответить…"}
           aria-label="Ответ"
           // 16px: iOS does not zoom into the field.
-          className="h-10 min-w-0 flex-1 rounded-full bg-paper px-4 text-base outline-none placeholder:text-muted focus-visible:ring-3 focus-visible:ring-indigo/20 md:text-[15px]"
+          className="h-10 min-w-0 flex-1 rounded-full bg-paper px-4 text-[15px] outline-none placeholder:text-muted focus-visible:ring-3 focus-visible:ring-indigo/20 pointer-coarse:text-base"
         />
         <button
           type="submit"

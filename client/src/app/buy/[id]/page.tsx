@@ -241,7 +241,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
                   )}
                 </div>
               )}
-              <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:border-0 lg:bg-transparent lg:p-0">
+              <div data-chrome="action-bar" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:border-0 lg:bg-transparent lg:p-0">
                 <Button type="submit" size="lg" block loading={busy} disabled={!chosen}>
                   {busy ? "Отправляем…" : confirming ? "Подтвердить способ получения" : "Отправить запрос"}
                 </Button>

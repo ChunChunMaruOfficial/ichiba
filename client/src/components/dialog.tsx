@@ -97,7 +97,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     placeholder={d.opts.placeholder}
-                    className="w-full rounded-xl border border-line-strong bg-paper px-3.5 py-2.5 text-[15px] outline-none focus:border-ink"
+                    className="w-full rounded-xl border border-line-strong bg-paper px-3.5 py-2.5 text-[15px] outline-none focus:border-ink pointer-coarse:text-base"
                   />
                 ) : (
                   <Input id="dialog-value" autoFocus autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} placeholder={d.opts.placeholder} />
