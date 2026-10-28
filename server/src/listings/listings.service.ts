@@ -26,6 +26,7 @@ import { MAX_VIDEO_MS } from '../media/video.js';
 import { cardInclude, CardListing, serializeCard, serializePhoto } from './listing.serializer.js';
 import { LISTING_LABELS, type ListingInputT, type SearchQueryT } from './listings.dto.js';
 import { type Market, marketFor, marketOf, marketWhere } from './market.js';
+import { itemPath, SOLD_INDEXED_DAYS, seoOf } from '../seo/seo.service.js';
 
 export { type Market, marketOf, marketWhere };
 
@@ -791,8 +792,13 @@ export class ListingsService {
     const sizeOrder = (s: string | null) => (s && /^\d+$/.test(s.replace(/^W/, '')) ? Number(s.replace(/^W/, '')) : ['XS', 'S', 'M', 'L', 'XL', 'XXL'].indexOf(s ?? ''));
     const ai = (listing.aiAttributes ?? {}) as Record<string, { accepted_by_user?: boolean; edited_by_user?: boolean }>;
     const category = categoryBySlug(listing.category);
+    const auction = auctionRow ? serializeAuction(auctionRow, viewerId, listing.sellerId) : null;
+    // The snippet is built from the row as it is now: a new price or a sale shows in search the next time it is read.
+    const seo = seoOf(listing, auction?.status === 'ACTIVE' ? (auction.currentBid ?? auction.startPrice) : null);
     return {
       id: listing.id,
+      slug: seo.slug,
+      seo,
       status: listing.status,
       title: listing.title,
       price: listing.price,
@@ -829,6 +835,7 @@ export class ListingsService {
       favoritesCount: listing.favoritesCount,
       publishedAt: listing.publishedAt,
       createdAt: listing.createdAt,
+      soldAt: listing.soldAt,
       blockedReason: isOwner ? listing.blockedReason : null,
       photos: listing.photos.map(serializePhoto),
       video: listing.video ? serializeVideo(listing.video) : null,
@@ -841,7 +848,7 @@ export class ListingsService {
       isFavorite,
       inCart,
       saleType: listing.saleType,
-      auction: auctionRow ? serializeAuction(auctionRow, viewerId, listing.sellerId) : null,
+      auction,
       myRequest,
       // Size hint for the signed-in buyer: null when we know nothing about their sizes.
       fit: viewer ? fitHint(listing, { body: viewer.bodyMeasurements as BodyMeasurements | null, sizes: viewer.sizes as PreferredSizes | null }) : null,
@@ -1372,14 +1379,21 @@ export class ListingsService {
   }
 
   private async buildSitemap() {
+    const soldSince = new Date(Date.now() - SOLD_INDEXED_DAYS * 24 * 3600_000);
     const [listings, sellers] = await Promise.all([
-      this.prisma.listing.findMany({ where: { status: { in: ['PUBLISHED', 'RESERVED'] } }, select: { id: true, updatedAt: true }, orderBy: { liftedAt: 'desc' }, take: 45_000 }),
+      // Sold items stay while their page is still in search (item page metadata); the cover goes in as an image entry.
+      this.prisma.listing.findMany({
+        where: { OR: [{ status: { in: ['PUBLISHED', 'RESERVED'] } }, { status: 'SOLD', soldAt: { gte: soldSince } }], hiddenByAdmin: false },
+        include: { photos: { where: { isDefect: false }, orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 3 } },
+        orderBy: { liftedAt: 'desc' },
+        take: 45_000,
+      }),
       this.prisma.listing.groupBy({ by: ['sellerId'], where: { status: 'PUBLISHED' }, _max: { updatedAt: true } }),
     ]);
     const users = await this.prisma.user.findMany({ where: { id: { in: sellers.map((s) => s.sellerId) }, blockedAt: null }, select: { id: true, username: true } });
     const last = new Map(sellers.map((s) => [s.sellerId, s._max.updatedAt]));
     return {
-      listings: listings.map((l) => ({ id: l.id, updatedAt: l.updatedAt })),
+      listings: listings.map((l) => ({ id: l.id, path: itemPath(l), updatedAt: l.updatedAt, images: l.photos.map((p) => photoUrls(p).l) })),
       wardrobes: users.map((u) => ({ username: u.username, updatedAt: last.get(u.id) })),
     };
   }

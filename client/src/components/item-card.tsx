@@ -10,6 +10,7 @@ import { useFavorite } from "@/lib/hooks";
 import { usePinchZoom } from "@/lib/pinch-zoom";
 import { conditionLabel, formatPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
+import { itemHref } from "@/lib/item-path";
 import { AuctionTimer, auctionPrice } from "./auction";
 import { scheduleLabel } from "./schedule-picker";
 import { useSession } from "./session";
@@ -72,7 +73,7 @@ function BuyButton({ card, className }: { card: Card; className?: string }) {
   if (card.status === "SOLD") return null;
   if (card.auction) {
     return (
-      <Link href={`/item/${card.id}`} className={clsx("btn-wa btn-wa-ink rounded-xl px-3 py-2 text-center text-sm font-semibold", className)}>
+      <Link href={itemHref(card)} className={clsx("btn-wa btn-wa-ink rounded-xl px-3 py-2 text-center text-sm font-semibold", className)}>
         Сделать ставку
       </Link>
     );
@@ -84,7 +85,7 @@ function BuyButton({ card, className }: { card: Card; className?: string }) {
       onClick={(e) => {
         e.preventDefault();
         // A negotiable price or a size to pick is settled on the item page (offer, chat, size picker), not in the buy form.
-        if (card.priceNegotiable || card.multiSize) router.push(`/item/${card.id}`);
+        if (card.priceNegotiable || card.multiSize) router.push(itemHref(card));
         else requireAuth(() => router.push(`/buy/${card.id}`));
       }}
       className={clsx("btn-wa btn-wa-ink rounded-xl px-3 py-2 text-sm font-semibold disabled:bg-ink/10 disabled:text-ink-2", className)}
@@ -193,7 +194,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
     return (
       <article ref={shownRef} className="reveal group relative">
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
-        <Link href={`/item/${card.id}`} className="relative block overflow-hidden rounded-[18px]">
+        <Link href={itemHref(card)} className="relative block overflow-hidden rounded-[18px]">
           <ItemPhoto card={card} eager={eager} uniform={uniform} onZoom={onZoom} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
           <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-0 transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0" />
           <span className="transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0">
@@ -233,7 +234,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
   return (
     <article className="reveal group relative">
       <div className="relative">
-        <Link href={`/item/${card.id}`} className="block overflow-hidden rounded-[18px]" tabIndex={-1} aria-hidden>
+        <Link href={itemHref(card)} className="block overflow-hidden rounded-[18px]" tabIndex={-1} aria-hidden>
           <ItemPhoto card={card} eager={eager} uniform={uniform} onZoom={onZoom} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
         </Link>
         <StatusMark card={card} className="absolute left-3 top-3" />
@@ -251,7 +252,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
       </div>
       {/* Frosted so the text stays readable over the footer's sakura (and anything else behind the page). */}
       <div className="card-info -mx-1 mt-1.5 rounded-xl px-1.5 pb-1 pt-0.5">
-        <Link href={`/item/${card.id}`} className="block">
+        <Link href={itemHref(card)} className="block">
           <div className={clsx("px-0.5", hasSeal(card) && "pr-10")}>
             <p className="tabular text-[15px] font-bold">
               <span className={discounted ? "text-shu" : undefined}>{price}</span>

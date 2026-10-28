@@ -1,5 +1,6 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import { photoUrls, type StoredPhoto } from '../media/media.service.js';
+import { seoOf } from '../seo/seo.service.js';
 
 export const cardInclude = {
   photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 },
@@ -32,6 +33,8 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
   const cover = l.photos[0];
   return {
     id: l.id,
+    /** URL words after the id: /item/<id>-<slug> is the address search engines know the item by. */
+    slug: seoOf(l).slug,
     title: l.title,
     price: l.price,
     priceNegotiable: l.priceNegotiable,

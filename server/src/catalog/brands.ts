@@ -42,6 +42,8 @@ interface Brand {
   /** Keys of each word, for "north" finding "The North Face". */
   words: string[];
   skeleton: string;
+  /** How the brand is written in Russian («Кархарт» for Carhartt), the first Cyrillic alias. */
+  ru: string | null;
 }
 
 const BRANDS: Brand[] = BRAND_DATA.split('\n').map((line) => {
@@ -51,6 +53,7 @@ const BRANDS: Brand[] = BRAND_DATA.split('\n').map((line) => {
     name,
     score: Number(score),
     key: brandKey(name),
+    ru: aliases.split(';').find((a) => /[а-яё]/i.test(a))?.trim() || null,
     aliases: aliasKeys,
     words: name.split(/[\s\-/.]+/).map(brandKey).filter((w) => w.length >= 2),
     skeleton: skeleton(brandKey(name)),
@@ -110,6 +113,9 @@ export function searchBrands(query: string, limit = 10, boost?: Map<string, numb
 
 /** The catalogue spelling of a brand ("nike", "Найк" -> "Nike"), or null when it is not in the catalogue. */
 export const knownBrand = (input: string) => BY_KEY.get(brandKey(input))?.name ?? null;
+
+/** The Russian spelling of a catalogue brand ("Nike" -> "найк"), or null. */
+export const brandRussian = (name: string) => BY_KEY.get(brandKey(name))?.ru ?? null;
 
 /** The catalogue spelling of a brand; unknown brands are kept as typed. */
 export function canonicalBrand(input: string | null | undefined): string | null {

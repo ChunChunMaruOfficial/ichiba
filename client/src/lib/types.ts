@@ -108,6 +108,8 @@ export interface Cover {
 
 export interface Card {
   id: string;
+  /** URL words after the id (lib/item-path.ts). */
+  slug?: string;
   title: string;
   price: number | null;
   /** «Цена договорная»: no price, bought through an offer or a chat. */
@@ -212,8 +214,28 @@ export interface AiAttr {
 
 export type ListingLabel = "brand" | "new" | "hit" | "original";
 
+export interface ListingSeo {
+  /** <title> without the site name. */
+  title: string;
+  description: string;
+  /** The item as people search for it: the product name in structured data and the photos' alt text. */
+  name: string;
+  slug: string;
+  /** Russian spelling of a Latin brand («Кархарт»). */
+  brandRu: string | null;
+  /** The brand the snippet names: the field, or one the seller wrote in the title. */
+  brand: string | null;
+  /** The colour's name: «Чёрный». */
+  color: string | null;
+}
+
 export interface ListingDetail {
   id: string;
+  /** URL words after the id (lib/item-path.ts). */
+  slug?: string;
+  /** Search snippet built by the API from the listing's facts and the seller's text (server/src/seo). */
+  seo?: ListingSeo;
+  soldAt?: string | null;
   status: ListingStatus;
   title: string;
   /** Seals the brand chose for the item. */

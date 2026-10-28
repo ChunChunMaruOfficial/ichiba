@@ -32,6 +32,7 @@ import { conditionLabel, formatPrice, listingPrice, plural, timeAgo } from "@/li
 import { useListingActions } from "@/lib/listing-actions";
 import { withMarket } from "@/lib/market";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
+import { itemHref } from "@/lib/item-path";
 
 const measurementLabel = (k: string) => (MEASURE_LABEL[k as keyof typeof MEASURE_LABEL] ?? k).toLowerCase();
 
@@ -272,7 +273,13 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
         )}
       </span>
     ) : null],
-    ["Бренд", l.brand && <Link href={withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, l.market ?? (l.seller.brand ? "brands" : "resale"))} className="hover:underline">{l.brand}</Link>],
+    // The Russian spelling beside a Latin brand («Carhartt (Кархарт)»): people search both ways.
+    ["Бренд", l.brand && (
+      <>
+        <Link href={withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, l.market ?? (l.seller.brand ? "brands" : "resale"))} className="hover:underline">{l.brand}</Link>
+        {l.seo?.brandRu && <span className="text-muted"> ({l.seo.brandRu})</span>}
+      </>
+    )],
     ["Для кого", meta?.genders.find((g) => g.value === l.gender)?.label],
     ["Состояние", l.condition && conditionLabel(l.condition, l.hasTags)],
     ["Цвет", color?.label],
@@ -615,7 +622,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           <ul className="grid grid-cols-3 gap-0.5 md:grid-cols-6">
             {related.fromSeller.slice(0, 5).map((c) => (
               <li key={c.id}>
-                <Link href={`/item/${c.id}`} className="group relative block aspect-[4/5] overflow-hidden bg-skeleton">
+                <Link href={itemHref(c)} className="group relative block aspect-[4/5] overflow-hidden bg-skeleton">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {c.cover && <img src={c.cover.urls.m} alt={c.title} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />}
                   <span className="absolute bottom-1.5 left-1.5 rounded-md bg-kraft/95 px-1.5 py-0.5 text-[11px] font-bold tabular text-kraft-ink shadow-sm">{listingPrice(c)}</span>

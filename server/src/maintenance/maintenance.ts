@@ -15,6 +15,7 @@ import { PrivacyService } from '../privacy/privacy.js';
 import { RedisService } from '../redis/redis.js';
 import { RequestsService } from '../requests/requests.service.js';
 import { ReviewsService } from '../reviews/reviews.js';
+import { SeoService } from '../seo/seo.service.js';
 
 const MINUTE = 60_000;
 
@@ -44,6 +45,7 @@ export class MaintenanceService {
     private readonly media: MediaService,
     private readonly privacy: PrivacyService,
     private readonly redis: RedisService,
+    private readonly seo: SeoService,
   ) {}
 
   /** Same jobs and cadence as the @Cron timers: [name, every ms, job]. */
@@ -55,6 +57,7 @@ export class MaintenanceService {
       ['requests', 0, () => this.requests.sweep()],
       ['email-outbox', 0, () => this.outbox.flush()],
       ['ai-recheck', 10 * MINUTE, () => this.moderator.recheckUnchecked()],
+      ['seo', 0, () => this.seo.refresh()],
       ['review-reminders', 60 * MINUTE, () => this.reviews.remind()],
       ['photo-cleanup', 24 * 60 * MINUTE, () => this.media.purgeOrphans()],
       ['privacy-retention', 24 * 60 * MINUTE, () => this.privacy.retention()],

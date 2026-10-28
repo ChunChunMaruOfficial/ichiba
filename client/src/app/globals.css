@@ -265,7 +265,7 @@ h1, h2 {
 
 /* The item page after a card's photo flew in (photo-flight.tsx): the text fades in where the shell's skeletons
    stood; the gallery is already in place (the shell drew its frame and backdrop), so it doesn't fade. */
-/* The loading shell's gallery backdrop (item/[id]/loading): comes in as the flying photo lands. */
+/* The loading shell's gallery backdrop (item/[id]/(view)/loading): comes in as the flying photo lands. */
 .shell-backdrop {
   animation: fade-in 200ms 260ms ease-out both;
 }

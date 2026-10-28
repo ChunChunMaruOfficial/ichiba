@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { itemIdFrom } from "@/lib/item-path";
 import { useLayoutEffect, useState } from "react";
 import { BlurBackdrop } from "@/components/blur-backdrop";
 import { desktopFrame } from "@/components/gallery";
@@ -23,7 +24,7 @@ function ArrivingBackdrop({ src }: { src: string }) {
  * and the real gallery takes its place unnoticed; the text then fades in over the skeletons.
  */
 export default function ItemLoading() {
-  const { id } = useParams<{ id: string }>();
+  const id = itemIdFrom(useParams<{ id: string }>().id) ?? "";
   const [photo] = useState(() => flyingPhoto(id));
   const fly = photo && { "data-fly-target": "", "data-fly-w": photo.width, "data-fly-h": photo.height };
   // The phone carousel's frame is shaped like the cover within sane bounds (gallery.tsx).

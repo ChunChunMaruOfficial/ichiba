@@ -257,6 +257,9 @@ model Listing {
   blockedReason      String?
   /// Last automatic moderation verdict: { status: passed|review|unchecked, hash, reasons, checkedAt }.
   moderation         Json?
+  /// Search snippet state (seo/seo.service.ts): { at, ai: { hash, model, brand, features, blurb }, page, retryAt }.
+  /// Written with raw SQL, so it never moves `updatedAt` (the sitemap's lastmod).
+  seo                Json?
   viewsCount         Int              @default(0)
   favoritesCount     Int              @default(0)
   publishedAt        DateTime?

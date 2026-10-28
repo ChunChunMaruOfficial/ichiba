@@ -3,6 +3,7 @@
 import { TitleWithKanji } from "@/components/sections";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { itemIdFrom } from "@/lib/item-path";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { FormSection } from "@/components/form-section";
@@ -20,7 +21,8 @@ import { useListingActions } from "@/lib/listing-actions";
 import type { ListingDetail, ListingResponse } from "@/lib/types";
 
 export default function EditPage() {
-  const { id } = useParams<{ id: string }>();
+  const param = useParams<{ id: string }>().id;
+  const id = itemIdFrom(param) ?? param;
   return <RequireAuth reason="чтобы редактировать вещь">{() => <Loader id={id} />}</RequireAuth>;
 }
 

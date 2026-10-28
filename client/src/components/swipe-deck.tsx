@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { guestCart } from "@/lib/guest-cart";
 import { conditionLabel, listingPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
+import { itemHref } from "@/lib/item-path";
 import { useSession } from "./session";
 import { useToast } from "./toast";
 import { Button, EmptyState, IconHeart, IconX, Spinner } from "./ui";
@@ -298,7 +299,7 @@ export function SwipeDeck({
                         else if (drag.x < -THRESHOLD || (drag.x < -30 && speed < -FLICK_SPEED)) commit("left");
                         else {
                           setDrag({ x: 0, y: 0 });
-                          if (moved < 6) router.push(`/item/${card.id}`);
+                          if (moved < 6) router.push(itemHref(card));
                         }
                       }
                     : undefined

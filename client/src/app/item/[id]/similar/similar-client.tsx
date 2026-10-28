@@ -4,6 +4,7 @@ import { TitleWithKanji } from "@/components/sections";
 import { UmeBranch } from "@/components/shop/ume-branch";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { itemIdFrom } from "@/lib/item-path";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { ButtonLink, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
@@ -11,7 +12,8 @@ import type { Card } from "@/lib/types";
 
 /** "Похожие" (as on Wildberries): items most like this one, best matches first. */
 export default function SimilarPage() {
-  const { id } = useParams<{ id: string }>();
+  const param = useParams<{ id: string }>().id;
+  const id = itemIdFrom(param) ?? param;
   const list = useInfiniteCards<{ items: Card[]; total: number; source: { id: string; title: string } }>((offset) => `/listings/${encodeURIComponent(id)}/similar?offset=${offset}&limit=24`);
   const sentinel = useSentinel(list.loadMore, !list.done);
   const source = list.pages[0]?.source;

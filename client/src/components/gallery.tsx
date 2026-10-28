@@ -44,6 +44,9 @@ const flyProps = (p: Photo) => ({ "data-fly-target": "", "data-fly-w": p.width, 
  * Product gallery: main photo + thumbnails (desktop), swipe carousel (mobile), fullscreen viewer (frame 08).
  * A listing video, if any, is the last slide.
  */
+/** Every photo is described for image search: «Чёрная куртка Carhartt — фото 2». */
+const photoAlt = (title: string, i: number) => (i === 0 ? title : `${title} — фото ${i + 1}`);
+
 export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom }: { photos: Photo[]; video?: VideoView | null; title: string; index: number; onIndex: (i: number) => void; overlay?: React.ReactNode; onZoom?: () => void }) {
   const [fullscreen, setFullscreen] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
@@ -82,7 +85,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom 
             <StripSlide key={p.id} frame={frame} onOpen={() => setFullscreen(true)} onZoom={onZoom} label={`Фото ${i + 1} из ${count}, открыть во весь экран`}>
               <BlurBackdrop src={p.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.urls.l} alt={i === 0 ? title : ""} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} {...(i === 0 && flyProps(p))} />
+              <img src={p.urls.l} alt={photoAlt(title, i)} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} {...(i === 0 && flyProps(p))} />
             </StripSlide>
           ))}
           {video && (
@@ -111,7 +114,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom 
             <button className="absolute inset-0 block cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
               <BlurBackdrop key={`b-${current.id}`} src={current.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img key={current.id} src={current.urls.l} alt={title} className="fade-in relative size-full object-contain" {...(index === 0 && flyProps(current))} />
+              <img key={current.id} src={current.urls.l} alt={photoAlt(title, index)} className="fade-in relative size-full object-contain" {...(index === 0 && flyProps(current))} />
             </button>
           )}
           {overlay}

@@ -14,6 +14,7 @@ import { Button, EmptyState, ErrorState, Skeleton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice, listingPrice } from "@/lib/labels";
 import type { Look } from "@/lib/types";
+import { itemHref } from "@/lib/item-path";
 
 // The pieces lie on the page like clothes laid out on a table: each at its own slight angle.
 const TILT = [-3, 2.5, -1.5, 3, -2.5, 1.5, -2, 2];
@@ -93,7 +94,7 @@ export default function LookPage() {
       <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 md:gap-x-8 md:gap-y-12">
         {data.items.map((c, i) => (
           <li key={c.id} className="pop" style={{ animationDelay: `${i * 60}ms` }}>
-            <Link href={`/item/${c.id}`} className="group block">
+            <Link href={itemHref(c)} className="group block">
               <span
                 className="block overflow-hidden rounded-2xl bg-skeleton shadow-[var(--shadow-paper)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:rotate-0 group-hover:scale-[1.02]"
                 style={{ rotate: `${TILT[i % TILT.length]}deg`, aspectRatio: "4 / 5" }}

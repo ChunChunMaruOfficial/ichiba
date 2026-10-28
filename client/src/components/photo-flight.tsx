@@ -6,7 +6,7 @@ import { navigationStarts, rememberScroll, rememberScrollOf, restoreScroll, star
 
 /**
  * The photo flies between a card and the item page. A tap on a card's photo lifts that photo into a fixed layer
- * above the page while the page under it fades out; then the item page's loading shell (item/[id]/loading, shown
+ * above the page while the page under it fades out; then the item page's loading shell (item/[id]/(view)/loading, shown
  * before the server answers) takes the screen and the photo glides into its photo frame. When the page itself is
  * in, it fades in whole around the photo, and the layer settles on the gallery photo and dissolves into it. Going back flies the gallery photo into its card the same way.
  * The pages themselves don't change: the layer only covers the hand-over.
@@ -19,7 +19,9 @@ import { navigationStarts, rememberScroll, rememberScrollOf, restoreScroll, star
  * itself).
  */
 
-const ITEM = /^\/item\/([0-9a-f-]{36})$/i;
+/** An item page (not its /edit or /similar): /item/<id> or /item/<id>-<slug> (lib/item-path.ts). */
+const ITEM = /^\/item\/([0-9a-f-]{36})(?:-[^/]*)?$/i;
+const isItemPage = (path: string, id: string) => ITEM.exec(path)?.[1] === id;
 const DURATION = 300;
 const SETTLE = 200;
 const FADE_OUT = 120;
@@ -384,19 +386,19 @@ export function PhotoFlight() {
     const f = flight;
     if (!f) return;
     if (f.dir === "open") {
-      if (pathname !== `/item/${f.id}`) return land();
+      if (!isItemPage(pathname, f.id)) return land();
       // The shell is in: the page area is visible again (the shell is empty but for the photo's frame).
       for (const a of f.pageFade) a.cancel();
       f.pageFade = [];
       seek(landingPlace, 90);
     } else {
-      if (pathname === `/item/${f.id}`) return land();
+      if (isItemPage(pathname, f.id)) return land();
       for (const a of f.pageFade) a.cancel();
       f.pageFade = [];
       // Two frames for the restored scroll position, then the card itself.
       seek(
         () => {
-          for (const a of document.querySelectorAll<HTMLAnchorElement>(`a[href="/item/${f.id}"]`)) {
+          for (const a of document.querySelectorAll<HTMLAnchorElement>(`a[href="/item/${f.id}"], a[href^="/item/${f.id}-"]`)) {
             const img = photoIn(a);
             if (img && visible(drawnBox(img))) return img;
           }
