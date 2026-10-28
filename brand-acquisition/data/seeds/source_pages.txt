@@ -1,0 +1,25 @@
+# Страницы-списки белорусских брендов одежды для переобхода (по одному URL на строку)
+# Самые полезные — первые две: актуальные (2026) списки марок в мультибрендовых пространствах локальных брендов.
+
+# WE ARE — «дом локальных брендов» (Dana Mall Минск, Triniti Гродно), блок «Бренды в WE ARE», ~36 марок, актуален на 2026
+https://weare.by/
+# THE BRAND — пространство белорусских дизайнеров в ТРЦ «Червенский», список ~14 марок
+https://chervenski.by/the-brand
+# «Канцэпт-Крама» — каталог дизайнеров концепт-стора, ~150 марок со ссылками; есть небелорусские — проверять каждую (ещё не обработан)
+https://kanceptkrama.by/brands/
+# Myfin.by — «Сезонные новинки белорусских брендов: весна-лето 2025» (MURMUR, TATI, KRIKATE, LoveMyrr, YOS, MSTEFA)
+https://myfin.by/article/zhizn/sezonnye-novinki-belorusskikh-brendov-cto-aktualno-nosit-vesnoj-letom-2025-goda-37247
+# «Как тут жить» — «6 стильных брендов из Беларуси» (2025-02: ZNWR, Zvonko, YOS, Tak Divno, The Young Clothes, Paula)
+https://kaktutzhit.by/posts/6-brendov
+# TOPBRAND.MEDIA — «Топ-5 белорусских дизайнерских брендов одежды 2025» (ZNWR, ANNETE, KRIKATE, MOSHE, ZVONKO), с адресами точек
+https://topbrand.media/jurnal/fashion/top-5-belorusskikh-dizaynerskikh-brendov-odezhdy2025/
+# Наша Ніва — «Пять локальных белорусских брендов одежды…» (2023-01, streetwear/лён; часть брендов могла закрыться)
+https://nashaniva.com/ru/307908
+# Tochka.by — «топ-5 наших брендов для мужчин» (2022-05; APTI EZIEV, Проект Этика, KRHN, Mazharyn, LOMOTION)
+https://tochka.by/articles/lifestyle/ot_epatazha_do_konservatizma_top_5_nashikh_brendov_dlya_muzhchin/
+# Tochka.by — «Апсайкл и slow fashion: белорусские бренды» (2022-11; upcycling: Этика, Happy Junk, Godgavekudos и др.)
+https://tochka.by/articles/lifestyle/apsaykl_i_slow_fashion_belorusskie_brendy_kotorye_zabotyatsya_ob_ekologii/
+# Т—Ж — «11 белорусских брендов одежды, которые продаются в России» (2024-05; часть — крупные, фильтровать)
+https://t-j.ru/list/best-belarus-brand/
+# in-vogue.by — каталог женской одежды белорусских производителей (в основном трикотажные фабрики; низкий приоритет)
+https://in-vogue.by/katalog/
