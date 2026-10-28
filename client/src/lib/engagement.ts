@@ -129,3 +129,18 @@ export function useImpression(id: string | null) {
     [id],
   );
 }
+
+// ---------- zoom ----------
+
+const zoomed = new Map<string, number>();
+
+/**
+ * A photo pinched open (lib/pinch-zoom.ts): a closer look than a scroll past, reported at most once per item per half
+ * hour. Signed-in people only — the callers decide.
+ */
+export function reportZoom(id: string) {
+  const at = zoomed.get(id);
+  if (at && Date.now() - at < REPEAT_MS) return;
+  zoomed.set(id, Date.now());
+  beacon(`/listings/${id}/zoom`, {});
+}

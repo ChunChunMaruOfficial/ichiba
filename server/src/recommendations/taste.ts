@@ -18,6 +18,8 @@ export const SIGNAL_WEIGHTS = {
   dwell: 2,
   /** Left the item page within 4 s: the click was a miss. Cancels the view. */
   bounce: -1,
+  /** Pinched a photo open, in a feed or on the item page: a closer look than a scroll past. */
+  zoom: 2,
   /** A search or a filter: what the person is looking for right now (traits in Signal.meta). */
   search: 3,
   filter: 2,

@@ -3,6 +3,7 @@
 import { BlurBackdrop } from "./blur-backdrop";
 import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePinchZoom } from "@/lib/pinch-zoom";
 import { usePresence } from "@/lib/presence";
 import type { Photo, VideoView } from "@/lib/types";
 import { IconChevronLeft, IconChevronRight, IconExpand, IconX, useModalFocus } from "./ui";
@@ -26,6 +27,16 @@ export function desktopFrame(photos: Array<{ width: number; height: number }>): 
   return { aspectRatio: aspect, width: `min(100%, calc(80vh * ${aspect}))` };
 }
 
+/** A phone carousel slide: tap opens the viewer, two fingers lift the photo for a quick closer look (lib/pinch-zoom.ts). */
+function StripSlide({ frame, onOpen, onZoom, label, children }: { frame: number; onOpen: () => void; onZoom?: () => void; label: string; children: React.ReactNode }) {
+  const pinch = usePinchZoom<HTMLButtonElement>({ onZoom });
+  return (
+    <button ref={pinch} className="relative w-full shrink-0 snap-center overflow-hidden bg-skeleton" style={{ aspectRatio: frame }} onClick={onOpen} aria-label={label}>
+      {children}
+    </button>
+  );
+}
+
 /** Marks the cover as the place a card's photo flies to and from (photo-flight.tsx); its size, for before it loads. */
 const flyProps = (p: Photo) => ({ "data-fly-target": "", "data-fly-w": p.width, "data-fly-h": p.height });
 
@@ -33,7 +44,7 @@ const flyProps = (p: Photo) => ({ "data-fly-target": "", "data-fly-w": p.width, 
  * Product gallery: main photo + thumbnails (desktop), swipe carousel (mobile), fullscreen viewer (frame 08).
  * A listing video, if any, is the last slide.
  */
-export function Gallery({ photos, video, title, index, onIndex, overlay }: { photos: Photo[]; video?: VideoView | null; title: string; index: number; onIndex: (i: number) => void; overlay?: React.ReactNode }) {
+export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom }: { photos: Photo[]; video?: VideoView | null; title: string; index: number; onIndex: (i: number) => void; overlay?: React.ReactNode; onZoom?: () => void }) {
   const [fullscreen, setFullscreen] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
   const count = photos.length + (video ? 1 : 0);
@@ -68,11 +79,11 @@ export function Gallery({ photos, video, title, index, onIndex, overlay }: { pho
           }}
         >
           {photos.map((p, i) => (
-            <button key={p.id} className="relative w-full shrink-0 snap-center overflow-hidden bg-skeleton" style={{ aspectRatio: frame }} onClick={() => setFullscreen(true)} aria-label={`Фото ${i + 1} из ${count}, открыть во весь экран`}>
+            <StripSlide key={p.id} frame={frame} onOpen={() => setFullscreen(true)} onZoom={onZoom} label={`Фото ${i + 1} из ${count}, открыть во весь экран`}>
               <BlurBackdrop src={p.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.urls.l} alt={i === 0 ? title : ""} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} {...(i === 0 && flyProps(p))} />
-            </button>
+            </StripSlide>
           ))}
           {video && (
             <div className="w-full shrink-0 snap-center">

@@ -5,8 +5,9 @@ import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { useImpression } from "@/lib/engagement";
+import { reportZoom, useImpression } from "@/lib/engagement";
 import { useFavorite } from "@/lib/hooks";
+import { usePinchZoom } from "@/lib/pinch-zoom";
 import { conditionLabel, formatPrice } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { AuctionTimer, auctionPrice } from "./auction";
@@ -15,11 +16,15 @@ import { useSession } from "./session";
 import { Nefuda } from "./shop/nefuda";
 import { Hanko, IconHeart, Seal, StatusBadge } from "./ui";
 
-/** Photo that fades in when loaded and keeps its real aspect ratio (no forced crop). */
-function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: number }) {
+/**
+ * Photo that fades in when loaded and keeps its real aspect ratio (no forced crop). Two fingers lift it out of the
+ * card for a closer look (lib/pinch-zoom.ts); `onZoom` hears of it.
+ */
+function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, eager, uniform, onZoom }: { card: Pick<Card, "cover" | "title" | "status">; sizes?: string; className?: string; eager?: boolean; uniform?: number; onZoom?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const img = useRef<HTMLImageElement>(null);
+  const pinch = usePinchZoom<HTMLDivElement>({ hiRes: card.cover?.urls.l, onZoom, enabled: !!card.cover && !failed });
   // A server-rendered photo can finish loading before React attaches onLoad: it would then stay invisible.
   useEffect(() => {
     const el = img.current;
@@ -31,7 +36,7 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
   // the row's tallest photo, and fit the whole photo inside it.
   const ratio = uniform ? `1 / ${uniform}` : card.cover ? `${card.cover.width} / ${card.cover.height}` : "4 / 5";
   return (
-    <div className={clsx("relative overflow-hidden bg-skeleton", className)} style={{ aspectRatio: ratio }}>
+    <div ref={pinch} className={clsx("relative overflow-hidden bg-skeleton", className)} style={{ aspectRatio: ratio }}>
       {/* A fixed frame (rows) leaves bands around the photo: they get its own blurred colours. Masonry keeps the
           photo's shape, so there is nothing to fill. */}
       {uniform && card.cover && !failed && <BlurBackdrop src={card.cover.urls.s} />}
@@ -181,13 +186,15 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
   const live = card.status === "PUBLISHED" || card.status === "RESERVED" || card.status === "SOLD";
   // Feed cards a signed-in person scrolls past shape their «Для вас» (lib/engagement.ts).
   const shownRef = useImpression(variant === "feed" && me && !mine ? card.id : null);
+  // So does pinching its photo open: a closer look than scrolling past.
+  const onZoom = me && !mine ? () => reportZoom(card.id) : undefined;
 
   if (variant === "feed") {
     return (
       <article ref={shownRef} className="reveal group relative">
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
         <Link href={`/item/${card.id}`} className="relative block overflow-hidden rounded-[18px]">
-          <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
+          <ItemPhoto card={card} eager={eager} uniform={uniform} onZoom={onZoom} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
           <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-0 transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0" />
           <span className="transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0">
             <CardMarks card={card} discount={shopDiscount} />
@@ -227,7 +234,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
     <article className="reveal group relative">
       <div className="relative">
         <Link href={`/item/${card.id}`} className="block overflow-hidden rounded-[18px]" tabIndex={-1} aria-hidden>
-          <ItemPhoto card={card} eager={eager} uniform={uniform} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
+          <ItemPhoto card={card} eager={eager} uniform={uniform} onZoom={onZoom} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
         </Link>
         <StatusMark card={card} className="absolute left-3 top-3" />
         <CardSeal card={card} />

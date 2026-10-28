@@ -73,6 +73,13 @@ export class ListingsController {
     await this.recs.engagement(user.id, id, dto.ms, dto.photos);
   }
 
+  /** A photo of the item pinched open (feed card or item page): once per item per half hour. */
+  @Post('listings/:id/zoom')
+  @HttpCode(204)
+  async zoom(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    await this.recs.recordOnce(user.id, 'zoom', id, 30 * 60_000);
+  }
+
   /** Cards a feed showed the person: «Для вас» lets items scrolled past again and again give way. */
   @Post('feed/impressions')
   @HttpCode(204)

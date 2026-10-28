@@ -264,7 +264,9 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </button>
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-4 pr-10 md:pr-0">
+            {/* Phones: the photo on its own row beside the corner buttons, the nickname under it across the whole cover
+                — beside the photo a long one ran under ⚙ and «Поделиться». */}
+            <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:gap-4">
               {s.avatar ? (
                 <Avatar username={s.username} avatar={s.avatar} ring className="size-16 md:size-20" />
               ) : (
@@ -273,9 +275,11 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                   {s.username.slice(0, 1)}
                 </span>
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 max-w-full">
                 <div className="flex min-w-0 items-center gap-3">
-                  <h1 className="truncate text-4xl font-bold leading-[1.05] md:text-6xl">{s.username}</h1>
+                  <h1 title={s.username} className={clsx("truncate font-bold leading-[1.05] md:text-6xl", s.username.length > 16 ? "text-2xl" : s.username.length > 12 ? "text-3xl" : "text-4xl")}>
+                    {s.username}
+                  </h1>
                 </div>
                 <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
                   {s.city ? `${s.city} · ` : ""}на ichiba с {sinceLabel(s.createdAt)}

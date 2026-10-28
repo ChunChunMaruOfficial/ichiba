@@ -26,7 +26,7 @@ import { BundleNote, FitNote, DealsInline, FitProfilePrompt, ListingStatsCard, R
 import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
-import { useItemEngagement } from "@/lib/engagement";
+import { reportZoom, useItemEngagement } from "@/lib/engagement";
 import { useFavorite } from "@/lib/hooks";
 import { conditionLabel, formatPrice, listingPrice, plural, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
@@ -429,6 +429,7 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
           title={l.title}
           index={photo}
           onIndex={setPhoto}
+          onZoom={me && !l.isOwner ? () => reportZoom(l.id) : undefined}
           overlay={
             <>
               {(sold || l.status === "HIDDEN" || l.status === "DRAFT" || reserved) && (
