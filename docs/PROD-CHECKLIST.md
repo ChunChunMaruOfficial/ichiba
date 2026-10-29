@@ -114,9 +114,30 @@ API жив после проб; миграция применилась, backfil
    одна покупка на тестовой вещи.
 5. Бэкапы Postgres → включить расписание в Railway, если ещё нет.
 
-## 8. Что ещё стоит сделать (не блокирует релиз)
+## 8. Запуск: поиск, аналитика, мониторинг (29.10.2026)
 
-- Observability: structured-логи (`nestjs-pino`), request-id, Sentry; сейчас — только логи Nest и Railway.
+| Пункт | Как | Статус |
+|---|---|---|
+| SEO вещей | `server/src/seo`: title, description, slug `/item/<id>-<slug>` (308 со старых адресов), Product/Offer + BreadcrumbList, alt фото | ✅ на проде |
+| Страницы брендов и категорий | `/brands`, `/c/<категория>`, женские/мужские; в sitemap и подвале | ✅ на проде |
+| IndexNow (Яндекс, Bing) | cron в `seo.service.ts`, ключ на `/indexnow.txt` | ✅ все вещи отправлены |
+| Sitemap с фото | `client/src/app/sitemap.ts`, обновляется раз в 15 мин | ✅ |
+| Один адрес сайта | www и `client-production-bff5.up.railway.app` → 308 на ichiba.by; ichiba.site — Redirect Rule в Cloudflare | ✅ / ⏳ ichiba.site настраивает владелец |
+| Яндекс.Вебмастер | подтверждение файлом `client/public/yandex_76805bb35b05117d.html` | ✅ файл на сайте; sitemap и регион — владелец |
+| Google Search Console, Bing Webmaster | TXT в Cloudflare | ⏳ владелец |
+| Метрика и GA4 | `NEXT_PUBLIC_YM_ID`, `NEXT_PUBLIC_GA_ID` у client; грузятся только после «Разрешить» в баннере cookie; цели: заявка на покупку, вопрос продавцу, предложение, публикация, регистрация | ✅ код; ⏳ номера счётчиков |
+| Ошибки в Telegram | `server/src/common/alerts.ts`: всё, что API пишет как error, — админам с привязанным Telegram, раз в час на вид ошибки | ✅; ⏳ привязать Telegram админа |
+| Проверка «сайт жив» снаружи | UptimeRobot на `https://ichiba.by` и `/health` | ⏳ владелец |
+| Бэкапы | Railway: Postgres и том `/data` (фото), Daily; раз в месяц учебное восстановление | ⏳ владелец |
+| Почта с домена | Brevo SMTP, SPF/DKIM/DMARC в Cloudflare, затем удалить `GMAIL_*` | ⏳ владелец |
+| Реквизиты оператора | `NEXT_PUBLIC_LEGAL_*` у client → политика, соглашение, `/contacts`, подвал | ⏳ владелец (ИП/ООО, Торговый реестр, Указ № 60 — уточнить у юриста) |
+| Контакты, превью ссылок, manifest | `/contacts`, `opengraph-image.tsx`, `manifest.ts` | ✅ |
+| Импорт I LOVE REDHEAD | магазин переехал на Tilda: `server/src/shops/tilda.ts`; вещи перенесены по названиям | ✅ |
+| Скорость главной на телефоне | до: Lighthouse 44, LCP 8.7 с; гости получают первую страницу ленты в HTML | см. замер после деплоя |
+
+## 9. Что ещё стоит сделать (не блокирует релиз)
+
+- Observability: structured-логи (`nestjs-pino`), request-id; ошибки уже приходят в Telegram (пункт 8), Sentry не нужен до роста.
 - `EmailOutbox` не используется: либо реализовать очередь писем о сделках, либо убрать таблицу и упоминания.
 - Триграммный индекс для поиска при росте каталога; keyset-пагинация вместо `offset`.
 - Экспорт персональных данных (право на доступ сейчас только в политике).
