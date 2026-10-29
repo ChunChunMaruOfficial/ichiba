@@ -12,8 +12,10 @@ import { MediaService } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { type Rates, RatesService } from '../rates/rates.js';
 import { RedisService } from '../redis/redis.js';
+import type { ShopProduct } from '../generated/prisma/client.js';
 import { ADOPT_SELECT, importerMayAdopt } from '../tg/adopt.js';
 import { download, downloadFirst, fetchProducts, lexicalText, type PayloadProduct, photoCandidates } from './payload.js';
+import { fetchTildaProducts } from './tilda.js';
 import { colorFromName, listingTitle, materialFrom, SHOP_SOURCES, type ShopKind, type ShopSourceConfig, tidySize } from './sources.js';
 
 /**
@@ -113,7 +115,7 @@ export class ShopImportService implements OnApplicationBootstrap {
   async syncSource(cfg: ShopSourceConfig) {
     const rates = cfg.currency === 'BYN' ? null : await this.rates.get();
     if (cfg.currency !== 'BYN' && !rates) throw new Error('no exchange rates — prices cannot be converted');
-    const products = await fetchProducts(cfg.origin);
+    const products = cfg.tilda ? await fetchTildaProducts(cfg.tilda) : await fetchProducts(cfg.origin);
     if (!products.length) throw new Error('the shop returned no products');
     this.logger.log(`${cfg.key}: ${products.length} products read`);
 
@@ -125,6 +127,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     const firstRun = !source.lastSyncAt;
 
     const rows = new Map((await this.prisma.shopProduct.findMany({ where: { sourceId: source.id } })).map((r) => [r.productId, r]));
+    await this.adoptMoved(cfg, products, rows);
     const stats = { listed: 0, updated: 0, hidden: 0, shown: 0, removed: 0, skipped: 0, failed: 0 };
     const save = async (productId: string, data: { status: string; reason?: string | null; listingId?: string | null; fingerprint?: string | null }) => {
       const row = await this.prisma.shopProduct.upsert({
@@ -241,6 +244,46 @@ export class ShopImportService implements OnApplicationBootstrap {
     if (Object.values(stats).some((n) => n > 0)) this.logger.log(`${cfg.key}: ${JSON.stringify(stats)}`);
   }
 
+  /**
+   * A shop that moved to another platform (iloveredhead: Payload → Tilda) gives every product a new id. A new id whose
+   * listing title is that of a known product gone from the feed takes that product's row over, so its listing stays on
+   * with its favourites, views and offers, instead of being taken down and listed again.
+   */
+  private async adoptMoved(cfg: ShopSourceConfig, products: PayloadProduct[], rows: Map<string, ShopProduct>) {
+    const present = new Set(products.map((p) => String(p.id)));
+    const gone = [...rows.values()].filter((r) => !present.has(r.productId) && r.listingId);
+    if (!gone.length) return;
+    const listings = await this.prisma.listing.findMany({ where: { id: { in: gone.map((r) => r.listingId!) } }, select: { id: true, title: true } });
+    let adopted = 0;
+    // The same title first; then the title without the brand's own name, which the shop dropped from some products
+    // when it moved («HAT “I<3REDHEAD” CAMO» became «HAT “CAMO”»). A key two listings or two products share is skipped.
+    const withoutBrand = (title: string) => (cfg.brandPattern ? titleKey(title).replace(cfg.brandPattern, ' ').replace(/ +/g, ' ').trim() : titleKey(title));
+    for (const key of [titleKey, withoutBrand]) {
+      const unique = <T>(items: T[], keyOf: (t: T) => string) => {
+        const seen = new Map<string, T | null>();
+        for (const it of items) seen.set(keyOf(it), seen.has(keyOf(it)) ? null : it);
+        return seen;
+      };
+      const left = listings.filter((l) => gone.some((r) => r.listingId === l.id && rows.get(r.productId) === r));
+      const fresh = products.flatMap((p) => {
+        const kind = rows.has(String(p.id)) ? null : cfg.kind(p);
+        return kind ? [{ p, title: listingTitle(cfg, p, kind) }] : [];
+      });
+      const byListing = unique(left, (l) => key(l.title));
+      for (const [k, item] of unique(fresh, (f) => key(f.title))) {
+        const listing = byListing.get(k);
+        const row = item && listing ? gone.find((r) => r.listingId === listing.id) : undefined;
+        if (!item || !row) continue;
+        const moved = await this.prisma.shopProduct.update({ where: { id: row.id }, data: { productId: String(item.p.id) } });
+        rows.delete(row.productId);
+        rows.set(moved.productId, moved);
+        adopted++;
+      }
+    }
+    if (adopted) this.logger.log(`${cfg.key}: ${adopted} products kept their listings under new shop ids`);
+  }
+
+
   /** The product as a listing would show it, or null when it is not a thing ichiba lists. */
   private offerOf(cfg: ShopSourceConfig, p: PayloadProduct, rates: Rates | null): Offer | null {
     const kind = cfg.kind(p);
@@ -255,7 +298,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     const sizes = sized ? [...new Set(inStock)].filter((s) => s.length <= SIZE_MAX).slice(0, MAX_SIZES) : [];
     const available = !p.hidden && p.inStock !== false && (p.stock?.length ? inStock.length > 0 : true);
 
-    const text = withoutContacts(lexicalText(p.description_ru));
+    const text = withoutContacts(p.descriptionText ?? lexicalText(p.description_ru));
     // Things without sizes keep the shop's variants (a keychain's colours) in the text.
     const variants = !sized && inStock.length && !inStock.every((s) => /^ONE SIZE$/.test(s)) ? `В наличии: ${inStock.map((s) => s.toLowerCase()).join(', ')}.` : '';
     const shipping = p.shippingText?.trim() ? `${p.shippingText.trim().charAt(0).toUpperCase()}${p.shippingText.trim().slice(1)}.`.replace(/\.\.$/, '.') : '';
@@ -337,7 +380,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     if (!user.brandVerifiedAt) await reclassifySeller(this.prisma, user.id, { brandVerifiedAt: new Date(), catalogApprovedAt: user.catalogApprovedAt });
     if (!user.avatarId && cfg.logoUrl) {
       try {
-        const photo = await this.media.upload(user.id, jpegFile(await squareLogo(await download(cfg.origin, cfg.logoUrl)), 'avatar.jpg'), 'avatar');
+        const photo = await this.media.upload(user.id, jpegFile(await squareLogo(await download(cfg.origin, cfg.logoUrl, cfg.mediaHosts)), 'avatar.jpg'), 'avatar');
         await this.prisma.user.update({ where: { id: user.id }, data: { avatarId: photo.id } });
       } catch (e) {
         this.logger.warn(`${cfg.key}: avatar not set: ${(e as Error).message}`);
@@ -353,7 +396,7 @@ export class ShopImportService implements OnApplicationBootstrap {
     let cover: Buffer | null = null;
     for (const candidates of offer.photos) {
       try {
-        const buffer = await downloadFirst(cfg.origin, candidates);
+        const buffer = await downloadFirst(cfg.origin, candidates, cfg.mediaHosts);
         cover ??= buffer;
         photos.push({ id: (await this.media.upload(userId, jpegFile(buffer, 'photo.jpg'))).id, isDefect: false });
       } catch (e) {
@@ -450,6 +493,15 @@ function withoutContacts(text: string) {
 const jpegFile = (buffer: Buffer, name: string) => ({ buffer, mimetype: 'image/jpeg', originalname: name, size: buffer.length }) as Express.Multer.File;
 
 /** Nest HTTP errors carry the useful part (field errors) in the response body. */
+/** Titles compared for adoption: case, quotes and spacing aside. */
+const titleKey = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[«»“”„"']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 function errorText(e: unknown) {
   const r = (e as { getResponse?: () => unknown }).getResponse?.() as { message?: string; fields?: Record<string, string> } | undefined;
   if (r?.fields) return `${r.message}: ${Object.values(r.fields).join(', ')}`;

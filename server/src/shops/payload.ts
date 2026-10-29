@@ -1,14 +1,21 @@
 /**
  * Reads a shop built on Payload CMS (its public REST API: GET /api/products). Only what the importer needs is
- * typed; everything else in a product is ignored.
+ * typed; everything else in a product is ignored. Its product shape is the importer's own: other platforms
+ * (tilda.ts) are read into it.
  */
 
 import { hostOrSub, safeFetch, safeFetchText } from '../tg/fetch-safe.js';
 
 const UA = 'Mozilla/5.0 (compatible; ichiba-shop-import/1.0)';
 
-/** Requests for a shop go only to the shop's own host (and its subdomains): its JSON can't point us elsewhere. */
-const shopHosts = (origin: string) => hostOrSub(new URL(origin).hostname.toLowerCase());
+/**
+ * Requests for a shop go only to the shop's own host (and its subdomains), or to the CDN its platform keeps photos on:
+ * its JSON can't point us elsewhere.
+ */
+const shopHosts = (origin: string, media: string[] = []) => {
+  const hosts = [new URL(origin).hostname.toLowerCase(), ...media].map(hostOrSub);
+  return (h: string) => hosts.some((ok) => ok(h));
+};
 
 interface PayloadMedia {
   url?: string | null;
@@ -25,6 +32,8 @@ export interface PayloadProduct {
   oldPrice?: number | null;
   /** Rich text (Lexical JSON). */
   description_ru?: unknown;
+  /** The description as plain text, for platforms that give it so (Tilda). */
+  descriptionText?: string | null;
   stock?: Array<{ size?: string | null; quantity?: number | null }> | null;
   images?: Array<{ image?: PayloadMedia | null }> | null;
   sizeChart?: PayloadMedia | null;
@@ -54,21 +63,21 @@ export async function fetchProducts(origin: string): Promise<PayloadProduct[]> {
   return all;
 }
 
-/** An image from the shop's own host: https, at most 15 MB, 20 s. */
-export async function download(origin: string, url: string): Promise<Buffer> {
-  return safeFetch(url, { allow: shopHosts(origin), userAgent: UA, image: true });
+/** An image from the shop's own host or its platform's CDN: https, at most 15 MB, 20 s. */
+export async function download(origin: string, url: string, media: string[] = []): Promise<Buffer> {
+  return safeFetch(url, { allow: shopHosts(origin, media), userAgent: UA, image: true });
 }
 
 /**
  * A photo by its candidates in order (the original, then the CMS's own smaller copy): a shop that serves
  * multi-megabyte originals slowly still gives each item all its photos. The original gets a second try.
  */
-export async function downloadFirst(origin: string, urls: string[]): Promise<Buffer> {
+export async function downloadFirst(origin: string, urls: string[], media: string[] = []): Promise<Buffer> {
   let last: unknown;
   for (const [i, url] of urls.entries()) {
     for (let attempt = 0; attempt < (i === 0 ? 2 : 1); attempt++) {
       try {
-        return await download(origin, url);
+        return await download(origin, url, media);
       } catch (e) {
         last = e;
       }

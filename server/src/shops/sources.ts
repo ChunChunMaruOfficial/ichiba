@@ -1,5 +1,6 @@
 import { COLOR_VALUES } from '../catalog/catalog.js';
 import type { PayloadProduct } from './payload.js';
+import type { TildaCatalog } from './tilda.js';
 
 /**
  * Brands whose own web shops are mirrored as seller accounts (nick = key). The catalogue is read from the shop's
@@ -28,6 +29,12 @@ export interface ShopSourceConfig {
   footer: string;
   /** Square-ish logo for the profile photo (SVG or raster). */
   logoUrl?: string;
+  /** Where the catalogue is read from: the shop's own Payload API (default) or a Tilda store. */
+  tilda?: TildaCatalog;
+  /** Hosts besides the shop's own that its photos may come from (a platform's CDN). */
+  mediaHosts?: string[];
+  /** The brand's own name in every spelling the shop uses, lower case: products renamed without it are still matched. */
+  brandPattern?: RegExp;
   /** The kind of a product by its name and the shop's category; null = not a thing to list (a mystery box). */
   kind(product: PayloadProduct): ShopKind | null;
 }
@@ -62,6 +69,10 @@ const iloveredhead: ShopSourceConfig = {
   bio: 'I LOVE REDHEAD — одежда для тех, кто не хочет выглядеть нормально. Уличная одежда и лимитированные коллекции: шапки, худи, бомберы, футболки. Быть заметным без усилия.',
   footer: 'I LOVE REDHEAD — свой бренд уличной одежды. Наличие размеров и сроки отправки уточняйте в чате.',
   logoUrl: 'https://iloverh.com/images/logo_redhead_compoundBLACK.svg',
+  // Moved from Payload to Tilda in October 2026: the store part and block of https://iloverh.com/katalog.
+  tilda: { storepartuid: '483668660622', recid: '5037016001' },
+  mediaHosts: ['tildacdn.com'],
+  brandPattern: /i\s*(love|<3)\s*redhead|redhead/g,
   kind(product) {
     const name = product.name_ru.trim();
     for (const [re, kind] of REDHEAD_KINDS) if (re.test(name)) return kind;
