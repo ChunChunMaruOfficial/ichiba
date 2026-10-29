@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { formatPrice, hoursLeft } from "@/lib/labels";
 import { usePresence } from "@/lib/presence";
 import type { Offer } from "@/lib/types";
+import { track } from "@/lib/analytics";
 import { NegotiationHint, OpeningHint } from "./ai-hints";
 import { useSession } from "./session";
 import { useToast } from "./toast";
@@ -46,6 +47,7 @@ export function OfferSheet({
     setError(null);
     try {
       const o = await api<Offer>("/offers", { body: { listingId: listing.id, amount, size: size ?? undefined } });
+      track("offer", { amount });
       if (o.status === "DECLINED") toast(`Продавец не готов продать за ${amount} BYN — попробуйте другую цену позже`, { tone: "error" });
       else toast(`Предложение ${amount} BYN отправлено`);
       onSent(o);

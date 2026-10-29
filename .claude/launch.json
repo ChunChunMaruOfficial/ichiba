@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "client-prod-start",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client", "run", "start", "--", "-p", "3400"],
+      "port": 3400
+    },
+    {
       "name": "server",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

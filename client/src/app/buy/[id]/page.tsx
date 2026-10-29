@@ -10,6 +10,7 @@ import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconChevronLe
 import { api, ApiError } from "@/lib/api";
 import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice } from "@/lib/labels";
 import type { Deal, ListingDetail, ListingResponse, Me } from "@/lib/types";
+import { track } from "@/lib/analytics";
 
 export default function BuyPage() {
   const { id } = useParams<{ id: string }>();
@@ -133,6 +134,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
       // quietly charging the new one, and the page reloads the item to show it.
       const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...(size ? { size } : {}), ...(l.price != null ? { expectedTotal: l.price } : {}), ...body } });
       setSent(deal);
+      track("buy_request", { price: l.price ?? 0 });
     } catch (e) {
       if (e instanceof ApiError) {
         setFields(e.fields);

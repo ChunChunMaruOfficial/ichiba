@@ -20,6 +20,7 @@ import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, Ico
 import { api, ApiError } from "@/lib/api";
 import { type AiState, applySuggestionToEmpty, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
 import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me } from "@/lib/types";
+import { track } from "@/lib/analytics";
 
 type Step = 1 | 2 | 3;
 /** Numbered steps after the photo screen (step 1 is the upload itself and has no number). */
@@ -267,6 +268,7 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
       if (!id) return;
       const l = await api<ListingDetail>(`/listings/${id}/publish`, { method: "POST" });
       setPublished(l);
+      track("listing_published");
       window.scrollTo({ top: 0 });
     } catch (err) {
       if (err instanceof ApiError && Object.keys(err.fields).length) {

@@ -34,6 +34,7 @@ import { withMarket } from "@/lib/market";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
 import { itemHref } from "@/lib/item-path";
 import { landingHref, type ItemLandings } from "@/lib/landing";
+import { track } from "@/lib/analytics";
 
 const measurementLabel = (k: string) => (MEASURE_LABEL[k as keyof typeof MEASURE_LABEL] ?? k).toLowerCase();
 
@@ -181,6 +182,7 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
       async () => {
         try {
           const t = await api<{ id: string }>("/threads", { body: { listingId: l.id } });
+          track("ask_seller");
           router.push(`/messages/${t.id}`);
         } catch (e) {
           toast(e instanceof ApiError ? e.message : "Не удалось открыть чат", { tone: "error" });

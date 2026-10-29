@@ -15,9 +15,11 @@ if (!API_URL) throw new Error("API_URL is not set: address of the deployed API, 
  * The sign-in buttons load their providers' scripts (auth-modal.tsx): Google, Telegram, Apple.
  */
 const SIGN_IN_SCRIPTS = "https://accounts.google.com https://telegram.org https://appleid.cdn-apple.com";
+/** Analytics, loaded only after the visitor allows it in the cookie notice (components/analytics.tsx). */
+const ANALYTICS_SCRIPTS = "https://mc.yandex.ru https://yastatic.net https://www.googletagmanager.com";
 const csp = [
   "frame-ancestors 'none'",
-  `script-src 'self' 'unsafe-inline' ${SIGN_IN_SCRIPTS}${production ? "" : " 'unsafe-eval'"}`,
+  `script-src 'self' 'unsafe-inline' ${SIGN_IN_SCRIPTS} ${ANALYTICS_SCRIPTS}${production ? "" : " 'unsafe-eval'"}`,
   "script-src-attr 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -53,9 +55,16 @@ const nextConfig: NextConfig = {
       { source: "/brand/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] },
     ];
   },
-  // One address for the site: www.ichiba.by goes to ichiba.by (ichiba.site is redirected by Cloudflare itself).
+  // One address for the site: www.ichiba.by and Railway's own address of the web service (else a second copy of the
+  // whole site for search engines) go to ichiba.by; ichiba.site is redirected by Cloudflare itself. Exact hosts only:
+  // Railway's healthcheck comes in under a name of its own and must get a 200.
   async redirects() {
-    return [{ source: "/:path*", has: [{ type: "host", value: "www.ichiba.by" }], destination: "https://ichiba.by/:path*", permanent: true }];
+    return ["www.ichiba.by", "client-production-bff5.up.railway.app"].map((host) => ({
+      source: "/:path*",
+      has: [{ type: "host" as const, value: host }],
+      destination: "https://ichiba.by/:path*",
+      permanent: true,
+    }));
   },
   // The browser talks to /api on the same origin, so the session cookie is first-party.
   async rewrites() {

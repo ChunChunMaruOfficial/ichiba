@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
 import { usePresence } from "@/lib/presence";
 import type { Me } from "@/lib/types";
+import { track } from "@/lib/analytics";
 import { Button, Field, Input, Modal } from "./ui";
 
 /**
@@ -135,6 +136,7 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
   const completeSignup = () =>
     run(async () => {
       finish(await api<SessionResult>("/auth/complete", { body: { token: signup!.token, username, acceptPrivacy: true } }));
+      track("sign_up");
     });
 
   const passwordLogin = () =>
