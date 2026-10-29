@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CATEGORIES } from '../../src/catalog/catalog.js';
-import { buildLandings, landingCrumbs, landingLinks, landingText, MIN_ITEMS, normalizeLandingPath, plural, subcategoryName, type LiveRow } from '../../src/seo/landing.js';
+import { buildLandings, emptyLanding, landingCrumbs, landingLinks, landingText, MIN_ITEMS, normalizeLandingPath, plural, subcategoryName, type LiveRow } from '../../src/seo/landing.js';
 import { DESCRIPTION_MAX, TITLE_MAX } from '../../src/seo/seo.js';
 
 let n = 0;
@@ -11,6 +11,7 @@ const row = (r: Partial<LiveRow>): LiveRow => ({
   category: 'jeans',
   subcategory: 'flare',
   market: 'RESALE',
+  gender: null,
   condition: 'GOOD',
   price: 50,
   priceNegotiable: false,
@@ -109,4 +110,34 @@ test('links and breadcrumbs lead only to indexed pages', () => {
   const outerwear = landingLinks(pages.get('c/outerwear')!, pages);
   assert.deepEqual(outerwear.find((g) => g.title === 'Бренды')?.links.map((l) => l.name), ['Carhartt']);
   for (const g of outerwear) for (const l of g.links) assert.ok(pages.get(l.path)?.indexable, l.path);
+});
+
+test('pages for women and men: indexed when they differ from the page for everyone', () => {
+  const pages = buildLandings([...many(6, { gender: 'FEMALE', subcategory: 'wide' }), ...many(4, { gender: 'MALE', subcategory: 'wide' }), ...many(3, { subcategory: 'wide' })]);
+  // For women: their 6 and the 3 not marked for anyone, which fit anyone (as search reads «Женщинам»).
+  assert.equal(pages.get('c/women/jeans')?.rows.length, 9);
+  assert.equal(pages.get('c/women/jeans')?.name, 'Женские джинсы');
+  assert.ok(pages.get('c/women/jeans')?.indexable);
+  assert.equal(pages.get('c/men/jeans')?.rows.length, 7);
+  assert.equal(pages.get('c/men/jeans/wide')?.name, 'Мужские широкие джинсы');
+  // Every jean here is wide: the narrower page would repeat «Женские джинсы».
+  assert.equal(pages.get('c/women/jeans/wide')?.indexable, false);
+  assert.equal(buildLandings(many(8, { category: 'shoes', subcategory: 'boots', gender: 'FEMALE' })).get('c/women/shoes')?.name, 'Женская обувь');
+});
+
+test('no audience pages where nobody is marked, nor for categories already meant for one audience', () => {
+  const pages = buildLandings([...many(8, { subcategory: 'wide' }), ...many(8, { category: 'skirts', subcategory: 'mini', gender: 'FEMALE' })]);
+  assert.equal(pages.get('c/women/jeans')?.indexable, false);
+  assert.equal(pages.has('c/women/skirts'), false);
+  assert.equal(normalizeLandingPath('c/women/skirts'), null);
+  assert.equal(normalizeLandingPath('c/men/jeans/flare'), 'c/men/jeans/flare');
+});
+
+test('a catalogue category with nothing on sale still has a page, out of search', () => {
+  const p = emptyLanding('c/skirts/midi');
+  assert.equal(p?.name, 'Юбки миди');
+  assert.equal(p?.indexable, false);
+  assert.match(landingText(p!).intro[0], /нет вещей в продаже/);
+  assert.equal(emptyLanding('brands/zara'), null);
+  assert.equal(emptyLanding('c/tshirts/tshirt'), null);
 });

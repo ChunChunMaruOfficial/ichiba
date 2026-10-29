@@ -8,6 +8,20 @@ import { focusedFlow } from "./header";
 import { Kamon } from "./shop/kamon";
 
 const COLUMNS: Array<[string, Array<[string, string]>]> = [
+  // The category and brand pages (/c, /brands): linked from every page, so search engines find and weigh them.
+  [
+    "Каталог",
+    [
+      ["/c/outerwear", "Верхняя одежда"],
+      ["/c/knitwear", "Свитера и худи"],
+      ["/c/tshirts", "Футболки"],
+      ["/c/jeans", "Джинсы"],
+      ["/c/trousers", "Брюки"],
+      ["/c/shoes", "Обувь"],
+      ["/c/bags", "Сумки"],
+      ["/brands", "Все бренды"],
+    ],
+  ],
   [
     "Покупателям",
     [
@@ -53,7 +67,7 @@ export function Footer() {
     <footer className="aizome aizome-fade-in">
       <Kamon className="pointer-events-none absolute -right-16 top-10 size-[340px] text-ink opacity-[0.06] md:right-10 md:size-[420px]" />
       <div className="relative mx-auto max-w-[1440px] px-4 pt-14 md:px-6 md:pt-20">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))]">
           <div className="max-w-sm">
             <p className="font-display text-3xl font-bold leading-tight text-ink">Вещи с историей</p>
             <p className="mt-3 text-[15px] leading-relaxed text-ink-2">

@@ -5,6 +5,7 @@ import { itemHref } from "@/lib/item-path";
 import { landingHref, type LandingData } from "@/lib/landing";
 import { jsonLd, serverFetch, SITE_URL } from "@/lib/server";
 import { Masonry } from "./masonry";
+import { ButtonLink, EmptyState } from "./ui";
 
 /**
  * A brand or category page (lib/landing.ts): the H1, a paragraph of real numbers, the items new and second-hand apart,
@@ -49,6 +50,7 @@ function searchHref(d: LandingData, market: "brands" | "resale") {
   if (d.category) q.set("category", d.category);
   if (d.subcategory) q.set("subcategory", d.subcategory);
   if (d.brand) q.set("brand", d.brand);
+  if (d.gender) q.set("gender", d.gender);
   if (market === "resale") q.set("market", "resale");
   return `/search?${q}`;
 }
@@ -118,6 +120,12 @@ export async function LandingPage({ root, params }: { root: Root; params: Params
             </div>
           ))}
         </div>
+      )}
+
+      {!d.sections.length && (
+        <EmptyState title="Сейчас здесь пусто" hint="Новые вещи появятся здесь, как только их выставят. А пока загляните в поиск или в соседние разделы.">
+          <ButtonLink href={searchHref(d, "brands")}>Открыть поиск</ButtonLink>
+        </EmptyState>
       )}
 
       {d.sections.map((s) => (

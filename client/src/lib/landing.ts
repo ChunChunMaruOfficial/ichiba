@@ -1,16 +1,17 @@
 import type { Card } from "./types";
 
 /**
- * Brand and category pages (server: seo/landing.ts): /c/<category>[/<subcategory>] and
- * /brands/<brand>[/<category>[/<subcategory>]]. Only the pages with enough live items are indexed and linked to.
+ * Brand and category pages (server: seo/landing.ts): /c/<category>[/<subcategory>], /c/women|men/<category>[/<subcategory>]
+ * and /brands/<brand>[/<category>[/<subcategory>]]. Only the pages with enough live items are indexed and linked to.
  */
 
 /** An indexed page, as the sitemap and the item page's breadcrumbs know it. */
 export interface LandingEntry {
   path: string;
-  kind: "category" | "subcategory" | "brand" | "brand-category" | "brand-subcategory";
+  kind: "category" | "subcategory" | "gender-category" | "gender-subcategory" | "brand" | "brand-category" | "brand-subcategory";
   name: string;
   brand: string | null;
+  gender: "FEMALE" | "MALE" | null;
   category: string | null;
   subcategory: string | null;
   count: number;
@@ -29,6 +30,7 @@ export interface LandingData {
   name: string;
   indexable: boolean;
   brand: string | null;
+  gender: LandingEntry["gender"];
   category: string | null;
   subcategory: string | null;
   title: string;

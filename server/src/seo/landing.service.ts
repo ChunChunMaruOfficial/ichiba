@@ -3,7 +3,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../auth/auth.guard.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { buildLandings, type Landing, landingCrumbs, landingLinks, landingStats, landingText, type LiveRow, normalizeLandingPath } from './landing.js';
+import { buildLandings, emptyLanding, type Landing, landingCrumbs, landingLinks, landingStats, landingText, type LiveRow, normalizeLandingPath } from './landing.js';
 
 /** How long the set of pages and their counts are reused: crawlers and item pages ask often, listings change slowly. */
 const INDEX_TTL_MS = 10 * 60_000;
@@ -29,7 +29,7 @@ export class LandingService {
   private async load() {
     const rows: LiveRow[] = await this.prisma.listing.findMany({
       where: { status: { in: ['PUBLISHED', 'RESERVED'] } },
-      select: { id: true, brand: true, category: true, subcategory: true, market: true, condition: true, price: true, priceNegotiable: true, city: true, deliveryOptions: true, updatedAt: true },
+      select: { id: true, brand: true, category: true, subcategory: true, market: true, gender: true, condition: true, price: true, priceNegotiable: true, city: true, deliveryOptions: true, updatedAt: true },
       // The order the pages show items in: the search's default (lifted or newest first).
       orderBy: [{ liftedAt: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }],
       take: 50_000,
@@ -42,13 +42,14 @@ export class LandingService {
     const pages = await this.pages();
     return [...pages.values()]
       .filter((p) => p.indexable)
-      .map((p) => ({ path: p.path, kind: p.kind, name: p.name, brand: p.brand?.name ?? null, category: p.category || null, subcategory: p.subcategory, count: p.rows.length, updatedAt: p.updatedAt }));
+      .map((p) => ({ path: p.path, kind: p.kind, name: p.name, brand: p.brand?.name ?? null, gender: p.gender, category: p.category || null, subcategory: p.subcategory, count: p.rows.length, updatedAt: p.updatedAt }));
   }
 
   async page(rawPath: string) {
     const path = normalizeLandingPath(rawPath);
     const pages = await this.pages();
-    const p = path ? pages.get(path) : undefined;
+    // A catalogue category with nothing on sale is still a page (the footer links every category), out of search.
+    const p = path ? (pages.get(path) ?? emptyLanding(path)) : undefined;
     if (!p) throw new NotFoundException({ message: 'Такой страницы нет' });
 
     // New items and second-hand ones are shown apart, as everywhere on the site (listings/market.ts).
@@ -72,6 +73,7 @@ export class LandingService {
       name: p.name,
       indexable: p.indexable,
       brand: p.brand?.name ?? null,
+      gender: p.gender,
       category: p.category || null,
       subcategory: p.subcategory,
       ...landingText(p),

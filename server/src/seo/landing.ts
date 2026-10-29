@@ -1,6 +1,6 @@
 import { brandKey, brandRussian } from '../catalog/brands.js';
 import { categoryBySlug } from '../catalog/catalog.js';
-import type { Condition, DeliveryMethod, ListingMarket } from '../generated/prisma/client.js';
+import type { Condition, DeliveryMethod, Gender, ListingMarket } from '../generated/prisma/client.js';
 import { cap, CITY_IN, DESCRIPTION_MAX, fit, slugify, TITLE_MAX } from './seo.js';
 
 /**
@@ -8,10 +8,12 @@ import { cap, CITY_IN, DESCRIPTION_MAX, fit, slugify, TITLE_MAX } from './seo.js
  * Big marketplaces (Avito, Kufar, Lamoda, Vinted) win those queries with such pages, while an item's own page wins
  * the exact item. /search stays out of search engines (endless thin lists), so only a fixed set of pages is offered:
  * - /c/<category>, /c/<category>/<subcategory>;
+ * - /c/women/<category>[/<subcategory>] and /c/men/…: «женские джинсы», «мужские куртки»;
  * - /brands/<brand>, /brands/<brand>/<category>, /brands/<brand>/<category>/<subcategory>.
- * A page is indexed only with MIN_ITEMS live items, and a narrower page only when it shows less than the one above it
- * (a brand that only sells jackets has its brand page, not a copy of it at /brands/x/outerwear/jacket). Everything the
- * page says (its name, counts, prices, cities) comes from the live listings themselves.
+ * A page is indexed only with MIN_ITEMS live items, and a narrower page only when it shows less than each page above it
+ * (a brand that only sells jackets has its brand page, not a copy of it at /brands/x/outerwear/jacket; «Женские джинсы»
+ * where no jeans are marked for men or women would be «Джинсы» again). Everything the page says (its name, counts,
+ * prices, cities) comes from the live listings themselves.
  */
 
 /** Fewer live items than this and the page is thin: it still opens, but search engines are told to skip it. */
@@ -24,6 +26,7 @@ export interface LiveRow {
   category: string | null;
   subcategory: string | null;
   market: ListingMarket;
+  gender: Gender | null;
   condition: Condition | null;
   price: number | null;
   priceNegotiable: boolean;
@@ -32,7 +35,8 @@ export interface LiveRow {
   updatedAt: Date;
 }
 
-export type LandingKind = 'category' | 'subcategory' | 'brand' | 'brand-category' | 'brand-subcategory';
+export type LandingKind = 'category' | 'subcategory' | 'gender-category' | 'gender-subcategory' | 'brand' | 'brand-category' | 'brand-subcategory';
+export type Audience = 'FEMALE' | 'MALE';
 
 export interface Landing {
   /** Address without the leading slash: «c/jeans/flare», «brands/carhartt/outerwear». */
@@ -43,9 +47,13 @@ export interface Landing {
   /** Short name for a breadcrumb under its parent: «Верхняя одежда» under Carhartt. */
   crumb: string;
   brand: { name: string; slug: string } | null;
+  gender: Audience | null;
   category: string;
   subcategory: string | null;
+  /** The page above it in breadcrumbs. */
   parent: string | null;
+  /** Another wider page it must differ from: «Женские широкие джинсы» from «Широкие джинсы». */
+  also?: string;
   indexable: boolean;
   rows: LiveRow[];
   updatedAt: Date;
@@ -89,6 +97,22 @@ const NO_BRAND = /^(no ?name|noname|без бренда|без названия|
 
 export const categoryName = (slug: string) => CATEGORY_NAMES[slug] ?? categoryBySlug(slug)?.label ?? slug;
 export const subcategoryName = (slug: string) => SUBCATEGORY_NAMES[slug] ?? slug;
+
+/** Address words for an audience, as Lamoda and Zara spell them. */
+export const AUDIENCE_SLUG: Record<Audience, string> = { FEMALE: 'women', MALE: 'men' };
+const AUDIENCE_BY_SLUG: Record<string, Audience> = { women: 'FEMALE', men: 'MALE' };
+/** Names that are one feminine noun take «Женская»; the rest are plural («Женские джинсы»). */
+const SINGULAR_FEMININE = new Set(['Верхняя одежда', 'Обувь']);
+const audienceName = (g: Audience, name: string) =>
+  `${SINGULAR_FEMININE.has(name) ? (g === 'FEMALE' ? 'Женская' : 'Мужская') : g === 'FEMALE' ? 'Женские' : 'Мужские'} ${name[0].toLowerCase()}${name.slice(1)}`;
+
+/**
+ * Audiences a category has pages for: none where the catalogue already says who it is for (skirts and dresses are
+ * women's, a «Женские юбки» page would be «Юбки» again).
+ */
+const audiencesOf = (category: string): Audience[] => (categoryBySlug(category)?.genders ? [] : ['FEMALE', 'MALE']);
+/** As search reads «Женщинам»: items for women, and items not marked for anyone, which fit anyone. */
+const fits = (r: LiveRow, g: Audience) => r.gender === g || r.gender === null || r.gender === 'UNISEX';
 
 /** Whether a subcategory gets a page of its own. */
 const ownSubcategory = (category: string, sub: string | null): sub is string =>
@@ -158,37 +182,62 @@ export function buildLandings(rows: LiveRow[]): Map<string, Landing> {
     if (!category || !categoryBySlug(category)) continue;
     const sub = ownSubcategory(category, r.subcategory) ? r.subcategory : null;
     const c = `c/${category}`;
-    add(c, () => ({ path: c, kind: 'category', crumb: categoryName(category), brand: null, category, subcategory: null, parent: null }), r);
+    add(c, () => ({ path: c, kind: 'category', crumb: categoryName(category), brand: null, gender: null, category, subcategory: null, parent: null }), r);
     if (sub) {
       const cs = `${c}/${sub}`;
-      add(cs, () => ({ path: cs, kind: 'subcategory', crumb: subcategoryName(sub), brand: null, category, subcategory: sub, parent: c }), r);
+      add(cs, () => ({ path: cs, kind: 'subcategory', crumb: subcategoryName(sub), brand: null, gender: null, category, subcategory: sub, parent: c }), r);
+    }
+    for (const g of audiencesOf(category)) {
+      if (!fits(r, g)) continue;
+      const gc = `c/${AUDIENCE_SLUG[g]}/${category}`;
+      add(gc, () => ({ path: gc, kind: 'gender-category', crumb: '', brand: null, gender: g, category, subcategory: null, parent: c }), r);
+      if (sub) {
+        const gcs = `${gc}/${sub}`;
+        add(gcs, () => ({ path: gcs, kind: 'gender-subcategory', crumb: '', brand: null, gender: g, category, subcategory: sub, parent: gc, also: `${c}/${sub}` }), r);
+      }
     }
     const brand = r.brand?.trim() ? brandOf.get(brandKey(r.brand.trim())) : undefined;
     if (!brand) continue;
     const b = `brands/${brand.slug}`;
     const bc = `${b}/${category}`;
-    add(b, () => ({ path: b, kind: 'brand', crumb: brand.name, brand, category: '', subcategory: null, parent: null }), r);
-    add(bc, () => ({ path: bc, kind: 'brand-category', crumb: categoryName(category), brand, category, subcategory: null, parent: b }), r);
+    add(b, () => ({ path: b, kind: 'brand', crumb: brand.name, brand, gender: null, category: '', subcategory: null, parent: null }), r);
+    add(bc, () => ({ path: bc, kind: 'brand-category', crumb: categoryName(category), brand, gender: null, category, subcategory: null, parent: b }), r);
     if (sub) {
       const bcs = `${bc}/${sub}`;
-      add(bcs, () => ({ path: bcs, kind: 'brand-subcategory', crumb: subcategoryName(sub), brand, category, subcategory: sub, parent: bc }), r);
+      add(bcs, () => ({ path: bcs, kind: 'brand-subcategory', crumb: subcategoryName(sub), brand, gender: null, category, subcategory: sub, parent: bc }), r);
     }
   }
 
   for (const p of pages.values()) {
-    p.name =
-      p.kind === 'brand'
-        ? brandPageName(p.brand!.name, p.rows)
-        : p.brand
-          ? `${p.subcategory ? subcategoryName(p.subcategory) : categoryName(p.category)} ${p.brand.name}`
-          : p.subcategory
-            ? subcategoryName(p.subcategory)
-            : categoryName(p.category);
-    // A narrower page must show something its parent doesn't, or it is the parent's copy under another name.
-    const parent = p.parent ? pages.get(p.parent) : null;
-    p.indexable = p.rows.length >= MIN_ITEMS && (!parent || p.rows.length < parent.rows.length);
+    p.name = landingName(p);
+    if (p.gender) p.crumb = p.name;
+    // A narrower page must show something each wider one doesn't, or it is that page's copy under another name.
+    const wider = [p.parent, p.also].map((x) => (x ? pages.get(x) : undefined)).filter((x): x is Landing => !!x);
+    p.indexable = p.rows.length >= MIN_ITEMS && wider.every((w) => p.rows.length < w.rows.length);
   }
   return pages;
+}
+
+function landingName(p: Pick<Landing, 'kind' | 'brand' | 'gender' | 'category' | 'subcategory' | 'rows'>) {
+  const kind = p.subcategory ? subcategoryName(p.subcategory) : categoryName(p.category);
+  if (p.kind === 'brand') return brandPageName(p.brand!.name, p.rows);
+  if (p.brand) return `${kind} ${p.brand.name}`;
+  return p.gender ? audienceName(p.gender, kind) : kind;
+}
+
+/**
+ * A catalogue category or subcategory with nothing on sale right now: the page still opens (the footer links to
+ * categories whatever their stock), says so, and stays out of search.
+ */
+export function emptyLanding(path: string): Landing | null {
+  const [root, category, sub, ...rest] = path.split('/');
+  if (root !== 'c' || rest.length || !categoryBySlug(category) || (sub && !ownSubcategory(category, sub))) return null;
+  const base = { brand: null, gender: null, category, subcategory: sub ?? null, rows: [], indexable: false, updatedAt: new Date(0) };
+  const p: Landing = sub
+    ? { ...base, path, kind: 'subcategory', crumb: subcategoryName(sub), name: '', parent: `c/${category}` }
+    : { ...base, path, kind: 'category', crumb: categoryName(category), name: '', parent: null };
+  p.name = landingName(p);
+  return p;
 }
 
 const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
@@ -198,6 +247,10 @@ export function normalizeLandingPath(path: string): string | null {
   const parts = path.split('/').filter(Boolean).map((s) => s.toLowerCase());
   const [root, ...rest] = parts;
   const valid = (category?: string, sub?: string) => !category || (!!categoryBySlug(category) && (!sub || ownSubcategory(category, sub)));
+  if (root === 'c' && rest[0] in AUDIENCE_BY_SLUG) {
+    const [, category, sub, ...extra] = rest;
+    return !extra.length && !!category && audiencesOf(category).length > 0 && valid(category, sub) ? parts.join('/') : null;
+  }
   if (root === 'c' && rest.length >= 1 && rest.length <= 2 && valid(rest[0], rest[1])) return parts.join('/');
   if (root === 'brands' && rest.length >= 1 && rest.length <= 3 && /^[a-z0-9-]+$/.test(rest[0]) && valid(rest[1], rest[2])) return parts.join('/');
   return null;
@@ -259,6 +312,13 @@ export function landingStats(p: Landing): LandingStats {
  */
 export function landingText(p: Landing): LandingText {
   const s = landingStats(p);
+  if (!s.total) {
+    return {
+      title: `${p.name} — купить в Беларуси`,
+      description: `${p.name} на ichiba: сейчас нет вещей в продаже, новые появляются каждый день.`,
+      intro: [`Сейчас в разделе «${p.name}» нет вещей в продаже.`, 'Загляните позже или посмотрите соседние разделы.'],
+    };
+  }
   const brandRu = p.brand && !/[а-яё]/i.test(p.brand.name) ? brandRussian(p.brand.name) : null;
   const mixed = s.fresh > 0 && s.used > 0;
   const usedOnly = s.used > 0 && s.fresh === 0;
@@ -294,7 +354,7 @@ export function landingText(p: Landing): LandingText {
 
   // What is inside: kinds of items on a category or brand page, brands on a category page.
   const kinds =
-    p.kind === 'category'
+    p.kind === 'category' || p.kind === 'gender-category'
       ? topCounts(p.rows.map((r) => (ownSubcategory(p.category, r.subcategory) ? subcategoryName(r.subcategory) : null)), 4)
       : p.kind === 'brand'
         ? topCounts(p.rows.map((r) => (r.category ? categoryName(r.category) : null)), 4)
@@ -346,10 +406,17 @@ export function landingLinks(p: Landing, pages: Map<string, Landing>) {
   };
   if (p.kind === 'category') {
     push('Что ещё в разделе', indexed.filter((x) => x.kind === 'subcategory' && x.category === p.category));
+    push('Женщинам и мужчинам', indexed.filter((x) => x.kind === 'gender-category' && x.category === p.category));
     push('Бренды', indexed.filter((x) => x.kind === 'brand-category' && x.category === p.category), true);
   } else if (p.kind === 'subcategory') {
+    push('Женщинам и мужчинам', indexed.filter((x) => x.kind === 'gender-subcategory' && x.also === p.path));
     push('Бренды', indexed.filter((x) => x.kind === 'brand-subcategory' && x.subcategory === p.subcategory), true);
     push(`Ещё в разделе «${categoryName(p.category)}»`, indexed.filter((x) => x.kind === 'subcategory' && x.category === p.category));
+  } else if (p.kind === 'gender-category') {
+    push('Что ещё в разделе', indexed.filter((x) => x.kind === 'gender-subcategory' && x.parent === p.path));
+    push('Ещё', indexed.filter((x) => x.kind === 'gender-category' && x.gender === p.gender));
+  } else if (p.kind === 'gender-subcategory') {
+    push(`Ещё в разделе «${pages.get(p.parent!)?.name ?? categoryName(p.category)}»`, indexed.filter((x) => x.kind === 'gender-subcategory' && x.parent === p.parent));
   } else if (p.kind === 'brand') {
     push('Разделы', indexed.filter((x) => x.kind === 'brand-category' && x.brand?.slug === p.brand!.slug));
   } else if (p.kind === 'brand-category') {
@@ -358,8 +425,10 @@ export function landingLinks(p: Landing, pages: Map<string, Landing>) {
   } else {
     push('Другие бренды', indexed.filter((x) => x.kind === 'brand-subcategory' && x.subcategory === p.subcategory), true);
   }
-  // «Все куртки», «Все вещи Carhartt»: the wider pages, for anyone who came in too narrow.
-  const wider = (p.brand && p.kind !== 'brand' ? [`brands/${p.brand.slug}`, p.subcategory ? `c/${p.category}/${p.subcategory}` : `c/${p.category}`] : [])
+  // «Все куртки», «Все вещи Carhartt», «Мужские куртки» beside «Женские»: the pages around it, for anyone who came in too narrow.
+  const other = p.gender && `c/${AUDIENCE_SLUG[p.gender === 'FEMALE' ? 'MALE' : 'FEMALE']}/${p.category}${p.subcategory ? `/${p.subcategory}` : ''}`;
+  const around = p.brand && p.kind !== 'brand' ? [`brands/${p.brand.slug}`, p.subcategory ? `c/${p.category}/${p.subcategory}` : `c/${p.category}`] : p.gender ? [other!, p.subcategory ? `c/${p.category}/${p.subcategory}` : `c/${p.category}`] : [];
+  const wider = around
     .map((path) => pages.get(path))
     .filter((x): x is Landing => !!x?.indexable);
   if (wider.length) groups.push({ title: 'Смотрите также', links: wider.map((x) => ({ path: x.path, name: x.name, count: x.rows.length })) });
