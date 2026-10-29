@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
+import { preconnect, preload } from "react-dom";
 import { FeedShell } from "@/components/feed-shell";
 import { SwrFallback } from "@/components/swr-fallback";
 import { serverFetch } from "@/lib/server";
 import { homeChip, homeFeedKey } from "@/lib/home-feed";
+import type { Card } from "@/lib/types";
 import HomeClient from "./home-client";
 
 // A server page to carry metadata (a client page can't export it) and the first screen of the feed.
@@ -22,7 +24,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const [params, jar] = await Promise.all([searchParams, cookies()]);
   const guest = !jar.has("ichiba_token");
   const key = homeFeedKey(homeChip(typeof params.chip === "string" ? params.chip : null, false), 0);
-  const [home, feed] = guest && params.mode !== "swipe" ? await Promise.all([serverFetch("/home"), serverFetch(key)]) : [null, null];
+  const [home, feed] = guest && params.mode !== "swipe" ? await Promise.all([serverFetch("/home"), serverFetch<{ items?: Card[] }>(key)]) : [null, null];
+  // The first card's photo is the page's largest paint: the connection to the photo host (another origin) and the
+  // photo itself start from <head>, before the browser reaches the card. Same srcset and sizes as the card, so the
+  // browser takes the preloaded file for it.
+  const cover = feed?.items?.find((i) => i.cover)?.cover;
+  if (cover) {
+    preconnect(new URL(cover.urls.m).origin);
+    preload(cover.urls.m, {
+      as: "image",
+      fetchPriority: "high",
+      imageSrcSet: `${cover.urls.s} 320w, ${cover.urls.m} 640w, ${cover.urls.l} 1280w`,
+      imageSizes: "(min-width: 1024px) 25vw, 50vw",
+    });
+  }
   const content = (
     <Suspense fallback={<FeedShell />}>
       <HomeClient />
