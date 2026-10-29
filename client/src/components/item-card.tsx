@@ -50,12 +50,15 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
           sizes={sizes}
           alt={card.title}
           loading={eager ? "eager" : "lazy"}
-          decoding="async"
+          // The first cards are the page's largest paint: fetched first and shown at once, without the fade-in that waits
+          // for scripts (a server-rendered photo would stay invisible until hydration).
+          fetchPriority={eager ? "high" : undefined}
+          decoding={eager ? "sync" : "async"}
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
           className={clsx(
             "absolute inset-0 size-full object-contain transition-[opacity,transform] duration-300",
-            loaded ? "opacity-100" : "opacity-0",
+            loaded || eager ? "opacity-100" : "opacity-0",
             card.status === "SOLD" && "opacity-60 grayscale-[30%]",
           )}
         />
