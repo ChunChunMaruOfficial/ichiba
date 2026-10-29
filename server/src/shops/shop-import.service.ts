@@ -32,6 +32,8 @@ function passwordHash(key: string): string | null {
 }
 
 const REMOVED_ON_ICHIBA = 'снято на ichiba';
+/** The reason kept on a product whose new photos moderation turned down (see the photo top-up in syncSource). */
+const PHOTOS_REJECTED = 'новые фото магазина не прошли модерацию';
 /** A BYN price that moved less than this (mostly the exchange rate wobbling) is not copied to the listing. */
 const MIN_PRICE_CHANGE = 0.03;
 /** Sizes a listing takes from the shop: at most this many, each at most SIZE_MAX characters (listing limits). */
@@ -179,14 +181,25 @@ export class ShopImportService implements OnApplicationBootstrap {
           // A run cut short left the draft: finish it.
           await this.listings.publish(userId, live.id, { trustedPhotos: true, allowUnchecked: true });
         }
-        // Photos the shop was too slow to give last time: the listing gets the full set once it can be fetched.
-        if (live.status !== 'RESERVED' && (await this.prisma.photo.count({ where: { listingId: live.id } })) < offer.photos.length) {
+        // Photos the shop was too slow to give last time: the listing gets the full set once it can be fetched. A set
+        // moderation turned down (a size chart, a staged shot) is not offered again until the shop's gallery changes:
+        // the listing keeps the photos it has, and every sync would otherwise spend the AI quota on the same refusal.
+        const rejected = `${PHOTOS_REJECTED}: ${offer.photos.length} фото`;
+        let photosNote = row?.reason === rejected ? rejected : null;
+        if (!photosNote && live.status !== 'RESERVED' && (await this.prisma.photo.count({ where: { listingId: live.id } })) < offer.photos.length) {
           const { photos } = await this.uploadPhotos(cfg, userId, offer);
           if (photos.length === offer.photos.length) {
-            await this.listings.update(userId, live.id, { photos });
-            stats.updated++;
+            try {
+              await this.listings.update(userId, live.id, { photos });
+              stats.updated++;
+            } catch (e) {
+              if (!/не прошли проверку/.test(errorText(e))) throw e;
+              this.logger.warn(`${cfg.key}/${productId} «${offer.title}»: the shop's new photos were turned down, the listing keeps its own: ${errorText(e)}`);
+              photosNote = rejected;
+            }
           }
         }
+        const note = photosNote ? { reason: photosNote } : {};
         // What the listing is known to show; differs from the offer's when a small price move was left out.
         let fingerprint = offer.fingerprint;
         if (row!.fingerprint !== offer.fingerprint && live.status !== 'RESERVED') {
@@ -214,9 +227,9 @@ export class ShopImportService implements OnApplicationBootstrap {
           // Only what the sync hid comes back; a listing the brand hid by hand stays hidden.
           await this.listings.publish(userId, live.id, { trustedPhotos: true });
           stats.shown++;
-          await save(productId, { status: 'LISTED', listingId: live.id, fingerprint });
+          await save(productId, { status: 'LISTED', listingId: live.id, fingerprint, ...note });
         } else {
-          await save(productId, { status: row!.status === 'OUT' && offer.available ? 'LISTED' : row!.status, listingId: live.id, fingerprint });
+          await save(productId, { status: row!.status === 'OUT' && offer.available ? 'LISTED' : row!.status, listingId: live.id, fingerprint, ...note });
         }
       } catch (e) {
         stats.failed++;
