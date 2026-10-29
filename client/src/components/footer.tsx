@@ -3,9 +3,14 @@
 import { SakuraBranch } from "./shop/sakura-branch";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { reopenConsent } from "@/lib/analytics";
+import { LEGAL, operatorLine } from "@/lib/legal";
 import { Wordmark } from "./logo";
 import { focusedFlow } from "./header";
 import { Kamon } from "./shop/kamon";
+
+/** Not a page: the link brings the cookie notice back to change the choice. */
+const COOKIE_SETTINGS = "#cookie-settings";
 
 const COLUMNS: Array<[string, Array<[string, string]>]> = [
   // The category and brand pages (/c, /brands): linked from every page, so search engines find and weigh them.
@@ -43,9 +48,10 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
   [
     "ichiba",
     [
+      ["/contacts", "Контакты"],
       ["/terms", "Пользовательское соглашение"],
       ["/privacy", "Политика конфиденциальности"],
-      ["/privacy#cookies", "Cookie"],
+      [COOKIE_SETTINGS, "Настройки cookie"],
       ["/settings", "Настройки"],
     ],
   ],
@@ -83,9 +89,15 @@ export function Footer() {
               <ul className="mt-4 flex flex-col gap-2.5">
                 {links.map(([href, label]) => (
                   <li key={href}>
-                    <Link href={href} className="text-[15px] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
-                      {label}
-                    </Link>
+                    {href === COOKIE_SETTINGS ? (
+                      <button type="button" onClick={reopenConsent} className="text-left text-[15px] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
+                        {label}
+                      </button>
+                    ) : (
+                      <Link href={href} className="text-[15px] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
+                        {label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -93,7 +105,12 @@ export function Footer() {
           ))}
         </div>
         <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-sm text-muted">
-          <span>© {new Date().getFullYear()} ichiba · Беларусь</span>
+          <span>
+            © {new Date().getFullYear()} ichiba · Беларусь{LEGAL.operator && <> · {operatorLine()}</>} ·{" "}
+            <a href={`mailto:${LEGAL.email}`} className="underline-offset-4 hover:text-ink hover:underline">
+              {LEGAL.email}
+            </a>
+          </span>
           <span className="flex items-center gap-2 text-shu">
             <Kamon className="size-6" title="Герб ichiba: 市 в круге" />
             <span className="font-brush text-base tracking-[0.2em]" lang="ja">
