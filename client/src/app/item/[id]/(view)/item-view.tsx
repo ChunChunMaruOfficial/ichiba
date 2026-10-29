@@ -33,6 +33,7 @@ import { useListingActions } from "@/lib/listing-actions";
 import { withMarket } from "@/lib/market";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
 import { itemHref } from "@/lib/item-path";
+import { landingHref, type ItemLandings } from "@/lib/landing";
 
 const measurementLabel = (k: string) => (MEASURE_LABEL[k as keyof typeof MEASURE_LABEL] ?? k).toLowerCase();
 
@@ -60,7 +61,7 @@ function ProductSkeleton() {
 const TILE_SPAN_PHONE: Record<number, string> = { 1: "col-span-1", 2: "col-span-2", 3: "col-span-3" };
 const TILE_SPAN_WIDE: Record<number, string> = { 1: "md:col-span-1", 2: "md:col-span-2", 3: "md:col-span-3", 4: "md:col-span-4", 5: "md:col-span-5" };
 
-export function ItemView({ id, initial }: { id: string; initial?: ListingResponse | null }) {
+export function ItemView({ id, initial, landings }: { id: string; initial?: ListingResponse | null; landings?: ItemLandings }) {
   // The server copy is anonymous: it paints instantly, while this request (always sent, no fallbackData that
   // SWR might treat as fresh) brings the viewer's own copy — owner tools, ♡, fit hint.
   const live = useSWR<ListingResponse>(`/listings/${encodeURIComponent(id)}`);
@@ -95,10 +96,11 @@ export function ItemView({ id, initial }: { id: string; initial?: ListingRespons
   }
 
   // The server-rendered copy is anonymous; the viewer's own copy, when it arrives, updates the page in place.
-  return <Product listing={data} related={related.data} refresh={() => mutate()} />;
+  return <Product listing={data} related={related.data} refresh={() => mutate()} landings={landings} />;
 }
 
-function Product({ listing: l, related, refresh }: { listing: ListingDetail; related?: { similar: Card[]; fromSeller: Card[]; forYou: Card[] }; refresh: () => void }) {
+function Product({ listing: l, related, refresh, landings }: { listing: ListingDetail; related?: { similar: Card[]; fromSeller: Card[]; forYou: Card[] }; refresh: () => void; landings?: ItemLandings }) {
+  const zone = l.market ?? (l.seller.brand ? "brands" : "resale");
   const router = useRouter();
   const meta = useMeta();
   const toast = useToast();
@@ -276,7 +278,8 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
     // The Russian spelling beside a Latin brand («Carhartt (Кархарт)»): people search both ways.
     ["Бренд", l.brand && (
       <>
-        <Link href={withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, l.market ?? (l.seller.brand ? "brands" : "resale"))} className="hover:underline">{l.brand}</Link>
+        {/* The brand's own page when it has one (indexed, both markets), else a search in this item's market. */}
+        <Link href={landings?.brand ? landingHref(landings.brand.path) : withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, zone)} className="hover:underline">{l.brand}</Link>
         {l.seo?.brandRu && <span className="text-muted"> ({l.seo.brandRu})</span>}
       </>
     )],
@@ -420,13 +423,23 @@ function Product({ listing: l, related, refresh }: { listing: ListingDetail; rel
     <div className={clsx("mx-auto max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16", flightIn && "flight-in")}>
       <nav aria-label="Хлебные крошки" className="mb-4 hidden text-sm text-muted md:block">
         <Link href="/" className="hover:text-ink">Главная</Link>
+        {/* The category pages search engines index (/c/…); a search in the item's market where there is none. */}
         {l.categoryLabel && (
           <>
             {" / "}
-            <Link href={withMarket(`/search?category=${l.category}`, l.market ?? (l.seller.brand ? "brands" : "resale"))} className="hover:text-ink">{l.categoryLabel}</Link>
+            <Link href={landings?.category ? landingHref(landings.category.path) : withMarket(`/search?category=${l.category}`, zone)} className="hover:text-ink">{landings?.category?.name ?? l.categoryLabel}</Link>
           </>
         )}
-        {l.subcategoryLabel && <> / <span className="text-ink-2">{l.subcategoryLabel}</span></>}
+        {l.subcategoryLabel && (
+          <>
+            {" / "}
+            {landings?.subcategory ? (
+              <Link href={landingHref(landings.subcategory.path)} className="hover:text-ink">{landings.subcategory.name}</Link>
+            ) : (
+              <span className="text-ink-2">{l.subcategoryLabel}</span>
+            )}
+          </>
+        )}
       </nav>
 
       <div className="flight-keep grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">

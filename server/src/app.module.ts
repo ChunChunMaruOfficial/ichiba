@@ -60,6 +60,7 @@ import { ShopImportService } from './shops/shop-import.service.js';
 import { TelegramBotService, TelegramController } from './telegram/telegram.js';
 import { SeoController, SeoService } from './seo/seo.service.js';
 import { SeoWriter } from './seo/seo-writer.js';
+import { LandingController, LandingService } from './seo/landing.service.js';
 
 /** A platform edge that sets X-Real-IP sits in front (see main.ts for the trusted hops). */
 const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL);
@@ -124,6 +125,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     AdminBrandApplicationsController,
     TelegramController,
     SeoController,
+    LandingController,
   ],
   providers: [
     AuthService,
@@ -163,6 +165,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     TelegramBotService,
     SeoWriter,
     SeoService,
+    LandingService,
     // Order matters: the session is read first so the rate limit can key on the account.
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },

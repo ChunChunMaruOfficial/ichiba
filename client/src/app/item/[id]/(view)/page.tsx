@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { conditionLabel } from "@/lib/labels";
 import { itemIdFrom, itemSegment } from "@/lib/item-path";
+import { itemLandings, landingHref, type ItemLandings, type LandingEntry } from "@/lib/landing";
 import { jsonLd, serverFetch, SITE_URL, truncate } from "@/lib/server";
 import type { ListingDetail, ListingResponse } from "@/lib/types";
 import { ItemView } from "./item-view";
@@ -72,7 +73,7 @@ const CONDITION_SCHEMA: Record<NonNullable<ListingDetail["condition"]>, string> 
  * Product + Offer (Google product snippets, Yandex): name, photos, brand, colour, size, material, audience, condition,
  * price and availability, all as the page shows them. Fields the listing doesn't have are left out, never empty.
  */
-function productLd(l: ListingDetail) {
+function productLd(l: ListingDetail, pages: ItemLandings) {
   const url = `${SITE_URL}/item/${itemSegment(l)}`;
   const price = priceOf(l);
   const availability = l.status === "SOLD" ? "SoldOut" : l.status === "RESERVED" ? "LimitedAvailability" : "InStock";
@@ -80,6 +81,8 @@ function productLd(l: ListingDetail) {
   const brand = l.seo?.brand ?? l.brand;
   const sellerUrl = `${SITE_URL}/u/${encodeURIComponent(l.seller.username)}`;
   const market = l.market === "resale" ? { name: "Вторичка", item: `${SITE_URL}/resale` } : { name: "Бренды", item: SITE_URL };
+  // The item's category and subcategory pages when they are indexed; the market section when there is none.
+  const trail = [pages.category, pages.subcategory].filter((p): p is LandingEntry => !!p).map((p) => ({ name: p.name, item: `${SITE_URL}${landingHref(p.path)}` }));
   const sizes = l.stockSizes?.length ? l.stockSizes.join(", ") : l.sizeSystem !== "OTHER" ? l.size : null;
   return [
     {
@@ -114,29 +117,25 @@ function productLd(l: ListingDetail) {
             }
           : undefined,
     },
-    // Every step is a page search engines index: the section, the seller's wardrobe, the item.
+    // Every step is a page search engines index: the category pages (or the section), then the item.
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "ichiba", item: SITE_URL },
-        { "@type": "ListItem", position: 2, ...market },
-        { "@type": "ListItem", position: 3, name: l.seller.brand ?? `@${l.seller.username}`, item: sellerUrl },
-        { "@type": "ListItem", position: 4, name, item: url },
-      ],
+      itemListElement: [{ name: "ichiba", item: SITE_URL }, ...(trail.length ? trail : [market]), { name, item: url }].map((c, i) => ({ "@type": "ListItem", position: i + 1, ...c })),
     },
   ];
 }
 
 export default async function ItemPage({ params }: Props) {
   const segment = (await params).id;
-  const l = await load(segment);
+  const [l, landings] = await Promise.all([load(segment), serverFetch<LandingEntry[]>("/seo/landings", 900)]);
   // Unknown id → a real 404 status for crawlers; API trouble → the client shell retries on its own.
   if (l === null) notFound();
+  const pages = itemLandings(landings, isDetail(l) ? l : { category: null, brand: null });
   return (
     <>
-      {isDetail(l) && <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(productLd(l))} />}
-      <ItemView id={itemIdFrom(segment)!} initial={l} />
+      {isDetail(l) && <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(productLd(l, pages))} />}
+      <ItemView id={itemIdFrom(segment)!} initial={l} landings={pages} />
     </>
   );
 }

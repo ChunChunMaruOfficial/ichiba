@@ -109,7 +109,7 @@ const GENDER_FORMS: Record<'MALE' | 'FEMALE', Forms> = {
 const NEW_FORMS = adj('новый', 'новая', 'новое', 'новые');
 
 /** «в Минске»: the cities sellers pick from (catalog CITIES), in the prepositional case. */
-const CITY_IN: Record<string, string> = {
+export const CITY_IN: Record<string, string> = {
   Минск: 'Минске', Брест: 'Бресте', Витебск: 'Витебске', Гомель: 'Гомеле', Гродно: 'Гродно', Могилёв: 'Могилёве', Бобруйск: 'Бобруйске',
   Барановичи: 'Барановичах', Борисов: 'Борисове', Пинск: 'Пинске',
 };
@@ -178,7 +178,7 @@ export const TITLE_MAX = 56;
 /** Google cuts descriptions near 155–160 characters on desktop. */
 export const DESCRIPTION_MAX = 158;
 
-const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+export const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 const hasCyrillic = (s: string) => /[а-яё]/i.test(s);
 
@@ -259,13 +259,13 @@ function conditionLong(l: SeoListing): string | null {
 const priceOf = (l: SeoListing) => l.auctionPrice ?? (l.priceNegotiable ? null : l.price);
 
 /** Title pieces in reading order; `rank` decides which go first when the title is too long (higher stays longer). */
-interface Piece {
+export interface Piece {
   text: string;
   rank: number;
   sep: string;
 }
 
-function fit(pieces: Piece[], max: number) {
+export function fit(pieces: Piece[], max: number) {
   const kept = [...pieces];
   const join = (ps: Piece[]) => ps.map((p, i) => (i ? p.sep : '') + p.text).join('');
   while (join(kept).length > max) {
