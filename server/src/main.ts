@@ -8,6 +8,7 @@ import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { sessionOk } from './auth/auth.guard.js';
+import { AlertLogger } from './common/alerts.js';
 import { UploadTooLargeFilter } from './common/http-errors.js';
 import { checkEnv } from './config/env.js';
 import { attachWebSockets, EventsService } from './events/events.js';
@@ -25,7 +26,10 @@ async function bootstrap() {
     logger.error(`uncaught exception: ${e.stack ?? e.message}`);
     setTimeout(() => process.exit(1), 500).unref();
   });
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Logs are held until the alert logger is in place, so an error while modules start reaches Telegram too.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  const alerts = new AlertLogger();
+  app.useLogger(alerts);
   // Behind a proxy (nginx, Railway/Vercel edge, the Next.js rewrite): take the client IP from X-Forwarded-For,
   // otherwise rate limits see one IP for everyone. Measured on Railway: the edge rewrites the header to
   // "<visitor>, <edge node>" (whatever the client sent is dropped) and the Next.js rewrite passes it on without
@@ -50,6 +54,9 @@ async function bootstrap() {
   }
   const events = app.get(EventsService);
   const prisma = app.get(PrismaService);
+  alerts.useChats(async () =>
+    (await prisma.user.findMany({ where: { role: 'ADMIN', tgChatId: { not: null }, blockedAt: null }, select: { tgChatId: true } })).map((u) => u.tgChatId!),
+  );
   if (events.driver === 'ws') attachWebSockets(app.getHttpServer(), events, app.get(JwtService), (userId, sv) => sessionOk(prisma, userId, sv));
 
   const port = Number(process.env.PORT ?? 4000);
