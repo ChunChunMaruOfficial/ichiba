@@ -125,7 +125,7 @@ API жив после проб; миграция применилась, backfil
 | Один адрес сайта | www и `client-production-bff5.up.railway.app` → 308 на ichiba.by; ichiba.site — Redirect Rule в Cloudflare | ✅ / ⏳ ichiba.site настраивает владелец |
 | Яндекс.Вебмастер | подтверждение файлом `client/public/yandex_76805bb35b05117d.html` | ✅ файл на сайте; sitemap и регион — владелец |
 | Google Search Console, Bing Webmaster | TXT в Cloudflare | ⏳ владелец |
-| Метрика и GA4 | `NEXT_PUBLIC_YM_ID`, `NEXT_PUBLIC_GA_ID` у client; грузятся только после «Разрешить» в баннере cookie; цели: заявка на покупку, вопрос продавцу, предложение, публикация, регистрация | ✅ код; ⏳ номера счётчиков |
+| Метрика и GA4 | `NEXT_PUBLIC_YM_ID`, `NEXT_PUBLIC_GA_ID` у client; грузятся только после «Разрешить» в баннере cookie; цели: заявка на покупку, вопрос продавцу, предложение, публикация, регистрация | ✅ на проде (Метрика 113928571, GA4 G-L1YY01K7VP); проверено: до согласия запросов нет, после — обе системы получают данные |
 | Ошибки в Telegram | `server/src/common/alerts.ts`: всё, что API пишет как error, — админам с привязанным Telegram, раз в час на вид ошибки | ✅; ⏳ привязать Telegram админа |
 | Проверка «сайт жив» снаружи | UptimeRobot на `https://ichiba.by` и `/health` | ⏳ владелец |
 | Бэкапы | Railway: Postgres и том `/data` (фото), Daily; раз в месяц учебное восстановление | ⏳ владелец |
