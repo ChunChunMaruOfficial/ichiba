@@ -1293,3 +1293,124 @@ html[data-immersive] [data-chrome="main"] {
 .aizome .chip:focus-visible {
   outline-color: #f4efe6;
 }
+
+/*
+ * Journal (app/journal): the reading column. One family (Spectral), 17 px on a 1.65 line, headings in ink, text in
+ * ink-2, links in indigo; the article's own blocks (Stat, Quote, Compare, Items) bring their own styles. Kept as a
+ * class rather than a typography plugin so the page looks like the rest of the site, not like a blog theme.
+ */
+.journal-body {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+.journal-body > * + * {
+  margin-top: 1.1em;
+}
+.journal-body h2,
+.journal-body h3,
+.journal-body h4 {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  scroll-margin-top: 6rem;
+  text-wrap: balance;
+}
+.journal-body h2 {
+  font-size: 1.65rem;
+  margin-top: 2.4em;
+}
+.journal-body h3 {
+  font-size: 1.25rem;
+  margin-top: 1.8em;
+}
+.journal-body h4 {
+  font-size: 1.05rem;
+  margin-top: 1.5em;
+}
+.journal-body h2 + *,
+.journal-body h3 + *,
+.journal-body h4 + * {
+  margin-top: 0.7em;
+}
+.journal-body p strong,
+.journal-body li strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.journal-body a {
+  color: var(--indigo);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.journal-body a:hover {
+  color: var(--ink);
+}
+.journal-body ul,
+.journal-body ol {
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+}
+.journal-body ul {
+  list-style: disc;
+}
+.journal-body ol {
+  list-style: decimal;
+}
+.journal-body li::marker {
+  color: var(--muted);
+}
+.journal-body blockquote:not(figure > blockquote) {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 1.1em;
+  color: var(--ink-2);
+  font-style: italic;
+}
+.journal-body hr {
+  border: 0;
+  height: 1px;
+  background: var(--line);
+  margin-block: 2.4em;
+}
+.journal-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--surface-sunk);
+  padding: 0.1em 0.35em;
+  border-radius: 0.35em;
+}
+.journal-body pre {
+  overflow-x: auto;
+  border-radius: 1rem;
+  background: var(--surface-sunk);
+  padding: 1rem 1.2rem;
+}
+.journal-body pre code {
+  background: none;
+  padding: 0;
+}
+.journal-body table th,
+.journal-body table td {
+  padding: 0.7rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+.journal-body table th {
+  color: var(--ink);
+  font-weight: 600;
+}
+.journal-body table tr + tr {
+  border-top: 1px solid var(--line);
+}
+.journal-body figure > figcaption {
+  margin-top: 0.5rem;
+}
+.journal-body .not-prose {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ink);
+}

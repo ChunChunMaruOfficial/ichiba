@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { itemHref } from "@/lib/item-path";
+import { articlesForCatalog } from "@/lib/journal";
 import { landingHref, type LandingData } from "@/lib/landing";
 import { jsonLd, serverFetch, SITE_URL } from "@/lib/server";
+import { ArticleCard } from "./journal/article-card";
 import { Masonry } from "./masonry";
 import { ButtonLink, EmptyState } from "./ui";
 
@@ -65,6 +67,8 @@ export async function LandingPage({ root, params }: { root: Root; params: Params
   if (!d) throw new Error("Страница временно недоступна");
   // One address per page: «/c/Jeans/» goes to «/c/jeans».
   if (asked !== d.path) permanentRedirect(landingHref(d.path));
+  // The journal's articles about this brand or category (front matter `catalog`): the guide beside the goods.
+  const articles = await articlesForCatalog(d.path);
 
   const url = `${SITE_URL}${landingHref(d.path)}`;
   const items = d.sections.flatMap((s) => s.items);
@@ -143,6 +147,24 @@ export async function LandingPage({ root, params }: { root: Root; params: Params
           <Masonry items={s.items} />
         </section>
       ))}
+
+      {articles.length > 0 && (
+        <section className="mt-12" aria-labelledby="journal-title">
+          <div className="mb-4 flex items-baseline justify-between gap-4">
+            <h2 id="journal-title" className="text-xl font-semibold tracking-tight">
+              Почитать в журнале
+            </h2>
+            <Link href="/journal" className="shrink-0 text-sm font-medium text-ink-2 underline underline-offset-4 hover:text-ink">
+              Все статьи
+            </Link>
+          </div>
+          <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            {articles.map((a) => (
+              <ArticleCard key={a.slug} a={a} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { allArticles, articleHref, rubricHref } from "@/lib/journal";
+import { RUBRICS } from "@/lib/journal-rubrics";
 import { landingHref, type LandingEntry } from "@/lib/landing";
 import { serverFetch, SITE_URL } from "@/lib/server";
 
@@ -6,12 +8,27 @@ import { serverFetch, SITE_URL } from "@/lib/server";
 export const revalidate = 900;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [data, landings] = await Promise.all([
+  const [data, landings, articles] = await Promise.all([
     serverFetch<{ listings: Array<{ id: string; path?: string; updatedAt: string; images?: string[] }>; wardrobes: Array<{ username: string; updatedAt: string | null }> }>("/seo/sitemap", 900),
     serverFetch<LandingEntry[]>("/seo/landings", 900),
+    allArticles(),
   ]);
+  const published = articles.filter((a) => !a.draft);
   const now = new Date();
+  // The journal: the front page and the sections only once they have articles (empty ones are noindex), lastmod = the
+  // newest article's change; each article at its own date of writing or honest update.
+  const journal: MetadataRoute.Sitemap = published.length
+    ? [
+        { url: `${SITE_URL}/journal`, lastModified: new Date(published[0].updatedAt), changeFrequency: "weekly", priority: 0.7 },
+        ...RUBRICS.flatMap((r) => {
+          const own = published.filter((a) => a.rubric.slug === r.slug);
+          return own.length ? [{ url: `${SITE_URL}${rubricHref(r.slug)}`, lastModified: new Date(own[0].updatedAt), changeFrequency: "weekly" as const, priority: 0.6 }] : [];
+        }),
+        ...published.map((a) => ({ url: `${SITE_URL}${articleHref(a.slug)}`, lastModified: new Date(a.updatedAt), changeFrequency: "monthly" as const, priority: 0.7, images: a.cover ? [`${SITE_URL}${a.cover}`] : undefined })),
+      ]
+    : [];
   return [
+    ...journal,
     { url: SITE_URL, lastModified: now, changeFrequency: "hourly", priority: 1 },
     // /search is not listed: its pages are noindex (search/page.tsx).
     { url: `${SITE_URL}/wardrobes`, lastModified: now, changeFrequency: "daily", priority: 0.6 },

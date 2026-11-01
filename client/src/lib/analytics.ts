@@ -60,7 +60,17 @@ type Gtag = (...args: unknown[]) => void;
 const w = () => (typeof window === "undefined" ? null : (window as unknown as { ym?: Ym; gtag?: Gtag }));
 
 /** Goals counted in both systems; a no-op until the visitor allowed analytics (the scripts aren't there). */
-export type Goal = "buy_request" | "ask_seller" | "offer" | "listing_published" | "sign_up";
+export type Goal =
+  | "buy_request"
+  | "ask_seller"
+  | "offer"
+  | "listing_published"
+  | "sign_up"
+  // The journal (components/journal/article-tracker.tsx): read to 70 %, the sell CTA, an item from an article, a FAQ opened.
+  | "article_read"
+  | "article_cta_sell"
+  | "article_item_click"
+  | "article_faq_open";
 
 export function track(goal: Goal, params?: Record<string, string | number>) {
   const win = w();

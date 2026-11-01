@@ -56,7 +56,10 @@ API_URL=http://${{server.RAILWAY_PRIVATE_DOMAIN}}:4000   # внутренняя 
 NEXT_PUBLIC_SITE_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
 NEXT_PUBLIC_LEGAL_EMAIL=c4erkaoui@gmail.com
 NEXT_PUBLIC_LEGAL_OPERATOR=<ИП или организация>   NEXT_PUBLIC_LEGAL_UNP=<УНП>   NEXT_PUBLIC_LEGAL_ADDRESS=<адрес>
+NEXT_PUBLIC_SOCIAL_LINKS=https://t.me/…,https://instagram.com/…   # по желанию: профили ichiba для Organization.sameAs (разметка на каждой странице)
 ```
+
+**Журнал** (`/journal`): статьи лежат в `client/content/journal/*.mdx`, пуш в `main` = публикация. Стратегия, рубрики и правила — [docs/SEO-JOURNAL.md](docs/SEO-JOURNAL.md), брифы тем — `docs/journal/briefs/`, как опубликовать статью — `docs/journal/author-checklist.md`. Цифры для статей о ценах: `npx tsx server/scripts/journal-stats.ts`.
 
 Чат работает по WebSocket прямо с сервера (`wss://<домен server>/ws`, адрес сервер берёт из `RAILWAY_PUBLIC_DOMAIN` сам). Фоновые задачи (аукционы, 48-часовые сроки, очередь писем, чистка фото) крутятся внутри процесса. Проверка: `https://<домен server>/health` → `{"ok":true,"db":true,…}` (без базы отвечает 503, так что деплой без Postgres не пройдёт healthcheck).
 
