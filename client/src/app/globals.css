@@ -1198,6 +1198,11 @@ html[data-immersive] [data-chrome="main"] {
 .under-header-still::before {
   background-position: 0 0;
 }
+/* A still row lower down the page, not stuck yet: its paper must not cover what stands just above it (a wardrobe's
+   cover). wardrobe-view.tsx sets data-stuck. */
+.under-header-still:not([data-stuck])::before {
+  top: 0;
+}
 .under-header::after {
   content: "";
   position: absolute;

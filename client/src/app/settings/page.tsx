@@ -7,8 +7,9 @@ import { TitleWithKanji } from "@/components/sections";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/avatar";
+import { PhotoEditor } from "@/components/photo-editor";
 import { RequireAuth } from "@/components/require-auth";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
@@ -217,48 +218,88 @@ function ThemeSection() {
   );
 }
 
-/** Profile photo: shown on the seller card of every item and on wardrobe cards. */
+/**
+ * Profile photo: shown on the seller card of every item and on wardrobe cards. A tap on the photo opens it in the
+ * listing photo editor (square crop to start with); a new photo goes through the editor before it is uploaded.
+ */
 function AvatarPicker({ me }: { me: Me }) {
   const toast = useToast();
   const { refresh } = useSession();
   const [busy, setBusy] = useState(false);
+  /** The photo open in the editor: the current one, or a picked file (its object URL is freed on close). */
+  const [editing, setEditing] = useState<{ src: string; local: boolean } | null>(null);
+  const input = useRef<HTMLInputElement>(null);
   const set = async (avatarId: string | null, done: string) => {
     await api("/users/me", { method: "PATCH", body: { avatarId } });
     toast(done);
     await refresh();
   };
+  const closeEditor = () => {
+    if (editing?.local) URL.revokeObjectURL(editing.src);
+    setEditing(null);
+  };
+  const upload = async (file: File) => {
+    setBusy(true);
+    try {
+      const photo = await uploadPhoto(file, undefined, undefined, "avatar");
+      await set(photo.id, "Фото профиля обновлено");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Не получилось загрузить фото", { tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="flex items-center gap-4">
-      <Avatar username={me.username} avatar={me.avatar} ring className="size-20" />
+      <button
+        type="button"
+        aria-label={me.avatar ? "Редактировать фото профиля" : "Добавить фото профиля"}
+        disabled={busy}
+        onClick={() => (me.avatar ? setEditing({ src: me.avatar.l, local: false }) : input.current?.click())}
+        className="relative shrink-0 rounded-full transition-[transform,opacity] duration-200 hover:opacity-90 active:scale-95 disabled:opacity-60"
+      >
+        <Avatar username={me.username} avatar={me.avatar} ring className="size-20" />
+        {busy && (
+          <span className="absolute inset-0 grid place-items-center rounded-full bg-paper/60">
+            <Spinner />
+          </span>
+        )}
+      </button>
       <div className="flex flex-wrap gap-2">
-        <label className={clsx("btn-wa btn-wa-paper inline-flex h-9 cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-semibold", busy && "pointer-events-none opacity-60")}>
-          {busy && <Spinner />} {me.avatar ? "Сменить фото" : "Добавить фото"}
-          <input
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (!file) return;
-              setBusy(true);
-              try {
-                const photo = await uploadPhoto(file, undefined, undefined, "avatar");
-                await set(photo.id, "Фото профиля обновлено");
-              } catch (err) {
-                toast(err instanceof ApiError ? err.message : "Не получилось загрузить фото", { tone: "error" });
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
-        </label>
+        <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => input.current?.click()} className="px-4">
+          {me.avatar ? "Сменить фото" : "Добавить фото"}
+        </Button>
+        <input
+          ref={input}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          tabIndex={-1}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) setEditing({ src: URL.createObjectURL(file), local: true });
+          }}
+        />
         {me.avatar && (
-          <Button type="button" size="sm" variant="ghost" onClick={() => void set(null, "Фото убрано")}>
+          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void set(null, "Фото убрано")}>
             Убрать
           </Button>
         )}
       </div>
+      {editing && (
+        <PhotoEditor
+          key={editing.src}
+          src={editing.src}
+          aspect={1}
+          open
+          onClose={closeEditor}
+          onSave={(file) => {
+            closeEditor();
+            void upload(file);
+          }}
+        />
+      )}
     </div>
   );
 }

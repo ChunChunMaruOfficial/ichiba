@@ -1,17 +1,18 @@
 "use client";
 
 import { Omamori } from "@/components/shop/omamori";
+import clsx from "clsx";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { CollectionTile, NewCollectionModal } from "@/components/collections";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
 import { RequireAuth } from "@/components/require-auth";
 import { WardrobeCards, TitleWithKanji } from "@/components/sections";
-import { ButtonLink, Chip, EmptyState, ErrorState, IconPlus, Skeleton } from "@/components/ui";
+import { ButtonLink, Chip, EmptyState, ErrorState, IconCheck, IconCheckCircle, IconFilter, IconPlus, Modal, Skeleton } from "@/components/ui";
 import { plural } from "@/lib/labels";
+import { usePresence } from "@/lib/presence";
 import type { Card, CollectionSummary, Cover, SellerSummary } from "@/lib/types";
-import { Select } from "@/components/select";
 
 const SORTS = [
   ["recent", "Недавно добавленные"],
@@ -19,6 +20,7 @@ const SORTS = [
   ["expensive", "Дороже"],
   ["available", "Сначала доступные"],
 ] as const;
+type Sort = (typeof SORTS)[number][0];
 
 type Tab = "items" | "collections" | "following";
 const TABS: Array<[Tab, string]> = [
@@ -46,14 +48,28 @@ function Favorites() {
   const tab = (TABS.find(([k]) => k === params.get("tab"))?.[0] ?? "items") as Tab;
   const setTab = (t: Tab) => router.replace(t === "items" ? "?" : `?tab=${t}`, { scroll: false });
   const { data } = useSWR<{ total: number }>("/favorites?sort=recent");
+  const [sort, setSort] = useState<Sort>("recent");
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <TitleWithKanji kanji="好み">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
-        </h1>
-      </TitleWithKanji>
+      <div className="flex items-center justify-between gap-3">
+        <TitleWithKanji kanji="好み">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
+          </h1>
+        </TitleWithKanji>
+        {/* Saved items only: the filter and the sorting as two icons, level with the title so the tabs keep the
+            whole width of a phone. */}
+        {tab === "items" && (
+          <div className="flex shrink-0 gap-2">
+            <IconChip active={onlyAvailable} onClick={() => setOnlyAvailable((v) => !v)} label="Только доступные">
+              <IconCheckCircle className="size-5" />
+            </IconChip>
+            <SortMenu value={sort} onChange={setSort} />
+          </div>
+        )}
+      </div>
       <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="tablist">
         {TABS.map(([key, label]) => (
           <Chip key={key} role="tab" aria-selected={tab === key} active={tab === key} onClick={() => setTab(key)}>
@@ -61,7 +77,7 @@ function Favorites() {
           </Chip>
         ))}
       </div>
-      <div className="mt-6">{tab === "items" ? <SavedItems /> : tab === "collections" ? <Collections /> : <FollowingFeed />}</div>
+      <div className="mt-6">{tab === "items" ? <SavedItems sort={sort} onlyAvailable={onlyAvailable} /> : tab === "collections" ? <Collections /> : <FollowingFeed />}</div>
     </div>
   );
 }
@@ -114,18 +130,86 @@ function ShopNews({ priceDropped, reserved }: { priceDropped: number; reserved: 
   );
 }
 
-function SavedItems() {
-  const [sort, setSort] = useState("recent");
-  const [onlyAvailable, setOnlyAvailable] = useState(false);
+/** A round chip holding just an icon; `active` dyes it like a chosen chip. */
+function IconChip({ active, label, children, ...rest }: { active?: boolean; label: string; children: React.ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button type="button" aria-pressed={active} aria-label={label} title={label} className="chip grid size-10 shrink-0 place-items-center" {...rest}>
+      {children}
+    </button>
+  );
+}
+
+/**
+ * The sorting behind one icon: a sheet from the bottom on phones, a small menu under the icon on wider screens.
+ * The icon is dyed like a chosen chip while the order is not the default one.
+ */
+function SortMenu({ value, onChange }: { value: Sort; onChange: (v: Sort) => void }) {
+  const [open, setOpen] = useState<"menu" | "sheet" | null>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  const pop = usePresence(open === "menu", 120);
+  const choose = (v: Sort) => {
+    onChange(v);
+    setOpen(null);
+  };
+  // The menu closes on a click elsewhere and on Esc.
+  useEffect(() => {
+    if (open !== "menu") return;
+    const onDown = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && setOpen(null);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const options = (
+    <ul role="listbox" aria-label="Сортировка" className="flex flex-col">
+      {SORTS.map(([v, label]) => {
+        const on = v === value;
+        return (
+          <li key={v} role="option" aria-selected={on}>
+            <button
+              type="button"
+              onClick={() => choose(v)}
+              className={clsx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] transition-colors hover:bg-ink/[0.06] md:py-2.5", on ? "font-semibold text-ink" : "text-ink-2")}
+            >
+              <span className={clsx("grid size-5 shrink-0 place-items-center rounded-full", on && "bg-shu text-on-shu")}>{on && <IconCheck className="size-3.5" />}</span>
+              {label}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+  return (
+    <div ref={wrap} className="relative">
+      <IconChip
+        active={value !== "recent"}
+        label={`Сортировка: ${SORTS.find(([v]) => v === value)?.[1]}`}
+        aria-haspopup="listbox"
+        aria-expanded={!!open}
+        onClick={() => setOpen(open ? null : matchMedia("(min-width: 768px)").matches ? "menu" : "sheet")}
+      >
+        <IconFilter className="size-5" />
+      </IconChip>
+      {pop.mounted && (
+        <div data-closing={pop.closing || undefined} className="panel menu-pop absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl p-1.5" style={{ transformOrigin: "top right" }}>
+          <p className="px-3 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Сортировка</p>
+          {options}
+        </div>
+      )}
+      <Modal open={open === "sheet"} onClose={() => setOpen(null)} title="Сортировка">
+        {options}
+      </Modal>
+    </div>
+  );
+}
+
+function SavedItems({ sort, onlyAvailable }: { sort: Sort; onlyAvailable: boolean }) {
   const { data, error, mutate } = useSWR<{ items: Card[]; total: number; reserved: number; priceDropped: number }>(`/favorites?sort=${sort}${onlyAvailable ? "&available=1" : ""}`);
   return (
     <>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Chip active={onlyAvailable} onClick={() => setOnlyAvailable((v) => !v)}>
-          Только доступные
-        </Chip>
-        <Select variant="pill" aria-label="Сортировка" value={sort} onChange={setSort} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />
-      </div>
       {data && (data.reserved > 0 || data.priceDropped > 0) && <ShopNews priceDropped={data.priceDropped} reserved={data.reserved} />}
       <div className="mt-6">
         {error ? (

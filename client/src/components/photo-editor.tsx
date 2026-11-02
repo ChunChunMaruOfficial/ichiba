@@ -126,7 +126,8 @@ function moveStrokes(strokes: Stroke[], f: (p: Pt) => Pt) {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open: boolean; onClose: () => void; onSave: (file: File) => void }) {
+/** `aspect` starts the crop at that ratio (1 for a profile photo); the ratio buttons still change it. */
+export function PhotoEditor({ src, open, onClose, onSave, aspect = null }: { src: string; open: boolean; onClose: () => void; onSave: (file: File) => void; aspect?: number | null }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   /** Why the photo can't be edited, shown instead of it. */
   const [failed, setFailed] = useState<string | null>(null);
@@ -158,14 +159,17 @@ export function PhotoEditor({ src, open, onClose, onSave }: { src: string; open:
     const el = new Image();
     // Stored photos come from the media host (CORS on): without this the canvas could not be exported.
     if (!src.startsWith("blob:") && !src.startsWith("data:")) el.crossOrigin = "anonymous";
-    el.onload = () => setImg(el);
+    el.onload = () => {
+      setImg(el);
+      if (aspect) setEdit((e) => ({ ...e, aspect, crop: fitAspect(aspect, el.naturalWidth, el.naturalHeight) }));
+    };
     el.onerror = () => setFailed("Не получилось открыть фото для редактирования. Попробуйте загрузить его заново.");
     el.src = src;
     return () => {
       el.onload = null;
       el.onerror = null;
     };
-  }, [src, open]);
+  }, [src, open, aspect]);
 
   const root = useRef<HTMLDivElement>(null);
   // The page underneath is inert and Tab stays in the editor.

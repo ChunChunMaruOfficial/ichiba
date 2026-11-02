@@ -15,7 +15,6 @@ import { usePresence } from "@/lib/presence";
 import type { Card, Deal, Offer, SellerSummary } from "@/lib/types";
 import { DealCard } from "./deal-actions";
 import { LookEditor, LookHighlights } from "./looks";
-import { ReportModal } from "./report-modal";
 import { ReviewsSection } from "./reviews";
 import { BundleNote, DealsInline, RatingInline } from "./trust";
 import { OfferCard } from "./offer";
@@ -35,6 +34,27 @@ export interface WardrobeData {
   drafts: Card[];
   favoritesTotal?: number;
 }
+
+/**
+ * Sets data-stuck on a sticky row while it is stuck under the header: only then its paper reaches up over the
+ * header's place (globals.css). Unstuck, that paper covered the bottom of whatever stood just above the row.
+ */
+const markStuck = (el: HTMLElement | null) => {
+  if (!el) return;
+  let frame = 0;
+  const check = () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => el.toggleAttribute("data-stuck", el.getBoundingClientRect().top <= parseFloat(getComputedStyle(el).top) + 1));
+  };
+  check();
+  window.addEventListener("scroll", check, { passive: true });
+  window.addEventListener("resize", check);
+  return () => {
+    cancelAnimationFrame(frame);
+    window.removeEventListener("scroll", check);
+    window.removeEventListener("resize", check);
+  };
+};
 
 /** "марта 2026" — genitive month, as in "на платформе с марта 2026". */
 const sinceLabel = (iso: string) => {
@@ -173,10 +193,9 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   const section = (FILTERS.find(([k]) => k === params.get("section"))?.[0] ?? "all") as (typeof FILTERS)[number][0];
   const sort = SORTS.find(([k]) => k === params.get("sort"))?.[0] ?? "new";
   const tab = params.get("tab") === "reviews" ? "reviews" : "items";
-  const { me, requireAuth } = useSession();
+  const { me } = useSession();
   const toast = useToast();
   const router = useRouter();
-  const [reporting, setReporting] = useState(false);
   const [people, setPeople] = useState<"followers" | "following" | null>(null);
   const [creatingLook, setCreatingLook] = useState(false);
   const { mutate: globalMutate } = useSWRConfig();
@@ -336,7 +355,6 @@ export function WardrobeView({ username, initial }: { username: string; initial?
         </div>
       )}
       {owner && creatingLook && s && <LookEditor username={s.username} open onClose={() => setCreatingLook(false)} onSaved={() => void globalMutate(`/users/${s.username}/looks`)} />}
-      {s && <ReportModal open={reporting} onClose={() => setReporting(false)} targetType="USER" targetId={s.username} title={`@${s.username}`} />}
       {s && <PeopleModal username={s.username} list={people} onClose={() => setPeople(null)} />}
 
       {s && !owner && s.bundleDiscounts.length > 0 && <BundleNote tiers={s.bundleDiscounts} username={s.username} className="mt-6 max-w-2xl" />}
@@ -360,7 +378,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
         )
       ) : (
         <>
-          <div className="under-header under-header-still z-20 -mx-4 flex items-center gap-2 px-4 py-3 md:-mx-6 md:px-6">
+          <div ref={markStuck} className="under-header under-header-still z-20 -mx-4 flex items-center gap-2 px-4 py-3 md:-mx-6 md:px-6">
             <DragRow viewportClassName="-my-1.5 min-w-0 flex-1" className="gap-2 py-1.5">
               {FILTERS.filter(([key]) => key === "all" || key === section || !data || data.counts[key] > 0).map(([key, label]) => (
                 <Chip key={key} active={section === key} onClick={() => setSection(key)}>
@@ -393,13 +411,6 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             <div className="mt-4">
               <Grid items={data.groups.flatMap((g) => g.items)} owner={owner} onDone={() => mutate()} />
             </div>
-          )}
-          {s && !owner && me?.username !== s.username && (
-            <p className="mt-14 text-center">
-              <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => requireAuth(() => setReporting(true))}>
-                Пожаловаться на гардероб
-              </button>
-            </p>
           )}
         </>
       )}

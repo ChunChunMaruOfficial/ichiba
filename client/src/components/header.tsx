@@ -381,12 +381,14 @@ export function Header() {
     setPrevPath(pathname);
     setHidden(false);
   }
+  // The admin area is a tool of its own: no site header there, its tab row is the only navigation.
+  const adminArea = pathname.startsWith("/admin");
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--header-offset", hidden ? "0px" : "var(--header-h)");
+    root.style.setProperty("--header-offset", hidden || adminArea ? "0px" : "var(--header-h)");
     // The phone tab bar tucks away together with the header (globals.css, html[data-chrome-away]).
     root.toggleAttribute("data-chrome-away", hidden);
-  }, [hidden]);
+  }, [hidden, adminArea]);
 
   return (
     <header
@@ -396,6 +398,7 @@ export function Header() {
         hidden && "-translate-y-full",
         // A conversation on a phone or tablet is full screen, like a messenger: its own header has the way back.
         isThread(pathname) && "max-lg:hidden",
+        adminArea && "hidden",
       )}
     >
       {/* Desktop: three columns with equal sides, so the search box stands in the very middle of the page whatever
@@ -500,7 +503,17 @@ export function Main({ children }: { children: React.ReactNode }) {
   }, [pathname]);
   return (
     // Room at the bottom only for a flow's own fixed bar; elsewhere the footer keeps the tab bar's room below itself.
-    <main ref={main} id="main" data-chrome="main" tabIndex={-1} className={clsx(focusedFlow(pathname) && !isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0")}>
+    // Phones: a short page (an empty chat list) still fills the screen, so the footer always starts below it, never
+    // halfway up (3rem is the footer's top margin, footer.tsx).
+    <main
+      ref={main}
+      id="main"
+      data-chrome="main"
+      tabIndex={-1}
+      className={clsx(
+        focusedFlow(pathname) ? !isThread(pathname) && "pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-0" : "max-md:min-h-[calc(100lvh-var(--header-h,57px)-3rem)]",
+      )}
+    >
       {children}
     </main>
   );

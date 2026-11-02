@@ -609,6 +609,7 @@ export const IconCamera = icon(<><path d="M4 8h3l2-2.5h6L17 8h3v11H4Z" /><circle
 export const IconExpand = icon(<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />);
 export const IconShare = icon(<><path d="M12 4v11" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M5 13v6h14v-6" /></>);
 export const IconCheck = icon(<path d="m5 12.5 4.5 4.5L19 7.5" />);
+export const IconCheckCircle = icon(<><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12.2 2.4 2.4 4.6-4.9" /></>);
 export const IconFilter = icon(<path d="M4 6h16M7 12h10M10 18h4" />);
 export const IconMore = icon(<><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>);
 export const IconSparkle = icon(<path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.9L12 18.5l-1.8-5.8L4.5 10.8 10.2 9Z" />);

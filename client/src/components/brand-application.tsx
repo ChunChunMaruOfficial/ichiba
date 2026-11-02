@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useToast } from "./toast";
-import { Badge, Button, Chip, Field, Input, Textarea } from "./ui";
+import { Badge, Button, Chip, Field, Input, Modal, Textarea } from "./ui";
 import { BrandSeal } from "./ui";
 
 export interface BrandApplication {
@@ -38,8 +38,9 @@ export const LEGAL_FORM_LABEL: Record<LegalForm, string> = {
 const empty = { kind: "BRAND" as BrandApplication["kind"], brandName: "", legalForm: "IP" as LegalForm, legalName: "", unp: "", contactName: "", email: "", phone: "", telegram: "", links: "", description: "" };
 
 /**
- * Settings → «Статус бренда»: the form, then the application's state (on review, approved, declined with the
- * reason and a way to apply again). Approved brands get the «Бренд» seal on every item and on the profile.
+ * Settings → «Статус бренда»: the application's state (on review, approved, declined with the reason and a way to
+ * apply again) and a button opening the form in a popup. Approved brands get the «Бренд» seal on every item and on
+ * the profile.
  */
 export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: string; title: string; hint?: string; children: React.ReactNode }> }) {
   const { data, mutate } = useSWR<{ brand: { name: string; since: string } | null; catalog: { since: string } | null; application: BrandApplication | null }>("/brand-application");
@@ -47,10 +48,15 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
   const [v, setV] = useState(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [again, setAgain] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const set = (p: Partial<typeof empty>) => setV((x) => ({ ...x, ...p }));
   const needsUnp = v.legalForm === "IP" || v.legalForm === "LLC";
   const reseller = v.kind === "CATALOG";
+  const openForm = (start: typeof empty) => {
+    setV(start);
+    setErrors({});
+    setFormOpen(true);
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -58,7 +64,7 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
     try {
       await api("/brand-application", { body: { ...v, links: v.links.split(/[\s,]+/).filter(Boolean) } });
       toast("Заявка отправлена — мы ответим в уведомлениях");
-      setAgain(false);
+      setFormOpen(false);
       await mutate();
     } catch (e) {
       if (e instanceof ApiError) {
@@ -80,14 +86,14 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
             <b>{data.brand.name}</b> — статус бренда подтверждён. Печать стоит на всех ваших вещах.
           </p>
         </div>
-      ) : data.catalog && !again && !(a && a.kind === "BRAND" && a.status !== "APPROVED") ? (
+      ) : data.catalog && !(a && a.kind === "BRAND" && a.status !== "APPROVED") ? (
         <div className="flex flex-col gap-3 rounded-2xl bg-surface p-4 text-[15px]">
           <p>Вы допущены в основной каталог: новые вещи с биркой показываются там, поношенные — на вторичке.</p>
-          <Button variant="secondary" className="self-start" onClick={() => (setV({ ...empty, kind: "BRAND" }), setAgain(true))}>
+          <Button variant="secondary" className="self-start" onClick={() => openForm({ ...empty, kind: "BRAND" })}>
             Подать заявку на статус бренда
           </Button>
         </div>
-      ) : a && !again && a.status !== "APPROVED" ? (
+      ) : a && a.status !== "APPROVED" ? (
         <div className="flex flex-col gap-3 rounded-2xl bg-surface p-4 text-[15px]">
           <p className="flex flex-wrap items-center gap-2">
             {a.kind === "CATALOG" ? "Заявка на размещение в каталоге" : "Заявка"} «{a.brandName}»
@@ -97,13 +103,21 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
           {a.status === "REJECTED" && (
             <>
               {a.adminNote && <p className="text-sm text-ink-2">Причина: {a.adminNote}</p>}
-              <Button variant="secondary" className="self-start" onClick={() => (setV({ ...empty, ...Object.fromEntries(Object.entries(a).filter(([k]) => k in empty).map(([k, x]) => [k, Array.isArray(x) ? x.join(" ") : (x ?? "")])) }), setAgain(true))}>
+              <Button variant="secondary" className="self-start" onClick={() => openForm({ ...empty, ...Object.fromEntries(Object.entries(a).filter(([k]) => k in empty).map(([k, x]) => [k, Array.isArray(x) ? x.join(" ") : (x ?? "")])) })}>
                 Подать заново
               </Button>
             </>
           )}
         </div>
       ) : (
+        <div className="flex flex-col gap-3 rounded-2xl bg-surface p-4 text-[15px]">
+          <p>Бренд или магазин оригиналов? Расскажите о себе — заявку проверим за пару дней.</p>
+          <Button className="self-start" onClick={() => openForm(empty)}>
+            Подать заявку
+          </Button>
+        </div>
+      )}
+      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={data?.catalog || v.kind === "BRAND" ? "Заявка на статус бренда" : "Заявка магазина"} width="max-w-2xl">
         <form
           className="flex flex-col gap-5"
           onSubmit={(e) => {
@@ -111,7 +125,7 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
             void submit();
           }}
         >
-          {!data.catalog && (
+          {!data?.catalog && (
             <Field label="Кто вы" required hint={reseller ? "Продаёте оригинальные вещи других брендов: после проверки ваши новые вещи с биркой будут в основном каталоге" : undefined}>
               <div className="flex flex-wrap gap-2">
                 <Chip active={!reseller} onClick={() => set({ kind: "BRAND" })}>
@@ -175,7 +189,7 @@ export function BrandSection({ Section }: { Section: React.ComponentType<{ id?: 
             Отправить заявку
           </Button>
         </form>
-      )}
+      </Modal>
     </Section>
   );
 }
