@@ -582,6 +582,14 @@ const BATCHES: Array<{ username: string; folder: string; account?: { bio: string
       },
     ],
   },
+  {
+    // 2026-11-02, a brand (HEGEMONY, Minsk, t.me/hegemonytg): an empty account for now, the name, the logo from the
+    // channel and the brand status; items come later.
+    username: 'hegemony',
+    folder: 'hegemony',
+    account: { bio: 'HEGEMONY — бренд одежды из Минска. Доставка по всему миру, заказ в Telegram: @hegemonymng.', brandName: 'HEGEMONY', logo: 'logo.jpg' },
+    items: [],
+  },
 ];
 
 function passwordHash(nick: string): string | null {
