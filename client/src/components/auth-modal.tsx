@@ -336,10 +336,13 @@ function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
 
         {(step === "code" || step === "reset-confirm") && providers?.devAnyCode && <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-sm text-warn">Режим разработки: подойдёт любой код из 6 цифр, например 000000.</p>}
 
-        {step === "code" && (
-          <button type="button" disabled={resendIn > 0 || busy} onClick={sendCode} className="text-sm text-ink-2 disabled:text-muted">
-            {resendIn > 0 ? `Отправить код ещё раз через ${resendIn} с` : "Отправить код ещё раз"}
-          </button>
+        {(step === "code" || step === "reset-confirm") && (
+          <>
+            {step === "reset-confirm" && <p className="-mt-1 text-xs text-muted">Письма нет? Проверьте папку «Спам». Код придёт, если на эту почту есть аккаунт.</p>}
+            <button type="button" disabled={resendIn > 0 || busy} onClick={step === "code" ? sendCode : requestReset} className="text-sm text-ink-2 disabled:text-muted">
+              {resendIn > 0 ? `Отправить код ещё раз через ${resendIn} с` : "Отправить код ещё раз"}
+            </button>
+          </>
         )}
       </form>
 

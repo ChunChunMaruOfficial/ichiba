@@ -66,7 +66,7 @@ export function render(c: EmailContent): { subject: string; html: string; text: 
     </tr></table></td></tr>
     <tr><td style="background:${SURFACE};border:1px solid ${LINE};border-radius:22px;padding:30px 28px">
       <div style="width:32px;height:3px;border-radius:2px;background:${SHU};margin:0 0 18px"></div>
-      <h1style="margin:0 0 16px;font-size:24px;line-height:1.3;font-weight:700;color:${INK};font-family:${SERIF}">${esc(c.title)}</h1>
+      <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;font-weight:700;color:${INK};font-family:${SERIF}">${esc(c.title)}</h1>
       ${code}${paragraphs}${cta}
     </td></tr>
     <tr><td style="padding:18px 8px 0;font-size:12px;line-height:1.6;color:${MUTED};font-family:${SERIF}">${footer}</td></tr>

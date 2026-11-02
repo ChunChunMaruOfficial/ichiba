@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -71,6 +72,7 @@ const TELEGRAM_AUTH_MAX_AGE_S = 24 * 3600;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger('Auth');
   private googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
   constructor(
@@ -136,6 +138,19 @@ export class AuthService {
 
   private findByContact(login: { kind: 'email' | 'phone'; value: string }) {
     return this.prisma.user.findUnique({ where: login.kind === 'email' ? { email: login.value } : { phone: login.value } });
+  }
+
+  /**
+   * The account a password reset is for: by its sign-in address, else by its notification address. Shops imported
+   * by nick and Telegram accounts have no sign-in address, but a seller's notification address was confirmed by a
+   * code too (users/notify-email.ts), so it can take the reset code. That address is not unique: shared by two
+   * accounts, it resets neither.
+   */
+  private async findForReset(login: { kind: 'email' | 'phone'; value: string }) {
+    const user = await this.findByContact(login);
+    if (user || login.kind !== 'email') return user;
+    const byNotify = await this.prisma.user.findMany({ where: { notifyEmail: login.value, deletedAt: null }, take: 2 });
+    return byNotify.length === 1 ? byNotify[0] : null;
   }
 
   // ---------- passwordless: one flow for sign-in and sign-up (Avito / Kufar / Vinted style) ----------
@@ -323,22 +338,23 @@ export class AuthService {
       return { ok: true };
     }
     // RESET: same answer whether or not the account exists (no enumeration), a code only when it does.
-    if (user) await this.issueCode(login.value, purpose);
-    return { ok: true };
+    return this.requestReset(rawLogin);
   }
 
   async requestReset(rawLogin: string) {
     const login = normalizeLogin(rawLogin);
-    const user = await this.prisma.user.findUnique({ where: login.kind === 'email' ? { email: login.value } : { phone: login.value } });
-    // Same response whether or not the account exists, to avoid account enumeration.
+    const user = await this.findForReset(login);
+    // Same response whether or not the account exists, to avoid account enumeration. The log says why nothing went
+    // out, so «the code never came» can be told apart from a delivery problem.
     if (user) await this.issueCode(login.value, 'RESET');
+    else this.logger.log(`[RESET] no account for ${login.value.replace(/^(.{2}).*@/, '$1***@')}: no code sent`);
     return { ok: true, target: login.value };
   }
 
   async confirmReset(rawLogin: string, code: string, password: string) {
     const login = normalizeLogin(rawLogin);
     await this.consumeCode(login.value, 'RESET', code);
-    const existing = await this.findByContact(login);
+    const existing = await this.findForReset(login);
     if (!existing) throw new BadRequestException({ message: 'Код устарел — запросите новый', fields: { code: 'Код устарел' } });
     if (existing.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
     const user = await this.prisma.user.update({
@@ -347,8 +363,8 @@ export class AuthService {
         passwordHash: await bcrypt.hash(password, 10),
         // A new password ends every other session of the account (a stolen cookie included); the caller starts a fresh one.
         sessionVersion: { increment: 1 },
-        // Receiving the code proves ownership of the address.
-        ...(login.kind === 'email' ? { emailVerifiedAt: new Date() } : { phoneVerifiedAt: new Date() }),
+        // Receiving the code proves ownership of the address (the sign-in one; a notification address is confirmed already).
+        ...(login.kind === 'email' ? (existing.email === login.value ? { emailVerifiedAt: new Date() } : {}) : { phoneVerifiedAt: new Date() }),
       },
     });
     forgetSessionStatus(user.id);
