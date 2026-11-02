@@ -29,6 +29,7 @@ import { RecommendationsService } from '../recommendations/recommendations.servi
 import { RedisService } from '../redis/redis.js';
 import { RequestsService } from '../requests/requests.service.js';
 import { StatsService } from '../stats/stats.js';
+import { recordActivity } from '../activity/activity.js';
 
 /** Negotiation rules from frame 13. */
 const OFFER_TTL_MS = 48 * 3600 * 1000;
@@ -260,6 +261,7 @@ export class OffersService {
     }
     const to = role === 'seller' ? o.buyerId : o.sellerId;
     await this.notifications.notify(to, 'offer_countered', { offerId: next.id, listingId: o.listingId, title: o.listing.title, amount, by: role === 'seller' ? o.seller.username : o.buyer.username });
+    if (role === 'seller') recordActivity(this.prisma, actorId, 'offer_countered', { listingId: o.listingId, detail: `${o.amount} → ${amount} BYN` });
     return this.serialize(next, actorId, await this.history(next));
   }
 
@@ -277,6 +279,7 @@ export class OffersService {
     await this.requests.afterOfferAccepted(request.id, o.listingId, o.buyerId, o.listing.title);
     const to = role === 'seller' ? o.buyerId : o.sellerId;
     await this.notifications.notify(to, 'offer_accepted', { offerId: id, requestId: request.id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
+    if (role === 'seller') recordActivity(this.prisma, actorId, 'offer_accepted', { listingId: o.listingId, detail: `${o.amount} BYN` });
     return { ...this.serialize({ ...o, status: 'ACCEPTED', requestId: request.id }, actorId, await this.history(o)), requestId: request.id };
   }
 
@@ -338,6 +341,7 @@ export class OffersService {
     });
     const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { username: true } });
     await this.notifications.notifyMany(recipients, 'offer_likers', { listingId, title: listing.title, amount, price: listing.price, seller: seller?.username });
+    recordActivity(this.prisma, sellerId, 'likers_offer', { listingId, market: listing.market, detail: `${amount} BYN · ${recipients.length} получателей` });
     return { sent: recipients.length };
   }
 
@@ -348,6 +352,7 @@ export class OffersService {
     if (!count) throw new ConflictException({ message: 'Предложение уже неактуально' });
     const to = role === 'seller' ? o.buyerId : o.sellerId;
     await this.notifications.notify(to, 'offer_declined', { offerId: id, listingId: o.listingId, title: o.listing.title, amount: o.amount });
+    if (role === 'seller') recordActivity(this.prisma, actorId, 'offer_declined', { listingId: o.listingId, detail: `${o.amount} BYN` });
     return { ok: true };
   }
 

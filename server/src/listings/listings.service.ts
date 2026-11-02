@@ -27,6 +27,7 @@ import { cardInclude, CardListing, serializeCard, serializePhoto } from './listi
 import { LISTING_LABELS, type ListingInputT, type SearchQueryT } from './listings.dto.js';
 import { type Market, marketFor, marketOf, marketWhere } from './market.js';
 import { itemPath, SOLD_INDEXED_DAYS, seoOf } from '../seo/seo.service.js';
+import { recordActivity } from '../activity/activity.js';
 
 export { type Market, marketOf, marketWhere };
 
@@ -150,6 +151,7 @@ export class ListingsService {
     });
     if (input.photos) await this.attachPhotos(userId, listing.id, input.photos);
     if (input.videoId !== undefined) await this.attachVideo(userId, listing.id, input.videoId);
+    recordActivity(this.prisma, userId, 'listing_created', { listingId: listing.id, market: listing.market, detail: listing.title || null });
     return this.getForOwner(userId, listing.id);
   }
 
@@ -216,6 +218,12 @@ export class ListingsService {
     const changed = condition !== listing.condition || hasTags !== listing.hasTags;
     const market = changed && !listing.marketByAdmin ? await this.autoMarket(userId, condition, hasTags) : undefined;
     await this.prisma.listing.update({ where: { id }, data: { ...data, ...(market ? { market } : {}) } });
+    recordActivity(
+      this.prisma,
+      userId,
+      priceChanged ? 'price_changed' : 'listing_edited',
+      { listingId: id, detail: priceChanged ? `${listing.price ?? '—'} → ${data.price ?? '—'} BYN` : Object.keys(data).filter((k) => changes(k as keyof typeof data & keyof Listing)).join(', ') || null },
+    );
     if (input.photos) await this.attachPhotos(userId, id, input.photos);
     if (input.videoId !== undefined) await this.attachVideo(userId, id, input.videoId);
     if (verdict) await this.moderator.record(prospective, verdict);
@@ -429,6 +437,7 @@ export class ListingsService {
     }
     // Someone else published (or hid) it meanwhile: nothing more to do here.
     if (!won) return this.getForOwner(userId, id);
+    recordActivity(this.prisma, userId, 'listing_published', { listingId: id, detail: hidden ? 'скрыто: объявления аккаунта скрыты администрацией' : null });
     await this.moderator.record(listing, verdict);
     if (hidden) return this.getForOwner(userId, id);
     if (!listing.publishedAt) {
@@ -511,6 +520,7 @@ export class ListingsService {
     if (ms > 30 * 24 * 3600_000) throw new BadRequestException({ message: 'Запланировать можно не дальше чем на 30 дней', fields: { scheduledAt: 'Не дальше 30 дней' } });
     await this.checkPublishable(userId, listing);
     await this.prisma.listing.update({ where: { id }, data: { scheduledAt: at } });
+    recordActivity(this.prisma, userId, 'listing_scheduled', { listingId: id, detail: at.toISOString() });
     return this.getForOwner(userId, id);
   }
 
@@ -568,6 +578,7 @@ export class ListingsService {
     await this.stopAuction(id);
     await this.prisma.listing.update({ where: { id }, data: { status: 'HIDDEN' } });
     await this.prisma.offer.updateMany({ where: { listingId: id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
+    recordActivity(this.prisma, userId, 'listing_hidden', { listingId: id, market: listing.market });
     return { ok: true };
   }
 
@@ -590,6 +601,7 @@ export class ListingsService {
       data: { liftedAt: now, lastBumpAt: now, bumpsCount: { increment: 1 } },
     });
     if (!count) throw new ConflictException({ message: 'Вещь уже подняли — обновите страницу' });
+    recordActivity(this.prisma, userId, 'listing_bumped', { listingId: id, market: listing.market });
     return { liftedAt: now, nextAt: nextBumpAt({ ...listing, lastBumpAt: now }) };
   }
 
@@ -606,6 +618,7 @@ export class ListingsService {
     await this.prisma.offer.updateMany({ where: { listingId: id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
     await this.declinePendingRequests(id, 'Уже продано');
     await this.notifyWatchers(id, 'item_sold', listing.title);
+    recordActivity(this.prisma, userId, 'listing_sold', { listingId: id, market: listing.market, detail: 'вне платформы' });
     return { ok: true };
   }
 
@@ -630,6 +643,7 @@ export class ListingsService {
     await this.prisma.listing.update({ where: { id }, data: { status: 'DELETED' } });
     await this.prisma.offer.updateMany({ where: { listingId: id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
     await this.declinePendingRequests(id, 'Передумал продавать');
+    recordActivity(this.prisma, userId, 'listing_deleted', { listingId: id, market: listing.market });
     return { ok: true };
   }
 

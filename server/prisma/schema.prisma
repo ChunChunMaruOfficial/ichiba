@@ -739,6 +739,24 @@ model Report {
   @@index([targetType, targetId])
 }
 
+/// What sellers do (brands and «Вторичка» alike), for the admin «Журнал»: one row per action, written where it happens
+/// (activity/activity.ts). No foreign keys: the log outlives what it mentions. `market` is the item's section at the
+/// time, or null for actions not about one item (profile, brand application).
+model SellerActivity {
+  id        String         @id @default(uuid())
+  userId    String
+  action    String
+  listingId String?
+  market    ListingMarket?
+  detail    String?
+  at        DateTime       @default(now())
+
+  @@index([at])
+  @@index([userId, at])
+  @@index([market, at])
+  @@index([action, at])
+}
+
 model ModerationAction {
   id          String   @id @default(uuid())
   moderatorId String

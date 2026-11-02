@@ -27,6 +27,7 @@ import { ListingsService } from '../listings/listings.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.js';
+import { recordActivity } from '../activity/activity.js';
 
 /** Highest bid or auto-bid limit accepted at all: keeps amounts far from int4 and stops absurd griefing bids. */
 const MAX_AMOUNT = 1_000_000;
@@ -222,6 +223,7 @@ export class AuctionsService {
       if (!count) throw new ConflictException({ message: 'Аукцион уже завершён' });
       await tx.listing.update({ where: { id: a.listingId }, data: { saleType: 'FIXED' } });
     });
+    recordActivity(this.prisma, sellerId, 'auction_cancelled', { listingId: (await this.prisma.auction.findUnique({ where: { id: auctionId }, select: { listingId: true } }))?.listingId ?? null });
     return { ok: true };
   }
 

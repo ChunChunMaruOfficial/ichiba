@@ -61,6 +61,7 @@ import { TelegramBotService, TelegramController } from './telegram/telegram.js';
 import { SeoController, SeoService } from './seo/seo.service.js';
 import { SeoWriter } from './seo/seo-writer.js';
 import { LandingController, LandingService } from './seo/landing.service.js';
+import { AdminActivityController } from './activity/admin-activity.controller.js';
 
 /** A platform edge that sets X-Real-IP sits in front (see main.ts for the trusted hops). */
 const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL);
@@ -115,6 +116,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     ReportsController,
     AdminController,
     AdminDataController,
+    AdminActivityController,
     RatesController,
     LooksController,
     ReviewsController,

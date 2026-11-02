@@ -7,6 +7,7 @@ import { cardInclude } from '../listings/listing.serializer.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { recordActivity } from '../activity/activity.js';
 
 /**
  * «Образы»: anyone puts 2–8 items from the whole site together into an outfit. Looks sit on their author's
@@ -117,6 +118,7 @@ export class LooksService {
       data: { userId, title: dto.title, items: { create: ids.map((listingId, position) => ({ listingId, position })) } },
       include: { items: true },
     });
+    recordActivity(this.prisma, userId, 'look_created', { detail: look.title ?? null });
     return this.serialize(look, userId);
   }
 

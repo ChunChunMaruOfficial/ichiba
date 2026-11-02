@@ -13,6 +13,7 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService, SIGNAL_WEIGHTS } from '../recommendations/recommendations.service.js';
 import { RedisService } from '../redis/redis.js';
+import { recordActivity } from '../activity/activity.js';
 
 const REPLY_MS = 48 * 3600 * 1000;
 /** Deals per page of «Мои покупки» / «Мои продажи». */
@@ -338,6 +339,7 @@ export class RequestsService {
       });
       await opts.inTx?.(tx, r);
     });
+    if (role === 'seller') recordActivity(this.prisma, actorId, `deal_${opts.to.toLowerCase()}`, { listingId: r.items?.[0]?.listingId ?? null, detail: opts.reason ?? null });
     return { r, role };
   }
 

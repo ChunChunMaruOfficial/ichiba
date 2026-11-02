@@ -14,6 +14,7 @@ import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { botEnabled } from '../telegram/bot-api.js';
 import { tgPrefsOf } from '../telegram/texts.js';
+import { recordActivity } from '../activity/activity.js';
 
 @Injectable()
 export class UsersService {
@@ -145,6 +146,7 @@ export class UsersController {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException({ message: 'Этот номер уже привязан к другому аккаунту', fields: { phone: 'Номер занят' } });
       throw e;
     }
+    recordActivity(this.prisma, user.id, 'profile_edited', { detail: Object.keys(dto).join(', ') || null });
     return this.users.me(user.id);
   }
 }

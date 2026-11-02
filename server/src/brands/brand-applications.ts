@@ -7,6 +7,7 @@ import { AdminGuard } from '../moderation/moderation.js';
 import { reclassifySeller } from '../listings/market.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { recordActivity } from '../activity/activity.js';
 
 /**
  * «Статус бренда»: a seller applies from Settings with the brand's details and contacts; an admin reviews the
@@ -79,7 +80,9 @@ export class BrandApplicationsService {
     if (brand) throw new ConflictException({ message: 'У вас уже есть статус бренда' });
     if (dto.kind === 'CATALOG' && catalog) throw new ConflictException({ message: 'Вы уже размещаетесь в основном каталоге' });
     if (application?.status === 'PENDING') throw new ConflictException({ message: 'Заявка уже на рассмотрении' });
-    return this.prisma.brandApplication.create({ data: { userId, ...dto } });
+    const created = await this.prisma.brandApplication.create({ data: { userId, ...dto } });
+    recordActivity(this.prisma, userId, 'brand_applied', { detail: `${dto.kind === 'CATALOG' ? 'магазин' : 'бренд'}: ${dto.brandName}` });
+    return created;
   }
 
   list(status: string) {
