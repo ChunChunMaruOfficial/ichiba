@@ -15,6 +15,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
   const published = articles.filter((a) => !a.draft);
   const now = new Date();
+  // lastmod is the newest change the page actually shows, not «now»: a date that moves on every fetch tells search
+  // engines nothing, and Google stops trusting a sitemap's lastmod once it learns that.
+  const newest = (dates: Array<string | null | undefined>) => {
+    const t = dates.reduce((m, d) => Math.max(m, d ? Date.parse(d) || 0 : 0), 0);
+    return t ? new Date(t) : now;
+  };
+  const listingsAt = newest((data?.listings ?? []).map((l) => l.updatedAt));
+  const wardrobesAt = newest((data?.wardrobes ?? []).map((w) => w.updatedAt));
+  const brandsAt = newest((landings ?? []).filter((p) => p.kind === "brand").map((p) => p.updatedAt));
   // The journal: the front page and the sections only once they have articles (empty ones are noindex), lastmod = the
   // newest article's change; each article at its own date of writing or honest update.
   const journal: MetadataRoute.Sitemap = published.length
@@ -29,11 +38,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     : [];
   return [
     ...journal,
-    { url: SITE_URL, lastModified: now, changeFrequency: "hourly", priority: 1 },
+    { url: SITE_URL, lastModified: listingsAt, changeFrequency: "hourly", priority: 1 },
     // /search is not listed: its pages are noindex (search/page.tsx).
-    { url: `${SITE_URL}/wardrobes`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
-    { url: `${SITE_URL}/resale`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
-    { url: `${SITE_URL}/brands`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${SITE_URL}/wardrobes`, lastModified: wardrobesAt, changeFrequency: "daily", priority: 0.6 },
+    { url: `${SITE_URL}/resale`, lastModified: listingsAt, changeFrequency: "hourly", priority: 0.8 },
+    { url: `${SITE_URL}/brands`, lastModified: brandsAt, changeFrequency: "daily", priority: 0.7 },
     { url: `${SITE_URL}/contacts`, lastModified: new Date("2026-10-29"), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/privacy`, lastModified: new Date("2026-10-29"), changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/terms`, lastModified: new Date("2026-10-11"), changeFrequency: "yearly", priority: 0.2 },

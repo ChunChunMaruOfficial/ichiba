@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { landingHref, type LandingEntry } from "@/lib/landing";
+import { og } from "@/lib/og";
 import { jsonLd, serverFetch, SITE_URL } from "@/lib/server";
 
 /**
@@ -29,6 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
       : "Бренды одежды, обуви и аксессуаров на ichiba: новые вещи и б/у в Беларуси.",
     alternates: { canonical: `${SITE_URL}/brands` },
     robots: brands?.length ? undefined : { index: false, follow: true },
+    openGraph: og("/brands", { title: "Бренды одежды на ichiba", description: "Новые и б/у вещи брендов одежды, обуви и аксессуаров с доставкой по Беларуси." }),
   };
 }
 

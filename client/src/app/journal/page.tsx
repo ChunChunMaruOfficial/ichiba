@@ -5,6 +5,7 @@ import { SellBand, TitleWithKanji } from "@/components/sections";
 import { EmptyState } from "@/components/ui";
 import { allArticles, articleHref, rubricHref } from "@/lib/journal";
 import { RUBRICS } from "@/lib/journal-rubrics";
+import { og } from "@/lib/og";
 import { jsonLd, SITE_URL } from "@/lib/server";
 
 /**
@@ -19,12 +20,13 @@ const DESCRIPTION = "Как покупать и продавать вещи из
 export async function generateMetadata(): Promise<Metadata> {
   const n = (await allArticles()).length;
   return {
-    title: "Журнал ichiba — как покупать и продавать вещи из гардеробов",
+    // « · ichiba» comes from the layout's template: the brand isn't repeated in the title itself.
+    title: "Журнал — как покупать и продавать вещи из гардеробов",
     description: DESCRIPTION,
     alternates: { canonical: `${SITE_URL}/journal`, types: { "application/rss+xml": `${SITE_URL}/journal/feed.xml` } },
     // An empty journal is not a search result yet.
     robots: n ? undefined : { index: false, follow: true },
-    openGraph: { type: "website", url: `${SITE_URL}/journal`, title: "Журнал ichiba", description: DESCRIPTION },
+    openGraph: og("/journal", { title: "Журнал ichiba", description: DESCRIPTION }),
   };
 }
 

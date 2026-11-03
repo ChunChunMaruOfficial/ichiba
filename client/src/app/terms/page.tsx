@@ -2,11 +2,13 @@ import { TitleWithKanji } from "@/components/sections";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL, operatorLine } from "@/lib/legal";
+import { og } from "@/lib/og";
 
 export const metadata: Metadata = {
   title: "Пользовательское соглашение",
   description: "Правила маркетплейса ichiba: роль площадки как агента, оплата и безопасная сделка, доставка, возвраты, вознаграждение продавцов, модерация и ответственность.",
   alternates: { canonical: "/terms" },
+  openGraph: og("/terms", { title: "Пользовательское соглашение ichiba", description: "Правила маркетплейса ichiba: оплата и безопасная сделка, доставка, возвраты, модерация и ответственность." }),
 };
 
 const SECTIONS = [

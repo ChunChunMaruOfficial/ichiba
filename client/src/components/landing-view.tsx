@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { itemHref } from "@/lib/item-path";
 import { articlesForCatalog } from "@/lib/journal";
 import { landingHref, type LandingData } from "@/lib/landing";
+import { og } from "@/lib/og";
 import { jsonLd, serverFetch, SITE_URL } from "@/lib/server";
 import { ArticleCard } from "./journal/article-card";
 import { Masonry } from "./masonry";
@@ -42,7 +43,7 @@ export async function landingMetadata(root: Root, params: Params): Promise<Metad
     alternates: { canonical: url },
     // Too few items to be worth a search result: the page still opens, its items are still followed.
     robots: d.indexable ? undefined : { index: false, follow: true },
-    openGraph: { type: "website", url, title: d.name, description: d.description, images: cover ? [{ url: cover.urls.l, width: cover.width, height: cover.height }] : undefined },
+    openGraph: og(landingHref(d.path), { title: d.name, description: d.description, images: cover ? [{ url: cover.urls.l, width: cover.width, height: cover.height, alt: d.name }] : undefined }),
   };
 }
 

@@ -14,6 +14,7 @@ import { SellBand, TitleWithKanji } from "@/components/sections";
 import { EmptyState } from "@/components/ui";
 import { allArticles, article, articleHref, articlesIn, formatDate, relatedTo, rubricHref, type Article } from "@/lib/journal";
 import { isRubric, rubricBySlug, RUBRICS, type Rubric } from "@/lib/journal-rubrics";
+import { og } from "@/lib/og";
 import { jsonLd, SITE_URL, truncate } from "@/lib/server";
 
 /**
@@ -41,7 +42,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       description: rubric.description,
       alternates: { canonical: url },
       robots: n ? undefined : { index: false, follow: true },
-      openGraph: { type: "website", url, title: `${rubric.name} — Журнал ichiba`, description: rubric.description },
+      openGraph: og(rubricHref(slug), { title: `${rubric.name} — Журнал ichiba`, description: rubric.description }),
     };
   }
   const a = await article(slug);
@@ -53,9 +54,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     alternates: { canonical: url },
     robots: a.draft ? { index: false, follow: false } : undefined,
     authors: [{ name: a.author.name, url: `${SITE_URL}/journal/authors/${a.author.id}` }],
-    openGraph: {
+    openGraph: og(articleHref(a.slug), {
       type: "article",
-      url,
       title: a.title,
       description: a.description,
       publishedTime: a.publishedAt,
@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       tags: a.tags,
       authors: [a.author.name],
       images: a.cover ? [{ url: `${SITE_URL}${a.cover}`, alt: a.coverAlt ?? a.title }] : undefined,
-    },
+    }),
   };
 }
 

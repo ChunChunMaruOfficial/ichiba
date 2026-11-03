@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Spectral, Yuji_Syuku } from "next/font/google";
+import { Spectral } from "next/font/google";
+import localFont from "next/font/local";
 import { Analytics } from "@/components/analytics";
 import { CookieNotice } from "@/components/cookie-notice";
 import { Footer } from "@/components/footer";
@@ -10,9 +11,12 @@ import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 // Brand type (design/brand): Spectral serif for everything — titles, text, buttons, prices; Yuji Syuku brush for
-// kanji on seals only (loaded on demand: its Japanese glyphs come in unicode-range chunks).
+// kanji on seals only. The brush font is a subset of just the characters the site writes with it (fonts/*.txt,
+// OFL font): from Google Fonts it came as ~120 unicode-range chunks whose @font-face rules alone were 95 KB of the
+// render-blocking CSS on every page. A new kanji in the code needs the subset rebuilt — `npm run check:brush-font`
+// names any that are missing (they would fall back to a plain serif, nothing breaks).
 const spectral = Spectral({ variable: "--font-spectral", subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700", "800"], display: "swap" });
-const yuji = Yuji_Syuku({ variable: "--font-yuji", subsets: ["latin"], weight: "400", display: "swap", preload: false });
+const yuji = localFont({ src: "./fonts/yuji-syuku-ichiba.woff2", variable: "--font-yuji", weight: "400", display: "swap", preload: false });
 
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -22,7 +26,9 @@ export const metadata: Metadata = {
   title: { default: "ichiba — вещи из открытых гардеробов", template: "%s · ichiba" },
   description: "Маркетплейс одежды, обуви и аксессуаров из гардеробов людей в Беларуси: покупайте и продавайте б/у вещи, торгуйтесь, участвуйте в аукционах.",
   applicationName: "ichiba",
-  openGraph: { type: "website", siteName: "ichiba", locale: "ru_RU", url: SITE_URL, title: "ichiba — вещи из открытых гардеробов", description: "Покупайте и продавайте вещи из гардеробов людей в Беларуси." },
+  // No og:url here: every page that sets nothing would inherit the home page's address. Public pages build their own
+  // block with lib/og.ts; this one only covers the rest (it never names an address).
+  openGraph: { type: "website", siteName: "ichiba", locale: "ru_RU", title: "ichiba — вещи из открытых гардеробов", description: "Покупайте и продавайте вещи из гардеробов людей в Беларуси." },
   twitter: { card: "summary_large_image" },
   formatDetection: { telephone: false },
 };

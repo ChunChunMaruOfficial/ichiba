@@ -11,19 +11,13 @@ import { DragRow } from "@/components/drag-row";
 import { SwipeDeck } from "@/components/swipe-deck";
 import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
+import { RESALE_CHIPS, RESALE_PAGE, RESALE_WARDROBES, resaleChip, resaleFeedKey } from "@/lib/resale-feed";
 import type { Card, Cover, SellerSummary } from "@/lib/types";
 
 type Wardrobe = SellerSummary & { collage: (Cover | null)[] };
 
-const CHIPS = [
-  ["for_you", "Для вас"],
-  ["new", "Новое"],
-  ["popular", "Популярное"],
-  ["auctions", "Аукционы"],
-  ["under_50", "До 50 BYN"],
-] as const;
-
-const PAGE = 24;
+const CHIPS = RESALE_CHIPS;
+const PAGE = RESALE_PAGE;
 
 /**
  * «Вторичка» 古着: the second-hand market, everything from private sellers (brands have the home page to themselves).
@@ -33,15 +27,11 @@ function ResaleFeed() {
   const router = useRouter();
   const params = useSearchParams();
   const { me, loading: sessionLoading } = useSession();
-  // Only a known chip goes into the feed request: anything else in the address falls back to «Новое».
-  const chip = CHIPS.find(([key]) => key === params.get("chip"))?.[0] ?? "new";
+  const chip = resaleChip(params.get("chip"));
   const setChip = (c: string) => router.replace(c === "new" ? "/resale" : `/resale?chip=${c}`, { scroll: false });
-  const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) =>
-    `/feed?chip=${chip}&market=resale&offset=${offset}&limit=${PAGE}`,
-  );
+  const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) => resaleFeedKey(chip, offset));
   const sentinel = useSentinel(feed.loadMore, !feed.done);
-  // A few more than the row shows: wardrobes with one or two items (a half-empty collage) stay out of it.
-  const wardrobes = useSWR<{ items: Wardrobe[] }>("/wardrobes?limit=12");
+  const wardrobes = useSWR<{ items: Wardrobe[] }>(RESALE_WARDROBES);
   const fullWardrobes = wardrobes.data?.items.filter(fullCollage).slice(0, 10) ?? [];
   const chips = CHIPS.filter(([key]) => key !== "for_you" || me);
 

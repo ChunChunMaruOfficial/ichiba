@@ -5,8 +5,8 @@ import { useDeferredValue, useState } from "react";
 import { WardrobeCards, TitleWithKanji } from "@/components/sections";
 import { useSession } from "@/components/session";
 import { EmptyState, ErrorState, IconSearch, IconX, Skeleton, Spinner } from "@/components/ui";
-import { qs } from "@/lib/api";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
+import { WARDROBES_PAGE, wardrobesKey } from "@/lib/wardrobes-feed";
 import type { Cover, SellerSummary } from "@/lib/types";
 
 type Wardrobe = SellerSummary & { collage: (Cover | null)[] };
@@ -17,7 +17,7 @@ export default function WardrobesPage() {
   const [q, setQ] = useState("");
   const query = useDeferredValue(q.trim());
   // The API hands out 12 wardrobes per page (each one costs a collage and a summary).
-  const list = useInfiniteCards((offset) => `/wardrobes${qs({ q: query, offset, limit: 12 })}`, 12);
+  const list = useInfiniteCards((offset) => wardrobesKey(query, offset), WARDROBES_PAGE);
   const sentinel = useSentinel(list.loadMore, !list.done);
 
   return (

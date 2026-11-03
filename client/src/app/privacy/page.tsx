@@ -2,11 +2,13 @@ import { TitleWithKanji } from "@/components/sections";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL, operatorLine } from "@/lib/legal";
+import { og } from "@/lib/og";
 
 export const metadata: Metadata = {
   title: "Политика конфиденциальности",
   description: "Какие персональные данные собирает ichiba, зачем, кому передаёт, сколько хранит и как ими управлять.",
   alternates: { canonical: "/privacy" },
+  openGraph: og("/privacy", { title: "Политика конфиденциальности ichiba", description: "Какие персональные данные собирает ichiba, зачем, кому передаёт, сколько хранит и как ими управлять." }),
 };
 
 const SECTIONS = [

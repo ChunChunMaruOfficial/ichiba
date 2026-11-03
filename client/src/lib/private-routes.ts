@@ -19,5 +19,13 @@ export const PRIVATE_SECTIONS = [
   "wardrobe",
 ] as const;
 
-/** Listed in robots.txt as well; the admin panel is left out there so the file doesn't point to it (noindex covers it). */
-export const ROBOTS_DISALLOW = ["/api/", ...PRIVATE_SECTIONS.filter((s) => s !== "admin").map((s) => `/${s}`), "/item/*/edit"];
+/**
+ * Listed in robots.txt as well; the admin panel is left out there so the file doesn't point to it (noindex covers it).
+ * Each section is closed exactly — the page itself, its subpages and its query strings — never as a bare prefix:
+ * robots.txt rules are prefixes, and «/wardrobe» alone also closed the public «/wardrobes» list.
+ */
+export const ROBOTS_DISALLOW = [
+  "/api/",
+  ...PRIVATE_SECTIONS.filter((s) => s !== "admin").flatMap((s) => [`/${s}$`, `/${s}/`, `/${s}?`]),
+  "/item/*/edit",
+];

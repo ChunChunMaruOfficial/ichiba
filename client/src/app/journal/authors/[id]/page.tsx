@@ -6,6 +6,7 @@ import { Avatar } from "@/components/journal/author-card";
 import { EmptyState } from "@/components/ui";
 import { articlesBy } from "@/lib/journal";
 import { authorById, AUTHORS } from "@/lib/journal-authors";
+import { og } from "@/lib/og";
 import { jsonLd, SITE_URL } from "@/lib/server";
 
 /** An author's page: who they are, what confirms it, and everything they wrote. The Person behind each Article. */
@@ -26,6 +27,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title: `${author.name} — автор журнала ichiba`,
     description: author.bio,
     alternates: { canonical: `${SITE_URL}/journal/authors/${author.id}` },
+    openGraph: og(`/journal/authors/${author.id}`, { type: "profile", title: `${author.name} — автор журнала ichiba`, description: author.bio }),
     robots: n ? undefined : { index: false, follow: true },
   };
 }

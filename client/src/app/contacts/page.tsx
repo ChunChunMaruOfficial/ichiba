@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { jsonLd, SITE_URL } from "@/lib/server";
 import { LEGAL, operatorLine } from "@/lib/legal";
+import { og } from "@/lib/og";
 
 export const metadata: Metadata = {
   title: "Контакты",
   description: "Как связаться с ichiba — маркетплейсом одежды в Беларуси: почта, вопросы по сделкам, жалобы и сотрудничество с брендами.",
   alternates: { canonical: "/contacts" },
+  openGraph: og("/contacts", { title: "Контакты ichiba", description: "Почта, вопросы по сделкам, жалобы и сотрудничество с брендами — как связаться с ichiba." }),
 };
 
 /**
@@ -18,6 +20,8 @@ export default function ContactsPage() {
   const organization = {
     "@context": "https://schema.org",
     "@type": "Organization",
+    // The same entity as the one every page describes (app/layout.tsx): this page adds its requisites to it.
+    "@id": `${SITE_URL}/#organization`,
     name: "ichiba",
     url: SITE_URL,
     email: LEGAL.email,

@@ -6,12 +6,14 @@ import { FeedShell } from "@/components/feed-shell";
 import { SwrFallback } from "@/components/swr-fallback";
 import { serverFetch } from "@/lib/server";
 import { homeChip, homeFeedKey } from "@/lib/home-feed";
+import { og } from "@/lib/og";
 import type { Card } from "@/lib/types";
 import HomeClient from "./home-client";
 
 // A server page to carry metadata (a client page can't export it) and the first screen of the feed.
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
+  openGraph: og("/", { title: "ichiba — вещи из открытых гардеробов", description: "Покупайте и продавайте вещи из гардеробов людей в Беларуси: б/у, винтаж и локальные бренды, торг и аукционы." }),
 };
 
 /**

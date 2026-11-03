@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { conditionLabel } from "@/lib/labels";
 import { itemIdFrom, itemSegment } from "@/lib/item-path";
 import { itemLandings, landingHref, type ItemLandings, type LandingEntry } from "@/lib/landing";
+import { og } from "@/lib/og";
 import { jsonLd, serverFetch, SITE_URL, truncate } from "@/lib/server";
 import type { ListingDetail, ListingResponse } from "@/lib/types";
 import { ItemView } from "./item-view";
@@ -50,13 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: { canonical: url },
     // A sold item stays in search for a while (people look for it, the page offers similar ones), then leaves it.
     robots: soldLongAgo(l) ? { index: false, follow: true } : { index: true, follow: true, "max-image-preview": "large" },
-    openGraph: {
-      type: "website",
-      url,
-      title: name,
-      description,
-      images: cover ? [{ url: cover.urls.l, width: cover.width, height: cover.height, alt: name }] : undefined,
-    },
+    openGraph: og(`/item/${itemSegment(l)}`, { title: name, description, images: cover ? [{ url: cover.urls.l, width: cover.width, height: cover.height, alt: name }] : undefined }),
     twitter: { card: cover ? "summary_large_image" : "summary", title: name, description, images: cover ? [cover.urls.l] : undefined },
     other: price != null ? { "product:price:amount": String(price), "product:price:currency": "BYN" } : undefined,
   };
