@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { LETTERS, SEALS } from "@/components/logo";
 
 /**
  * The link preview for every page without one of its own (the home page, the sections, brand and category pages):
- * what Telegram, VK and messengers show when someone shares ichiba. Washi paper, sumi ink and the cinnabar 市 seal,
- * as on the site. The fonts are subsets of Spectral and Yuji Syuku (OFL) with just the letters below
+ * what Telegram, VK and messengers show when someone shares ichiba. Washi paper, the wordmark with its seals and the
+ * cinnabar 市 seal, as on the site (design/brand · ichiba-identity.fig, «превью ссылки»). The fonts are subsets of Spectral and Yuji Syuku (OFL) with just the letters below
  * (assets/fonts): change the text, fetch them again with Google Fonts' `text=` parameter.
  */
 
@@ -21,7 +22,15 @@ export default async function Image() {
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#f4efe6", padding: "72px 80px", fontFamily: "Spectral", color: "#1c1a17" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 120, fontWeight: 600, letterSpacing: -4 }}>ichiba</span>
+          {/* The wordmark itself (components/logo.tsx), not the word set in Spectral: ink letters, cinnabar seals. */}
+          <svg viewBox="-40 -826 3047 898" width={440} height={130}>
+            {LETTERS.map((d, i) => (
+              <path key={i} d={d} fill="#1c1a17" />
+            ))}
+            {SEALS.map((d, i) => (
+              <path key={i} d={d} fill="#c8102e" />
+            ))}
+          </svg>
           <div style={{ width: 132, height: 132, borderRadius: 999, background: "#c8102e", display: "flex", alignItems: "center", justifyContent: "center", color: "#f4efe6", fontFamily: "Yuji Syuku", fontSize: 84 }}>
             市
           </div>

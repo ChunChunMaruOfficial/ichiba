@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { reopenConsent } from "@/lib/analytics";
 import { LEGAL, operatorLine } from "@/lib/legal";
+import { SLIDES, slideId } from "@/lib/presentation";
 import { Wordmark } from "./logo";
 import { focusedFlow } from "./header";
 import { Kamon } from "./shop/kamon";
@@ -57,6 +58,8 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
       ["/settings", "Настройки"],
     ],
   ],
+  // The company deck (app/presentation): its main slides as a list, each link opens the deck on that slide.
+  ["Презентация", [...SLIDES.filter((s) => s.footer).map((s): [string, string] => [`/presentation#${slideId(s.n)}`, s.title]), ["/presentation", "Вся презентация"]]],
 ];
 
 /**
@@ -75,7 +78,7 @@ export function Footer() {
     <footer className="aizome aizome-fade-in">
       <Kamon className="pointer-events-none absolute -right-16 top-10 size-[340px] text-ink opacity-[0.06] md:right-10 md:size-[420px]" />
       <div className="relative mx-auto max-w-[1440px] px-4 pt-14 md:px-6 md:pt-20">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))]">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_repeat(5,minmax(0,1fr))]">
           <div className="max-w-sm">
             <p className="font-display text-3xl font-bold leading-tight text-ink">Вещи с историей</p>
             <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
