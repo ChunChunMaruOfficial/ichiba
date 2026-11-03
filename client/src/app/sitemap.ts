@@ -4,8 +4,10 @@ import { RUBRICS } from "@/lib/journal-rubrics";
 import { landingHref, type LandingEntry } from "@/lib/landing";
 import { serverFetch, SITE_URL } from "@/lib/server";
 
-// Rebuilt at most every 15 minutes, so new items reach Google soon; listings and wardrobes come from the API.
-export const revalidate = 900;
+// Built on each request from the API's answers, which are cached for 15 minutes (serverFetch), so new items reach
+// Google soon. Not prerendered: at build time the API isn't reachable from the build, so the deploy's own copy listed
+// only the 8 static pages and search engines got that near-empty map until the first refresh after every deploy.
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [data, landings, articles] = await Promise.all([
