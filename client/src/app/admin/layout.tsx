@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
+import { AuthModal } from "@/components/auth-modal";
 import { useSession } from "@/components/session";
 import { Button, Field, Input, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -25,6 +26,8 @@ const NAV = [
  * panel asks for the password even when the admin is already signed in on the site (e.g. with Google).
  */
 function AdminLogin({ onDone }: { onDone: () => void }) {
+  const { refresh } = useSession();
+  const [resetting, setResetting] = useState(false);
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +62,23 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
         <Button type="submit" size="lg" loading={busy} disabled={!login || !password}>
           Войти
         </Button>
+        <button type="button" className="self-center text-sm text-ink-2 hover:text-ink hover:underline" onClick={() => setResetting(true)}>
+          Забыли пароль?
+        </button>
       </form>
+      {/* The site's own reset: a code to the email, a new password. After it the admin signs in here with it. */}
+      <AuthModal
+        open={resetting}
+        startAt="reset"
+        onClose={() => setResetting(false)}
+        onSignedIn={(me) => {
+          setResetting(false);
+          setLogin(me.email ?? me.username);
+          setPassword("");
+          setError(null);
+          void refresh();
+        }}
+      />
     </div>
   );
 }

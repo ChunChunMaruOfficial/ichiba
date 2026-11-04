@@ -53,6 +53,8 @@ interface AuthModalProps {
   open: boolean;
   onClose: () => void;
   onSignedIn: (me: Me, isNew?: boolean) => void;
+  /** Open straight on «Восстановить пароль» (the admin sign-in has no other way there). */
+  startAt?: "reset";
 }
 
 /** Mounted fresh on every open (and kept through the exit animation), so it always starts at the first step. */
@@ -61,8 +63,8 @@ export function AuthModal(props: AuthModalProps) {
   return mounted ? <AuthForm {...props} /> : null;
 }
 
-function AuthForm({ open, onClose, onSignedIn }: AuthModalProps) {
-  const [step, setStep] = useState<Step>("start");
+function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
+  const [step, setStep] = useState<Step>(startAt ?? "start");
   const [login, setLogin] = useState("");
   const [target, setTarget] = useState("");
   const [code, setCode] = useState("");
