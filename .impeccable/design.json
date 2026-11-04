@@ -1,0 +1,742 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T14:06:38.417514+00:00",
+  "title": "Design System: ichiba",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Васи, бумага",
+        "canonical": "#f4efe6",
+        "darkYoru": "#14120f",
+        "tonalRamp": [
+          "oklch(15% 0.005 82.4)",
+          "oklch(26% 0.007 82.4)",
+          "oklch(38% 0.010 82.4)",
+          "oklch(49% 0.012 82.4)",
+          "oklch(61% 0.012 82.4)",
+          "oklch(72% 0.010 82.4)",
+          "oklch(84% 0.007 82.4)",
+          "oklch(95% 0.005 82.4)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Кинари, небелёный хлопок",
+        "canonical": "#fbf8f2",
+        "darkYoru": "#1e1b17",
+        "tonalRamp": [
+          "oklch(15% 0.003 84.6)",
+          "oklch(26% 0.005 84.6)",
+          "oklch(38% 0.006 84.6)",
+          "oklch(49% 0.008 84.6)",
+          "oklch(61% 0.008 84.6)",
+          "oklch(72% 0.006 84.6)",
+          "oklch(84% 0.005 84.6)",
+          "oklch(95% 0.003 84.6)"
+        ]
+      },
+      "surface-sunk": {
+        "role": "neutral",
+        "displayName": "Утопленная бумага",
+        "canonical": "#ece5d8",
+        "darkYoru": "#0f0e0b",
+        "tonalRamp": [
+          "oklch(15% 0.007 83.1)",
+          "oklch(26% 0.011 83.1)",
+          "oklch(38% 0.014 83.1)",
+          "oklch(49% 0.017 83.1)",
+          "oklch(61% 0.017 83.1)",
+          "oklch(72% 0.014 83.1)",
+          "oklch(84% 0.011 83.1)",
+          "oklch(95% 0.007 83.1)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Суми, тушь",
+        "canonical": "#1c1a17",
+        "darkYoru": "#eee7da",
+        "tonalRamp": [
+          "oklch(15% 0.002 78.2)",
+          "oklch(26% 0.004 78.2)",
+          "oklch(38% 0.005 78.2)",
+          "oklch(49% 0.006 78.2)",
+          "oklch(61% 0.006 78.2)",
+          "oklch(72% 0.005 78.2)",
+          "oklch(84% 0.004 78.2)",
+          "oklch(95% 0.002 78.2)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Вторая тушь",
+        "canonical": "#48433b",
+        "darkYoru": "#cfc6b6",
+        "tonalRamp": [
+          "oklch(15% 0.006 79.7)",
+          "oklch(26% 0.008 79.7)",
+          "oklch(38% 0.011 79.7)",
+          "oklch(49% 0.014 79.7)",
+          "oklch(61% 0.014 79.7)",
+          "oklch(72% 0.011 79.7)",
+          "oklch(84% 0.008 79.7)",
+          "oklch(95% 0.006 79.7)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Нэдзуми, мышиный серый",
+        "canonical": "#6b6459",
+        "darkYoru": "#9c9384",
+        "tonalRamp": [
+          "oklch(15% 0.007 79.3)",
+          "oklch(26% 0.011 79.3)",
+          "oklch(38% 0.014 79.3)",
+          "oklch(49% 0.017 79.3)",
+          "oklch(61% 0.017 79.3)",
+          "oklch(72% 0.014 79.3)",
+          "oklch(84% 0.011 79.3)",
+          "oklch(95% 0.007 79.3)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Линия",
+        "canonical": "#e2dacb",
+        "darkYoru": "#2e2a24",
+        "tonalRamp": [
+          "oklch(15% 0.008 83.3)",
+          "oklch(26% 0.012 83.3)",
+          "oklch(38% 0.016 83.3)",
+          "oklch(49% 0.020 83.3)",
+          "oklch(61% 0.020 83.3)",
+          "oklch(72% 0.016 83.3)",
+          "oklch(84% 0.012 83.3)",
+          "oklch(95% 0.008 83.3)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Сильная линия",
+        "canonical": "#cfc5b3",
+        "darkYoru": "#423c33",
+        "tonalRamp": [
+          "oklch(15% 0.010 82.4)",
+          "oklch(26% 0.015 82.4)",
+          "oklch(38% 0.020 82.4)",
+          "oklch(49% 0.025 82.4)",
+          "oklch(61% 0.025 82.4)",
+          "oklch(72% 0.020 82.4)",
+          "oklch(84% 0.015 82.4)",
+          "oklch(95% 0.010 82.4)"
+        ]
+      },
+      "line-control": {
+        "role": "neutral",
+        "displayName": "Линия контрола",
+        "canonical": "#8a7f6e",
+        "darkYoru": "#7a7062",
+        "tonalRamp": [
+          "oklch(15% 0.011 78.8)",
+          "oklch(26% 0.016 78.8)",
+          "oklch(38% 0.021 78.8)",
+          "oklch(49% 0.026 78.8)",
+          "oklch(61% 0.026 78.8)",
+          "oklch(72% 0.021 78.8)",
+          "oklch(84% 0.016 78.8)",
+          "oklch(95% 0.011 78.8)"
+        ]
+      },
+      "accent-hover": {
+        "role": "neutral",
+        "displayName": "Тушь при наведении",
+        "canonical": "#34302a",
+        "darkYoru": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0.005 78.1)",
+          "oklch(26% 0.007 78.1)",
+          "oklch(38% 0.009 78.1)",
+          "oklch(49% 0.011 78.1)",
+          "oklch(61% 0.011 78.1)",
+          "oklch(72% 0.009 78.1)",
+          "oklch(84% 0.007 78.1)",
+          "oklch(95% 0.005 78.1)"
+        ]
+      },
+      "accent-soft": {
+        "role": "neutral",
+        "displayName": "Мягкая тушь",
+        "canonical": "#e9e2d5",
+        "darkYoru": "#2a2621",
+        "tonalRamp": [
+          "oklch(15% 0.007 83.1)",
+          "oklch(26% 0.011 83.1)",
+          "oklch(38% 0.014 83.1)",
+          "oklch(49% 0.017 83.1)",
+          "oklch(61% 0.017 83.1)",
+          "oklch(72% 0.014 83.1)",
+          "oklch(84% 0.011 83.1)",
+          "oklch(95% 0.007 83.1)"
+        ]
+      },
+      "aizome": {
+        "role": "primary",
+        "displayName": "Айдзомэ, ткань индиго",
+        "canonical": "#1f3354",
+        "darkYoru": "#1f3354",
+        "tonalRamp": [
+          "oklch(15% 0.025 260.0)",
+          "oklch(26% 0.036 260.0)",
+          "oklch(38% 0.047 260.0)",
+          "oklch(49% 0.059 260.0)",
+          "oklch(61% 0.059 260.0)",
+          "oklch(72% 0.047 260.0)",
+          "oklch(84% 0.036 260.0)",
+          "oklch(95% 0.025 260.0)"
+        ],
+        "note": "Не меняется в теме «Ёру» (захардкожен в .btn-wa-ink, .chip, .aizome)."
+      },
+      "indigo": {
+        "role": "primary",
+        "displayName": "Ай, индиго",
+        "canonical": "#23395b",
+        "darkYoru": "#9db1d6",
+        "tonalRamp": [
+          "oklch(15% 0.025 258.8)",
+          "oklch(26% 0.037 258.8)",
+          "oklch(38% 0.049 258.8)",
+          "oklch(49% 0.060 258.8)",
+          "oklch(61% 0.060 258.8)",
+          "oklch(72% 0.049 258.8)",
+          "oklch(84% 0.037 258.8)",
+          "oklch(95% 0.025 258.8)"
+        ]
+      },
+      "indigo-soft": {
+        "role": "primary",
+        "displayName": "Мягкое индиго",
+        "canonical": "#dfe5ee",
+        "darkYoru": "#1e293b",
+        "tonalRamp": [
+          "oklch(15% 0.005 258.3)",
+          "oklch(26% 0.008 258.3)",
+          "oklch(38% 0.010 258.3)",
+          "oklch(49% 0.013 258.3)",
+          "oklch(61% 0.013 258.3)",
+          "oklch(72% 0.010 258.3)",
+          "oklch(84% 0.008 258.3)",
+          "oklch(95% 0.005 258.3)"
+        ]
+      },
+      "shu": {
+        "role": "secondary",
+        "displayName": "Сю, киноварь печати",
+        "canonical": "#c8102e",
+        "darkYoru": "#ef5a5f",
+        "tonalRamp": [
+          "oklch(15% 0.079 22.3)",
+          "oklch(26% 0.116 22.3)",
+          "oklch(38% 0.152 22.3)",
+          "oklch(49% 0.189 22.3)",
+          "oklch(61% 0.189 22.3)",
+          "oklch(72% 0.152 22.3)",
+          "oklch(84% 0.116 22.3)",
+          "oklch(95% 0.079 22.3)"
+        ]
+      },
+      "shu-soft": {
+        "role": "secondary",
+        "displayName": "Мягкая киноварь",
+        "canonical": "#f7deda",
+        "darkYoru": "#3b1c1c",
+        "tonalRamp": [
+          "oklch(15% 0.011 28.5)",
+          "oklch(26% 0.016 28.5)",
+          "oklch(38% 0.021 28.5)",
+          "oklch(49% 0.026 28.5)",
+          "oklch(61% 0.026 28.5)",
+          "oklch(72% 0.021 28.5)",
+          "oklch(84% 0.016 28.5)",
+          "oklch(95% 0.011 28.5)"
+        ]
+      },
+      "on-shu": {
+        "role": "secondary",
+        "displayName": "Текст на киновари",
+        "canonical": "#fbf8f2",
+        "darkYoru": "#14120f",
+        "tonalRamp": [
+          "oklch(15% 0.003 84.6)",
+          "oklch(26% 0.005 84.6)",
+          "oklch(38% 0.006 84.6)",
+          "oklch(49% 0.008 84.6)",
+          "oklch(61% 0.008 84.6)",
+          "oklch(72% 0.006 84.6)",
+          "oklch(84% 0.005 84.6)",
+          "oklch(95% 0.003 84.6)"
+        ]
+      },
+      "ai": {
+        "role": "tertiary",
+        "displayName": "Фудзи, глициния (ИИ)",
+        "canonical": "#5e4c8f",
+        "darkYoru": "#b9ace3",
+        "tonalRamp": [
+          "oklch(15% 0.041 294.3)",
+          "oklch(26% 0.060 294.3)",
+          "oklch(38% 0.078 294.3)",
+          "oklch(49% 0.097 294.3)",
+          "oklch(61% 0.097 294.3)",
+          "oklch(72% 0.078 294.3)",
+          "oklch(84% 0.060 294.3)",
+          "oklch(95% 0.041 294.3)"
+        ]
+      },
+      "ai-soft": {
+        "role": "tertiary",
+        "displayName": "Мягкая глициния",
+        "canonical": "#e9e4f1",
+        "darkYoru": "#2a2438",
+        "tonalRamp": [
+          "oklch(15% 0.007 303.4)",
+          "oklch(26% 0.010 303.4)",
+          "oklch(38% 0.013 303.4)",
+          "oklch(49% 0.017 303.4)",
+          "oklch(61% 0.017 303.4)",
+          "oklch(72% 0.013 303.4)",
+          "oklch(84% 0.010 303.4)",
+          "oklch(95% 0.007 303.4)"
+        ]
+      },
+      "kraft": {
+        "role": "neutral",
+        "displayName": "Крафт бирки",
+        "canonical": "#e6d6b3",
+        "darkYoru": "#4a3e28",
+        "tonalRamp": [
+          "oklch(15% 0.019 86.3)",
+          "oklch(26% 0.028 86.3)",
+          "oklch(38% 0.036 86.3)",
+          "oklch(49% 0.045 86.3)",
+          "oklch(61% 0.045 86.3)",
+          "oklch(72% 0.036 86.3)",
+          "oklch(84% 0.028 86.3)",
+          "oklch(95% 0.019 86.3)"
+        ]
+      },
+      "kraft-ink": {
+        "role": "neutral",
+        "displayName": "Тушь на крафте",
+        "canonical": "#4a3b1f",
+        "darkYoru": "#ead9b4",
+        "tonalRamp": [
+          "oklch(15% 0.018 81.9)",
+          "oklch(26% 0.027 81.9)",
+          "oklch(38% 0.035 81.9)",
+          "oklch(49% 0.043 81.9)",
+          "oklch(61% 0.043 81.9)",
+          "oklch(72% 0.035 81.9)",
+          "oklch(84% 0.027 81.9)",
+          "oklch(95% 0.018 81.9)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Бэни, ошибка",
+        "canonical": "#a31621",
+        "darkYoru": "#f27377",
+        "tonalRamp": [
+          "oklch(15% 0.066 24.5)",
+          "oklch(26% 0.097 24.5)",
+          "oklch(38% 0.127 24.5)",
+          "oklch(49% 0.158 24.5)",
+          "oklch(61% 0.158 24.5)",
+          "oklch(72% 0.127 24.5)",
+          "oklch(84% 0.097 24.5)",
+          "oklch(95% 0.066 24.5)"
+        ]
+      },
+      "danger-soft": {
+        "role": "status",
+        "displayName": "Фон ошибки",
+        "canonical": "#f7e1de",
+        "darkYoru": "#3b1c1c",
+        "tonalRamp": [
+          "oklch(15% 0.009 26.9)",
+          "oklch(26% 0.014 26.9)",
+          "oklch(38% 0.018 26.9)",
+          "oklch(49% 0.022 26.9)",
+          "oklch(61% 0.022 26.9)",
+          "oklch(72% 0.018 26.9)",
+          "oklch(84% 0.014 26.9)",
+          "oklch(95% 0.009 26.9)"
+        ]
+      },
+      "warn": {
+        "role": "status",
+        "displayName": "Кохаку, предупреждение",
+        "canonical": "#855400",
+        "darkYoru": "#e2b457",
+        "tonalRamp": [
+          "oklch(15% 0.040 70.8)",
+          "oklch(26% 0.059 70.8)",
+          "oklch(38% 0.078 70.8)",
+          "oklch(49% 0.096 70.8)",
+          "oklch(61% 0.096 70.8)",
+          "oklch(72% 0.078 70.8)",
+          "oklch(84% 0.059 70.8)",
+          "oklch(95% 0.040 70.8)"
+        ]
+      },
+      "warn-soft": {
+        "role": "status",
+        "displayName": "Фон предупреждения",
+        "canonical": "#f4e8cb",
+        "darkYoru": "#33280f",
+        "tonalRamp": [
+          "oklch(15% 0.015 88.2)",
+          "oklch(26% 0.023 88.2)",
+          "oklch(38% 0.030 88.2)",
+          "oklch(49% 0.037 88.2)",
+          "oklch(61% 0.037 88.2)",
+          "oklch(72% 0.030 88.2)",
+          "oklch(84% 0.023 88.2)",
+          "oklch(95% 0.015 88.2)"
+        ]
+      },
+      "amber": {
+        "role": "status",
+        "displayName": "Янтарь звёзд (не текст)",
+        "canonical": "#c98a00",
+        "darkYoru": "#e2b457",
+        "tonalRamp": [
+          "oklch(15% 0.054 76.5)",
+          "oklch(26% 0.080 76.5)",
+          "oklch(38% 0.105 76.5)",
+          "oklch(49% 0.130 76.5)",
+          "oklch(61% 0.130 76.5)",
+          "oklch(72% 0.105 76.5)",
+          "oklch(84% 0.080 76.5)",
+          "oklch(95% 0.054 76.5)"
+        ]
+      },
+      "ok": {
+        "role": "status",
+        "displayName": "Маття, успех",
+        "canonical": "#3d6631",
+        "darkYoru": "#93bf80",
+        "tonalRamp": [
+          "oklch(15% 0.036 138.9)",
+          "oklch(26% 0.052 138.9)",
+          "oklch(38% 0.068 138.9)",
+          "oklch(49% 0.085 138.9)",
+          "oklch(61% 0.085 138.9)",
+          "oklch(72% 0.068 138.9)",
+          "oklch(84% 0.052 138.9)",
+          "oklch(95% 0.036 138.9)"
+        ]
+      },
+      "ok-soft": {
+        "role": "status",
+        "displayName": "Фон успеха",
+        "canonical": "#e2ead6",
+        "darkYoru": "#1c2a17",
+        "tonalRamp": [
+          "oklch(15% 0.011 124.8)",
+          "oklch(26% 0.016 124.8)",
+          "oklch(38% 0.021 124.8)",
+          "oklch(49% 0.025 124.8)",
+          "oklch(61% 0.025 124.8)",
+          "oklch(72% 0.021 124.8)",
+          "oklch(84% 0.016 124.8)",
+          "oklch(95% 0.011 124.8)"
+        ]
+      },
+      "skeleton": {
+        "role": "neutral",
+        "displayName": "Заглушка загрузки",
+        "canonical": "#e7e0d2",
+        "darkYoru": "#24211c",
+        "tonalRamp": [
+          "oklch(15% 0.008 84.6)",
+          "oklch(26% 0.011 84.6)",
+          "oklch(38% 0.015 84.6)",
+          "oklch(49% 0.018 84.6)",
+          "oklch(61% 0.018 84.6)",
+          "oklch(72% 0.015 84.6)",
+          "oklch(84% 0.011 84.6)",
+          "oklch(95% 0.008 84.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Крупный заголовок отдельных экранов (образ, онбординг): 30px → 48px на md."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "h1 страницы: 30px → 36px на md, обычно с подъёмом rise."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Заголовок секции 24px → 28px; рядом может стоять вертикальная киноварная подпись кистью. Заголовок модального окна — 22px."
+      },
+      "body-long": {
+        "displayName": "Body long",
+        "purpose": "Колонка журнала и длинные описания, цвет ink-2."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Основной текст интерфейса; на тач-экранах поля не меньше 16px."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Кнопки (600), чипы и пункты меню (500)."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Бейджи и подписи на фото; минимальный размер текста."
+      },
+      "price": {
+        "displayName": "Price",
+        "purpose": "Цена на крафтовой бирке, табличные цифры; 24px на странице вещи."
+      },
+      "brush-kanji": {
+        "displayName": "Brush kanji (Yuji Syuku)",
+        "purpose": "Только иероглифы: ханко, печати, вертикальные подписи секций. Никогда русский текст."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-paper",
+        "value": "0 1px 2px rgb(28 26 23 / 0.06), 0 8px 24px rgb(28 26 23 / 0.06)",
+        "dark": "0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35)",
+        "purpose": "Лист бумаги: карточка при наведении, поповеры."
+      },
+      {
+        "name": "shadow-float",
+        "value": "0 24px 80px rgb(28 26 23 / 0.22)",
+        "dark": "0 24px 80px rgb(0 0 0 / 0.6)",
+        "purpose": "Парящий лист: модальные окна, шторки; в меню вместе с 0 0 0 1px var(--line)."
+      },
+      {
+        "name": "on-photo",
+        "value": "0 0 0 1px rgb(28 26 23 / 0.06), 0 2px 8px rgb(28 26 23 / 0.12)",
+        "purpose": "Мелкие пилюли поверх фото (лайк, скидка, видео) на surface 94 %."
+      },
+      {
+        "name": "cloth-indigo",
+        "value": "0 1px 0 rgb(15 26 46 / 0.5), 0 4px 12px -4px rgb(31 51 84 / 0.55)",
+        "purpose": "Ткань основной кнопки; на hover 0 8px 18px -6px rgb(31 51 84 / 0.7)."
+      },
+      {
+        "name": "cloth-shu",
+        "value": "0 1px 0 rgb(90 6 20 / 0.45), 0 4px 12px -4px rgb(200 16 46 / 0.55)",
+        "purpose": "Ткань киноварной кнопки «Продать вещь»."
+      },
+      {
+        "name": "object-drop",
+        "value": "drop-shadow(0 3px 5px rgb(0 0 0 / 0.3))",
+        "purpose": "filter для предметов лавки (печати, бирки, полоски васи): тень повторяет вырез."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-ma",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Основная кривая: подъём rise (460ms), pop, тосты, шторки, сдвиг строк под шапкой."
+      },
+      {
+        "name": "ease-stamp",
+        "value": "cubic-bezier(0.3, 1.4, 0.5, 1)",
+        "purpose": "Пружина с перелётом: печати (seal-press, stamp-down 520ms), tab-hop, полоска васи."
+      },
+      {
+        "name": "ease-exit",
+        "value": "ease-in, 120–180ms",
+        "purpose": "Выход оверлеев: та же анимация в обратную сторону через data-closing."
+      },
+      {
+        "name": "fade-in",
+        "value": "150ms ease-out",
+        "purpose": "Появление меню и подложки модального окна."
+      },
+      {
+        "name": "sheet-up",
+        "value": "200ms ease-out, translateY(24px)",
+        "purpose": "Модальное окно / шторка снизу."
+      },
+      {
+        "name": "reveal",
+        "value": "scroll-driven view(), entry 0–55%, translateY(28px) scale(0.97)",
+        "purpose": "Карточки и секции поднимаются при прокрутке, без JS."
+      },
+      {
+        "name": "cloth-drift",
+        "value": "2.4s linear infinite",
+        "purpose": "Волны на ткани кнопки плывут при наведении."
+      },
+      {
+        "name": "shop-life",
+        "value": "sway 5.5s / noren 6s / beckon 4.5s ease-in-out infinite",
+        "purpose": "Тихая жизнь иллюстраций лавки; выключается при reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ],
+    "themes": {
+      "light": "«Васи» — действующая тема.",
+      "dark": "«Ёру» 夜 — тёплая ночная тушь; готова, скрыта: применяется только при data-theme=\"dark\", который ставится лишь при DARK_THEME_ENABLED (client/src/lib/theme.ts, сейчас false). Значения — colorMeta.*.darkYoru.",
+      "aizomeScope": "Внутри .aizome (подвал, обложка гардероба, полоса продавцов) токены переопределены под тёмную ткань: paper #1f3354, surface #2a4169, ink #f4efe6, ink-2 #d2d8e4, muted #aab6cc, indigo #c3d0ea, shu #e0353f."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button (ткань айдзомэ)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Основное действие: кусок индиго-ткани с волнами и строчкой сасико.",
+      "html": "<button class=\"ds-btn-wa ds-btn-ink\">Купить</button>",
+      "css": ".ds-btn-wa { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 20px; border:0; border-radius:999px; font-family:Spectral, 'Noto Serif', Georgia, serif; font-size:15px; font-weight:600; letter-spacing:0.03em; outline:1px dashed transparent; outline-offset:-5px; cursor:pointer; transition:color 160ms, box-shadow 200ms, transform 120ms, filter 160ms; } .ds-btn-ink { background-color:#1f3354; background-image:repeating-radial-gradient(circle at 50% 100%, transparent 0 6px, rgb(244 239 230 / 0.06) 6px 7px); background-size:40px 20px; color:#f4efe6; outline-color:rgb(244 239 230 / 0.42); box-shadow:0 1px 0 rgb(15 26 46 / 0.5), 0 4px 12px -4px rgb(31 51 84 / 0.55); } .ds-btn-ink:hover { filter:brightness(1.06); box-shadow:0 1px 0 rgb(15 26 46 / 0.5), 0 8px 18px -6px rgb(31 51 84 / 0.7); } .ds-btn-wa:active { transform:translateY(1px) scale(0.985); filter:brightness(0.94); } .ds-btn-wa:focus-visible { outline:2px solid var(--indigo, #23395b); outline-offset:2px; }"
+    },
+    {
+      "name": "Secondary Button (небелёный хлопок)",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Второе действие: небелёный хлопок, текст и контур индиго.",
+      "html": "<button class=\"ds-btn-wa2 ds-btn-paper\">Отмена</button>",
+      "css": ".ds-btn-wa2 { display:inline-flex; align-items:center; justify-content:center; height:44px; padding:0 20px; border:0; border-radius:999px; font-family:Spectral, 'Noto Serif', Georgia, serif; font-size:15px; font-weight:600; letter-spacing:0.03em; outline:1px dashed transparent; outline-offset:-5px; cursor:pointer; transition:box-shadow 200ms, transform 120ms, filter 160ms; } .ds-btn-paper { background:var(--surface, #fbf8f2); color:var(--indigo, #23395b); outline-color:rgb(35 57 91 / 0.38); box-shadow:inset 0 0 0 1.5px rgb(35 57 91 / 0.7), 0 2px 8px -4px rgb(31 51 84 / 0.3); } .ds-btn-paper:hover { filter:brightness(1.06); } .ds-btn-wa2:active { transform:translateY(1px) scale(0.985); } .ds-btn-wa2:focus-visible { outline:2px solid var(--indigo, #23395b); outline-offset:2px; }"
+    },
+    {
+      "name": "Shu Button «Продать вещь»",
+      "kind": "button",
+      "refersTo": "button-shu",
+      "description": "Единственная киноварная кнопка: «Продать вещь» в шапке и подвале.",
+      "html": "<button class=\"ds-btn-shu\">Продать вещь</button>",
+      "css": ".ds-btn-shu { display:inline-flex; align-items:center; height:44px; padding:0 20px; border:0; border-radius:999px; background:var(--shu, #c8102e); color:var(--on-shu, #fbf8f2); font-family:Spectral, 'Noto Serif', Georgia, serif; font-size:15px; font-weight:600; letter-spacing:0.03em; outline:1px dashed rgb(251 248 242 / 0.5); outline-offset:-5px; box-shadow:0 1px 0 rgb(90 6 20 / 0.45), 0 4px 12px -4px rgb(200 16 46 / 0.55); cursor:pointer; transition:box-shadow 200ms, transform 120ms, filter 160ms; } .ds-btn-shu:hover { filter:brightness(1.06); box-shadow:0 1px 0 rgb(90 6 20 / 0.45), 0 8px 18px -6px rgb(200 16 46 / 0.7); } .ds-btn-shu:active { transform:translateY(1px) scale(0.985); } .ds-btn-shu:focus-visible { outline:2px solid var(--indigo, #23395b); outline-offset:2px; }"
+    },
+    {
+      "name": "Filter Chip (лоскут ткани)",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Фильтр: лоскут небелёного хлопка; выбранный окрашен в индиго, со строчкой и киноварной печатью в углу.",
+      "html": "<div style=\"display:flex;gap:8px\"><button class=\"ds-chip\" aria-pressed=\"false\">Куртки</button><button class=\"ds-chip\" aria-pressed=\"true\">Платья</button></div>",
+      "css": ".ds-chip { position:relative; display:inline-flex; align-items:center; height:36px; padding:0 16px; border:0; border-radius:10px; background:var(--surface, #fbf8f2); color:var(--ink, #1c1a17); font-family:Spectral, 'Noto Serif', Georgia, serif; font-size:14px; font-weight:500; outline:1px dashed transparent; outline-offset:-4px; box-shadow:inset 0 0 0 1px var(--line-strong, #cfc5b3); cursor:pointer; transition:box-shadow 200ms, color 200ms, outline-color 200ms; } .ds-chip:hover { box-shadow:inset 0 0 0 1px var(--line-control, #8a7f6e); } .ds-chip[aria-pressed=\"true\"] { background:#1f3354; color:#f4efe6; outline-color:rgb(244 239 230 / 0.4); box-shadow:none; } .ds-chip[aria-pressed=\"true\"]::after { content:''; position:absolute; top:-3px; right:-3px; width:9px; height:9px; border-radius:2px; background:var(--shu, #c8102e); box-shadow:0 0 0 2px var(--paper, #f4efe6); transform:rotate(-8deg); } .ds-chip:focus-visible { outline:2px solid var(--indigo, #23395b); outline-offset:2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Поле формы: surface, контур line-control, фокус индиго с мягким кольцом.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Название</span><input class=\"ds-input\" placeholder=\"Пуховик оверсайз\"></label>",
+      "css": ".ds-field { display:flex; flex-direction:column; gap:6px; font-family:Spectral, 'Noto Serif', Georgia, serif; } .ds-field-label { font-size:14px; font-weight:500; color:var(--ink, #1c1a17); } .ds-input { height:44px; width:100%; border-radius:12px; border:1px solid var(--line-control, #8a7f6e); background:var(--surface, #fbf8f2); padding:0 14px; font:inherit; font-size:15px; color:var(--ink, #1c1a17); outline:none; transition:border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color:var(--muted, #6b6459); } .ds-input:hover { border-color:var(--ink-2, #48433b); } .ds-input:focus-visible { border-color:var(--indigo, #23395b); box-shadow:0 0 0 3px rgb(35 57 91 / 0.2); }"
+    },
+    {
+      "name": "Bottom Tab Bar",
+      "kind": "nav",
+      "refersTo": "bottom-nav",
+      "description": "Нижняя навигация на телефоне: активная вкладка с киноварной точкой-печатью, «Продать» — пилюля туши.",
+      "html": "<nav class=\"ds-tabbar\"><a class=\"ds-tab is-on\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1Z\"/></svg><span>Главная</span><i class=\"ds-dot\"></i></a><a class=\"ds-tab\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"m20 20-4.2-4.2\"/></svg><span>Поиск</span><i class=\"ds-dot\" style=\"visibility:hidden\"></i></a><a class=\"ds-tab\"><span class=\"ds-sell\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></span></a></nav>",
+      "css": ".ds-tabbar { display:flex; height:64px; border-top:1px solid var(--line, #e2dacb); background:var(--surface, #fbf8f2); font-family:Spectral, 'Noto Serif', Georgia, serif; } .ds-tab { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink-2, #48433b); font-size:11px; text-decoration:none; cursor:pointer; } .ds-tab:hover { color:var(--ink, #1c1a17); } .ds-tab.is-on { color:var(--ink, #1c1a17); font-weight:600; } .ds-tab:focus-visible { outline:2px solid var(--indigo, #23395b); outline-offset:2px; } .ds-dot { width:5px; height:5px; border-radius:999px; background:var(--shu, #c8102e); } .ds-sell { display:grid; place-items:center; height:44px; width:56px; border-radius:999px; background:var(--ink, #1c1a17); color:var(--paper, #f4efe6); box-shadow:0 4px 12px -4px rgb(28 26 23 / 0.5); }"
+    },
+    {
+      "name": "Hanko Seal",
+      "kind": "custom",
+      "refersTo": "badge",
+      "description": "Печать 判子 на фото: киноварная рамка, иероглифы кистью и русское слово, наклон −6°.",
+      "html": "<span class=\"ds-hanko\" role=\"img\" aria-label=\"продано\"><span class=\"ds-hanko-kanji\" aria-hidden=\"true\">売約済</span><span class=\"ds-hanko-ru\" aria-hidden=\"true\">продано</span></span>",
+      "css": ".ds-hanko { display:inline-flex; flex-direction:column; align-items:center; gap:2px; padding:5px 6px 4px; border:2px solid var(--shu, #c8102e); border-radius:4px; color:var(--shu, #c8102e); background:rgb(251 248 242 / 0.72); transform:rotate(-6deg); line-height:1; animation:ds-stamp 520ms cubic-bezier(0.3, 1.4, 0.5, 1) both; } .ds-hanko-kanji { font-family:'Yuji Syuku', serif; font-size:18px; writing-mode:vertical-rl; letter-spacing:0.04em; } .ds-hanko-ru { font-family:Spectral, 'Noto Serif', Georgia, serif; font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; } @keyframes ds-stamp { 0% { opacity:0; transform:scale(2.4) rotate(-14deg); } 60% { opacity:1; transform:scale(0.92) rotate(-5deg); } 100% { opacity:1; transform:scale(1) rotate(-6deg); } } @media (prefers-reduced-motion: reduce) { .ds-hanko { animation:none; } }"
+    },
+    {
+      "name": "Nefuda Price Tag",
+      "kind": "custom",
+      "refersTo": "price-tag",
+      "description": "Цена на крафтовой бирке со срезанными углами и люверсом, привязанной киноварной нитью; скидка — новая цена киноварью.",
+      "html": "<span class=\"ds-nefuda\"><svg viewBox=\"0 0 44 80\" preserveAspectRatio=\"none\" class=\"ds-nefuda-head\" aria-hidden=\"true\"><path d=\"M24 40C10 46 0 60 -16 66\" fill=\"none\" stroke=\"#c8102e\" stroke-width=\"2.4\" stroke-linecap=\"round\" vector-effect=\"non-scaling-stroke\"/><path d=\"M44 1H16L2 15V65L16 79H44ZM30.5 40A6.5 5.5 0 1 0 17.5 40A6.5 5.5 0 1 0 30.5 40Z\" fill=\"#e6d6b3\" fill-rule=\"evenodd\"/><path d=\"M23 41C10 30 2 16 -14 8\" fill=\"none\" stroke=\"#c8102e\" stroke-width=\"2.4\" stroke-linecap=\"round\" vector-effect=\"non-scaling-stroke\"/></svg><span class=\"ds-nefuda-body\"><span class=\"ds-new\">40 BYN</span><s>55</s></span></span>",
+      "css": ".ds-nefuda { display:inline-flex; align-items:stretch; margin-left:16px; transform:rotate(-2deg); transform-origin:left center; filter:drop-shadow(0 2px 5px rgb(0 0 0 / 0.28)); font-family:Spectral, 'Noto Serif', Georgia, serif; font-size:15px; font-weight:700; font-variant-numeric:lining-nums tabular-nums; transition:transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-nefuda:hover { transform:rotate(1deg); } .ds-nefuda-head { width:1.1em; margin-right:-1px; overflow:visible; flex-shrink:0; } .ds-nefuda-body { display:flex; align-items:center; gap:6px; padding:4px 0.6em 3px 0.25em; border-radius:0 6px 6px 0; background:var(--kraft, #e6d6b3); color:var(--kraft-ink, #4a3b1f); line-height:1; } .ds-new { color:var(--shu, #c8102e); } .ds-nefuda-body s { font-size:12px; font-weight:500; opacity:0.7; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Рынок на бумаге васи",
+    "overview": "ichiba (市場, рынок) нарисован как ваби-саби бумага: фон страницы — васи с неподвижными волокнами, текст и линии — тушь суми, а всё, что на этой бумаге «происходит», сделано из материалов японской лавки: кусков крашеной ткани (кнопки и чипы), крафтовых бирок-ниэфуда (цены), киноварных печатей ханко (статусы и метки бренда), занавеса норэн и герба-камона. Цвет здесь не украшение, а назначение: киноварь 朱 — только печать, индиго 藍 — ссылки, выбранное и фокус, глициния 藤 — всё, что делает ИИ.\n\nПлотность умеренная, витринная: фото вещи главнее интерфейса, карточки ленты держат фото чистым и показывают одну бирку с ценой. Глубина бумажная — мягкие тени листа и ткани, никакого стекла. Движение тактильное и физическое: печать «опускается» с перелётом, бирка качается на нитке, норэн колышется, ткань кнопки «плывёт» волнами при наведении; всё выключается при `prefers-reduced-motion`.\n\nДве темы: «Васи» (светлая, действующая) и «Ёру» 夜 (тёмная, «тёплая ночная тушь», не холодный серый). Ёру полностью готова в токенах, но скрыта: применяется только при `data-theme=\"dark\"`, который сайт ставит лишь при включённом `DARK_THEME_ENABLED` (`client/src/lib/theme.ts`, сейчас `false`). Каждая пара текст/фон — WCAG AA в обеих темах.",
+    "northStarStatus": "Derived from the incumbent brand wording; not yet confirmed by the owner.",
+    "keyCharacteristics": [
+      "Одна гарнитура (Spectral) для всего; кисть Yuji Syuku — только для иероглифов.",
+      "Тёплые бумажные нейтрали вместо серых; суми вместо чёрного.",
+      "Киноварь — редкая печать, индиго — выбор и ссылка, глициния — ИИ.",
+      "Материальные компоненты: ткань, крафт, печать, бирка, традиционные узоры на 5–8 % туши.",
+      "Бумажная глубина без стекла и без размытия как декора.",
+      "Телефон — основной экран: нижний таб-бар, шторки снизу."
+    ],
+    "rules": [
+      {
+        "name": "The Seal Rule",
+        "body": "Киноварь — это печать, а не акцент интерфейса: логотип, лайк, цена со скидкой, штамп, счётчик, «Продать». Не больше одного крупного киноварного пятна на экран.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Pigments Rule",
+        "body": "У каждого пигмента одно значение: индиго — выбранное, ссылка и фокус; глициния — работа ИИ; киноварь — печать. Не переносить пигмент на чужую роль.",
+        "section": "colors"
+      },
+      {
+        "name": "The Warm Ink Rule",
+        "body": "Нейтрали всегда тёплые (бумага и тушь); в тёмной теме — тёплая ночная тушь, а не холодный серый.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Весь текст — Spectral; иерархия строится весом (400/500/600/700) и размером, а не второй гарнитурой.",
+        "section": "typography"
+      },
+      {
+        "name": "The Brush Only For Kanji Rule",
+        "body": "Yuji Syuku никогда не пишет русский текст; иероглифы кистью декоративны (`aria-hidden`), смысл несёт русское слово рядом.",
+        "section": "typography"
+      },
+      {
+        "name": "The Lining Numbers Rule",
+        "body": "Везде линейные цифры (`lnum`); цены, счётчики и таблицы — ещё и табличные (`.tabular`).",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper Not Glass Rule",
+        "body": "Поверхности — непрозрачная бумага. Размытие допустимо только как конкретный эффект (край липкой строки, размытый фон фото в рамке), никогда как материал панели.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** держать фон страницы бумагой васи (paper + волокна), а поверхности — непрозрачным surface.",
+      "**Do** использовать киноварь только как печать: логотип, лайк, цена со скидкой, штамп, счётчик, «Продать вещь».",
+      "**Do** помечать всё, что делает ИИ, глицинией (ai / ai-soft) и словом.",
+      "**Do** набирать всё Spectral, а кистью Yuji Syuku — только иероглифы, с русским словом рядом.",
+      "**Do** показывать цену на крафтовой бирке с табличными цифрами.",
+      "**Do** давать статусу слово, а цвету — только поддержку (бейджи, ошибки, ok/warn/danger).",
+      "**Do** класть узоры сэйгайха/асаноха/сиппо на 6–8 % туши и растворять их масками.",
+      "**Do** выключать каждое декоративное движение при `prefers-reduced-motion`.",
+      "**Do** проверять каждую новую пару текст/фон на AA в обеих темах, включая скрытую «Ёру»."
+    ],
+    "donts": [
+      "**Don't** использовать стекло и backdrop-blur как материал панелей: меню и шторки — сплошная бумага.",
+      "**Don't** писать русский текст кистью Yuji Syuku и не вводить вторую текстовую гарнитуру.",
+      "**Don't** использовать холодные серые и чистый чёрный: нейтрали — тёплая бумага и тушь.",
+      "**Don't** ставить киноварь на интерфейсные акценты (ссылки, выбранное, фокус — это индиго).",
+      "**Don't** класть узоры под текст или фото.",
+      "**Don't** использовать amber как цвет текста."
+    ]
+  }
+}
