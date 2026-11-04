@@ -31,7 +31,8 @@ export class EmailOutbox {
     private readonly jwt: JwtService,
   ) {}
 
-  async enqueue(mail: { to: string; subject: string; html: string; text: string; kind: string; userId: string }) {
+  /** `userId` null: a letter not tied to an account's notifications (answers to complaints) — no unsubscribe header. */
+  async enqueue(mail: { to: string; subject: string; html: string; text: string; kind: string; userId: string | null }) {
     const row = await this.prisma.emailOutbox.create({ data: mail });
     // Try right away; `flush` picks it up again if this attempt fails.
     background(this.deliver(row.id), 'email');

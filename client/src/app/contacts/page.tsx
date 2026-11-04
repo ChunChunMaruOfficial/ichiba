@@ -2,7 +2,7 @@ import { TitleWithKanji } from "@/components/sections";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { jsonLd, SITE_URL } from "@/lib/server";
-import { LEGAL, operatorLine } from "@/lib/legal";
+import { LEGAL } from "@/lib/legal";
 import { og } from "@/lib/og";
 
 export const metadata: Metadata = {
@@ -25,9 +25,17 @@ export default function ContactsPage() {
     name: "ichiba",
     url: SITE_URL,
     email: LEGAL.email,
-    ...(LEGAL.operator ? { legalName: LEGAL.operator } : {}),
-    ...(LEGAL.unp ? { taxID: LEGAL.unp } : {}),
-    address: { "@type": "PostalAddress", addressCountry: "BY", ...(LEGAL.address ? { streetAddress: LEGAL.address } : {}) },
+    telephone: LEGAL.phone.shown,
+    legalName: LEGAL.operatorFull,
+    taxID: LEGAL.unp,
+    foundingDate: LEGAL.registered.iso,
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "BY",
+      postalCode: LEGAL.addressParts.postalCode,
+      addressLocality: LEGAL.addressParts.locality,
+      streetAddress: LEGAL.addressParts.street,
+    },
   };
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-6 md:py-12">
@@ -47,6 +55,15 @@ export default function ContactsPage() {
           Отвечаем в рабочие дни, обычно в течение суток.
         </dd>
 
+        <dt className="font-semibold text-ink">Телефон</dt>
+        <dd>
+          <a href={LEGAL.phone.href} className="font-medium text-ink underline underline-offset-4">
+            {LEGAL.phone.shown}
+          </a>
+          <br />
+          Режим работы: {LEGAL.hours.shown}.
+        </dd>
+
         <dt className="font-semibold text-ink">Вопрос по сделке</dt>
         <dd>
           Пишите продавцу или покупателю в чате сделки — в <Link href="/purchases" className="underline underline-offset-4">«Покупках»</Link> или{" "}
@@ -54,7 +71,17 @@ export default function ContactsPage() {
         </dd>
 
         <dt className="font-semibold text-ink">Жалоба</dt>
-        <dd>На вещь, продавца или сообщение — кнопкой «Пожаловаться» рядом с ними. Модераторы видят жалобу сразу.</dd>
+        <dd>
+          На вещь, продавца или сообщение — кнопкой «Пожаловаться» рядом с ними: модераторы видят её сразу. На сделку, продавца или работу сайта —{" "}
+          <Link href="/complaint" className="font-medium text-ink underline underline-offset-4">
+            через форму жалобы
+          </Link>
+          , ответим на почту в течение 15 дней. Телефон для жалоб покупателей:{" "}
+          <a href={LEGAL.complaintsPhone.href} className="whitespace-nowrap underline underline-offset-4">
+            {LEGAL.complaintsPhone.shown}
+          </a>
+          .
+        </dd>
 
         <dt className="font-semibold text-ink">Брендам</dt>
         <dd>
@@ -63,14 +90,31 @@ export default function ContactsPage() {
 
         <dt className="font-semibold text-ink">Оператор сайта</dt>
         <dd>
-          {operatorLine()}
+          {LEGAL.operatorFull}
           <br />
-          Республика Беларусь
+          УНП {LEGAL.unp}, дата государственной регистрации {LEGAL.registered.shown}
+          <br />
+          Юридический адрес: {LEGAL.address}
+        </dd>
+
+        <dt className="font-semibold text-ink">Обращения граждан</dt>
+        <dd>
+          О нарушениях в торговле можно сообщить и в местный орган власти по месту регистрации ichiba — {LEGAL.authority.name}:{" "}
+          {LEGAL.authority.phones.map((p, i) => (
+            <span key={p.href}>
+              {i > 0 && ", "}
+              <a href={p.href} className="whitespace-nowrap underline underline-offset-4">
+                {p.shown}
+              </a>
+            </span>
+          ))}
+          .
         </dd>
       </dl>
 
       <p className="mt-10 text-sm text-muted">
-        Правила площадки — в <Link href="/terms" className="underline">Пользовательском соглашении</Link>, обработка данных — в{" "}
+        Как устроена площадка — в <Link href="/rules" className="underline">Правилах площадки</Link> и{" "}
+        <Link href="/terms" className="underline">Пользовательском соглашении</Link>, обработка данных — в{" "}
         <Link href="/privacy" className="underline">Политике конфиденциальности</Link>.
       </p>
     </div>

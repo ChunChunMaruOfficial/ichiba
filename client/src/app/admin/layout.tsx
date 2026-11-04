@@ -14,6 +14,7 @@ const NAV = [
   ["/admin", "Обзор"],
   ["/admin/moderation", "Модерация"],
   ["/admin/disputes", "Споры"],
+  ["/admin/complaints", "Обращения"],
   ["/admin/listings", "Объявления"],
   ["/admin/users", "Пользователи"],
   ["/admin/brands", "Бренды"],

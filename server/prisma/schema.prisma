@@ -1034,3 +1034,31 @@ model BrandApplication {
   @@index([status, createdAt])
   @@index([userId])
 }
+
+/// «Жалобы и обращения» (/complaint): the electronic complaint form with an answer that a marketplace must run
+/// (Правила дистанционной торговли, пост. СМ № 31, п. 14.4). Kept when the author's account is deleted: it records how
+/// the platform answered.
+model Complaint {
+  id         String    @id @default(uuid())
+  /// The number the author sees («Обращение № 12»).
+  number     Int       @unique @default(autoincrement())
+  /// The signed-in author; null for a guest.
+  userId     String?
+  name       String
+  /// Where the answer goes.
+  email      String
+  /// DEAL | SELLER | ITEM | SITE | DATA | OTHER
+  topic      String
+  /// What it is about, as the author wrote it: a link to an item, a seller's nick, a deal number.
+  about      String?
+  text       String
+  /// NEW | ANSWERED
+  status     String    @default("NEW")
+  answer     String?
+  answeredAt DateTime?
+  /// The admin who answered.
+  answeredBy String?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, createdAt])
+}

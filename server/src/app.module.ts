@@ -54,6 +54,7 @@ import { UsersController, UsersService } from './users/users.service.js';
 import { NotifyEmailController } from './users/notify-email.js';
 import { TgPostParser } from './tg/parse.js';
 import { AdminBrandApplicationsController, BrandApplicationsController, BrandApplicationsService } from './brands/brand-applications.js';
+import { AdminComplaintsController, ComplaintsController, ComplaintsService } from './complaints/complaints.js';
 import { TgImportService } from './tg/tg-import.service.js';
 import { HandListingsService } from './listings/hand-listings.js';
 import { ShopImportService } from './shops/shop-import.service.js';
@@ -125,6 +126,8 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     MaintenanceController,
     BrandApplicationsController,
     AdminBrandApplicationsController,
+    ComplaintsController,
+    AdminComplaintsController,
     TelegramController,
     SeoController,
     LandingController,
@@ -154,6 +157,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     ShopImportService,
     HandListingsService,
     BrandApplicationsService,
+    ComplaintsService,
     RecommendationsService,
     RequestsService,
     DisputesService,

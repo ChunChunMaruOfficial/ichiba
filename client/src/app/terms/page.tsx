@@ -212,21 +212,28 @@ export default function TermsPage() {
           </Section>
 
           <Section id="contacts" n={16} title="Споры и контакты">
-            <p>Споры стараемся решать переговорами: напишите нам, мы ответим в течение 15 дней. Если договориться не получилось, спор рассматривается судом в соответствии с законодательством Республики Беларусь.</p>
             <p>
-              <b>{LEGAL.operator ?? "ichiba"}</b>
-              {LEGAL.unp && (
-                <>
-                  <br />
-                  УНП {LEGAL.unp}
-                </>
-              )}
-              {LEGAL.address && (
-                <>
-                  <br />
-                  {LEGAL.address}
-                </>
-              )}
+              Споры стараемся решать переговорами: напишите через{" "}
+              <Link href="/complaint" className="font-semibold text-ink underline">
+                форму жалобы
+              </Link>
+              , на почту или позвоните — ответим в течение 15 дней. Как мы разбираем жалобы, описано в{" "}
+              <Link href="/rules#complaints" className="font-semibold text-ink underline">
+                Правилах площадки
+              </Link>
+              . Если договориться не получилось, спор рассматривается судом в соответствии с законодательством Республики Беларусь.
+            </p>
+            <p>
+              <b>{LEGAL.operatorFull}</b>
+              <br />
+              УНП {LEGAL.unp}
+              <br />
+              Юридический адрес: {LEGAL.address}
+              <br />
+              <a href={LEGAL.phone.href} className="underline">
+                {LEGAL.phone.shown}
+              </a>
+              , {LEGAL.hours.shown}
               <br />
               <a href={`mailto:${LEGAL.email}`} className="underline">
                 {LEGAL.email}

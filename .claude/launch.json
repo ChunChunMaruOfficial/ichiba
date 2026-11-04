@@ -120,7 +120,8 @@
         "GMAIL_CLIENT_ID": "",
         "GOOGLE_CLIENT_ID": "",
         "MAIL_PROVIDER": "log",
-        "AUTH_DEV_ANY_CODE": "true"
+        "AUTH_DEV_ANY_CODE": "true",
+        "TELEGRAM_BOT_TOKEN": ""
       }
     },
     {

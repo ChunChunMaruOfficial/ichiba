@@ -4,14 +4,27 @@ import { SakuraBranch } from "./shop/sakura-branch";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { reopenConsent } from "@/lib/analytics";
-import { LEGAL, operatorLine } from "@/lib/legal";
-import { SLIDES, slideId } from "@/lib/presentation";
+import { LEGAL } from "@/lib/legal";
 import { Wordmark } from "./logo";
 import { focusedFlow } from "./header";
 import { Kamon } from "./shop/kamon";
 
 /** Not a page: the link brings the cookie notice back to change the choice. */
 const COOKIE_SETTINGS = "#cookie-settings";
+
+/** A link in the requisites under the columns: mail, phones (tel:) and the complaint form. */
+function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const className = "whitespace-nowrap underline-offset-4 hover:text-ink hover:underline";
+  return href.startsWith("/") ? (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  );
+}
 
 const COLUMNS: Array<[string, Array<[string, string]>]> = [
   // The category and brand pages (/c, /brands): linked from every page, so search engines find and weigh them.
@@ -52,14 +65,16 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
     "ichiba",
     [
       ["/contacts", "Контакты"],
+      ["/rules", "Правила площадки"],
       ["/terms", "Пользовательское соглашение"],
       ["/privacy", "Политика конфиденциальности"],
+      ["/complaint", "Жалобы и обращения"],
       [COOKIE_SETTINGS, "Настройки cookie"],
       ["/settings", "Настройки"],
+      // The company deck (app/presentation).
+      ["/presentation", "Презентация"],
     ],
   ],
-  // The company deck (app/presentation): its main slides as a list, each link opens the deck on that slide.
-  ["Презентация", [...SLIDES.filter((s) => s.footer).map((s): [string, string] => [`/presentation#${slideId(s.n)}`, s.title]), ["/presentation", "Вся презентация"]]],
 ];
 
 /**
@@ -78,7 +93,7 @@ export function Footer() {
     <footer className="aizome aizome-fade-in">
       <Kamon className="pointer-events-none absolute -right-16 top-10 size-[340px] text-ink opacity-[0.06] md:right-10 md:size-[420px]" />
       <div className="relative mx-auto max-w-[1440px] px-4 pt-14 md:px-6 md:pt-20">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_repeat(5,minmax(0,1fr))]">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))]">
           <div className="max-w-sm">
             <p className="font-display text-3xl font-bold leading-tight text-ink">Вещи с историей</p>
             <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
@@ -109,13 +124,28 @@ export function Footer() {
             </nav>
           ))}
         </div>
-        <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-sm text-muted">
-          <span>
-            © {new Date().getFullYear()} ichiba · Беларусь{LEGAL.operator && <> · {operatorLine()}</>} ·{" "}
-            <a href={`mailto:${LEGAL.email}`} className="underline-offset-4 hover:text-ink hover:underline">
-              {LEGAL.email}
-            </a>
-          </span>
+        <div className="mt-14 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-t border-line pt-5 text-sm text-muted">
+          {/* What a marketplace must show on its main page (Правила дистанционной торговли, пост. СМ № 31, п. 14.1):
+              who runs it, how to reach it and when, where buyers complain. */}
+          <div className="flex max-w-4xl flex-col gap-1.5 leading-relaxed">
+            <p>
+              © {new Date().getFullYear()} ichiba · Беларусь · <FooterLink href={`mailto:${LEGAL.email}`}>{LEGAL.email}</FooterLink> · <FooterLink href={LEGAL.phone.href}>{LEGAL.phone.shown}</FooterLink>, {LEGAL.hours.shown}
+            </p>
+            <p className="text-[13px]">
+              {LEGAL.operator}, УНП {LEGAL.unp}, дата регистрации {LEGAL.registered.shown} · {LEGAL.address}
+            </p>
+            <p className="text-[13px]">
+              Жалобы покупателей: <FooterLink href={LEGAL.complaintsPhone.href}>{LEGAL.complaintsPhone.shown}</FooterLink> или <FooterLink href="/complaint">форма на сайте</FooterLink>. Обращения о торговле
+              также принимает {LEGAL.authority.name}:{" "}
+              {LEGAL.authority.phones.map((p, i) => (
+                <span key={p.href}>
+                  {i > 0 && ", "}
+                  <FooterLink href={p.href}>{p.shown}</FooterLink>
+                </span>
+              ))}
+              .
+            </p>
+          </div>
           <span className="flex items-center gap-2 text-shu">
             <Kamon className="size-6" title="Герб ichiba: 市 в круге" />
             <span className="font-brush text-base tracking-[0.2em]" lang="ja">
