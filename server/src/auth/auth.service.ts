@@ -18,6 +18,7 @@ import type { CodePurpose, Prisma, User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { forgetSessionStatus } from './auth.guard.js';
 import { CodeSenderService } from './code-sender.service.js';
+import { botEnabled, tg } from '../telegram/bot-api.js';
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -30,7 +31,7 @@ const DUMMY_HASH = bcrypt.hashSync('ichiba-no-such-account', 10);
 type PendingRegistration = { username: string; passwordHash: string };
 const SIGNUP_TOKEN_TTL = '30m';
 /** Bump when the privacy policy changes materially; stored with each consent. */
-export const PRIVACY_VERSION = '2026-10-29';
+export const PRIVACY_VERSION = '2026-11-05';
 /** Dev only: any 6-digit code passes verification. Never enabled in production. */
 export const DEV_ANY_CODE = process.env.AUTH_DEV_ANY_CODE === 'true' && process.env.NODE_ENV !== 'production';
 
@@ -158,7 +159,8 @@ export class AuthService {
   /** Step 1: send a code to the phone or email. Same answer for new and existing accounts. */
   async start(rawLogin: string) {
     const login = normalizeLogin(rawLogin);
-    await this.issueCode(login.value, 'LOGIN');
+    const existing = await this.findByContact(login);
+    await this.issueCode(login.value, 'LOGIN', undefined, existing?.tgChatId);
     return { target: login.value, kind: login.kind, resendIn: RESEND_COOLDOWN_MS / 1000 };
   }
 
@@ -346,7 +348,7 @@ export class AuthService {
     const user = await this.findForReset(login);
     // Same response whether or not the account exists, to avoid account enumeration. The log says why nothing went
     // out, so «the code never came» can be told apart from a delivery problem.
-    if (user) await this.issueCode(login.value, 'RESET');
+    if (user) await this.issueCode(login.value, 'RESET', undefined, user.tgChatId);
     else this.logger.log(`[RESET] no account for ${login.value.replace(/^(.{2}).*@/, '$1***@')}: no code sent`);
     return { ok: true, target: login.value };
   }
@@ -465,7 +467,11 @@ export class AuthService {
   }
 
   /** Also used by users/notify-email.ts, whose codes carry the requesting account ({ userId }). */
-  async issueCode(target: string, purpose: CodePurpose, payload?: PendingRegistration | { userId: string }) {
+  /**
+   * `tgChatId`: the account's linked Telegram chat also gets the code (sign-in and reset of an existing account), so a
+   * letter lost to a spam folder doesn't lock anyone out. Delivered if either way worked.
+   */
+  async issueCode(target: string, purpose: CodePurpose, payload?: PendingRegistration | { userId: string }, tgChatId?: string | null) {
     const last = await this.prisma.verificationCode.findFirst({ where: { target, purpose }, orderBy: { createdAt: 'desc' } });
     if (last && Date.now() - last.createdAt.getTime() < RESEND_COOLDOWN_MS) {
       const wait = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - last.createdAt.getTime())) / 1000);
@@ -477,13 +483,23 @@ export class AuthService {
     const record = await this.prisma.verificationCode.create({
       data: { target, purpose, codeHash: await bcrypt.hash(code, 8), expiresAt: new Date(Date.now() + CODE_TTL_MS), payload: payload ?? undefined },
     });
-    try {
-      await this.codes.send(target, code, purpose);
-    } catch (e) {
+    const [mail, telegram] = await Promise.allSettled([this.codes.send(target, code, purpose), tgChatId && botEnabled() ? this.sendCodeToTelegram(tgChatId, code, purpose) : Promise.reject(null)]);
+    if (telegram.status === 'rejected' && telegram.reason) this.logger.warn(`[${purpose}] code to Telegram failed: ${(telegram.reason as Error).message}`);
+    if (telegram.status === 'fulfilled') this.logger.log(`[${purpose}] code sent to Telegram`);
+    if (mail.status === 'rejected' && telegram.status === 'rejected') {
       // Not delivered: don't start the resend cooldown or count it against the hourly limit.
       await this.prisma.verificationCode.delete({ where: { id: record.id } }).catch(() => undefined);
-      throw e;
+      throw mail.reason;
     }
+  }
+
+  private sendCodeToTelegram(chatId: string, code: string, purpose: CodePurpose) {
+    const what = purpose === 'RESET' ? 'сброса пароля' : purpose === 'LOGIN' ? 'входа' : 'подтверждения';
+    return tg('sendMessage', {
+      chat_id: chatId,
+      text: `Код для ${what} в ichiba: <b>${code}</b>\nДействует 10 минут. Если вы ничего не запрашивали — просто проигнорируйте.`,
+      parse_mode: 'HTML',
+    });
   }
 
   /** `scope` narrows the codes looked at, e.g. to those one account asked for. */

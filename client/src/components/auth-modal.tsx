@@ -340,7 +340,7 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
 
         {(step === "code" || step === "reset-confirm") && (
           <>
-            {step === "reset-confirm" && <p className="-mt-1 text-xs text-muted">Письма нет? Проверьте папку «Спам». Код придёт, если на эту почту есть аккаунт.</p>}
+            {step === "reset-confirm" && <p className="-mt-1 text-xs text-muted">Письма нет? Проверьте папку «Спам». Если к аккаунту привязан Telegram, код придёт и туда.</p>}
             <button type="button" disabled={resendIn > 0 || busy} onClick={step === "code" ? sendCode : requestReset} className="text-sm text-ink-2 disabled:text-muted">
               {resendIn > 0 ? `Отправить код ещё раз через ${resendIn} с` : "Отправить код ещё раз"}
             </button>
