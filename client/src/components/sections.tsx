@@ -181,7 +181,7 @@ export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: 
   const router = useRouter();
   const cards = wardrobes.map((w) => (
         <div key={w.id} className={clsx("reveal rounded-[22px] bg-surface p-2.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[var(--shadow-paper),inset_0_0_0_1px_var(--line)]", "@container", grid ? "min-w-0" : "w-64")}>
-          <button onClick={() => router.push(`/u/${w.username}`)} className="block w-full" aria-label={`Гардероб @${w.username}`}>
+          <button onClick={() => router.push(`/u/${w.username}`)} className="block w-full" aria-label={w.brand ? `Бренд ${w.brand}` : `Гардероб @${w.username}`}>
             {/* Fewer than four items fill the frame too (one tall photo, halves), never empty grey cells. */}
             <Collage
               className="aspect-square w-full rounded-[16px]"
@@ -195,11 +195,12 @@ export function WardrobeCards({ wardrobes, onFollowChange, grid }: { wardrobes: 
               the nick instead of cutting it to «@find_st…». */}
           <div className="mt-3 flex flex-col items-stretch gap-2 px-1 pb-0.5 @[17rem]:flex-row @[17rem]:items-center @[17rem]:justify-between">
             <div className="min-w-0">
+              {/* A brand by its name; «0 продано» is left out (see the wardrobe cover). */}
               <Link href={`/u/${w.username}`} className="block truncate font-semibold hover:underline">
-                @{w.username}
+                {w.brand || `@${w.username}`}
               </Link>
               <p className="truncate text-xs text-muted">
-                {itemsLabel(w.activeCount)} · {w.soldCount} продано
+                {[itemsLabel(w.activeCount), w.soldCount > 0 && `${w.soldCount} продано`].filter(Boolean).join(" · ")}
               </p>
             </div>
             <FollowButton seller={w} size="sm" onChange={(v) => onFollowChange(w.username, v)} />

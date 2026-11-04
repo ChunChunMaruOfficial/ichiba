@@ -12,7 +12,7 @@ import { ManekiNeko } from "@/components/shop/maneki-neko";
 import { Nefuda } from "@/components/shop/nefuda";
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconX, Input, OptionCard, Skeleton, StatusBadge, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, items as itemsLabel, plural } from "@/lib/labels";
+import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, items as itemsLabel, plural, PRICE_ON_REQUEST } from "@/lib/labels";
 import type { CartGroup, Deal, Me } from "@/lib/types";
 
 /** Guests have a cart too (kept in the browser); signing in is asked only at checkout. */
@@ -124,7 +124,7 @@ function SellerGroup({ group: g, me, index, onRemove, onSent, onPriceChanged }: 
   // Items «по договорённости» have no price: with some of them the total is a floor («от N BYN»), with only them
   // there is no number at all.
   const negotiable = available.filter((i) => i.price == null).length;
-  const totalLabel = !negotiable ? formatPrice(g.total) : negotiable === available.length ? "Договорная" : `от ${formatPrice(g.total)}`;
+  const totalLabel = !negotiable ? formatPrice(g.total) : negotiable === available.length ? PRICE_ON_REQUEST : `от ${formatPrice(g.total)}`;
   // The shop heads its own checkout box, where the total and the button are.
   const seller = (
     <div className="min-w-0">

@@ -30,6 +30,8 @@ export interface WardrobeData {
   seller: SellerSummary;
   isOwner: boolean;
   counts: Record<"all" | "top" | "bottom" | "shoes" | "accessories" | "new" | "selling" | "sold", number>;
+  /** The page in the order asked for. Missing from an older server: then the groups, joined, stand in for it. */
+  items?: Card[];
   groups: Array<{ section: "top" | "bottom" | "shoes" | "accessories"; items: Card[] }>;
   drafts: Card[];
   favoritesTotal?: number;
@@ -241,18 +243,22 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   }
 
   const s = data?.seller;
+  // A «Бренд» account goes by its brand name everywhere on its page; everyone else by the nickname.
+  const name = s?.brand || s?.username || username;
   const owner = !!data?.isOwner;
   const onFollow = (v: boolean) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false });
   const share = async () => {
     const url = `${window.location.origin}/u/${username}`;
-    if (navigator.share) await navigator.share({ title: `Гардероб @${username}`, url }).catch(() => {});
+    if (navigator.share) await navigator.share({ title: s?.brand ? `${s.brand} на ichiba` : `Гардероб @${username}`, url }).catch(() => {});
     else {
       await navigator.clipboard.writeText(url);
       toast("Ссылка на гардероб скопирована");
     }
   };
 
-  const totalShown = data ? data.groups.reduce((n, g) => n + g.items.length, 0) : 0;
+  // Joining the groups put every top before every bottom: «Дешевле» was cheap per section, and the mixed default lost its mix.
+  const shown = data ? (data.items ?? data.groups.flatMap((g) => g.items)) : [];
+  const totalShown = shown.length;
   const empty = data && data.counts.all === 0 && data.drafts.length === 0;
 
   return (
@@ -295,41 +301,50 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                 </span>
               )}
               <div className="min-w-0 max-w-full">
+                {/* A brand is named as a brand: «MIRARWEAR», the account's nickname only small under it. */}
                 <div className="flex min-w-0 items-center gap-3">
-                  <h1 title={s.username} className={clsx("truncate font-bold leading-[1.05] md:text-6xl", s.username.length > 16 ? "text-2xl" : s.username.length > 12 ? "text-3xl" : "text-4xl")}>
-                    {s.username}
+                  <h1 title={name} className={clsx("truncate font-bold leading-[1.05] md:text-6xl", name.length > 16 ? "text-2xl" : name.length > 12 ? "text-3xl" : "text-4xl")}>
+                    {name}
                   </h1>
                 </div>
                 <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
-                  {s.city ? `${s.city} · ` : ""}на ichiba с {sinceLabel(s.createdAt)}
+                  {[s.brand && `@${s.username}`, s.city, `на ichiba с ${sinceLabel(s.createdAt)}`].filter(Boolean).join(" · ")}
                 </p>
               </div>
             </div>
-            {/* The counts as three columns: easy to read at a glance, on a phone too. */}
-            <dl className="mt-6 grid max-w-md grid-cols-3 divide-x divide-[#f4efe6]/15 rounded-2xl bg-[#f4efe6]/[0.07] py-3 text-center ring-1 ring-[#f4efe6]/10">
+            {/* The counts in a line, as on the item page. A zero is left out: «0 продано · 0 подписчиков» in big type
+                made a brand new on ichiba look abandoned. */}
+            <dl className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[15px] text-ink-2">
               <div>
                 <dt className="sr-only">Вещей в продаже</dt>
-                <dd className="tabular text-2xl font-bold leading-none">{s.activeCount}</dd>
-                <dd className="mt-1 text-xs text-ink-2">{plural(s.activeCount, "вещь", "вещи", "вещей")}</dd>
-              </div>
-              <div>
-                <dt className="sr-only">Продано</dt>
-                <dd className="tabular text-2xl font-bold leading-none">{s.soldCount}</dd>
-                <dd className="mt-1 text-xs text-ink-2">продано</dd>
-              </div>
-              <div>
-                <dt className="sr-only">Подписчики</dt>
                 <dd>
-                  <button className="group/f w-full" onClick={() => setPeople("followers")}>
-                    <span className="tabular block text-2xl font-bold leading-none">{s.followers}</span>
-                    <span className="mt-1 block text-xs text-ink-2 group-hover/f:text-ink group-hover/f:underline">{plural(s.followers, "подписчик", "подписчика", "подписчиков")}</span>
-                  </button>
+                  <b className="tabular text-ink">{s.activeCount}</b> {plural(s.activeCount, "вещь", "вещи", "вещей")}
                 </dd>
               </div>
+              {s.soldCount > 0 && (
+                <div>
+                  <dt className="sr-only">Продано</dt>
+                  <dd>
+                    <b className="tabular text-ink">{s.soldCount}</b> продано
+                  </dd>
+                </div>
+              )}
+              {s.followers > 0 && (
+                <div>
+                  <dt className="sr-only">Подписчики</dt>
+                  <dd>
+                    <button className="-my-1 py-1 underline-offset-4 hover:text-ink hover:underline" onClick={() => setPeople("followers")}>
+                      <b className="tabular text-ink">{s.followers}</b> {plural(s.followers, "подписчик", "подписчика", "подписчиков")}
+                    </button>
+                  </dd>
+                </div>
+              )}
             </dl>
             <RatingInline rating={s.rating} username={s.username} className="mt-3" />
             <DealsInline count={s.completedDeals} className="mt-1" />
             {s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>}
+            {/* How buying here goes, for a visitor: the one rule that holds for every item. */}
+            {!owner && <p className="mt-3 text-sm text-ink-2">Оплата при получении · способ получения указан у каждой вещи</p>}
           </div>
           <div className="flex flex-wrap gap-2 empty:hidden max-md:[&>*]:flex-1">
             {!owner && me?.username !== s.username && (
@@ -374,7 +389,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             <ButtonLink href="/sell">+ Добавить первую вещь</ButtonLink>
           </EmptyState>
         ) : (
-          <EmptyState title={`У @${username} пока нет вещей`} hint="Подпишитесь, чтобы узнать о первой вещи" />
+          <EmptyState title={`У ${s?.brand || `@${username}`} пока нет вещей`} hint="Подпишитесь, чтобы узнать о первой вещи" />
         )
       ) : (
         <>
@@ -395,7 +410,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </div>
           ) : section === "all" ? (
             <div className="mt-4 flex flex-col gap-14">
-              <Grid items={data.groups.flatMap((g) => g.items)} owner={owner} onDone={() => mutate()} />
+              <Grid items={shown} owner={owner} onDone={() => mutate()} />
               {owner && data.drafts.length > 0 && (
                 <section>
                   <h2 className="mb-4 text-xl font-bold">
@@ -409,7 +424,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             <EmptyState title={`В разделе «${FILTERS.find(([k]) => k === section)?.[1]}» пока ничего нет`} />
           ) : (
             <div className="mt-4">
-              <Grid items={data.groups.flatMap((g) => g.items)} owner={owner} onDone={() => mutate()} />
+              <Grid items={shown} owner={owner} onDone={() => mutate()} />
             </div>
           )}
         </>

@@ -57,8 +57,16 @@ export const DEAL_STATUS: Record<RequestStatus, { buyer: string; seller: string;
 };
 
 export const formatPrice = (n: number | null | undefined) => (n == null ? "—" : `${n.toLocaleString("ru-RU")} BYN`);
-/** A listing's price as shown to buyers: «Договорная» when the seller left it open. */
-export const listingPrice = (l: { price: number | null; priceNegotiable?: boolean }) => (l.priceNegotiable ? "Договорная" : formatPrice(l.price));
+/**
+ * A price the seller left open, as buyers see it everywhere: they ask for it (a chat with the question ready) or name
+ * their own (an offer). «Договорная» read as a flea market on a brand's items and is no longer shown to buyers; the
+ * seller's own form still says «Цена договорная», which is what they choose.
+ */
+export const PRICE_ON_REQUEST = "Цена по запросу";
+/** A listing's price as shown to buyers: «Цена по запросу» when the seller left it open. */
+export const listingPrice = (l: { price: number | null; priceNegotiable?: boolean }) => (l.priceNegotiable ? PRICE_ON_REQUEST : formatPrice(l.price));
+/** Imports write «Уточняйте» where the size is unknown: on a card that says nothing, so no size is shown there. */
+export const shownSize = (size: string | null | undefined) => (size && size !== "Уточняйте" ? size : null);
 
 const rtf = new Intl.RelativeTimeFormat("ru", { numeric: "auto" });
 export function timeAgo(iso: string | null | undefined) {

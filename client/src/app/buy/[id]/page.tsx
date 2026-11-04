@@ -8,7 +8,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { Furoshiki } from "@/components/shop/furoshiki";
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconChevronLeft, Input, OptionCard, PriceTag, Skeleton, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice } from "@/lib/labels";
+import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, PRICE_ON_REQUEST } from "@/lib/labels";
 import type { Deal, ListingDetail, ListingResponse, Me } from "@/lib/types";
 import { track } from "@/lib/analytics";
 
@@ -76,8 +76,8 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
   if (pickOnItemPage) {
     return (
       <EmptyState
-        title={l.priceNegotiable ? "Цена договорная" : l.saleType === "AUCTION" ? "Это аукцион" : "Выберите размер"}
-        hint={l.priceNegotiable ? "Предложите свою цену или напишите продавцу на странице вещи" : l.saleType === "AUCTION" ? "Сделайте ставку на странице вещи" : "Размер выбирается на странице вещи"}
+        title={l.priceNegotiable ? PRICE_ON_REQUEST : l.saleType === "AUCTION" ? "Это аукцион" : "Выберите размер"}
+        hint={l.priceNegotiable ? "Узнайте цену у продавца или предложите свою на странице вещи" : l.saleType === "AUCTION" ? "Сделайте ставку на странице вещи" : "Размер выбирается на странице вещи"}
       >
         <ButtonLink href={`/item/${l.id}`}>Открыть вещь</ButtonLink>
       </EmptyState>

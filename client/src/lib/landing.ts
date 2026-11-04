@@ -1,3 +1,4 @@
+import type { PhotoUrls } from "./api";
 import type { Card } from "./types";
 
 /**
@@ -30,6 +31,8 @@ export interface LandingData {
   name: string;
   indexable: boolean;
   brand: string | null;
+  /** The brand's own account on ichiba («Бренд» status under this name): the brand page opens with it. */
+  account?: { username: string; name: string; bio: string | null; city: string | null; avatar: PhotoUrls | null } | null;
   gender: LandingEntry["gender"];
   category: string | null;
   subcategory: string | null;

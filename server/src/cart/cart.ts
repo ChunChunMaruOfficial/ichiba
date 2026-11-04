@@ -13,7 +13,7 @@ const DELIVERY_ORDER = ['IN_PERSON', 'DELIVERY'] as const;
 /** «Несколько размеров»: the size goes into the cart with the item. */
 const AddDto = z.object({ size: z.string().trim().min(1).max(20).optional() });
 const PreviewDto = z.object({ items: z.array(z.object({ listingId: z.uuid(), size: z.string().trim().max(20).nullish() })).max(50) });
-const CART_INCLUDE = { ...cardInclude, seller: { select: { id: true, username: true, city: true, bundleDiscounts: true, brandVerifiedAt: true } } } satisfies Prisma.ListingInclude;
+const CART_INCLUDE = { ...cardInclude, seller: { select: { id: true, username: true, city: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true } } } satisfies Prisma.ListingInclude;
 
 /**
  * Cart groups items by seller: one buy request per seller (frame 12). No quantities or coupons —

@@ -29,7 +29,7 @@ function describe(w: WardrobeData) {
     s.rating ? `рейтинг ${s.rating.avg.toFixed(1).replace(".", ",")} по ${s.rating.count} ${plural(s.rating.count, "отзыву", "отзывам", "отзывам")}` : null,
     s.city,
   ].filter(Boolean);
-  let text = `Гардероб @${s.username} на ichiba: ${parts.join(", ")}.`;
+  let text = `${s.brand ? `${s.brand} (@${s.username})` : `Гардероб @${s.username}`} на ichiba: ${parts.join(", ")}.`;
   if (bio) text += ` ${bio}.`;
   // The longest line about the page that still fits whole: a snippet never ends on «…» because of it.
   const tail = [" Цены, фото и замеры вещей, отзывы о продавце, доставка по Беларуси.", " Цены, фото и замеры, доставка по Беларуси.", " Доставка по Беларуси."].find((t) => text.length + t.length <= 160);
@@ -53,12 +53,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!w) return {};
   const path = `/u/${encodeURIComponent(w.seller.username)}`;
   const cover = w.groups.flatMap((g) => g.items).find((i) => i.cover)?.cover;
+  // A brand's link, put in its own channel, previews as the brand: «MIRARWEAR (@mirarwearfck)», not «Гардероб @…».
+  const title = w.seller.brand ? `${w.seller.brand} (@${w.seller.username})` : `Гардероб @${w.seller.username}`;
   return {
-    title: `Гардероб @${w.seller.username}`,
+    title,
     description: describe(w),
     alternates: { canonical: `${SITE_URL}${path}` },
     robots: w.counts.all === 0 ? { index: false, follow: true } : undefined,
-    openGraph: og(path, { type: "profile", title: `Гардероб @${w.seller.username}`, description: describe(w), images: cover ? [{ url: cover.urls.l, width: cover.width, height: cover.height }] : undefined }),
+    openGraph: og(path, { type: "profile", title, description: describe(w), images: cover ? [{ url: cover.urls.l, width: cover.width, height: cover.height }] : undefined }),
   };
 }
 
@@ -71,11 +73,14 @@ export default async function SellerWardrobePage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "ProfilePage",
     url: `${SITE_URL}/u/${encodeURIComponent(w.seller.username)}`,
+    // A brand is an organisation, as on its items' pages (item page JSON-LD); a private wardrobe is a person.
     mainEntity: {
-      "@type": "Person",
-      name: w.seller.username,
+      "@type": w.seller.brand ? "Organization" : "Person",
+      name: w.seller.brand || w.seller.username,
+      alternateName: w.seller.brand ? `@${w.seller.username}` : undefined,
+      logo: w.seller.brand && w.seller.avatar ? w.seller.avatar.l : undefined,
       description: w.seller.bio ?? undefined,
-      homeLocation: w.seller.city ? { "@type": "Place", name: w.seller.city } : undefined,
+      [w.seller.brand ? "location" : "homeLocation"]: w.seller.city ? { "@type": "Place", name: w.seller.city } : undefined,
       interactionStatistic: { "@type": "InteractionCounter", interactionType: "https://schema.org/FollowAction", userInteractionCount: w.seller.followers },
     },
   };

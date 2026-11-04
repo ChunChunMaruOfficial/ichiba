@@ -4,7 +4,7 @@ import { guestCart, useGuestCart } from "@/lib/guest-cart";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { BuyButton, CartButton } from "@/components/buy-buttons";
 import { DeliveryLabel } from "@/components/delivery-label";
@@ -28,7 +28,7 @@ import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { reportZoom, useItemEngagement } from "@/lib/engagement";
 import { useFavorite } from "@/lib/hooks";
-import { conditionLabel, formatPrice, listingPrice, plural, timeAgo } from "@/lib/labels";
+import { conditionLabel, deliveryWays, formatPrice, listingPrice, plural, PRICE_ON_REQUEST, shownSize, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
 import { withMarket } from "@/lib/market";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
@@ -124,6 +124,19 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
   const [flightIn] = useState(() => typeof document !== "undefined" && document.documentElement.dataset.photoFlight === "open");
   const [showMeasurements, setShowMeasurements] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // The toggle shows whenever the five lines actually cut the text: line breaks or a narrow phone clamp a short one too.
+  const [clamped, setClamped] = useState(false);
+  const measureDescription = useCallback((p: HTMLParagraphElement | null) => {
+    if (!p) return;
+    // Measured only while clamped: expanded, the text never overflows, and dropping the toggle then lost its focus.
+    const check = () => {
+      if (p.classList.contains("line-clamp-5")) setClamped(p.scrollHeight > p.clientHeight + 1);
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(p);
+    return () => observer.disconnect();
+  }, []);
   const [seller, setSeller] = useState(l.seller);
   const { isFavorite, toggle } = useFavorite({ id: l.id, title: l.title, isFavorite: l.isFavorite }, "product");
   const actions = useListingActions(refresh);
@@ -161,7 +174,7 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
   const auctionRunning = l.saleType === "AUCTION" && auction?.status === "ACTIVE";
   const showAuction = !!auction && (auctionRunning || auction.status === "SOLD" || (auction.status === "NO_SALE" && auction.bidsCount > 0));
   const canBuy = !l.isOwner && l.status === "PUBLISHED" && !activeRequest && !auctionRunning;
-  // «Цена договорная»: no «Купить» — the buyer names a price or writes to the seller.
+  // «Цена договорная» (buyers see «Цена по запросу»): no «Купить» — the buyer asks the price or names their own.
   const negotiable = !!l.priceNegotiable;
 
   // «Несколько размеров»: the buyer picks a size first; buying, the cart and offers carry it.
@@ -177,12 +190,24 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
   };
   const buy = () => !needSize() && requireAuth(() => router.push(`/buy/${l.id}${pickedSize ? `?size=${encodeURIComponent(pickedSize)}` : ""}`));
   const openOffer = () => !needSize() && requireAuth(() => setOfferOpen(true));
-  const ask = () =>
+  // «Узнать цену»: the question the buyer would type anyway, with the size they picked or a question about sizes.
+  const priceQuestion = `Здравствуйте! Подскажите, пожалуйста, цену на «${l.title}»${pickedSize ? `, размер ${pickedSize}` : ""}.${!pickedSize && !shownSize(l.size) ? " И какие размеры есть в наличии?" : ""}`;
+  // `draft`: a question put in the chat's field (the composer's saved draft), never sent for the buyer.
+  const ask = (draft?: string) =>
     requireAuth(
       async () => {
         try {
           const t = await api<{ id: string }>("/threads", { body: { listingId: l.id } });
-          track("ask_seller");
+          track("ask_seller", draft ? { kind: "price" } : undefined);
+          if (draft) {
+            try {
+              const key = `ichiba:chat-draft:${t.id}`;
+              // A draft the buyer already started in this chat stays theirs.
+              if (!localStorage.getItem(key)) localStorage.setItem(key, draft);
+            } catch {
+              /* storage blocked: the chat opens with an empty field */
+            }
+          }
           router.push(`/messages/${t.id}`);
         } catch (e) {
           toast(e instanceof ApiError ? e.message : "Не удалось открыть чат", { tone: "error" });
@@ -264,8 +289,11 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
               ),
             )}
           </span>
-        ) : (
+        ) : shownSize(l.size) ? (
           <b>{l.size}</b>
+        ) : (
+          // An import that found no size wrote «Уточняйте»: say who to ask instead.
+          <span className="text-ink-2">уточните у продавца</span>
         )}
         {/* «48» alone could be read as a shoe size: Russian clothing sizes say so. */}
         {l.sizeSystem === "RU" && <span className="ml-1.5 text-sm text-muted">RU</span>}
@@ -392,9 +420,15 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
             />
           )}
           {negotiable ? (
-            <Button size="lg" block onClick={openOffer} disabled={!canOffer}>
-              Предложить цену
-            </Button>
+            // An open price: first ask it (the chat opens with the question in the field), or name one's own.
+            <>
+              <Button size="lg" block onClick={() => ask(priceQuestion)}>
+                <IconMessage className="size-5" /> Узнать цену
+              </Button>
+              <Button size="lg" variant="secondary" block onClick={openOffer} disabled={!canOffer}>
+                Предложить свою цену
+              </Button>
+            </>
           ) : (
           <div className="grid auto-cols-fr grid-flow-col gap-2">
             <BuyButton onClick={buy} disabled={!canBuy} />
@@ -409,9 +443,12 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
           )}
         </>
       )}
-      <Button variant="secondary" onClick={ask}>
-        <IconMessage className="size-5" /> Задать вопрос
-      </Button>
+      {/* «Узнать цену» above already opens the same chat. */}
+      {!(negotiable && !sold && !auctionRunning) && (
+        <Button variant="secondary" onClick={() => ask()}>
+          <IconMessage className="size-5" /> Задать вопрос
+        </Button>
+      )}
       {isFavorite && (
         <button className="self-start text-sm text-ink-2 underline underline-offset-4 hover:text-ink" onClick={() => setCollectionOpen(true)}>
           Добавить в коллекцию
@@ -506,7 +543,10 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
               )}
             </div>
           </div>
-          {/* The price on a paper tag tied with a cinnabar thread (値札). */}
+          {/* The price on a paper tag tied with a cinnabar thread (値札); a price left open is a quiet line, no tag. */}
+          {negotiable && !sold ? (
+            <p className={clsx("mt-4 text-lg font-medium text-ink-2", auctionRunning && "hidden")}>{PRICE_ON_REQUEST}</p>
+          ) : (
           <p className={clsx("mt-4 flex items-center gap-3 pl-5", auctionRunning && "hidden")}>
             <PriceConvert byn={sold ? null : l.price}>
               <Nefuda className={clsx("tabular text-[28px] font-bold leading-tight", sold && "opacity-60")}>
@@ -515,6 +555,7 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
             </PriceConvert>
             {l.previousPrice && l.price && l.previousPrice > l.price && <s className="text-lg text-muted">{formatPrice(l.previousPrice)}</s>}
           </p>
+          )}
           {discount > 0 && !auctionRunning && (
             <p className="mt-1 text-sm text-ink-2">
               <span className="mr-1.5 rounded-md bg-ok-soft px-1.5 py-0.5 font-semibold text-ok">−{discount}%</span>
@@ -557,8 +598,8 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
           {/* The description reads as part of the item's details: right under the list of characteristics. */}
           {l.description && (
             <div className="mt-5">
-              <p className={clsx("whitespace-pre-line text-[15px] leading-relaxed", !expanded && "line-clamp-5")}>{l.description}</p>
-              {l.description.length > 280 && (
+              <p ref={measureDescription} className={clsx("whitespace-pre-line text-[15px] leading-relaxed", !expanded && "line-clamp-5")}>{l.description}</p>
+              {(l.description.length > 280 || clamped || expanded) && (
                 <button className="mt-1 text-sm font-medium text-ink-2 underline underline-offset-4" onClick={() => setExpanded((v) => !v)}>
                   {expanded ? "Свернуть" : "Показать полностью"}
                 </button>
@@ -570,22 +611,30 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
 
           <div className="mt-6">{l.isOwner ? ownerPanel : buyerPanel}</div>
 
-          <p className="mt-5 text-sm text-ink-2">
-            {l.city}
-            {l.city && l.deliveryOptions.length > 0 && " · "}
-            {l.deliveryOptions.map((d, i) => (
-              <span key={d}>
-                {i > 0 && ", "}
-                <DeliveryLabel method={d} />
-              </span>
+          {/* How buying goes, right under the buttons: no online payment, and how the item reaches the buyer. */}
+          <ul className="mt-5 flex flex-col gap-1.5 text-sm text-ink-2">
+            {!l.isOwner && !sold && (
+              <li>
+                <b className="font-semibold text-ink">Оплата при получении</b> — онлайн платить не нужно
+              </li>
+            )}
+            {deliveryWays(l.deliveryOptions).map((w) => (
+              <li key={w}>
+                <b className="font-semibold text-ink">
+                  {w === "DELIVERY" ? <DeliveryLabel method="DELIVERY" /> : "Передача лично"}
+                  {w === "DELIVERY" ? " по Беларуси" : l.city ? ` · ${l.city}` : ""}
+                </b>{" "}
+                — {w === "DELIVERY" ? "продавец отправит и пришлёт трек-номер, доставка оплачивается отдельно" : "место и время обсудите в чате"}
+              </li>
             ))}
-          </p>
+          </ul>
 
           <LooksWithItem listingId={l.id} />
 
           <p className="mt-6 text-xs text-muted">
             {/* «2 часа назад» is computed from the clock, which differs between the server render and hydration. */}
-            <span suppressHydrationWarning>{l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"}</span> · {l.viewsCount} просмотров · {l.favoritesCount} сохранений
+            <span suppressHydrationWarning>{l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"}</span> · {l.viewsCount} {plural(l.viewsCount, "просмотр", "просмотра", "просмотров")} · {l.favoritesCount}{" "}
+            {plural(l.favoritesCount, "сохранение", "сохранения", "сохранений")}
           </p>
         </div>
       </div>
@@ -593,14 +642,17 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
       {/* The seller as a little profile card: photo, counts and their wardrobe in one piece, like opening their profile. */}
       <section className="mt-16 overflow-hidden rounded-[28px] bg-surface shadow-[var(--shadow-paper)] ring-1 ring-line md:mt-24">
         <div className="flex items-center gap-4 p-5 md:gap-6 md:p-7">
-          <Link href={`/u/${seller.username}`} aria-label={`Профиль @${seller.username}`} className="shrink-0 transition-transform hover:scale-[1.03]">
+          <Link href={`/u/${seller.username}`} aria-label={seller.brand ? `Профиль бренда ${seller.brand}` : `Профиль @${seller.username}`} className="shrink-0 transition-transform hover:scale-[1.03]">
             <Avatar username={seller.username} avatar={seller.avatar} ring className="size-16 md:size-24" />
           </Link>
           <div className="min-w-0 flex-1">
+            {/* A brand by its name, the nickname small beside the city; zero counts are left out (see the wardrobe cover). */}
             <Link href={`/u/${seller.username}`} className="block truncate text-xl font-bold hover:underline md:text-2xl">
-              {seller.username}
+              {seller.brand || seller.username}
             </Link>
-            <p className="text-sm text-muted">{[seller.city, `на ichiba с ${new Date(seller.createdAt).getFullYear()}`].filter(Boolean).join(" · ")}</p>
+            <p className="text-sm text-muted">
+              {[seller.brand && `@${seller.username}`, seller.city, `на ichiba с ${new Date(seller.createdAt).getFullYear()}`].filter(Boolean).join(" · ")}
+            </p>
             <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
               <div>
                 <dt className="sr-only">В продаже</dt>
@@ -608,18 +660,22 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
                   <b className="tabular">{seller.activeCount}</b> {plural(seller.activeCount, "вещь", "вещи", "вещей")}
                 </dd>
               </div>
-              <div>
-                <dt className="sr-only">Продано</dt>
-                <dd>
-                  <b className="tabular">{seller.soldCount}</b> продано
-                </dd>
-              </div>
-              <div>
-                <dt className="sr-only">Подписчики</dt>
-                <dd>
-                  <b className="tabular">{seller.followers}</b> {plural(seller.followers, "подписчик", "подписчика", "подписчиков")}
-                </dd>
-              </div>
+              {seller.soldCount > 0 && (
+                <div>
+                  <dt className="sr-only">Продано</dt>
+                  <dd>
+                    <b className="tabular">{seller.soldCount}</b> продано
+                  </dd>
+                </div>
+              )}
+              {seller.followers > 0 && (
+                <div>
+                  <dt className="sr-only">Подписчики</dt>
+                  <dd>
+                    <b className="tabular">{seller.followers}</b> {plural(seller.followers, "подписчик", "подписчика", "подписчиков")}
+                  </dd>
+                </div>
+              )}
             </dl>
             <RatingInline rating={seller.rating} username={seller.username} className="mt-1.5" />
             <DealsInline count={seller.completedDeals} className="mt-1" />
@@ -640,7 +696,8 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
                 <Link href={itemHref(c)} className="group relative block aspect-[4/5] overflow-hidden bg-skeleton">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {c.cover && <img src={c.cover.urls.m} alt={c.title} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />}
-                  <span className="absolute bottom-1.5 left-1.5 rounded-md bg-kraft/95 px-1.5 py-0.5 text-[11px] font-bold tabular text-kraft-ink shadow-sm">{listingPrice(c)}</span>
+                  {/* Only a real price gets a tag on these small photos; an open one is asked on the item's page. */}
+                  {!c.priceNegotiable && <span className="absolute bottom-1.5 left-1.5 rounded-md bg-kraft/95 px-1.5 py-0.5 text-[11px] font-bold tabular text-kraft-ink shadow-sm">{listingPrice(c)}</span>}
                 </Link>
               </li>
             ))}

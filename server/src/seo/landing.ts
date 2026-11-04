@@ -285,7 +285,9 @@ export interface LandingStats {
   /** By the item's condition («Новое» or worn), not by the section it is shown in: «Вторичка» has new items too. */
   fresh: number;
   used: number;
+  /** Over the items that have a price; `priced` says how many those are (an open price, «по запросу», has none). */
   price: { min: number; max: number; median: number } | null;
+  priced: number;
   /** «в Минске» when most items are there, else «в Беларуси». */
   where: string;
 }
@@ -302,6 +304,7 @@ export function landingStats(p: Landing): LandingStats {
     fresh: p.rows.filter((r) => r.condition === 'NEW_WITH_TAGS').length,
     used: p.rows.filter((r) => r.condition && r.condition !== 'NEW_WITH_TAGS').length,
     price: prices.length ? { min: prices[0], max: prices.at(-1)!, median: prices[Math.floor((prices.length - 1) / 2)] } : null,
+    priced: prices.length,
     where: cityIn ? `в ${cityIn}` : 'в Беларуси',
   };
 }
@@ -347,9 +350,16 @@ export function landingText(p: Landing): LandingText {
           ? `${subject}, все новые.`
           : `${subject}.`,
   );
-  if (s.price) {
+  const range = s.price && (s.price.min === s.price.max ? `${s.price.min} р.` : `от ${s.price.min} до ${s.price.max} р.`);
+  if (s.price && s.priced < s.total) {
+    // Many of a brand's items have no price («по запросу»): the numbers are said for the items that have one, and how
+    // many those are. «Цены от 50 до 130 р., у половины — до 60 р.» once stood for 8 items out of 40.
+    intro.push(`Цена указана у ${s.priced} из ${s.total} ${plural(s.total, ['вещи', 'вещей', 'вещей'])}: ${range}; у остальных — по запросу.`);
+  } else if (s.price) {
     const half = s.total >= MIN_ITEMS && s.price.median > s.price.min && s.price.median < s.price.max ? `, у половины вещей — до ${s.price.median} р.` : '';
     intro.push(s.price.min === s.price.max ? `Цена — ${s.price.min} р.` : `Цены от ${s.price.min} до ${s.price.max} р.${half}`);
+  } else if (s.total) {
+    intro.push('Цены — по запросу у продавцов.');
   }
 
   // What is inside: kinds of items on a category or brand page, brands on a category page.
@@ -378,7 +388,7 @@ export function landingText(p: Landing): LandingText {
   const offer = mixed ? ', новые и б/у' : usedOnly ? ', б/у' : s.fresh === s.total ? ', новые' : '';
   const facts = [
     `${p.name}${brandRu && p.kind === 'brand' ? ` (${cap(brandRu)})` : ''} на ichiba: ${things(s.total)} ${s.where}${offer}.`,
-    s.price ? (s.price.min === s.price.max ? `Цена ${s.price.min} р.` : `Цены от ${s.price.min} до ${s.price.max} р.`) : null,
+    s.price ? `${s.price.min === s.price.max ? `Цена ${s.price.min} р.` : `Цены от ${s.price.min} до ${s.price.max} р.`}${s.priced < s.total ? ', часть — по запросу.' : ''}` : null,
     brands.length ? `${brands.slice(0, 3).map(([b]) => b).join(', ')}.` : null,
     delivered ? 'Доставка по Беларуси.' : null,
   ].filter((x): x is string => !!x);

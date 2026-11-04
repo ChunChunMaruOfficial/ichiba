@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { reportZoom, useImpression } from "@/lib/engagement";
 import { useFavorite } from "@/lib/hooks";
 import { usePinchZoom } from "@/lib/pinch-zoom";
-import { conditionLabel, formatPrice } from "@/lib/labels";
+import { conditionLabel, formatPrice, PRICE_ON_REQUEST, shownSize } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { itemHref } from "@/lib/item-path";
 import { AuctionTimer, auctionPrice } from "./auction";
@@ -93,7 +93,8 @@ function BuyButton({ card, className }: { card: Card; className?: string }) {
       }}
       className={clsx("btn-wa btn-wa-ink rounded-xl px-3 py-2 text-sm font-semibold disabled:bg-ink/10 disabled:text-ink-2", className)}
     >
-      Купить
+      {/* An open price is asked for on the item page (a chat with the question ready), so the button says so. */}
+      {card.priceNegotiable ? "Узнать цену" : "Купить"}
     </button>
   );
 }
@@ -152,7 +153,8 @@ function PriceTag({ price, previous, className }: { price: string; previous?: nu
     <span className={clsx("pl-1.5 drop-shadow-[0_2px_5px_rgb(0_0_0/0.28)]", className)}>
       <Nefuda className="tabular text-[15px] font-bold leading-6">
         <span className={previous ? "text-shu" : undefined}>{price}</span>
-        {previous && <s className="ml-1.5 text-xs font-medium opacity-70">{previous}</s>}
+        {/* 85 %, not lower: the struck price stays 5.3:1 on the kraft tag (70 % read 3.7:1, under WCAG AA). */}
+        {previous && <s className="ml-1.5 text-xs font-medium opacity-85">{previous}</s>}
       </Nefuda>
     </span>
   );
@@ -181,9 +183,16 @@ function CardMarks({ card, discount, sealsBelow }: { card: Card; discount: numbe
 }
 
 export function ItemCard({ card, variant = "grid", source = "search", eager, uniform }: { card: Card; variant?: "feed" | "grid"; source?: "feed" | "search" | "wardrobe"; eager?: boolean; uniform?: number }) {
-  const discounted = !card.auction && card.previousPrice && card.price && card.price < card.previousPrice;
-  const shopDiscount = !card.auction && card.originalPrice && card.price && card.originalPrice > card.price ? Math.round((1 - card.price / card.originalPrice) * 100) : 0;
-  const price = card.auction ? auctionPrice(card.auction) : card.priceNegotiable ? "Договорная" : card.price == null ? "Без цены" : formatPrice(card.price);
+  // One reference price per card: the higher of the shop's own price (originalPrice) and the price before a cut on
+  // ichiba (previousPrice). The struck number and the «−N%» mark both come from it: a card used to strike 65 and say
+  // −31%, counted from 84.
+  const higher = !card.auction && card.price ? Math.max(card.originalPrice ?? 0, card.previousPrice ?? 0) : 0;
+  const reference = card.price && higher > card.price ? higher : null;
+  const discount = reference ? Math.round((1 - card.price! / reference) * 100) : 0;
+  // A price left open is a quiet line, never the paper tag: «Цена по запросу» was the loudest thing on the card.
+  const negotiable = !card.auction && !!card.priceNegotiable;
+  const price = card.auction ? auctionPrice(card.auction) : negotiable ? PRICE_ON_REQUEST : card.price == null ? "Без цены" : formatPrice(card.price);
+  const size = shownSize(card.size);
   const { me } = useSession();
   // One's own items (drafts included) can't be liked, and only live items have «Похожие».
   const mine = me?.id === card.seller.id;
@@ -199,9 +208,9 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
         <Link href={itemHref(card)} className="relative block overflow-hidden rounded-[18px]">
           <ItemPhoto card={card} eager={eager} uniform={uniform} onZoom={onZoom} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />
-          <PriceTag price={price} previous={discounted ? card.previousPrice : null} className="absolute bottom-2.5 left-0 transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0" />
+          {!negotiable && <PriceTag price={price} previous={reference} className="absolute bottom-2.5 left-0 transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0" />}
           <span className="transition-opacity md:group-hover:opacity-0 md:[@media(hover:none)]:opacity-0">
-            <CardMarks card={card} discount={shopDiscount} />
+            <CardMarks card={card} discount={discount} />
           </span>
           <StatusMark card={card} className="absolute left-3 top-3" />
           <CardSeal card={card} stuck />
@@ -209,12 +218,16 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         {/* Desktop hover / keyboard focus panel; on tablets (no hover) it is always shown, else Buy and ♡ are out of reach. */}
         <div className="panel pointer-events-none absolute inset-x-2 bottom-2 hidden translate-y-1 rounded-[20px] p-3 opacity-0 transition-[opacity,transform] duration-200 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:block [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100">
           <p className="truncate text-sm font-medium">{card.title}</p>
-          <p className="tabular mt-0.5 text-lg font-bold">
-            <span className={discounted ? "text-shu" : undefined}>{price}</span>
-            {discounted && <s className="ml-2 text-sm font-normal text-muted">{card.previousPrice}</s>}
-          </p>
+          {negotiable ? (
+            <p className="mt-0.5 text-sm font-medium text-ink-2">{price}</p>
+          ) : (
+            <p className="tabular mt-0.5 text-lg font-bold">
+              <span className={reference ? "text-shu" : undefined}>{price}</span>
+              {reference && <s className="ml-2 text-sm font-normal text-muted">{reference}</s>}
+            </p>
+          )}
           <p className="truncate text-xs text-ink-2">
-            {[card.size, card.condition && conditionLabel(card.condition, card.hasTags)].filter(Boolean).join(" · ")}
+            {[size, card.condition && conditionLabel(card.condition, card.hasTags)].filter(Boolean).join(" · ")}
           </p>
           <div className="mt-2.5 flex items-center gap-2">
             <BuyButton card={card} className="flex-1" />
@@ -226,10 +239,14 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
             </Link>
           )}
         </div>
-        <p className="card-info -mx-1 mt-1 truncate rounded-lg px-1.5 py-0.5 text-[13px] text-ink-2 md:hidden">
-          {card.title}
-          {card.size && <span className="text-muted"> · {card.size}</span>}
-        </p>
+        <div className="card-info -mx-1 mt-1 rounded-lg px-1.5 py-0.5 text-[13px] text-ink-2 md:hidden">
+          <p className="truncate">
+            {card.title}
+            {size && <span className="text-muted"> · {size}</span>}
+          </p>
+          {/* Phones: no tag on the photo for an open price, so the caption says it. */}
+          {negotiable && <p className="text-xs text-muted">{price}</p>}
+        </div>
       </article>
     );
   }
@@ -244,7 +261,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         <CardSeal card={card} />
         {!mine && <HeartButton card={card} source={source} className="absolute right-2.5 top-2.5" />}
         <span className={clsx("transition-opacity md:group-hover:opacity-0", !mine && "md:[@media(hover:none)]:opacity-0")}>
-          <CardMarks card={card} discount={shopDiscount} sealsBelow />
+          <CardMarks card={card} discount={discount} sealsBelow />
         </span>
         {!mine && (
           // Shown on hover or focus; on tablets (no hover) always, as there is no other way to reach it.
@@ -258,9 +275,9 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         <Link href={itemHref(card)} className="block">
           <div className={clsx("px-0.5", hasSeal(card) && "pr-10")}>
             <p className="tabular text-[15px] font-bold">
-              <span className={discounted ? "text-shu" : undefined}>{price}</span>
-              {discounted && <s className="ml-1.5 text-sm font-normal text-muted">{card.previousPrice}</s>}
-              {card.size && <span className="ml-2 text-sm font-normal text-ink-2">{card.size}</span>}
+              {negotiable ? <span className="text-sm font-medium text-ink-2">{price}</span> : <span className={reference ? "text-shu" : undefined}>{price}</span>}
+              {reference && <s className="ml-1.5 text-sm font-normal text-muted">{reference}</s>}
+              {size && <span className="ml-2 text-sm font-normal text-ink-2">{size}</span>}
             </p>
             <p className="truncate text-sm">{card.title}</p>
             {card.scheduledAt ? (
@@ -272,12 +289,14 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
         </Link>
         {!mine && (
           <div className="flex items-center justify-between gap-2 px-0.5">
-            <Link href={`/u/${card.seller.username}`} className="truncate text-xs text-muted hover:text-ink">
-              @{card.seller.username}
+            {/* -my-1 py-1: a 24 px tap height (WCAG 2.5.8) for these two small links, without moving the row. */}
+            {/* A brand signs its items with its name («MIRARWEAR»), not with its account's nickname. */}
+            <Link href={`/u/${card.seller.username}`} className="-my-1 truncate py-1 text-xs text-muted hover:text-ink">
+              {card.seller.brand || `@${card.seller.username}`}
             </Link>
             {/* "Похожие" as on Wildberries: the closest matches to this card. */}
             {live && (
-              <Link href={`/item/${card.id}/similar`} className="shrink-0 text-xs font-medium text-ink-2 hover:text-ink">
+              <Link href={`/item/${card.id}/similar`} className="-my-1 shrink-0 py-1 text-xs font-medium text-ink-2 hover:text-ink">
                 Похожие
               </Link>
             )}

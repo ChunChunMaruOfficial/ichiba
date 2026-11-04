@@ -1478,6 +1478,8 @@ export class ListingsService {
       seller,
       isOwner,
       counts,
+      /** The page in the order asked for (sort, or the mixed default with sold last): the grid shows this. */
+      items: ordered,
       groups,
       drafts: isOwner ? mix(await this.cards(draftRows, viewerId)) : [],
       offset,

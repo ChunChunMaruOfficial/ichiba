@@ -7,7 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import { guestCart } from "@/lib/guest-cart";
-import { conditionLabel, listingPrice } from "@/lib/labels";
+import { conditionLabel, listingPrice, shownSize } from "@/lib/labels";
 import type { Card } from "@/lib/types";
 import { itemHref } from "@/lib/item-path";
 import { useSession } from "./session";
@@ -336,9 +336,10 @@ export function SwipeDeck({
                 </div>
                 <div className="flex shrink-0 items-end justify-between gap-3 px-5 pb-4 pt-3" style={{ height: INFO_H }}>
                   <div className="min-w-0">
-                    <p className="tabular text-2xl font-semibold leading-tight">{listingPrice(card)}</p>
+                    {/* An open price is a quiet line, not the card's biggest words; a brand signs with its name. */}
+                    <p className={clsx("leading-tight", card.priceNegotiable ? "text-lg font-medium text-ink-2" : "tabular text-2xl font-semibold")}>{listingPrice(card)}</p>
                     <p className="truncate text-[15px]">{card.title}</p>
-                    <p className="truncate text-sm text-muted">{[card.size, card.condition && conditionLabel(card.condition, card.hasTags), `@${card.seller.username}`].filter(Boolean).join(" · ")}</p>
+                    <p className="truncate text-sm text-muted">{[shownSize(card.size), card.condition && conditionLabel(card.condition, card.hasTags), card.seller.brand || `@${card.seller.username}`].filter(Boolean).join(" · ")}</p>
                   </div>
                 </div>
               </article>

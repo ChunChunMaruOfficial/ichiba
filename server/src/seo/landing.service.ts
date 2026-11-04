@@ -1,7 +1,9 @@
 import { Controller, Get, Injectable, NotFoundException, Query } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../auth/auth.guard.js';
+import { brandKey } from '../catalog/brands.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
+import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildLandings, emptyLanding, type Landing, landingCrumbs, landingLinks, landingStats, landingText, type LiveRow, normalizeLandingPath } from './landing.js';
 
@@ -73,6 +75,7 @@ export class LandingService {
       name: p.name,
       indexable: p.indexable,
       brand: p.brand?.name ?? null,
+      account: p.kind === 'brand' && p.brand ? await this.brandAccount(p.brand.name) : null,
       gender: p.gender,
       category: p.category || null,
       subcategory: p.subcategory,
@@ -84,6 +87,22 @@ export class LandingService {
       links: landingLinks(p, pages),
       sections: sections.filter((x) => x.total > 0),
     };
+  }
+
+  /**
+   * The brand's own account on ichiba, when one has the «Бренд» status under this name (matched by brandKey, the key
+   * the brand pages are built by): its page then opens with the brand itself, not only with its items.
+   */
+  private async brandAccount(name: string) {
+    const key = brandKey(name);
+    if (!key) return null;
+    const brands = await this.prisma.user.findMany({
+      where: { brandVerifiedAt: { not: null }, brandName: { not: null } },
+      select: { username: true, brandName: true, bio: true, city: true, avatar: { select: { key: true, provider: true } } },
+      orderBy: { brandVerifiedAt: 'asc' },
+    });
+    const u = brands.find((b) => brandKey(b.brandName!) === key);
+    return u ? { username: u.username, name: u.brandName!, bio: u.bio, city: u.city, avatar: u.avatar ? photoUrls(u.avatar) : null } : null;
   }
 }
 

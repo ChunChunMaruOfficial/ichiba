@@ -95,6 +95,15 @@ test('the text says only what the items are: count, condition, prices, cities', 
   assert.equal(t.intro.at(-1), 'Продают в Минске и Гродно; 5 из 8 — с доставкой по Беларуси.');
 });
 
+test('prices are told for the items that have one, and how many those are', () => {
+  const pages = buildLandings([...many(2, { price: 50 }), ...many(1, { price: 130 }), ...many(5, { price: null, priceNegotiable: true })]);
+  const t = landingText(pages.get('c/jeans/flare')!);
+  assert.equal(t.intro[1], 'Цена указана у 3 из 8 вещей: от 50 до 130 р.; у остальных — по запросу.');
+  assert.match(t.description, /Цены от 50 до 130 р\., часть — по запросу\./);
+  const open = landingText(buildLandings(many(3, { price: null, priceNegotiable: true })).get('c/jeans/flare')!);
+  assert.equal(open.intro[1], 'Цены — по запросу у продавцов.');
+});
+
 test('new and worn items are counted by condition, not by section', () => {
   const pages = buildLandings([...many(4, { condition: 'NEW_WITH_TAGS', market: 'RESALE' }), ...many(3, { market: 'RESALE' })]);
   const t = landingText(pages.get('c/jeans')!);

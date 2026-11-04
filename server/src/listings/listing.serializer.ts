@@ -4,7 +4,7 @@ import { seoOf } from '../seo/seo.service.js';
 
 export const cardInclude = {
   photos: { orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 1 },
-  seller: { select: { id: true, username: true, brandVerifiedAt: true } },
+  seller: { select: { id: true, username: true, brandVerifiedAt: true, brandName: true } },
   video: { select: { id: true } },
   auctions: {
     where: { status: 'ACTIVE' },
@@ -53,7 +53,8 @@ export function serializeCard(l: CardListing, favoriteIds?: Set<string>) {
     category: l.category,
     status: l.status,
     cover: cover ? { width: cover.width, height: cover.height, urls: photoUrls(cover) } : null,
-    seller: { id: l.seller.id, username: l.seller.username },
+    /** `brand`: a «Бренд» seller's name, which the card shows instead of the nickname; null for everyone else. */
+    seller: { id: l.seller.id, username: l.seller.username, brand: l.seller.brandVerifiedAt ? (l.seller.brandName ?? l.seller.username) : null },
     /** The seller has the «Бренд» status: the card carries the brand seal. */
     isBrand: !!l.seller.brandVerifiedAt,
     /** The seals the brand chose for this item, in order; none for private sellers. */

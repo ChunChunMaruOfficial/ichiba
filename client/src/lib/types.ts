@@ -128,7 +128,8 @@ export interface Card {
   category: string | null;
   status: ListingStatus;
   cover: Cover | null;
-  seller: { id: string; username: string };
+  /** `brand`: a «Бренд» seller's name, shown instead of the nickname (missing from an older server). */
+  seller: { id: string; username: string; brand?: string | null };
   isFavorite: boolean;
   /** The seller has the «Бренд» status. */
   isBrand?: boolean;

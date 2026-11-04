@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -6,6 +7,7 @@ import { articlesForCatalog } from "@/lib/journal";
 import { landingHref, type LandingData } from "@/lib/landing";
 import { og } from "@/lib/og";
 import { jsonLd, serverFetch, SITE_URL } from "@/lib/server";
+import { Avatar } from "./avatar";
 import { ArticleCard } from "./journal/article-card";
 import { Masonry } from "./masonry";
 import { ButtonLink, EmptyState } from "./ui";
@@ -68,6 +70,8 @@ export async function LandingPage({ root, params }: { root: Root; params: Params
   if (!d) throw new Error("Страница временно недоступна");
   // One address per page: «/c/Jeans/» goes to «/c/jeans».
   if (asked !== d.path) permanentRedirect(landingHref(d.path));
+  // A brand that sells on ichiba under its own account (server: LandingService.brandAccount).
+  const account = d.account ?? null;
   // The journal's articles about this brand or category (front matter `catalog`): the guide beside the goods.
   const articles = await articlesForCatalog(d.path);
 
@@ -105,8 +109,29 @@ export async function LandingPage({ root, params }: { root: Root; params: Params
           ),
         )}
       </nav>
-      <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{d.name}</h1>
-      <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-ink-2">{d.intro.join(" ")}</p>
+      {account ? (
+        // The brand's own page opens with the brand: its photo, its name as the H1, its words, a way to its storefront.
+        // The search phrase («Одежда, сумки и аксессуары MIRARWEAR») stays in the <title> and moves under the name.
+        <header className="mt-2">
+          <div className="flex items-center gap-4 md:gap-5">
+            <Avatar username={account.username} avatar={account.avatar} ring className="size-16 shrink-0 md:size-20" />
+            <div className="min-w-0">
+              {/* Stepped down for a long name (as on the wardrobe cover) and allowed to wrap: «I LOVE REDHEAD» is never cut. */}
+              <h1 className={clsx("font-bold leading-[1.05] tracking-tight md:text-5xl", account.name.length > 16 ? "text-2xl" : account.name.length > 10 ? "text-3xl" : "text-4xl")}>
+                {account.name}
+              </h1>
+              <p className="mt-1 text-[15px] text-ink-2">{[d.name, account.city].filter(Boolean).join(" · ")}</p>
+            </div>
+          </div>
+          {account.bio && <p className="mt-4 max-w-[65ch] text-[17px] leading-relaxed">{account.bio}</p>}
+          <ButtonLink href={`/u/${encodeURIComponent(account.username)}`} variant="secondary" className="mt-4">
+            Витрина бренда
+          </ButtonLink>
+        </header>
+      ) : (
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{d.name}</h1>
+      )}
+      <p className={clsx("max-w-[70ch] text-[15px] leading-relaxed text-ink-2", account ? "mt-6" : "mt-3")}>{d.intro.join(" ")}</p>
 
       {d.links.length > 0 && (
         <div className="mt-5 flex flex-col gap-3">
