@@ -380,14 +380,16 @@ export class ListingsService {
    * `trustedPhotos`: the photos were checked by hand as different items (a shop import), so the photo half of the
    * duplicate check is skipped; the text check and moderation still apply.
    * `allowUnchecked`: an import may go live while no model can look at the photos (cron checks them later).
+   * `trustedContent`: the item was checked by hand by the site's owner (a hand batch): what automatic moderation
+   * rejects goes live anyway and waits for an admin in the review queue with the AI's reasons, instead of being lost.
    */
-  async publish(userId: string, id: string, opts: { trustedPhotos?: boolean; allowUnchecked?: boolean } = {}) {
+  async publish(userId: string, id: string, opts: { trustedPhotos?: boolean; allowUnchecked?: boolean; trustedContent?: boolean } = {}) {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'PUBLISHED') return this.getForOwner(userId, id);
     if (!['DRAFT', 'HIDDEN'].includes(listing.status)) throw new ConflictException({ message: 'Эту вещь нельзя опубликовать' });
     if (listing.hiddenByAdmin) throw new ConflictException({ message: 'Объявления этого аккаунта скрыты администрацией' });
 
-    const verdict = await this.checkPublishable(userId, listing, opts.trustedPhotos, opts.allowUnchecked);
+    const verdict = await this.checkPublishable(userId, listing, opts.trustedPhotos, opts.allowUnchecked, opts.trustedContent);
     // An account whose listings an admin hid: new items (the shop import too) are saved hidden as well.
     const seller = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { listingsHiddenAt: true, brandVerifiedAt: true, catalogApprovedAt: true } });
     const hidden = !!seller.listingsHiddenAt;
@@ -451,7 +453,7 @@ export class ListingsService {
   }
 
   /** Required fields, then automatic moderation (rules + AI ensemble); violations come back as field errors. */
-  private async checkPublishable(userId: string, listing: Listing, trustedPhotos = false, allowUnchecked = false) {
+  private async checkPublishable(userId: string, listing: Listing, trustedPhotos = false, allowUnchecked = false, trustedContent = false) {
     const keys = await this.moderationKeys(userId, listing.id);
     const photoCount = await this.prisma.photo.count({ where: { listingId: listing.id } });
     const fields = this.publishErrors(listing, photoCount);
@@ -466,7 +468,10 @@ export class ListingsService {
       });
     }
     const verdict = await this.moderator.check(listing, keys, { allowUnchecked });
-    if (verdict.decision === 'reject') throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields, retry: !!verdict.retry });
+    if (verdict.decision === 'reject') {
+      if (trustedContent) return { ...verdict, decision: 'review' as const, reasons: ['Выставлено вручную владельцем площадки, автомодерация была против', ...verdict.reasons] };
+      throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields, retry: !!verdict.retry });
+    }
     return verdict;
   }
 

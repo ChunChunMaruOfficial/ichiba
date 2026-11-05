@@ -129,7 +129,8 @@ export class HandListingsService implements OnApplicationBootstrap {
           }
           const draft = await this.listings.create(seller.id, { ...item.input, photos, deliveryOptions: ['IN_PERSON', 'DELIVERY'], acceptsOffers: true, saleType: 'FIXED' });
           try {
-            await this.listings.publish(seller.id, draft.id, { trustedPhotos: true, allowUnchecked: true });
+            // The owner checked every item by hand: the AI's objections go to the admin queue, not against the item.
+            await this.listings.publish(seller.id, draft.id, { trustedPhotos: true, allowUnchecked: true, trustedContent: true });
           } catch (e) {
             await this.listings.remove(seller.id, draft.id).catch(() => undefined);
             throw e;
