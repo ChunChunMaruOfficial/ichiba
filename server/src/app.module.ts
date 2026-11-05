@@ -55,6 +55,7 @@ import { NotifyEmailController } from './users/notify-email.js';
 import { TgPostParser } from './tg/parse.js';
 import { AdminBrandApplicationsController, BrandApplicationsController, BrandApplicationsService } from './brands/brand-applications.js';
 import { AdminComplaintsController, ComplaintsController, ComplaintsService } from './complaints/complaints.js';
+import { MediaBackupService } from './backup/media-backup.js';
 import { TgImportService } from './tg/tg-import.service.js';
 import { HandListingsService } from './listings/hand-listings.js';
 import { ShopImportService } from './shops/shop-import.service.js';
@@ -158,6 +159,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     HandListingsService,
     BrandApplicationsService,
     ComplaintsService,
+    MediaBackupService,
     RecommendationsService,
     RequestsService,
     DisputesService,

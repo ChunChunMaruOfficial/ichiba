@@ -39,6 +39,7 @@ CLOUDINARY_CLOUD_NAME=…  CLOUDINARY_API_KEY=…  CLOUDINARY_API_SECRET=…   #
 GEMINI_API_KEY=…  MISTRAL_API_KEY=…  ZAI_API_KEY=…                       # по желанию, ИИ
 TG_PASSWORD_HASHES='{"nenetstore":"$2b$10$…"}'   SHOP_PASSWORD_HASHES='{"iloveredhead":"$2b$10$…"}'   # пароли аккаунтов зеркалируемых магазинов (bcrypt)
 HAND_PASSWORD_HASHES='{"винтшмот":"$2b$10$…"}'                                                      # то же для продавцов, выставленных вручную (hand-listings.ts)
+BACKUP_S3_ENDPOINT=${{shared.BACKUP_S3_ENDPOINT}} …  BACKUP_MEDIA_PING_URL=${{shared.BACKUP_MEDIA_PING_URL}}   # копия фото в R2 каждую ночь; базу копирует cron-сервис db-backup (docs/BACKUPS.md)
 # По желанию: TG_IMPORT=off / SHOP_IMPORT=off выключают импорт магазинов (в production он включён по умолчанию);
 # TRUST_PROXY=<число хопов> — сколько прокси перед API считать своими (на Railway по умолчанию 2: edge Railway
 # переписывает X-Forwarded-For в «посетитель, узел edge» и ставит X-Real-IP, а rewrite Next.js передаёт заголовки
