@@ -606,6 +606,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     account: { bio: 'sss1lv3r — продажа личного гардероба: винтаж, кожа, деним, архивные вещи. Возврата нет.', brandName: 'sss1lv3r', logo: 'logo.jpg', catalog: true },
     items: [
       {
+        cover: '2062-1.jpg',
         photos: ['2062-0.jpg', '2062-1.jpg', '2062-2.jpg', '2062-3.jpg'],
         input: {
           title: 'Чёрные лаковые туфли Mary Jane на каблуке',
@@ -616,6 +617,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '2098-3.jpg',
         photos: ['2098-0.jpg', '2098-1.jpg', '2098-2.jpg', '2098-3.jpg', '2098-4.jpg', '2098-5.jpg', '2098-6.jpg'],
         input: {
           title: 'Кожаные ботинки Michael Kors',
@@ -656,6 +658,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '3436-1.jpg',
         photos: ['3436-0.jpg', '3436-1.jpg', '3436-2.jpg', '3436-3.jpg', '3436-4.jpg', '3436-5.jpg', '3436-6.jpg'],
         input: {
           title: 'Винтажная кожаная куртка с эффектом патины',
@@ -996,6 +999,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '4503-1.jpg',
         photos: ['4503-0.jpg', '4503-1.jpg', '4503-2.jpg', '4503-3.jpg', '4503-4.jpg', '4503-5.jpg', '4503-6.jpg'],
         input: {
           title: 'Чёрный бомбер N2B с капюшоном',
@@ -1216,6 +1220,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '4759-3.jpg',
         photos: ['4759-0.jpg', '4759-1.jpg', '4759-2.jpg', '4759-3.jpg'],
         input: {
           title: 'Камуфляжное зип-худи Athletic с дистрессом',
@@ -1296,6 +1301,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '4810-2.jpg',
         photos: ['4810-0.jpg', '4810-1.jpg', '4810-2.jpg', '4810-3.jpg', '4810-4.jpg'],
         input: {
           title: 'Винтажный кожаный ремень с заклёпками (Италия)',
@@ -1727,6 +1733,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '841-2.jpg',
         photos: ['841-0.jpg', '841-1.jpg', '841-2.jpg'],
         input: {
           title: 'Высокие кеды Diesel с дистрессом',
@@ -1932,6 +1939,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '1411-1.jpg',
         photos: ['1411-0.jpg', '1411-1.jpg', '1411-2.jpg', '1411-3.jpg'],
         input: {
           title: 'Сумка George Gina & Lucy utility',
