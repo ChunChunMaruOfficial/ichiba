@@ -8,6 +8,7 @@ import { LEGAL } from "@/lib/legal";
 import { Wordmark } from "./logo";
 import { focusedFlow } from "./header";
 import { Kamon } from "./shop/kamon";
+import { LiveCount } from "./live-count";
 
 /** Not a page: the link brings the cookie notice back to change the choice. */
 const COOKIE_SETTINGS = "#cookie-settings";
@@ -99,11 +100,13 @@ export function Footer() {
             <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
               Маркетплейс одежды из открытых гардеробов Беларуси. Продавайте то, что не носите, и находите то, что давно искали.
             </p>
-            {/* Brand pages are about the brands' own things: no call to sell one's own there. */}
-            {!pathname.startsWith("/brands") && (
+            {/* On «Вторичка» the call to sell one's own things; everywhere else how many things the whole site has on sale. */}
+            {pathname.startsWith("/resale") ? (
               <Link href="/sell" className="btn-wa btn-wa-shu mt-6 inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-semibold">
                 Продать вещь
               </Link>
+            ) : (
+              <LiveCount className="mt-6" />
             )}
           </div>
           {COLUMNS.map(([title, links]) => (

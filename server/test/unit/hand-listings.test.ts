@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { categoryBySlug, COLOR_VALUES, MATERIALS, SIZES, sizeRequired, STYLE_TAGS } from '../../src/catalog/catalog.js';
-import { BATCHES } from '../../src/listings/hand-listings.js';
+import { BATCHES } from '../../src/listings/hand-batches.js';
 
 const SEED = resolve(import.meta.dirname, '../../seed-data');
 

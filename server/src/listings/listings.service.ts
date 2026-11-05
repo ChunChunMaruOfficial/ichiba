@@ -1188,6 +1188,11 @@ export class ListingsService {
     return { totalVisible: shared.totalVisible, brandsVisible: shared.brandsVisible, brands, categories: shared.categories, forYouAvailable: !!viewerId };
   }
 
+  /** How many things are on sale right now, for the footer of every page: one number, at most a minute old. */
+  publicCount() {
+    return this.cache.get('count', 60_000, async () => ({ total: await this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED } } }) }));
+  }
+
   private async homeShared() {
     const [totalVisible, brandsVisible, categoryCounts] = await Promise.all([
       this.prisma.listing.count({ where: { status: { in: VISIBLE_IN_FEED } } }),

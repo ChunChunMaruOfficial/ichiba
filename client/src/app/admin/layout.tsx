@@ -19,6 +19,7 @@ const NAV = [
   ["/admin/users", "Пользователи"],
   ["/admin/brands", "Бренды"],
   ["/admin/log", "Журнал"],
+  ["/admin/imports", "Импорты"],
   ["/admin/db", "База данных"],
 ];
 

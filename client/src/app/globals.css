@@ -245,6 +245,13 @@ h1, h2 {
   display: none;
 }
 
+/* The live point under the footer's count: a ring that swells and fades every few seconds. */
+@keyframes live-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  60%, 100% { transform: scale(2.6); opacity: 0; }
+}
+.live-ping { animation: live-ping 3.2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
 @keyframes shimmer {
   0% { background-position: -400px 0; }
   100% { background-position: 400px 0; }

@@ -40,6 +40,12 @@ export class ListingsController {
   }
 
   @Public()
+  @Get('count')
+  count() {
+    return this.listings.publicCount();
+  }
+
+  @Public()
   @Get('search')
   search(@Query(new ZodPipe(SearchQuery)) q: SearchQueryT, @CurrentUser() user?: AuthUser) {
     return this.listings.search(q, user?.id);
