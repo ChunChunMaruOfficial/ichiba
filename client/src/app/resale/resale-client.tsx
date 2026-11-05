@@ -9,7 +9,7 @@ import { fullCollage, SectionHeader, SellBand, WardrobeCards } from "@/component
 import { useSession } from "@/components/session";
 import { DragRow } from "@/components/drag-row";
 import { SwipeDeck } from "@/components/swipe-deck";
-import { PhotoResults, SearchChips, SearchResults, useSearching } from "@/components/search-view";
+import { PhotoResults, SearchChips, SearchResults, SearchSort, useSearching } from "@/components/search-view";
 import { ButtonLink, Chip, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { RESALE_CHIPS, RESALE_PAGE, RESALE_WARDROBES, resaleChip, resaleFeedKey } from "@/lib/resale-feed";
@@ -101,7 +101,8 @@ function ResaleFeed() {
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
-        <DragRow viewportClassName="-mx-4 -my-2 md:-mx-6" className="items-center gap-3 px-4 py-2 md:px-6">
+        <div className="flex items-center gap-3">
+        <DragRow viewportClassName="-my-2 -ml-4 min-w-0 flex-1 md:-ml-6" className="items-center gap-3 px-4 py-2 md:px-6">
           {modeSwitch}
           <div className="flex shrink-0 gap-2">
             {chips.map(([key, label]) => (
@@ -112,6 +113,13 @@ function ResaleFeed() {
             <SearchChips />
           </div>
         </DragRow>
+        {/* The sorting of a search, pinned at the right end of the row. */}
+        {searching && (
+          <div className="shrink-0">
+            <SearchSort />
+          </div>
+        )}
+        </div>
       </div>
 
       {searching ? (

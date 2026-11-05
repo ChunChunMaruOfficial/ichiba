@@ -10,7 +10,7 @@ import { useSession } from "@/components/session";
 import { Noren } from "@/components/shop/noren";
 import { DragRow } from "@/components/drag-row";
 import { SwipeDeck } from "@/components/swipe-deck";
-import { PhotoResults, SearchChips, SearchResults, useSearching } from "@/components/search-view";
+import { PhotoResults, SearchChips, SearchResults, SearchSort, useSearching } from "@/components/search-view";
 import { ButtonLink, Chip, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { FIRST_SCREEN, homeChip, homeFeedKey } from "@/lib/home-feed";
@@ -82,7 +82,8 @@ function HomeFeed() {
       {/* Discovery bar */}
       <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         {/* One row that scrolls as a whole on phones: the mode switch travels with the chips. */}
-        <DragRow viewportClassName="-mx-4 -my-2 md:-mx-6" className="items-center gap-3 px-4 py-2 md:px-6">
+        <div className="flex items-center gap-3">
+        <DragRow viewportClassName="-my-2 -ml-4 min-w-0 flex-1 md:-ml-6" className="items-center gap-3 px-4 py-2 md:px-6">
           {!noSwipe && !searching && (
           <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
             {(
@@ -114,6 +115,13 @@ function HomeFeed() {
             </div>
           )}
         </DragRow>
+        {/* The sorting of a search, pinned at the right end of the row. */}
+        {searching && (
+          <div className="shrink-0">
+            <SearchSort />
+          </div>
+        )}
+        </div>
       </div>
 
       {swipeMode ? (

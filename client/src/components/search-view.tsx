@@ -327,6 +327,17 @@ function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta, scope, cl
   );
 }
 
+/** The sorting of the search in the address, for the right end of a feed page's chip row. */
+export function SearchSort() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const base = useBase();
+  const q = sp.get("q") ?? "";
+  const sort = sp.get("sort") ?? "new";
+  const filters = useFilters(sp, base);
+  return <SortMenu value={sort} onChange={(v) => router.replace(searchUrl(base, filters, { q: q || undefined, sort: v !== "new" ? v : undefined }), { scroll: false })} />;
+}
+
 function SortMenu({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return <Select variant="pill" aria-label="Сортировка" value={value} onChange={onChange} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />;
 }
@@ -425,12 +436,11 @@ export function SearchResults() {
     <>
       <h1 className="sr-only">{q ? `Поиск: ${q}` : "Поиск вещей"}</h1>
       {chips.length > 0 && (
-        <DragRow viewportClassName="-mx-4 md:-mx-6" className="items-center gap-2 px-4 pb-3 md:px-6">
+        <DragRow viewportClassName="-mx-4 md:-mx-6" className="items-center gap-2 px-4 pb-4 pt-1 md:px-6">
           {chips.map((c) => (
-            <button key={c.key} onClick={() => navigate(c.remove(filters))} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-ink px-3 text-sm text-accent-ink">
+            <Chip key={c.key} active onClick={() => navigate(c.remove(filters))} aria-label={`Убрать фильтр ${c.label}`}>
               {c.label} <IconX className="size-3.5" />
-              <span className="sr-only">убрать фильтр</span>
-            </button>
+            </Chip>
           ))}
           <button className="shrink-0 px-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => navigate(cleared(filters))}>
             Сбросить всё
@@ -454,13 +464,6 @@ export function SearchResults() {
         <ErrorState message="Не удалось загрузить результаты" onRetry={() => results.mutate()} />
       ) : (
         <>
-          <div className="flex items-baseline justify-between gap-4 pb-4 pt-2">
-            <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-              {nlFrom ? `Результаты для «${nlFrom}»` : q ? `Результаты для «${q}»` : filters.market === "resale" ? "Вещи на вторичке" : "Вещи"}
-              {results.data && <span className="ml-2 text-base font-normal text-muted">{itemsLabel(results.total)}</span>}
-            </h1>
-            <SortMenu value={sort} onChange={(v) => navigate(filters, { sort: v })} />
-          </div>
           {parsing ? (
             <div className="flex items-center gap-2 pb-4 text-sm text-ai">
               <IconSparkle className="size-4 animate-pulse" filled /> Разбираем запрос…
