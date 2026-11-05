@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { usePresence } from "@/lib/presence";
 import type { Me } from "@/lib/types";
 import { track } from "@/lib/analytics";
-import { Button, Field, Input, Modal } from "./ui";
+import { Button, Field, IconChevronRight, Input, Modal } from "./ui";
 
 /**
  * Sign-in and sign-up in one flow, the way Avito, Kufar and Vinted do it:
@@ -349,12 +349,30 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
       </form>
 
       {step === "start" && (
-        <p className="mt-4 text-center text-sm text-ink-2">
-          Есть пароль?{" "}
-          <button className="font-medium text-ink underline underline-offset-4" onClick={() => setStep("password")}>
-            Войти по паролю
-          </button>
-        </p>
+        <>
+          <p className="mt-4 text-center text-sm text-ink-2">
+            Есть пароль?{" "}
+            <button className="font-medium text-ink underline underline-offset-4" onClick={() => setStep("password")}>
+              Войти по паролю
+            </button>
+          </p>
+          {/* For those who come to sell, not to buy: the way to a lavka, a quiet row under the sign-in (the header
+              has no button for it). The page explains the three kinds of sellers. */}
+          <Link
+            href="/sellers"
+            onClick={onClose}
+            className="group mt-5 flex items-center gap-3 rounded-2xl bg-paper px-4 py-3 shadow-[inset_0_0_0_1px_var(--line)] transition-[box-shadow,background-color] hover:bg-surface hover:shadow-[inset_0_0_0_1px_var(--line-strong)]"
+          >
+            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-shu font-brush text-lg leading-none text-on-shu">
+              商
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold">Бренд, магазин или свой гардероб?</span>
+              <span className="block text-xs text-ink-2">Откройте лавку на ichiba</span>
+            </span>
+            <IconChevronRight className="size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </>
       )}
       {step === "password" && (
         <div className="mt-4 flex justify-between text-sm">

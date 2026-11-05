@@ -93,7 +93,7 @@ function Welcome({ me }: { me: Me }) {
     sizes: ["Ваш размер и город", "Подскажем, что подойдёт, и покажем вещи рядом. Необязательно."],
     body: ["Ваши мерки", "Крутите барабаны — по меркам подберём вещи точнее размера на бирке и пошьём по фигуре. Необязательно."],
     brand: ["Расскажите о бренде", "Город и пара слов — их увидят покупатели в вашем гардеробе."],
-    next: ["Почти готово", "Печать «Бренд» отличает вас от частных гардеробов. А первую вещь можно выставить прямо сейчас."],
+    next: ["Почти готово", "Лавку бренда с печатью «Бренд» и местом в каталоге открываем мы — одним письмом. А первую вещь можно выставить прямо сейчас."],
   };
 
   return (
@@ -226,17 +226,16 @@ function Welcome({ me }: { me: Me }) {
               <div className="flex items-center gap-5 rounded-[22px] bg-paper p-5 shadow-[inset_0_0_0_1px_var(--line-strong)]">
                 <Daruma eyes={1} className="h-24 shrink-0" />
                 <div>
-                  <p className="font-bold">Статус бренда</p>
-                  <p className="mt-1 text-sm text-ink-2">Заявка на пару минут: название, ИП или организация, ссылки. После проверки на всех ваших вещах — печать «Бренд», а гардероб попадает на главную.</p>
+                  <p className="font-bold">Лавка бренда</p>
+                  <p className="mt-1 text-sm text-ink-2">Напишите нам пару слов о бренде — и на всех ваших вещах появится печать «Бренд», а гардероб попадёт в каталог на главной.</p>
                 </div>
               </div>
-              <Button size="lg" block loading={busy} onClick={() => finish("/settings#brand")}>
-                Подать заявку на статус бренда
+              <Button size="lg" block loading={busy} onClick={() => finish("/sell")}>
+                Добавить первую вещь
               </Button>
-              <Button size="lg" block variant="secondary" disabled={busy} onClick={() => finish("/sell")}>
-                Сначала добавить вещь
+              <Button size="lg" block variant="secondary" disabled={busy} onClick={() => finish("/contacts")}>
+                Написать нам о бренде
               </Button>
-              <p className="text-center text-sm text-muted">Заявку можно подать и позже — в настройках, раздел «Статус бренда».</p>
               <Button variant="link" className="self-center" disabled={busy} onClick={() => finish("/")}>
                 На главную
               </Button>

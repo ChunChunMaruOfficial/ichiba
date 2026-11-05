@@ -13,11 +13,35 @@ import { LiveCount } from "./live-count";
 /** Not a page: the link brings the cookie notice back to change the choice. */
 const COOKIE_SETTINGS = "#cookie-settings";
 
+/**
+ * A footer link is read from the bottom of a page: the page it opens (or the same page, with a query) must start at
+ * its top. A short glide there, so the move reads as one; it stops the moment another page is on screen (that page
+ * starts at its top by itself, components/photo-flight.tsx).
+ */
+function glideToTop() {
+  const from = window.scrollY;
+  if (from <= 0) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.scrollTo(0, 0);
+    return;
+  }
+  const path = location.pathname;
+  const t0 = performance.now();
+  const step = (t: number) => {
+    if (location.pathname !== path) return;
+    const k = Math.min(1, (t - t0) / 320);
+    const eased = 1 - Math.pow(1 - k, 3);
+    window.scrollTo(0, Math.round(from * (1 - eased)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 /** A link in the requisites under the columns: mail, phones (tel:) and the complaint form. */
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
   const className = "whitespace-nowrap underline-offset-4 hover:text-ink hover:underline";
   return href.startsWith("/") ? (
-    <Link href={href} className={className}>
+    <Link href={href} onClick={glideToTop} className={className}>
       {children}
     </Link>
   ) : (
@@ -61,7 +85,7 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
       ["/sell", "Продать вещь"],
       ["/wardrobe", "Мой гардероб"],
       ["/sales", "Продажи и статистика"],
-      ["/settings#sizes", "Мои размеры"],
+      ["/how-it-works", "Как работает сделка"],
     ],
   ],
   [
@@ -104,7 +128,7 @@ export function Footer() {
             </p>
             {/* On «Вторичка» the call to sell one's own things; everywhere else how many things the whole site has on sale. */}
             {pathname.startsWith("/resale") ? (
-              <Link href="/sell" className="btn-wa btn-wa-shu mt-6 inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-semibold">
+              <Link href="/sell" onClick={glideToTop} className="btn-wa btn-wa-shu mt-6 inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-semibold">
                 Продать вещь
               </Link>
             ) : (
@@ -122,7 +146,7 @@ export function Footer() {
                         {label}
                       </button>
                     ) : (
-                      <Link href={href} className="text-[15px] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
+                      <Link href={href} onClick={glideToTop} className="text-[15px] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
                         {label}
                       </Link>
                     )}

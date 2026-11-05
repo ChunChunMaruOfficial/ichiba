@@ -1,6 +1,5 @@
 "use client";
 
-import { BrandSection } from "@/components/brand-application";
 import { NotifyEmailSection } from "@/components/notify-email";
 import { TelegramSection } from "@/components/telegram-settings";
 import { TitleWithKanji } from "@/components/sections";
@@ -41,7 +40,7 @@ function GuestSettings() {
       </div>
       <div className="flex flex-col gap-10">
         <AppearanceSection me={null} />
-        <Section title="Аккаунт" hint="Телефон, размеры, уведомления и статус бренда — после входа. Выбранный здесь вид карточек перейдёт в аккаунт.">
+        <Section title="Аккаунт" hint="Телефон, размеры и уведомления — после входа. Выбранный здесь вид карточек перейдёт в аккаунт.">
           <Button onClick={openAuth}>Войти</Button>
         </Section>
       </div>
@@ -169,7 +168,6 @@ function Settings({ me }: { me: Me }) {
           ...(me.isSeller ? ([["bundle", "組", "Скидка за комплект"]] as const) : []),
           ...(me.isSeller || me.isBrand ? ([["notify", "便", "Уведомления на почту"]] as const) : []),
           ...(me.telegram?.available || me.telegram?.linked ? ([["telegram", "報", "Telegram"]] as const) : []),
-          ["brand", "銘", "Статус бренда"],
           ["danger", "出", "Выход и удаление"],
         ]}
       />
@@ -180,7 +178,6 @@ function Settings({ me }: { me: Me }) {
       {me.isSeller && <BundleSection me={me} />}
       {(me.isSeller || me.isBrand) && <NotifyEmailSection me={me} Section={Section} />}
       <TelegramSection me={me} Section={Section} />
-      <BrandSection Section={Section} />
       {/* The only place to sign out (it is not in the account menu) and to delete the account. */}
       <AccountActions
         me={me}
