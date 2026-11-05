@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { normalise } from '../../src/ai/embeddings.js';
-import { buildProfile, kindOf, rankForYou, score, SIGNAL_WEIGHTS, type TasteEvent, type TasteInput, type Traits } from '../../src/recommendations/taste.js';
+import { buildProfile, kindOf, rankForYou, score, SIGNAL_WEIGHTS, spread, type TasteEvent, type TasteInput, type Traits } from '../../src/recommendations/taste.js';
 
 const now = Date.UTC(2026, 9, 24);
 const DAY = 24 * 3600 * 1000;
@@ -106,6 +106,27 @@ test('the feed mixes kinds and never shows 4 of one seller in a row', () => {
   for (let i = 3; i < feed.length; i++)
     if (feed.slice(i - 3, i + 1).every((f) => f.sellerId === 'a')) assert.ok(feed.slice(i).every((f) => f.sellerId === 'a'), 'four in a row from one seller');
   assert.ok(new Set(feed.slice(0, 6).map(kindOf)).size >= 2);
+});
+
+test('two of a kind are at least two other items apart while other kinds remain', () => {
+  // Mostly jeans, a few other things: the gap holds until only jeans are left, which then run on.
+  const pool = [
+    ...Array.from({ length: 10 }, (_, i) => item({ sellerId: `j${i}`, category: 'jeans' })),
+    item({ category: 'trousers' }),
+    item({ category: 'bags' }),
+    item({ category: 'shoes' }),
+    item({ category: 'knitwear' }),
+    item({ category: 'outerwear' }),
+    item({ category: 'tshirts' }),
+  ];
+  const feed = spread(pool);
+  const kinds = feed.map(kindOf);
+  const lastOther = kinds.length - 1 - [...kinds].reverse().findIndex((k) => k !== 'jeans');
+  for (let i = 1; i <= lastOther; i++) {
+    assert.notEqual(kinds[i], kinds[i - 1], `${kinds[i]} side by side at ${i}`);
+    if (i >= 2) assert.notEqual(kinds[i], kinds[i - 2], `${kinds[i]} one apart at ${i}`);
+  }
+  assert.equal(feed.length, pool.length);
 });
 
 test('what happened in this session counts more than the same a week ago', () => {

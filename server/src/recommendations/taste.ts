@@ -96,6 +96,8 @@ const SESSION_MS = 30 * 60_000;
 const SESSION_BOOST = 2;
 const FRESH_MS = 72 * 3600 * 1000;
 const MAX_SAME_SELLER_IN_A_ROW = 3;
+/** Two of a kind are at least this many other items apart (jeans, a jacket, a bag, jeans — never jeans, bag, jeans). */
+const KIND_GAP = 2;
 /** Every n-th item of «Для вас» comes from outside the profile, so tastes can widen (every 5th cost 4 points of recall). */
 const EXPLORE_EVERY = 8;
 /** How far ahead the variety pass looks for something of another kind, and what a repeat costs (in z-units). */
@@ -141,20 +143,24 @@ export const kindOf = (c: Pick<Traits, 'category' | 'subcategory'>) =>
   c.category === 'accessories' ? (HEADWEAR.has(c.subcategory ?? '') ? 'headwear' : (c.subcategory ?? 'accessories')) : (c.category ?? '');
 
 /**
- * Keeps a feed's order but never puts two items of one kind side by side (three jackets, then four hats looks like a
- * dump, not a shop window), nor more than 3 in a row from one seller. When only one kind is left, it runs on.
+ * Keeps a feed's order but keeps two items of one kind at least KIND_GAP others apart (three jackets, then four hats,
+ * or jeans every other card, looks like a dump, not a shop window), and never more than 3 in a row from one seller.
+ * When the kinds left can't keep the gap, it narrows to «not side by side», then runs on.
  */
 export function spread<T extends Pick<Traits, 'category' | 'subcategory' | 'sellerId'>>(items: T[]): T[] {
   const out: T[] = [];
   const pending = [...items];
   while (pending.length) {
-    const prev = out.at(-1);
+    const recent = out.slice(-KIND_GAP).map(kindOf);
     const tail = out.slice(-MAX_SAME_SELLER_IN_A_ROW);
     const blockedSeller = tail.length === MAX_SAME_SELLER_IN_A_ROW && tail.every((t) => t.sellerId === tail[0].sellerId) ? tail[0].sellerId : null;
-    const kindOk = (p: T) => !prev || kindOf(p) !== kindOf(prev);
+    const gapOk = (p: T) => !recent.includes(kindOf(p));
+    const notAdjacent = (p: T) => recent.at(-1) !== kindOf(p);
     const sellerOk = (p: T) => p.sellerId !== blockedSeller;
-    let idx = pending.findIndex((p) => kindOk(p) && sellerOk(p));
-    if (idx === -1) idx = pending.findIndex(kindOk);
+    let idx = pending.findIndex((p) => gapOk(p) && sellerOk(p));
+    if (idx === -1) idx = pending.findIndex(gapOk);
+    if (idx === -1) idx = pending.findIndex((p) => notAdjacent(p) && sellerOk(p));
+    if (idx === -1) idx = pending.findIndex(notAdjacent);
     if (idx === -1) idx = pending.findIndex(sellerOk);
     out.push(pending.splice(Math.max(0, idx), 1)[0]);
   }
