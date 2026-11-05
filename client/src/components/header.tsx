@@ -325,6 +325,8 @@ export function Header() {
   const resaleZone = pathname.startsWith("/resale") || pathname.startsWith("/wardrobes");
   const header = useRef<HTMLElement>(null);
   const [hidden, setHidden] = useState(false);
+  /** The page scrolled to its very end: the phone's tab bar comes back there (the footer stands on it), the header doesn't. */
+  const [atEnd, setAtEnd] = useState(false);
 
   // Sticky bars below (the feed's chip bar) sit right under the header, whatever its height.
   useEffect(() => {
@@ -355,15 +357,19 @@ export function Header() {
         if (y < 80 || (el && el.contains(document.activeElement) && document.activeElement !== document.body)) {
           travel = 0;
           setHidden(false);
+          setAtEnd(false);
           return;
         }
         if (y < 0) return; // rubber band at the top
-        // The very end: everything comes back, so the footer stands right on the tab bar (and the rubber band is ignored).
+        // The very end: the tab bar comes back, so the footer stands right on it; the header stays away (the reader is
+        // at the bottom of the page, nothing up there is wanted), and the rubber band past the end is ignored.
         if (y >= max - 2) {
           travel = 0;
-          setHidden(false);
+          setAtEnd(true);
+          if (dy > 0) setHidden(true);
           return;
         }
+        setAtEnd(false);
         travel = Math.sign(dy) === Math.sign(travel) ? travel + dy : dy;
         if (travel > 24) setHidden(true);
         else if (travel < -32) setHidden(false);
@@ -386,9 +392,10 @@ export function Header() {
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--header-offset", hidden || adminArea ? "0px" : "var(--header-h)");
-    // The phone tab bar tucks away together with the header (globals.css, html[data-chrome-away]).
-    root.toggleAttribute("data-chrome-away", hidden);
-  }, [hidden, adminArea]);
+    // The phone tab bar tucks away together with the header (globals.css, html[data-chrome-away]), but is back at the
+    // very end of the page.
+    root.toggleAttribute("data-chrome-away", hidden && !atEnd);
+  }, [hidden, atEnd, adminArea]);
 
   return (
     <header

@@ -123,6 +123,8 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
 /**
  * Site footer on aizome 藍染 cloth (globals.css · .aizome), link columns, and the wordmark set huge and cropped
  * by the bottom edge (washi letters, cinnabar seals). Hidden on focused flows that pin their own bottom bar.
+ * On a desktop it is exactly one screen tall: the columns and the requisites take what they need, the wordmark
+ * fills what is left, scaled to fit, its bottom past the edge.
  */
 export function Footer() {
   const pathname = usePathname();
@@ -134,9 +136,9 @@ export function Footer() {
     <div data-chrome="footer" className="relative mt-12 pb-[calc(var(--tabbar-h)-1px+env(safe-area-inset-bottom))] md:mt-16 md:pb-0">
       {/* A cherry branch in bloom behind the page: it grows out from the footer's edge and whatever sits above (cards) covers it. */}
       <SakuraBranch className="pointer-events-none absolute bottom-full right-0 -z-10 w-[340px] md:right-6 md:w-[600px]" />
-    <footer className="aizome aizome-fade-in">
+    <footer className="aizome aizome-fade-in md:flex md:h-[100svh] md:flex-col md:overflow-hidden">
       <Kamon className="pointer-events-none absolute -right-16 top-10 size-[340px] text-ink opacity-[0.06] md:right-10 md:size-[420px]" />
-      <div className="relative mx-auto max-w-[1440px] px-4 pt-14 md:px-6 md:pt-20">
+      <div className="relative mx-auto w-full max-w-[1440px] px-4 pt-14 md:px-6 md:pt-12">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))]">
           <div className="max-w-sm">
             <p className="font-display text-3xl font-bold leading-tight text-ink">Вещи с историей</p>
@@ -173,7 +175,7 @@ export function Footer() {
             </nav>
           ))}
         </div>
-        <div className="mt-14 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-t border-line pt-5 text-sm text-muted">
+        <div className="mt-10 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-t border-line pt-5 text-sm text-muted">
           {/* What a marketplace must show on its main page (Правила дистанционной торговли, пост. СМ № 31, п. 14.1):
               who runs it, how to reach it and when, where buyers complain. */}
           <div className="flex max-w-4xl flex-col gap-1.5 leading-relaxed">
@@ -203,9 +205,10 @@ export function Footer() {
           </span>
         </div>
       </div>
-      {/* The wordmark, huge, its bottom cut off by the page edge. */}
-      <div aria-hidden className="pointer-events-none relative -mb-[4.5vw] mt-6 select-none px-2 text-ink md:-mb-[3.5vw]">
-        <Wordmark className="h-auto w-full opacity-95" />
+      {/* The wordmark, huge, its bottom cut off by the page edge. On a desktop it takes the room left under the
+          requisites, as tall as that room (the footer clips what the negative margin pushes past its edge). */}
+      <div aria-hidden className="pointer-events-none relative -mb-[4.5vw] mt-6 select-none px-2 text-ink md:-mb-[3.5vw] md:flex md:min-h-0 md:flex-1 md:items-end">
+        <Wordmark className="h-auto w-full opacity-95 md:h-full md:w-auto md:max-w-full" />
       </div>
     </footer>
     </div>

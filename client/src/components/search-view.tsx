@@ -437,9 +437,11 @@ export function SearchResults() {
       <h1 className="sr-only">{q ? `Поиск: ${q}` : "Поиск вещей"}</h1>
       {chips.length > 0 && (
         <DragRow viewportClassName="-mx-4 md:-mx-6" className="items-center gap-2 px-4 pb-4 pt-1 md:px-6">
+          {/* A chosen filter is a plain chip with a cross, not a pressed one: the pressed look (indigo, the cinnabar
+              seal on the corner) is for a choice among chips, and its seal stuck out of the row. */}
           {chips.map((c) => (
-            <Chip key={c.key} active onClick={() => navigate(c.remove(filters))} aria-label={`Убрать фильтр ${c.label}`}>
-              {c.label} <IconX className="size-3.5" />
+            <Chip key={c.key} onClick={() => navigate(c.remove(filters))} aria-label={`Убрать фильтр ${c.label}`} className="pr-3">
+              {c.label} <IconX className="size-3.5 text-ink-2" />
             </Chip>
           ))}
           <button className="shrink-0 px-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => navigate(cleared(filters))}>
