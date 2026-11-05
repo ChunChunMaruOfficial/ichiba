@@ -4,6 +4,7 @@ import clsx from "clsx";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { useBrandSuggestions } from "@/components/brand-picker";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
@@ -263,10 +264,14 @@ interface DrawerProps {
   scope?: { ids: string; sort: string };
 }
 
-/** Mounted only while open (plus its exit animation), so the draft always starts from the current filters. */
+/**
+ * Mounted only while open (plus its exit animation), so the draft always starts from the current filters. Drawn on the
+ * body: the chip row it is opened from is a sticky bar with a transform, inside which «fixed» would mean the bar.
+ */
 function FilterDrawer(props: DrawerProps) {
   const { mounted, closing } = usePresence(props.open);
-  return mounted ? <FilterDrawerPanel {...props} closing={closing} /> : null;
+  if (!mounted || typeof document === "undefined") return null;
+  return createPortal(<FilterDrawerPanel {...props} closing={closing} />, document.body);
 }
 
 function FilterDrawerPanel({ open, onClose, initial, onApply, q, meta, scope, closing }: DrawerProps & { closing: boolean }) {
@@ -352,7 +357,7 @@ export function SearchChips() {
   };
   return (
     <>
-      <Chip active={drawer} onClick={() => setDrawer(true)}>
+      <Chip onClick={() => setDrawer(true)}>
         <IconFilter className="size-4" /> Фильтры{chips.length ? ` · ${chips.length}` : ""}
       </Chip>
       <Chip active={!!filters.my_size} onClick={() => requireAuth(() => (hasSizes || filters.my_size ? navigate({ ...filters, my_size: filters.my_size ? undefined : "1" }) : router.push("/settings#sizes")))}>
