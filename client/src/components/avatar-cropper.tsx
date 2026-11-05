@@ -21,8 +21,8 @@ export function AvatarCropper({ src, open, onClose, onSave }: { src: string; ope
   const [saving, setSaving] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
-  /** The window's side on screen, measured: it shrinks on a narrow phone. */
-  const [side, setSide] = useState(280);
+  /** The window's side on screen, measured: the popup's whole width, less on a narrow phone. */
+  const [side, setSide] = useState(336);
 
   useEffect(() => {
     if (!open) return;
@@ -113,7 +113,7 @@ export function AvatarCropper({ src, open, onClose, onSave }: { src: string; ope
         ) : (
           <div
             ref={frame}
-            className="relative aspect-square w-full max-w-[280px] cursor-grab touch-none select-none overflow-hidden rounded-[22px] bg-skeleton active:cursor-grabbing"
+            className="relative aspect-square w-full cursor-grab touch-none select-none overflow-hidden rounded-[22px] bg-skeleton active:cursor-grabbing"
             onPointerDown={img ? onDown : undefined}
             onPointerMove={onMove}
             onPointerUp={onUp}
@@ -139,13 +139,8 @@ export function AvatarCropper({ src, open, onClose, onSave }: { src: string; ope
             <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgb(28_26_23/0.55)] ring-1 ring-inset ring-white/70" />
           </div>
         )}
-        {!failed && (
-          <label className="flex w-full max-w-[280px] items-center gap-3 text-sm text-ink-2">
-            <span className="shrink-0">Масштаб</span>
-            <input type="range" min={1} max={MAX_ZOOM} step={0.01} value={zoom} disabled={!img} onChange={(e) => setZoomAt(Number(e.target.value))} className="w-full accent-[var(--shu)]" />
-          </label>
-        )}
-        <div className="flex w-full justify-end gap-2">
+        {!failed && <input type="range" aria-label="Масштаб" min={1} max={MAX_ZOOM} step={0.01} value={zoom} disabled={!img} onChange={(e) => setZoomAt(Number(e.target.value))} className="w-full accent-[var(--shu)]" />}
+        <div className="flex w-full items-center justify-between gap-2">
           <Button variant="ghost" onClick={onClose}>
             Отмена
           </Button>

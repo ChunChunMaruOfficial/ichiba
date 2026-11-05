@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
-import { IconPencil } from "./ui";
+import { IconCheck, IconPencil } from "./ui";
 
 /**
  * Text edited where it stands (the nickname and the «о себе» line on one's own wardrobe page): a pencil appears
@@ -95,29 +95,33 @@ export function InlineText({
       textClassName,
     );
     return (
-      // The tint sits behind the text with negative margins, so the words don't move when the field opens.
-      <span className={clsx("inline-grid max-w-full align-top", "-mx-1.5 -my-0.5 rounded-lg bg-[color-mix(in_srgb,currentColor_12%,transparent)] px-1.5 py-0.5", className)}>
+      // No box, no tint: the field is the text itself with a caret. The mirror in the same cell gives it its width;
+      // the field's own default width (20 columns) is switched off, or the cell would take it.
+      <span className={clsx("inline-grid max-w-full align-baseline", className)}>
         <span aria-hidden className={clsx("invisible col-start-1 row-start-1 whitespace-pre-wrap break-words", textClassName)}>
           {draft || placeholder}
           {multiline ? "​ " : ""}
         </span>
         {multiline ? (
-          <textarea ref={field} rows={1} value={draft} maxLength={maxLength} aria-label={label} onChange={(e) => setDraft(normalize ? normalize(e.target.value) : e.target.value)} onKeyDown={onKey} onBlur={onBlur} className={fieldClass} />
+          <textarea ref={field} rows={1} cols={1} value={draft} maxLength={maxLength} aria-label={label} onChange={(e) => setDraft(normalize ? normalize(e.target.value) : e.target.value)} onKeyDown={onKey} onBlur={onBlur} className={fieldClass} />
         ) : (
-          <input ref={field} value={draft} maxLength={maxLength} aria-label={label} onChange={(e) => setDraft(normalize ? normalize(e.target.value) : e.target.value)} onKeyDown={onKey} onBlur={onBlur} className={fieldClass} />
+          <input ref={field} size={1} value={draft} maxLength={maxLength} aria-label={label} onChange={(e) => setDraft(normalize ? normalize(e.target.value) : e.target.value)} onKeyDown={onKey} onBlur={onBlur} className={fieldClass} />
         )}
       </span>
     );
   }
   return (
-    <span className={clsx("group/edit inline-flex max-w-full items-center gap-2 align-top", className)}>
+    <span className={clsx("group/edit inline-flex max-w-full items-center gap-2 align-baseline", className)}>
       <span className={clsx("min-w-0", !value && "opacity-60", textClassName)}>{value || placeholder}</span>
       <EditPencil label={label} onClick={start} />
     </span>
   );
 }
 
-/** One value picked from a list where it stands (the city in the wardrobe's byline): a bare select in the text. */
+/**
+ * One value picked from a list where it stands (the city in the wardrobe's byline): the site's own menu opens under
+ * the text. Not a native select — its list took the text's colour with it (white on white over the indigo cover).
+ */
 export function InlineChoice({
   value,
   options,
@@ -133,48 +137,56 @@ export function InlineChoice({
   onSave: (next: string) => Promise<boolean>;
   className?: string;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const select = useRef<HTMLSelectElement>(null);
+  const wrap = useRef<HTMLSpanElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  // The menu closes on a click elsewhere and on Esc; the chosen row is in view when it opens.
   useEffect(() => {
-    if (editing) select.current?.focus();
-  }, [editing]);
+    if (!open) return;
+    list.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "center" });
+    const onDown = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
   const choose = async (next: string) => {
     if (next === value) {
-      setEditing(false);
+      setOpen(false);
       return;
     }
     setBusy(true);
     const ok = await onSave(next);
     setBusy(false);
-    if (ok) setEditing(false);
+    if (ok) setOpen(false);
   };
-  if (editing) {
-    return (
-      <select
-        ref={select}
-        aria-label={label}
-        value={value}
-        disabled={busy}
-        onChange={(e) => void choose(e.target.value)}
-        onBlur={() => setEditing(false)}
-        onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
-        className={clsx("-mx-1.5 -my-0.5 max-w-full cursor-pointer appearance-none rounded-lg bg-[color-mix(in_srgb,currentColor_12%,transparent)] px-1.5 py-0.5 text-inherit outline-none [font:inherit]", className)}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
   const shown = options.find((o) => o.value === value)?.label;
+  const rows = [{ value: "", label: placeholder }, ...options];
   return (
-    <span className={clsx("group/edit inline-flex items-center gap-1.5", className)}>
-      <span className={clsx(!shown && "opacity-60")}>{shown ?? placeholder}</span>
-      <EditPencil label={label} onClick={() => setEditing(true)} small />
+    <span ref={wrap} className={clsx("group/edit relative inline-flex items-center gap-1.5", className)}>
+      <button type="button" aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={() => setOpen((v) => !v)} className={clsx("rounded-md text-left hover:underline hover:underline-offset-4", !shown && "opacity-60", busy && "opacity-50")}>
+        {shown ?? placeholder}
+      </button>
+      <EditPencil label={label} onClick={() => setOpen((v) => !v)} small />
+      {open && (
+        <ul ref={list} role="listbox" aria-label={label} className="panel menu-pop absolute left-0 top-[calc(100%+6px)] z-50 max-h-72 w-56 overflow-y-auto rounded-2xl p-1.5 text-[15px] text-ink" style={{ transformOrigin: "top left" }}>
+          {rows.map((o) => {
+            const on = o.value === value;
+            return (
+              <li key={o.value} role="option" aria-selected={on}>
+                <button type="button" disabled={busy} onClick={() => void choose(o.value)} className={clsx("flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-ink/[0.06]", on ? "font-semibold text-ink" : o.value ? "text-ink-2" : "text-muted")}>
+                  <span className={clsx("grid size-4.5 shrink-0 place-items-center rounded-full", on && "bg-shu text-on-shu")}>{on && <IconCheck className="size-3" />}</span>
+                  {o.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </span>
   );
 }
@@ -188,8 +200,10 @@ function EditPencil({ label, onClick, small }: { label: string; onClick: () => v
       title={label}
       onClick={onClick}
       className={clsx(
+        // Taller than a line of text, so it is pulled in with negative margins: the line keeps its own height and
+        // nothing moves when the pencil gives way to the field.
         "grid shrink-0 place-items-center rounded-full opacity-0 transition-[opacity,background-color] duration-200 hover:bg-[color-mix(in_srgb,currentColor_12%,transparent)] focus-visible:opacity-100 group-hover/edit:opacity-100 [@media(pointer:coarse)]:opacity-70",
-        small ? "size-6" : "size-8",
+        small ? "-my-1 size-6" : "-my-2 size-8",
       )}
     >
       <IconPencil className={small ? "size-3.5" : "size-[18px]"} />
