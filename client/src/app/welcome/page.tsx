@@ -25,10 +25,10 @@ const PATH: Record<Who, Step[]> = { buyer: ["who", "swipe", "sizes", "body"], br
 /** The body measurements, each on its own wheel; «—» leaves one out. */
 const WHEELS: Array<{ key: keyof BodyMeasurements; label: string; hint: string; from: number; to: number; step?: number }> = [
   { key: "height", label: "Рост", hint: "без обуви", from: 140, to: 210 },
-  { key: "chest", label: "Грудь", hint: "по выступающим точкам", from: 70, to: 140 },
-  { key: "waist", label: "Талия", hint: "по самой узкой части", from: 55, to: 130 },
-  { key: "hips", label: "Бёдра", hint: "по выступающим точкам", from: 75, to: 140 },
-  { key: "footLength", label: "Стопа", hint: "от пятки до большого пальца", from: 20, to: 32, step: 0.5 },
+  { key: "chest", label: "Грудь", hint: "по широкой части", from: 70, to: 140 },
+  { key: "waist", label: "Талия", hint: "по узкой части", from: 55, to: 130 },
+  { key: "hips", label: "Бёдра", hint: "по широкой части", from: 75, to: 140 },
+  { key: "footLength", label: "Стопа", hint: "от пятки до пальца", from: 20, to: 32, step: 0.5 },
 ];
 const wheelOptions = (w: (typeof WHEELS)[number]) => {
   const out = [{ value: "", label: "—" }];
@@ -195,7 +195,7 @@ function Welcome({ me }: { me: Me }) {
                   <div key={w.key} className="w-[31%] shrink-0 snap-center rounded-[20px] bg-paper px-1 py-3 text-center shadow-[inset_0_0_0_1px_var(--line-strong)] sm:w-auto">
                     <p className="text-sm font-semibold">{w.label}</p>
                     <p className="mt-0.5 h-8 px-1 text-[11px] leading-tight text-muted">{w.hint}</p>
-                    <WheelPicker label={w.label} options={wheelOptions(w)} value={body[w.key] ?? ""} onChange={(v) => setBody((b) => ({ ...b, [w.key]: v }))} className="mt-1" />
+                    <WheelPicker label={w.label} options={wheelOptions(w)} value={body[w.key] ?? ""} onChange={(v) => setBody((b) => ({ ...b, [w.key]: v }))} />
                     <p className="mt-1 text-xs text-muted">см</p>
                   </div>
                 ))}
