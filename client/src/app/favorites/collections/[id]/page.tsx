@@ -93,7 +93,7 @@ function Collection({ id }: { id: string }) {
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
             {data.items.map((i) => (
               <div key={i.id} className="relative">
-                <ItemCard card={i} variant="grid" />
+                <ItemCard card={i} />
                 <button
                   aria-label={`Убрать «${i.title}» из коллекции`}
                   onClick={async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from "clsx";
+import { usePrefs } from "@/lib/prefs";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHydrated } from "@/lib/countdown";
 import type { Card } from "@/lib/types";
@@ -43,14 +44,12 @@ const cssColumns = (breakpoints: [number, number][]) => (breakpoints === DEFAULT
  */
 export function Masonry({
   items,
-  variant = "grid",
   source,
   breakpoints = DEFAULT_BREAKPOINTS,
   gap = 16,
   overlay,
 }: {
   items: Card[];
-  variant?: "feed" | "grid";
   source?: "feed" | "search" | "wardrobe";
   breakpoints?: [number, number][];
   gap?: number;
@@ -62,13 +61,15 @@ export function Masonry({
   const card = (item: Card, eager: boolean) =>
     overlay ? (
       <div key={item.id} className="relative">
-        <ItemCard card={item} variant={variant} source={source} eager={eager} />
+        <ItemCard card={item} source={source} eager={eager} />
         <div className="absolute right-2.5 top-2.5">{overlay(item)}</div>
       </div>
     ) : (
-      <ItemCard key={item.id} card={item} variant={variant} source={source} eager={eager} />
+      <ItemCard key={item.id} card={item} source={source} eager={eager} />
     );
-  const rowGap = variant === "grid" ? gap * 1.5 : gap;
+  // Detailed cards carry a caption: a little more room between rows, and the caption's height in the column balance.
+  const detailed = usePrefs().prefs.cardStyle === "detailed";
+  const rowGap = detailed ? gap * 1.5 : gap;
   // Server HTML and hydration: CSS columns sized by container queries, so the first paint already has the right
   // number of columns; right after hydration the measured shortest-column layout below takes over.
   if (!hydrated) {
@@ -86,7 +87,7 @@ export function Masonry({
   }
   const columns: Array<{ items: Card[]; h: number }> = Array.from({ length: cols }, () => ({ items: [], h: 0 }));
   // Text block under grid cards adds roughly the height of 0.45 of a square photo.
-  const extra = variant === "grid" ? 0.45 : 0.08;
+  const extra = detailed ? 0.45 : 0.08;
   for (const item of items) {
     const ratio = item.cover ? item.cover.height / item.cover.width : 1.25;
     const target = columns.reduce((min, c) => (c.h < min.h ? c : min), columns[0]);

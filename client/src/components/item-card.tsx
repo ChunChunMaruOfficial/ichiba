@@ -14,6 +14,7 @@ import { itemHref } from "@/lib/item-path";
 import { AuctionTimer, auctionPrice } from "./auction";
 import { scheduleLabel } from "./schedule-picker";
 import { useSession } from "./session";
+import { usePrefs } from "@/lib/prefs";
 import { Nefuda } from "./shop/nefuda";
 import { Hanko, IconHeart, Seal, StatusBadge } from "./ui";
 
@@ -182,7 +183,13 @@ function CardMarks({ card, discount, sealsBelow }: { card: Card; discount: numbe
   );
 }
 
-export function ItemCard({ card, variant = "grid", source = "search", eager, uniform }: { card: Card; variant?: "feed" | "grid"; source?: "feed" | "search" | "wardrobe"; eager?: boolean; uniform?: number }) {
+/**
+ * One card for every list on the site; its look is the person's choice (settings → «Оформление», lib/prefs.ts):
+ * «minimal» is the photo with the price tag, the rest on hover; «detailed» has price, size, title, condition and the
+ * seller under the photo. `source` says what the list is (for likes and impressions), never how the card looks.
+ */
+export function ItemCard({ card, source = "search", eager, uniform }: { card: Card; source?: "feed" | "search" | "wardrobe"; eager?: boolean; uniform?: number }) {
+  const minimal = usePrefs().prefs.cardStyle === "minimal";
   // One reference price per card: the higher of the shop's own price (originalPrice) and the price before a cut on
   // ichiba (previousPrice). The struck number and the «−N%» mark both come from it: a card used to strike 65 and say
   // −31%, counted from 84.
@@ -198,11 +205,11 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
   const mine = me?.id === card.seller.id;
   const live = card.status === "PUBLISHED" || card.status === "RESERVED" || card.status === "SOLD";
   // Feed cards a signed-in person scrolls past shape their «Для вас» (lib/engagement.ts).
-  const shownRef = useImpression(variant === "feed" && me && !mine ? card.id : null);
+  const shownRef = useImpression(source === "feed" && me && !mine ? card.id : null);
   // So does pinching its photo open: a closer look than scrolling past.
   const onZoom = me && !mine ? () => reportZoom(card.id) : undefined;
 
-  if (variant === "feed") {
+  if (minimal) {
     return (
       <article ref={shownRef} className="reveal group relative">
         {/* relative: the tag and marks sit on the photo, not on the photo + caption below it (phones). */}
@@ -252,7 +259,7 @@ export function ItemCard({ card, variant = "grid", source = "search", eager, uni
   }
 
   return (
-    <article className="reveal group relative">
+    <article ref={shownRef} className="reveal group relative">
       <div className="relative">
         <Link href={itemHref(card)} className="block overflow-hidden rounded-[18px]" tabIndex={-1} aria-hidden>
           <ItemPhoto card={card} eager={eager} uniform={uniform} onZoom={onZoom} className="rounded-[18px] transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.03]" />

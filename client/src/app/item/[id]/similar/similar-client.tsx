@@ -37,7 +37,7 @@ export default function SimilarPage() {
           </EmptyState>
         ) : (
           <>
-            <Masonry items={list.items} variant="grid" source="search" />
+            <Masonry items={list.items} source="search" />
             <div ref={sentinel} className="flex justify-center py-8 text-muted">
               {list.loadingMore && <Spinner />}
             </div>

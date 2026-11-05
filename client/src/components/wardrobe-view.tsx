@@ -142,7 +142,7 @@ function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
 
 /** Items laid like bricks, as in the home feed; the owner gets a menu on each card. */
 function Grid({ items, owner, onDone }: { items: Card[]; owner: boolean; onDone: () => void }) {
-  return <Masonry items={items} variant="feed" source="wardrobe" overlay={owner ? (c) => <OwnerMenu card={c} onDone={onDone} /> : undefined} />;
+  return <Masonry items={items} source="wardrobe" overlay={owner ? (c) => <OwnerMenu card={c} onDone={onDone} /> : undefined} />;
 }
 
 function ActionRequired({ onChange }: { onChange: () => void }) {

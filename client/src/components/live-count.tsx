@@ -65,13 +65,12 @@ function useRollingNumber(target: number | undefined, ref: React.RefObject<HTMLE
 
 /**
  * How many things are on sale on the whole site right now, in the footer in place of a call to sell: the number is
- * one a minute old at most (GET /count) and rolls when it changes.
+ * one a minute old at most (GET /count) and rolls when it changes. The label and the number only: no caption.
  */
 export function LiveCount({ className }: { className?: string }) {
   const { data } = useSWR<{ total: number }>("/count", { refreshInterval: 60_000, revalidateOnFocus: true });
   const ref = useRef<HTMLSpanElement>(null);
   const shown = useRollingNumber(data?.total, ref);
-  const settled = data != null && shown === data.total;
   return (
     <div className={className}>
       <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Сейчас на ichiba</p>
@@ -80,14 +79,6 @@ export function LiveCount({ className }: { className?: string }) {
           {shown == null ? <span className="text-muted/60">···</span> : shown.toLocaleString("ru-RU")}
         </span>
         <span className="text-[15px] text-ink-2">{thingsWord(shown ?? 0)}</span>
-      </p>
-      <p className="mt-2 flex items-center gap-2 text-[13px] text-muted">
-        {/* A cinnabar point, steady once the number has settled: the figure is live, not a slogan. */}
-        <span aria-hidden className="relative inline-flex size-2">
-          <span className={`absolute inset-0 rounded-full bg-shu ${settled ? "live-ping" : "opacity-0"}`} />
-          <span className="relative inline-block size-2 rounded-full bg-shu" />
-        </span>
-        в продаже прямо сейчас
       </p>
     </div>
   );

@@ -49,9 +49,10 @@ export class HandListingsService implements OnApplicationBootstrap {
     if (photos.length < 2) return false;
     const { dhash } = await this.media.searchImage(await readFile(resolve(process.cwd(), 'seed-data', folder, name)));
     const scored = photos.map((p) => ({ p, d: usableHash(p.dhash) ? hashDistance(usableHash(p.dhash)!, dhash) : 99 }));
-    const best = scored.reduce((a, b) => (b.d < a.d ? b : a));
-    // Measured on the batches: the same picture at the two sizes is 0–10 apart, a different photo of the item 14 or more.
-    if (best.d > 12 || photos[0].id === best.p.id) return false;
+    const [best, next] = [...scored].sort((a, b) => a.d - b.d);
+    // Measured on the batches: the same picture at the two sizes is 0–12 apart, a different photo of the item 14 or
+    // more, so the nearest counts when it is near and clearly nearer than the next.
+    if (best.d > 16 || (next && next.d - best.d < 4) || photos[0].id === best.p.id) return false;
     const order = [best.p, ...photos.filter((p) => p.id !== best.p.id)];
     await this.prisma.$transaction(order.map((p, i) => this.prisma.photo.update({ where: { id: p.id }, data: { order: i, isCover: i === 0 } })));
     return true;

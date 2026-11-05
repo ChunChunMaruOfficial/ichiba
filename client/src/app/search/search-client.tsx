@@ -504,7 +504,7 @@ function SearchView() {
             </>
           ) : (
             <div className={clsx("transition-opacity", results.isValidating && !results.loadingMore && "opacity-50")}>
-              <Masonry items={results.items} variant="grid" source="search" />
+              <Masonry items={results.items} source="search" />
               <div ref={sentinel} className="flex h-24 flex-col items-center justify-center gap-2 text-sm text-muted">
                 {results.loadingMore ? <Spinner /> : `Показано ${results.items.length} из ${results.total}`}
               </div>
@@ -672,7 +672,7 @@ function PhotoResults({ id }: { id: string }) {
           <>
             {result.notClothing && !refined && <p className="mb-4 text-sm text-muted">Не получилось точно понять, что за вещь, — показываем похожие по виду. Лучше всего работает фото вещи целиком при хорошем свете.</p>}
             <div className={clsx("transition-opacity", results.isValidating && !results.loadingMore && "opacity-50")}>
-              <Masonry items={results.items} variant="grid" source="search" />
+              <Masonry items={results.items} source="search" />
               <div ref={sentinel} className="flex h-24 flex-col items-center justify-center gap-2 text-sm text-muted">
                 {results.loadingMore ? <Spinner /> : `Показано ${results.items.length} из ${results.total}`}
               </div>

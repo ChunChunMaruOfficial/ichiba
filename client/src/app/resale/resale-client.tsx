@@ -125,7 +125,7 @@ function ResaleFeed() {
       ) : (
         <>
           <div className="pt-2">
-            <Masonry items={first} variant="feed" source="feed" />
+            <Masonry items={first} source="feed" />
           </div>
 
           {sections && (
@@ -144,7 +144,7 @@ function ResaleFeed() {
           {rest.length > 0 && (
             <div className={sections ? "pt-16 md:pt-24" : "pt-4"}>
               {sections && <SectionHeader kanji="品々" title="Ещё вещи" />}
-              <Masonry items={rest} variant="feed" source="feed" />
+              <Masonry items={rest} source="feed" />
             </div>
           )}
           <div ref={sentinel} className="flex h-24 items-center justify-center">

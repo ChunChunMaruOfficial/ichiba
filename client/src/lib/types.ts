@@ -33,6 +33,12 @@ export type RequestStatus =
   | "CANCELLED"
   | "DISPUTED";
 
+/** How the site looks for this person; absent keys mean the default (lib/prefs.ts). */
+export interface UiPrefs {
+  cardStyle?: "minimal" | "detailed";
+  theme?: "system" | "light" | "dark";
+}
+
 export interface Me {
   id: string;
   username: string;
@@ -46,6 +52,7 @@ export interface Me {
   createdAt: string;
   emailVerified: boolean;
   emailPrefs: { deals: boolean };
+  uiPrefs: UiPrefs | null;
   /** Confirmed address for notification emails (settings → «Уведомления на почту»); null = site only. */
   notifyEmail: string | null;
   /** Notifications in Telegram (settings → Telegram). */

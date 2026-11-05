@@ -41,6 +41,7 @@ export class UsersService {
           bodyMeasurements: true,
           bundleDiscounts: true,
           emailPrefs: true,
+          uiPrefs: true,
           notifyEmail: true,
           tgChatId: true,
           tgUsername: true,
@@ -105,6 +106,8 @@ const UpdateMeDto = z.object({
   bodyMeasurements: BodyMeasurementsDto.nullish(),
   bundleDiscounts: BundleTiersDto.optional(),
   emailPrefs: z.object({ deals: z.boolean() }).optional(),
+  /** A part of the look settings (client lib/prefs.ts): merged into what is stored. */
+  uiPrefs: z.object({ cardStyle: z.enum(['minimal', 'detailed']).optional(), theme: z.enum(['system', 'light', 'dark']).optional() }).strict().optional(),
   onboarded: z.boolean().optional(),
   /** One of the user's own uploaded photos (?for=avatar), or null to remove it. */
   avatarId: z.uuid().nullish(),
@@ -119,7 +122,8 @@ export class UsersController {
 
   @Patch('me')
   async update(@CurrentUser() user: AuthUser, @Body(new ZodPipe(UpdateMeDto)) dto: z.infer<typeof UpdateMeDto>) {
-    const { onboarded, sizes, bodyMeasurements, bundleDiscounts, emailPrefs, avatarId, ...rest } = dto;
+    const { onboarded, sizes, bodyMeasurements, bundleDiscounts, emailPrefs, avatarId, uiPrefs, ...rest } = dto;
+    const storedPrefs = uiPrefs !== undefined ? ((await this.prisma.user.findUnique({ where: { id: user.id }, select: { uiPrefs: true } }))?.uiPrefs as object | null) ?? {} : undefined;
     if (avatarId) {
       const photo = await this.prisma.photo.findUnique({ where: { id: avatarId }, select: { ownerId: true, listingId: true, messageId: true } });
       if (!photo || photo.ownerId !== user.id || photo.listingId || photo.messageId) throw new BadRequestException({ message: 'Это фото нельзя поставить на аватар' });
@@ -137,6 +141,7 @@ export class UsersController {
           ...(bodyMeasurements !== undefined ? { bodyMeasurements: json(bodyMeasurements) } : {}),
           ...(bundleDiscounts !== undefined ? { bundleDiscounts: [...bundleDiscounts].sort((a, b) => a.minItems - b.minItems) } : {}),
           ...(emailPrefs !== undefined ? { emailPrefs } : {}),
+          ...(uiPrefs !== undefined ? { uiPrefs: { ...storedPrefs, ...uiPrefs } } : {}),
           ...(onboarded ? { onboardedAt: new Date() } : {}),
           ...(avatarId !== undefined ? { avatarId } : {}),
         },
@@ -146,7 +151,9 @@ export class UsersController {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException({ message: 'Этот номер уже привязан к другому аккаунту', fields: { phone: 'Номер занят' } });
       throw e;
     }
-    recordActivity(this.prisma, user.id, 'profile_edited', { detail: Object.keys(dto).join(', ') || null });
+    // A look setting is not a profile edit for the admin log.
+    const edited = Object.keys(dto).filter((k) => k !== 'uiPrefs');
+    if (edited.length) recordActivity(this.prisma, user.id, 'profile_edited', { detail: edited.join(', ') });
     return this.users.me(user.id);
   }
 }

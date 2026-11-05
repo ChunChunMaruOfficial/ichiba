@@ -224,7 +224,7 @@ function SavedItems({ sort, onlyAvailable }: { sort: Sort; onlyAvailable: boolea
             </ButtonLink>
           </EmptyState>
         ) : (
-          <Masonry items={data.items} variant="grid" />
+          <Masonry items={data.items} />
         )}
       </div>
     </>
@@ -271,7 +271,7 @@ function FollowingFeed() {
       )}
       <section>
         <h2 className="mb-4 text-lg font-semibold">Новое от подписок</h2>
-        {data.items.length === 0 ? <p className="text-sm text-muted">Пока нет новых вещей.</p> : <Masonry items={data.items} variant="grid" />}
+        {data.items.length === 0 ? <p className="text-sm text-muted">Пока нет новых вещей.</p> : <Masonry items={data.items} />}
       </section>
     </div>
   );

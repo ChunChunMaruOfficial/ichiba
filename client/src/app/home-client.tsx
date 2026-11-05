@@ -146,7 +146,7 @@ function HomeFeed() {
         <>
           {smallCatalog && <p className="mb-4 text-sm text-muted">Вещей пока мало — загляните скоро или выставьте свою.</p>}
           <div className="pt-2">
-            <Masonry items={first} variant="feed" source="feed" />
+            <Masonry items={first} source="feed" />
           </div>
 
           {isDefaultChip && home.data && !smallCatalog && (
@@ -175,7 +175,7 @@ function HomeFeed() {
             <div className={isDefaultChip && home.data && !smallCatalog ? "pt-16 md:pt-24" : "pt-4"}>
               {/* The heading sits right on its grid; the gap above separates it from the sections. */}
               {isDefaultChip && home.data && !smallCatalog && <SectionHeader kanji="品々" title="Ещё вещи" />}
-              <Masonry items={rest} variant="feed" source="feed" />
+              <Masonry items={rest} source="feed" />
             </div>
           )}
           <div ref={sentinel} className="flex h-24 items-center justify-center">

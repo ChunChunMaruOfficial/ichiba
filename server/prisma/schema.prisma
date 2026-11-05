@@ -118,6 +118,9 @@ model User {
   bundleDiscounts   Json?
   /// Email preferences: { deals: boolean }
   emailPrefs        Json?
+  /// How the site looks for this person: { cardStyle?: 'minimal' | 'detailed', theme?: 'system' | 'light' | 'dark' }.
+  /// Chosen on a device, kept here so it follows them to every device (client lib/prefs.ts).
+  uiPrefs           Json?
   /// Where a seller or brand gets notification emails (a buy request, an offer…); set only after its owner entered
   /// the code sent there, so it is always confirmed. Null = notifications stay on the site.
   notifyEmail       String?

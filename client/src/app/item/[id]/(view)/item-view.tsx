@@ -633,8 +633,10 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
 
           <p className="mt-6 text-xs text-muted">
             {/* «2 часа назад» is computed from the clock, which differs between the server render and hydration. */}
-            <span suppressHydrationWarning>{l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"}</span> · {l.viewsCount} {plural(l.viewsCount, "просмотр", "просмотра", "просмотров")} · {l.favoritesCount}{" "}
-            {plural(l.favoritesCount, "сохранение", "сохранения", "сохранений")}
+            <span suppressHydrationWarning>{l.publishedAt ? `Опубликовано ${timeAgo(l.publishedAt)}` : "Не опубликовано"}</span>
+            {/* Small counts say nothing good about the item, so they wait until they are worth a word. */}
+            {l.viewsCount >= 10 && <> · {l.viewsCount} {plural(l.viewsCount, "просмотр", "просмотра", "просмотров")}</>}
+            {l.favoritesCount >= 3 && <> · {l.favoritesCount} {plural(l.favoritesCount, "сохранение", "сохранения", "сохранений")}</>}
           </p>
         </div>
       </div>
@@ -680,12 +682,11 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
             <RatingInline rating={seller.rating} username={seller.username} className="mt-1.5" />
             <DealsInline count={seller.completedDeals} className="mt-1" />
           </div>
-          <div className="hidden shrink-0 flex-col gap-2 md:flex">
-            {!l.isOwner && <FollowButton seller={seller} onChange={(v) => setSeller((s) => ({ ...s, isFollowing: v, followers: s.followers + (v ? 1 : -1) }))} />}
-            <ButtonLink href={`/u/${seller.username}`} variant="secondary">
-              Весь гардероб
-            </ButtonLink>
-          </div>
+          {!l.isOwner && (
+            <div className="hidden shrink-0 md:block">
+              <FollowButton seller={seller} onChange={(v) => setSeller((s) => ({ ...s, isFollowing: v, followers: s.followers + (v ? 1 : -1) }))} />
+            </div>
+          )}
         </div>
         {seller.bio && <p className="-mt-1 px-5 pb-4 text-[15px] leading-relaxed text-ink-2 md:px-7">{seller.bio}</p>}
         {related && related.fromSeller.length > 0 && (
@@ -721,12 +722,11 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
             </li>
           </ul>
         )}
-        <div className="flex gap-2 p-4 md:hidden [&>*]:flex-1">
-          {!l.isOwner && <FollowButton seller={seller} onChange={(v) => setSeller((s) => ({ ...s, isFollowing: v, followers: s.followers + (v ? 1 : -1) }))} />}
-          <ButtonLink href={`/u/${seller.username}`} variant="secondary">
-            Весь гардероб
-          </ButtonLink>
-        </div>
+        {!l.isOwner && (
+          <div className="flex p-4 md:hidden [&>*]:flex-1">
+            <FollowButton seller={seller} onChange={(v) => setSeller((s) => ({ ...s, isFollowing: v, followers: s.followers + (v ? 1 : -1) }))} />
+          </div>
+        )}
       </section>
 
       {related && related.similar.length > 0 && (

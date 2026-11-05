@@ -10,19 +10,47 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { PhotoEditor } from "@/components/photo-editor";
-import { RequireAuth } from "@/components/require-auth";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { tiersText } from "@/components/trust";
 import { Button, Chip, Field, Input, Modal, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { uploadPhoto } from "@/lib/upload";
-import { DARK_THEME_ENABLED, getTheme, setTheme, type ThemeChoice } from "@/lib/theme";
+import { usePrefs } from "@/lib/prefs";
+import { DARK_THEME_ENABLED, type ThemeChoice } from "@/lib/theme";
 import type { BodyMeasurements, BundleTier, Me, PreferredSizes } from "@/lib/types";
 import { Select } from "@/components/select";
 
 export default function SettingsPage() {
-  return <RequireAuth reason="чтобы открыть настройки">{(me) => <Settings me={me} />}</RequireAuth>;
+  const { me, loading } = useSession();
+  if (loading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Spinner />
+      </div>
+    );
+  }
+  return me ? <Settings me={me} /> : <GuestSettings />;
+}
+
+/** Signed out: the look settings live on this device; everything else needs an account. */
+function GuestSettings() {
+  const { openAuth } = useSession();
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-6 md:px-6 md:py-10">
+      <div className="mb-8">
+        <TitleWithKanji kanji="設定">
+          <h1 className="rise text-4xl font-bold">Настройки</h1>
+        </TitleWithKanji>
+      </div>
+      <div className="flex flex-col gap-10">
+        <AppearanceSection me={null} />
+        <Section title="Аккаунт" hint="Профиль, размеры, уведомления и статус бренда — после входа. Выбранное здесь оформление перейдёт в аккаунт.">
+          <Button onClick={openAuth}>Войти</Button>
+        </Section>
+      </div>
+    </div>
+  );
 }
 
 /** Saves one settings section; shows field errors and a toast. */
@@ -139,6 +167,7 @@ function Settings({ me }: { me: Me }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
       <SettingsNav
         items={[
+          ["appearance", "装", "Оформление"],
           ["profile", "個", "Профиль"],
           ["sizes", "寸", "Мои размеры"],
           ...(me.isSeller ? ([["bundle", "組", "Скидка за комплект"]] as const) : []),
@@ -149,13 +178,13 @@ function Settings({ me }: { me: Me }) {
         ]}
       />
       <div className="flex min-w-0 max-w-3xl flex-col gap-10">
+      <AppearanceSection me={me} />
       <ProfileSection me={me} />
       <SizesSection me={me} />
       {me.isSeller && <BundleSection me={me} />}
       {(me.isSeller || me.isBrand) && <NotifyEmailSection me={me} Section={Section} />}
       <TelegramSection me={me} Section={Section} />
       <BrandSection Section={Section} />
-      {DARK_THEME_ENABLED && <ThemeSection />}
       {/* The only place to sign out (it is not in the account menu) and to delete the account. */}
       <AccountActions
         me={me}
@@ -183,36 +212,58 @@ function Settings({ me }: { me: Me }) {
   );
 }
 
-/** «Васи» (light) / «Ёру» (dark) / as the device. Stored on this device only. */
-function ThemeSection() {
-  // Settings render only on the client (after the session loads), so localStorage is there.
-  const [theme, setChoice] = useState<ThemeChoice>(getTheme);
-  const options: Array<[ThemeChoice, string, string]> = [
+/** A row of exclusive choices drawn as cards (card style, theme). */
+function Choices<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Array<[T, string, string]>; onChange: (v: T) => void }) {
+  return (
+    <div role="radiogroup" aria-label={label} className={clsx("grid grid-cols-1 gap-2", options.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3")}>
+      {options.map(([v, title, hint]) => (
+        <button
+          key={v}
+          type="button"
+          role="radio"
+          aria-checked={value === v}
+          onClick={() => onChange(v)}
+          className={clsx(
+            "flex flex-col items-start gap-1 rounded-2xl p-3.5 text-left transition-shadow",
+            value === v ? "bg-indigo-soft shadow-[inset_0_0_0_1.5px_var(--indigo)]" : "bg-paper shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]",
+          )}
+        >
+          <span className={clsx("text-[15px] font-semibold", value === v && "text-indigo")}>{title}</span>
+          <span className="text-xs text-ink-2">{hint}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * How the site looks: the card style everywhere items are listed, and the theme («Васи» light / «Ёру» dark / as the
+ * device) while it is on. Kept on this device and, with an account, in it (lib/prefs.ts).
+ */
+function AppearanceSection({ me }: { me: Me | null }) {
+  const { prefs, set } = usePrefs();
+  const cards: Array<["minimal" | "detailed", string, string]> = [
+    ["minimal", "Минималистичные", "Фото и ценник; название, размер и кнопки появляются при наведении"],
+    ["detailed", "Подробные", "Цена, размер, название, состояние и продавец под каждым фото"],
+  ];
+  const themes: Array<[ThemeChoice, string, string]> = [
     ["system", "Как на устройстве", "Светлая днём, тёмная ночью — если так настроен телефон"],
     ["light", "Светлая", "Бумага васи и тушь"],
     ["dark", "Тёмная", "Ночная тушь, тёплая, не серая"],
   ];
   return (
-    <Section title="Оформление" hint="Сохраняется на этом устройстве">
-      <div role="radiogroup" aria-label="Тема" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {options.map(([value, label, hint]) => (
-          <button
-            key={value}
-            role="radio"
-            aria-checked={theme === value}
-            onClick={() => {
-              setTheme(value);
-              setChoice(value);
-            }}
-            className={clsx(
-              "flex flex-col items-start gap-1 rounded-2xl p-3.5 text-left transition-shadow",
-              theme === value ? "bg-indigo-soft shadow-[inset_0_0_0_1.5px_var(--indigo)]" : "bg-paper shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]",
-            )}
-          >
-            <span className={clsx("text-[15px] font-semibold", theme === value && "text-indigo")}>{label}</span>
-            <span className="text-xs text-ink-2">{hint}</span>
-          </button>
-        ))}
+    <Section id="appearance" title="Оформление" hint={me ? "Сохраняется в аккаунте и действует на всех ваших устройствах" : "Сохраняется на этом устройстве; после входа — в аккаунте, на всех устройствах"}>
+      <div className="flex flex-col gap-5">
+        <div>
+          <p className="mb-2 text-sm font-medium">Карточки вещей</p>
+          <Choices label="Карточки вещей" value={prefs.cardStyle} options={cards} onChange={(v) => void set({ cardStyle: v })} />
+        </div>
+        {DARK_THEME_ENABLED && (
+          <div>
+            <p className="mb-2 text-sm font-medium">Тема</p>
+            <Choices label="Тема" value={prefs.theme} options={themes} onChange={(v) => void set({ theme: v })} />
+          </div>
+        )}
       </div>
     </Section>
   );

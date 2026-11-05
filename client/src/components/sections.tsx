@@ -119,7 +119,7 @@ const ROW_BLEED = "-mx-4 md:-mx-6";
 const ROW = "gap-4 px-4 pb-2 md:px-6";
 
 /** Horizontal row of photos (sections on Home, recommendations on Product), all in one frame as tall as the tallest. */
-export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: "feed" | "grid" }) {
+export function CardRow({ items }: { items: Card[] }) {
   // One frame for the whole row, as tall as its tallest photo (height to width), so no photo gets bands it doesn't
   // need; within sane bounds, so one very tall or very wide photo doesn't squeeze the rest.
   const frame = Math.min(Math.max(...items.map((c) => (c.cover ? c.cover.height / c.cover.width : 1.25)), 0.6), 1.6);
@@ -128,7 +128,7 @@ export function CardRow({ items, variant = "grid" }: { items: Card[]; variant?: 
     <DragRow snap viewportClassName={ROW_BLEED} className={clsx(ROW, "pb-4")}>
       {items.map((c) => (
         <div key={c.id} className="w-[44vw] sm:w-56">
-          <ItemCard card={c} variant={variant} uniform={frame} />
+          <ItemCard card={c} uniform={frame} />
         </div>
       ))}
     </DragRow>
