@@ -96,8 +96,8 @@ const SESSION_MS = 30 * 60_000;
 const SESSION_BOOST = 2;
 const FRESH_MS = 72 * 3600 * 1000;
 const MAX_SAME_SELLER_IN_A_ROW = 3;
-/** Two of a kind are at least this many other items apart (jeans, a jacket, a bag, jeans — never jeans, bag, jeans). */
-const KIND_GAP = 2;
+/** Two of a kind are at least this many other items apart: a row of four cards never shows a kind twice. */
+const KIND_GAP = 3;
 /** Every n-th item of «Для вас» comes from outside the profile, so tastes can widen (every 5th cost 4 points of recall). */
 const EXPLORE_EVERY = 8;
 /** How far ahead the variety pass looks for something of another kind, and what a repeat costs (in z-units). */
@@ -138,9 +138,12 @@ const share = (m: Weights, k: string | null | undefined) => {
 };
 
 const HEADWEAR = new Set(['hat', 'cap', 'beanie']);
-/** The kind of thing an item is, for «not two of a kind in a row»: the category; accessories split by what they are. */
+/**
+ * The kind of thing an item is, for «not two of a kind near each other»: the category, except that jeans and trousers
+ * are one kind (on a card they look the same) and accessories split by what they are.
+ */
 export const kindOf = (c: Pick<Traits, 'category' | 'subcategory'>) =>
-  c.category === 'accessories' ? (HEADWEAR.has(c.subcategory ?? '') ? 'headwear' : (c.subcategory ?? 'accessories')) : (c.category ?? '');
+  c.category === 'accessories' ? (HEADWEAR.has(c.subcategory ?? '') ? 'headwear' : (c.subcategory ?? 'accessories')) : c.category === 'trousers' ? 'jeans' : (c.category ?? '');
 
 /**
  * Keeps a feed's order but keeps two items of one kind at least KIND_GAP others apart (three jackets, then four hats,

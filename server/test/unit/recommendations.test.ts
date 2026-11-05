@@ -125,6 +125,7 @@ test('two of a kind are at least two other items apart while other kinds remain'
   for (let i = 1; i <= lastOther; i++) {
     assert.notEqual(kinds[i], kinds[i - 1], `${kinds[i]} side by side at ${i}`);
     if (i >= 2) assert.notEqual(kinds[i], kinds[i - 2], `${kinds[i]} one apart at ${i}`);
+    if (i >= 3) assert.notEqual(kinds[i], kinds[i - 3], `${kinds[i]} two apart at ${i}`);
   }
   assert.equal(feed.length, pool.length);
 });

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PRIVACY_VERSION } from '../auth/auth.service.js';
 import { withJobLock } from '../common/job-lock.js';
-import { MediaService } from '../media/media.service.js';
+import { hashDistance, MediaService, usableHash } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.js';
 import { ADOPT_SELECT, importerMayAdopt } from '../tg/adopt.js';
@@ -38,6 +38,23 @@ export class HandListingsService implements OnApplicationBootstrap {
     if (process.env.NODE_ENV !== 'production') return;
     // Locked: the old and the new container both start this during a deploy, and would list the same item twice.
     setTimeout(() => void withJobLock(this.redis, 'hand.listings', 15 * 60_000, () => this.run()), 20_000).unref();
+  }
+
+  /**
+   * Makes the item's chosen photo the listing's cover: the one among its photos whose difference hash is nearest to
+   * the file's (the same picture, resized). False when it already is the cover or isn't found.
+   */
+  private async setCover(listingId: string, folder: string, name: string) {
+    const photos = await this.prisma.photo.findMany({ where: { listingId }, orderBy: { order: 'asc' }, select: { id: true, dhash: true } });
+    if (photos.length < 2) return false;
+    const { dhash } = await this.media.searchImage(await readFile(resolve(process.cwd(), 'seed-data', folder, name)));
+    const scored = photos.map((p) => ({ p, d: usableHash(p.dhash) ? hashDistance(usableHash(p.dhash)!, dhash) : 99 }));
+    const best = scored.reduce((a, b) => (b.d < a.d ? b : a));
+    // Measured on the batches: the same picture at the two sizes is 0–10 apart, a different photo of the item 14 or more.
+    if (best.d > 12 || photos[0].id === best.p.id) return false;
+    const order = [best.p, ...photos.filter((p) => p.id !== best.p.id)];
+    await this.prisma.$transaction(order.map((p, i) => this.prisma.photo.update({ where: { id: p.id }, data: { order: i, isCover: i === 0 } })));
+    return true;
   }
 
   /** Uploads the item's photos and links them to the listing (the first as the cover) in place of the ones it had. */
@@ -111,6 +128,13 @@ export class HandListingsService implements OnApplicationBootstrap {
         const listed = { sellerId: seller.id, title, NOT: { status: 'DELETED' as const, publishedAt: null } };
         const live = await this.prisma.listing.findFirst({ where: listed, select: { id: true, status: true, _count: { select: { photos: true } } } });
         if (live) {
+          if (item.cover) {
+            try {
+              if (await this.setCover(live.id, batch.folder, item.cover)) this.logger.log(`@${batch.username}: new cover for «${title}»`);
+            } catch (e) {
+              this.logger.warn(`@${batch.username}: «${title}» cover not set: ${(e as Error).message}`);
+            }
+          }
           if (item.replacePhotos != null && live._count.photos === item.replacePhotos && ['PUBLISHED', 'HIDDEN', 'RESERVED'].includes(live.status)) {
             try {
               await this.replacePhotos(seller.id, live.id, batch.folder, item.photos);
@@ -123,7 +147,7 @@ export class HandListingsService implements OnApplicationBootstrap {
         }
         try {
           const photos: { id: string; isDefect: boolean }[] = [];
-          for (const name of item.photos) {
+          for (const name of item.cover ? [item.cover, ...item.photos.filter((n) => n !== item.cover)] : item.photos) {
             const buffer = await readFile(resolve(process.cwd(), 'seed-data', batch.folder, name));
             photos.push({ id: (await this.media.upload(seller.id, fileOf(buffer, name))).id, isDefect: false });
           }

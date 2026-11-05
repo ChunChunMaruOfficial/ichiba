@@ -36,6 +36,7 @@ test('every hand-listed item fits the catalogue and has its photos', () => {
       assert.ok((i.styleTags ?? []).length <= 3, `${where}: style tags`);
       assert.ok(!i.description || i.description.length <= 2000, `${where}: description`);
       assert.ok(item.photos.length >= 1 && item.photos.length <= 10, `${where}: photo count`);
+      if (item.cover) assert.ok(item.photos.includes(item.cover), `${where}: cover ${item.cover} not among the photos`);
       for (const p of item.photos) {
         assert.ok(!photos.has(p), `${where}: photo ${p} used twice`);
         photos.add(p);

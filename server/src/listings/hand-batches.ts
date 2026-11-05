@@ -18,6 +18,11 @@ export interface HandItem {
    * still holds exactly this many (the old set), so it happens once and a seller who added photos is left alone.
    */
   replacePhotos?: number;
+  /**
+   * The photo (one of `photos`) that is the cover: the thing laid flat, never the one on a person. A new listing gets it
+   * first; a live one is given it as cover, found among its photos by the difference hash, once.
+   */
+  cover?: string;
   input: Omit<ListingInputT, 'photos'>;
 }
 
@@ -1641,6 +1646,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     account: { bio: 'harajuku原宿 — личные вещи: архивные куртки, обувь, сумки. Доставка по всему миру.', brandName: 'harajuku原宿', logo: 'logo.jpg', catalog: true },
     items: [
       {
+        cover: '429-2.jpg',
         photos: ['429-0.jpg', '429-1.jpg', '429-2.jpg'],
         input: {
           title: 'Футболка Hard Rock Couture Copenhagen',
@@ -1741,6 +1747,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '856-2.jpg',
         photos: ['856-0.jpg', '856-1.jpg', '856-2.jpg', '856-3.jpg'],
         input: {
           title: 'Тёмно-синий бомбер с объёмными 3D-карманами',
@@ -1791,6 +1798,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '911-1.jpg',
         photos: ['911-0.jpg', '911-1.jpg', '911-2.jpg'],
         input: {
           title: 'Зимняя парка Khujo с вакс-эффектом',
@@ -1801,6 +1809,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '919-3.jpg',
         photos: ['919-0.jpg', '919-1.jpg', '919-2.jpg', '919-3.jpg', '919-4.jpg', '919-5.jpg'],
         input: {
           title: 'Куртка Naketano с мульти-зипами и капюшоном',
@@ -1831,6 +1840,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '931-1.jpg',
         photos: ['931-0.jpg', '931-1.jpg', '931-2.jpg'],
         input: {
           title: 'Свитер на молнии с необычным фейдом',
@@ -1841,6 +1851,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '934-1.jpg',
         photos: ['934-0.jpg', '934-1.jpg', '934-2.jpg'],
         input: {
           title: 'Чёрная лёгкая куртка с четырьмя карманами и съёмным капюшоном',
@@ -1851,6 +1862,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
         },
       },
       {
+        cover: '939-2.jpg',
         photos: ['939-0.jpg', '939-1.jpg', '939-2.jpg'],
         input: {
           title: 'Кожаная куртка с паттерном рептилии и острым воротником',
