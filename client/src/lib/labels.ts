@@ -1,4 +1,4 @@
-import type { Condition, DeliveryMethod, ListingStatus, RequestStatus } from "./types";
+import type { Condition, DeliveryMethod, ListingStatus, RequestStatus, TailorMeasurements } from "./types";
 
 export const CONDITION_LABEL: Record<Condition, string> = {
   NEW_WITH_TAGS: "Новое",
@@ -96,3 +96,11 @@ export function plural(n: number, one: string, few: string, many: string) {
   return many;
 }
 export const items = (n: number) => `${n} ${plural(n, "вещь", "вещи", "вещей")}`;
+
+/** «Пошив по меркам»: the measurements a tailor gets, in this order. */
+const TAILOR_LABEL: Record<keyof TailorMeasurements, string> = { height: "Рост", chest: "Обхват груди", waist: "Обхват талии", hips: "Обхват бёдер" };
+/** [«Обхват груди», «92 см»] for each measurement filled in. */
+export const tailorLines = (m: TailorMeasurements | null | undefined) =>
+  (Object.keys(TAILOR_LABEL) as (keyof TailorMeasurements)[]).flatMap((k) => (m?.[k] ? [[TAILOR_LABEL[k], `${m[k]} см`] as const] : []));
+/** Whether a profile has what a made-to-measure order needs: at least one girth. */
+export const canSewTo = (m: TailorMeasurements | null | undefined) => !!(m?.chest || m?.waist || m?.hips);

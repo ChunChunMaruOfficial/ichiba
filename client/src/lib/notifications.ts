@@ -30,6 +30,8 @@ export interface NotificationRow {
     note?: string | null;
     /** dispute_resolved: complete | cancel. */
     outcome?: string;
+    /** request_new: «Сшить по моим меркам» — the buyer's measurements are in the deal. */
+    sewn?: boolean;
   };
   readAt: string | null;
   createdAt: string;
@@ -39,7 +41,7 @@ export interface NotificationRow {
 
 /** Human text for every notification type (frame 15). */
 const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => string> = {
-  request_new: (p) => `@${p.buyer} хочет купить «${p.title}» за ${p.price} BYN`,
+  request_new: (p) => (p.sewn ? `@${p.buyer} просит сшить «${p.title}» по своим меркам за ${p.price} BYN` : `@${p.buyer} хочет купить «${p.title}» за ${p.price} BYN`),
   request_accepted: (p) => (p.confirmed ? `@${p.buyer} выбрал способ получения «${p.title}» — договоритесь о передаче` : `@${p.seller} подтвердил запрос на «${p.title}»`),
   request_declined: (p) => `Продавец отклонил запрос на «${p.title}»${p.reason ? `: ${p.reason.toLowerCase()}` : ""}`,
   request_cancelled: (p) => `Сделка по «${p.title}» отменена`,

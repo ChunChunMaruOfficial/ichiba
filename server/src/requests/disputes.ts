@@ -64,7 +64,7 @@ export class DisputesService {
           createdAt: r.createdAt,
           buyer: r.buyer,
           seller: r.seller,
-          items: r.items.map((i) => ({ ...serializeCard(i.listing), ...(i.size ? { size: i.size } : {}), dealPrice: i.price })),
+          items: r.items.map((i) => ({ ...serializeCard(i.listing), ...(i.bodyMeasurements != null ? { size: null } : i.size ? { size: i.size } : {}), dealPrice: i.price, sewnTo: i.bodyMeasurements ?? null })),
           dispute: opened ? { at: opened.at, reason: opened.reason, by: opened.byUserId === r.buyerId ? ('buyer' as const) : ('seller' as const) } : null,
           decisions: decisions.filter((d) => d.targetId === r.id).map((d) => ({ action: d.action.replace(/^dispute_/, ''), reason: d.reason, at: d.at })),
         };
@@ -79,7 +79,8 @@ export class DisputesService {
     });
     if (!r) throw new NotFoundException({ message: 'Сделка не найдена' });
     if (r.status !== 'DISPUTED') throw new ConflictException({ message: 'Спор уже решён — обновите страницу', status: r.status });
-    const single = r.items.filter((i) => !multiSize(i.listing)).map((i) => i.listingId);
+    // A sewn-to-measure line never reserved its listing (requests.service.ts), so there is nothing to release or sell.
+    const single = r.items.filter((i) => !multiSize(i.listing) && i.bodyMeasurements == null).map((i) => i.listingId);
     const title = r.items[0]?.listing.title ?? '';
     const note = `Решение по спору: ${reason}`;
     let released: string[] = [];

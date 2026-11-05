@@ -426,14 +426,27 @@ export function Header() {
           <SearchBox className="hidden w-full min-w-0 md:block" />
         </Suspense>
         <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0 md:justify-self-end">
-          {/* «Продать вещь» is the second-hand market's call; the brands' showcase doesn't sell people's closets. */}
-          {resaleZone && (
+          {/* Wide screens only: on a phone it is in the catalogue drawer. */}
+          <Link href="/how-it-works" className="mr-1 hidden h-11 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[15px] font-medium text-ink-2 hover:bg-ink/5 hover:text-ink xl:inline-flex">
+            Как работает сделка
+          </Link>
+          {/* «Продать вещь» is the second-hand market's call; the brands' showcase doesn't sell people's closets — there
+              the call is «Открыть лавку» (/sellers), for brands, shops and private sellers alike. */}
+          {resaleZone ? (
           <Link
             href="/sell"
             aria-label="Продать вещь"
             className="btn-wa btn-wa-shu mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex lg:px-5"
           >
             <IconPlus className="size-4.5" /> <span className="hidden lg:inline">Продать вещь</span>
+          </Link>
+          ) : (
+          <Link
+            href="/sellers"
+            aria-label="Открыть лавку"
+            className="btn-wa btn-wa-paper mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex lg:px-5"
+          >
+            <IconPlus className="size-4.5" /> <span className="hidden lg:inline">Открыть лавку</span>
           </Link>
           )}
           {loading ? (

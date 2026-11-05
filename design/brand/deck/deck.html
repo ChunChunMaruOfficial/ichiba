@@ -1,0 +1,361 @@
+<!doctype html>
+<!--
+  ichiba product deck, 1600×900 slides. Edit the text here, then render:
+    node design/brand/deck/render.mjs        → client/public/presentation/NN.webp
+  and keep client/src/lib/presentation.ts (titles + alt text) in step with the slides.
+  The story follows a good pitch deck's order: the problem from both sides, why it isn't solved, what we saw, where
+  people buy now, the solution in one line, the product, the deal, the money. Only what the site does today, or is
+  marked as coming. {{WORDMARK}} is filled in by render.mjs from client/src/components/logo.tsx.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Yuji+Syuku&display=block" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f4efe6; --surface: #fbf8f2; --sunk: #ece5d8; --ink: #1c1a17; --ink-2: #4a453d; --muted: #6b6459;
+    --line: #e2dacb; --line-strong: #cfc5b3; --shu: #c8102e; --on-shu: #fbf8f2; --indigo: #23395b; --kraft: #e6d6b3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #888; font-family: Spectral, Georgia, serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .slide { position: relative; width: 1600px; height: 900px; overflow: hidden; background: var(--paper); padding: 54px; margin: 0 auto 40px; }
+  .brush { font-family: "Yuji Syuku", serif; font-weight: 400; }
+  .top { position: absolute; left: 54px; right: 54px; top: 44px; display: flex; justify-content: space-between; align-items: center; }
+  .top svg { height: 34px; width: auto; }
+  .top .meta { font-size: 15px; color: var(--muted); }
+  .num { position: absolute; right: 54px; bottom: 40px; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .src { position: absolute; left: 54px; bottom: 40px; font-size: 15px; color: var(--muted); }
+  .dark .top .meta, .dark .num, .dark .src { color: rgb(244 239 230 / 0.72); }
+  .dark .top svg .wm-letter { fill: var(--paper); }
+  h1, h2 { font-weight: 600; letter-spacing: -0.015em; line-height: 1.08; }
+  h2 { font-size: 60px; }
+  .lead { font-size: 26px; line-height: 1.45; color: var(--ink-2); }
+  .eyebrow { font-size: 17px; color: var(--muted); letter-spacing: 0.02em; }
+  .card { background: var(--sunk); border-radius: 28px; padding: 36px; }
+  .card h3 { font-size: 32px; font-weight: 600; }
+  .card p { margin-top: 14px; font-size: 22px; line-height: 1.45; color: var(--ink-2); }
+  .seal { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: var(--shu); color: var(--on-shu); font-size: 38px; }
+  .pill { display: inline-flex; align-items: center; height: 44px; padding: 0 22px; border-radius: 999px; background: var(--surface); font-size: 20px; }
+  .body { position: absolute; left: 54px; right: 54px; top: 132px; bottom: 96px; }
+  .vert { writing-mode: vertical-rl; font-size: 72px; line-height: 1.15; letter-spacing: 0.08em; }
+  .star { color: var(--shu); font-size: 30px; line-height: 1; }
+  .list li { list-style: none; display: grid; grid-template-columns: 52px 1fr; align-items: baseline; font-size: 34px; line-height: 1.3; padding: 18px 0; border-bottom: 1px solid var(--line-strong); }
+  .list li span { font-size: 22px; color: var(--ink-2); display: block; margin-top: 4px; }
+  .browser { border-radius: 22px; overflow: hidden; background: var(--surface); box-shadow: 0 24px 80px rgb(28 26 23 / 0.22); }
+  .browser .bar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 18px; background: var(--sunk); }
+  .browser .bar i { width: 12px; height: 12px; border-radius: 50%; background: var(--line-strong); }
+  .browser .bar b { margin-left: 18px; font-weight: 500; font-size: 15px; color: var(--muted); }
+  .browser img { display: block; width: 100%; }
+</style>
+</head>
+<body>
+
+<!-- 01 · cover -->
+<section class="slide" data-n="1" style="background: radial-gradient(70% 90% at 92% 88%, #c8102e 0%, rgb(200 16 46 / 0.75) 30%, rgb(220 140 150 / 0.35) 58%, transparent 80%), radial-gradient(40% 50% at 98% 6%, rgb(35 57 91 / 0.35), transparent 70%), linear-gradient(180deg, #f6f1e8, #efe3cf);">
+  <div class="top">{{WORDMARK}}<span class="meta">ichiba.by · 2026</span></div>
+  <div style="position:absolute; left:54px; top:230px; width:900px;">
+    <div style="height:200px;">{{WORDMARK_BIG}}</div>
+    <h1 style="margin-top:48px; font-size:48px; line-height:1.15;">маркетплейс одежды Беларуси</h1>
+    <p class="lead" style="margin-top:20px; max-width:760px;">Белорусские бренды и открытые гардеробы в одном месте: поиск по фото и размеру, пошив по меркам и сделка по понятным правилам.</p>
+    <div style="margin-top:44px; display:flex; gap:12px;"><span class="pill">локальные бренды</span><span class="pill">вторичка</span><span class="pill">пошив по меркам</span></div>
+  </div>
+  <div class="brush vert" style="position:absolute; right:92px; top:250px; color:#fbf8f2;">古着市場</div>
+</section>
+
+<!-- 02 · manifesto -->
+<section class="slide dark" data-n="2" style="background: var(--shu); color: var(--on-shu);">
+  <div class="top">{{WORDMARK}}<span class="meta">ichiba · 2026</span></div>
+  <div style="position:absolute; left:54px; top:250px; right:200px;">
+    <h1 style="font-size:104px; line-height:1.02;">ichiba — одежда с характером.</h1>
+    <h1 style="font-size:104px; line-height:1.02; margin-top:18px; opacity:0.78;">Остальное — масс-маркет.</h1>
+  </div>
+  <div class="brush" style="position:absolute; right:70px; bottom:40px; font-size:300px; line-height:1; opacity:0.16;">市</div>
+  <div class="num">02 / 18</div>
+</section>
+
+<!-- 03 · two sides -->
+<section class="slide" data-n="3">
+  <div class="top">{{WORDMARK}}<span class="meta">проблема</span></div>
+  <div class="body">
+    <h2>Две стороны одной проблемы</h2>
+    <p class="lead" style="margin-top:18px; max-width:1180px;">Хорошая одежда в Беларуси есть. Её трудно найти тем, кто ищет, и трудно показать тем, кто её создаёт или продаёт.</p>
+    <div style="margin-top:44px; display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+      <div class="card" style="height:330px;">
+        <span class="seal brush">買</span>
+        <h3 style="margin-top:22px;">Покупатель</h3>
+        <p>Хочет вещь не из масс-маркета, но не знает, где её искать, подойдёт ли размер и кому можно доверять.</p>
+      </div>
+      <div class="card" style="height:330px; background: var(--ink); color: var(--paper);">
+        <span class="seal brush">売</span>
+        <h3 style="margin-top:22px;">Бренд или продавец</h3>
+        <p style="color: rgb(244 239 230 / 0.78);">Шьёт или продаёт хорошие вещи, а покупателей находит через соцсети и знакомых. Нет витрины, поиска, статистики.</p>
+      </div>
+    </div>
+  </div>
+  <div class="num">03 / 18</div>
+</section>
+
+<!-- 04 · five whys -->
+<section class="slide" data-n="4">
+  <div class="top">{{WORDMARK}}<span class="meta">проблема</span></div>
+  <div class="body">
+    <h2>Пять «почему»: где на самом деле болит</h2>
+    <div style="margin-top:42px; display:grid; grid-template-columns:repeat(5,1fr); gap:16px;">
+      <div class="card" style="padding:28px; height:440px;"><p class="eyebrow">почему берут масс-маркет?</p><p style="font-size:24px; color:var(--ink); margin-top:18px;">Его проще найти и понятнее купить: размер, цена, доставка видны сразу.</p></div>
+      <div class="card" style="padding:28px; height:440px;"><p class="eyebrow">почему локальное трудно найти?</p><p style="font-size:24px; color:var(--ink); margin-top:18px;">Бренды и гардеробы разбросаны по Instagram, Telegram и барахолкам.</p></div>
+      <div class="card" style="padding:28px; height:440px;"><p class="eyebrow">почему там неудобно покупать?</p><p style="font-size:24px; color:var(--ink); margin-top:18px;">Нет поиска по размеру, цена и наличие — в директе, предоплата на доверии.</p></div>
+      <div class="card" style="padding:28px; height:440px;"><p class="eyebrow">почему бренд не решит сам?</p><p style="font-size:24px; color:var(--ink); margin-top:18px;">У маленькой марки нет времени и денег на свой магазин и продвижение.</p></div>
+      <div class="card" style="padding:28px; height:440px; background:var(--shu); color:var(--on-shu);"><p class="eyebrow" style="color:rgb(251 248 242 / 0.75);">в итоге</p><p style="font-size:26px; margin-top:18px; font-weight:600; color:var(--on-shu);">Нет одного места, где обе стороны находят друг друга и договариваются по правилам.</p></div>
+    </div>
+  </div>
+  <div class="num">04 / 18</div>
+</section>
+
+<!-- 05 · what we saw -->
+<section class="slide" data-n="5">
+  <div class="top">{{WORDMARK}}<span class="meta">исследование</span></div>
+  <div class="body">
+    <h2>Мы изучили 140 белорусских брендов одежды</h2>
+    <div style="margin-top:56px; display:grid; grid-template-columns:repeat(4,1fr); gap:20px;">
+      <div><p style="font-size:120px; font-weight:600; line-height:1;">86</p><p class="lead" style="margin-top:16px; font-size:23px;">шьют сами: свой дизайн и производство подтверждены</p></div>
+      <div><p style="font-size:120px; font-weight:600; line-height:1; color:var(--shu);">77</p><p class="lead" style="margin-top:16px; font-size:23px;">из 86 не продаются ни на одном маркетплейсе</p></div>
+      <div><p style="font-size:120px; font-weight:600; line-height:1;">83</p><p class="lead" style="margin-top:16px; font-size:23px;">из 86 находят покупателей через Instagram</p></div>
+      <div><p style="font-size:120px; font-weight:600; line-height:1;">15</p><p class="lead" style="margin-top:16px; font-size:23px;">шьют по меркам или под заказ</p></div>
+    </div>
+    <div class="card" style="margin-top:56px; background:var(--ink); color:var(--paper); padding:30px 36px;">
+      <p style="font-size:28px; line-height:1.4; margin-top:0; color:var(--paper);">Белорусская мода живёт в соцсетях: брендов много, а витрины, где их можно найти по стилю, размеру и цене, нет.</p>
+    </div>
+  </div>
+  <div class="src">Исследование ichiba, октябрь 2026: сайты брендов, Telegram-каналы, подборки СМИ и концепт-сторов</div>
+  <div class="num">05 / 18</div>
+</section>
+
+<!-- 06 · where people buy now -->
+<section class="slide" data-n="6">
+  <div class="top">{{WORDMARK}}<span class="meta">рынок</span></div>
+  <div class="body">
+    <h2>Где покупают сейчас</h2>
+    <div style="margin-top:40px; display:grid; grid-template-columns:repeat(4,1fr); gap:18px;">
+      <div class="card" style="height:300px;"><h3>Kufar и барахолки</h3><p>Всё подряд: бренды теряются среди тысяч объявлений.</p></div>
+      <div class="card" style="height:300px;"><h3>Wildberries, Ozon, Lamoda</h3><p>Масс-маркет, склад и конкуренция ценой. Маленькой марке там тесно.</p></div>
+      <div class="card" style="height:300px;"><h3>Instagram и Telegram</h3><p>Нет поиска по размеру, цена — в директе, предоплата на доверии.</p></div>
+      <div class="card" style="height:300px;"><h3>Шоурумы и концепт-сторы</h3><p>Живые вещи, но только офлайн и в основном в Минске.</p></div>
+    </div>
+    <div style="margin-top:32px; display:flex; align-items:center; gap:24px; font-size:26px; color:var(--ink-2);">
+      <span class="star">✦</span>
+      <p>В Европе так покупают на Vinted и Depop. ichiba — такое место для Беларуси, и с белорусскими брендами в отдельном каталоге.</p>
+    </div>
+  </div>
+  <div class="num">06 / 18</div>
+</section>
+
+<!-- 07 · the solution in one line -->
+<section class="slide" data-n="7" style="background: var(--surface);">
+  <div class="top">{{WORDMARK}}<span class="meta">решение</span></div>
+  <div style="position:absolute; left:54px; right:220px; top:240px;">
+    <p class="eyebrow" style="font-size:22px;">ichiba</p>
+    <h1 style="margin-top:20px; font-size:72px; line-height:1.12;">соединяет покупателей с белорусскими брендами и открытыми гардеробами — <span style="color:var(--shu);">с поиском по фото и размеру и сделкой по понятным правилам.</span></h1>
+  </div>
+  <div class="brush vert" style="position:absolute; right:80px; top:230px; color:var(--shu);">市場</div>
+  <div class="num">07 / 18</div>
+</section>
+
+<!-- 08 · it works: the site -->
+<section class="slide" data-n="8" style="background: var(--indigo); color: var(--paper);">
+  <div class="top dark">{{WORDMARK_LIGHT}}<span class="meta" style="color:rgb(244 239 230 / 0.72);">продукт</span></div>
+  <div style="position:absolute; left:54px; top:150px; width:470px;">
+    <h2 style="font-size:64px;">Сайт уже работает</h2>
+    <p class="lead" style="margin-top:22px; color:rgb(244 239 230 / 0.8);">ichiba.by — лента, каталог брендов, вторичка, поиск по фото, сделки и чат.</p>
+    <p style="margin-top:40px; font-size:72px; font-weight:600; line-height:1;">348</p>
+    <p style="font-size:22px; color:rgb(244 239 230 / 0.75); margin-top:8px;">вещей в продаже</p>
+    <p style="margin-top:28px; font-size:72px; font-weight:600; line-height:1;">15</p>
+    <p style="font-size:22px; color:rgb(244 239 230 / 0.75); margin-top:8px;">продавцов на 5 ноября 2026</p>
+  </div>
+  <div class="browser" style="position:absolute; left:580px; top:130px; width:1100px;">
+    <div class="bar"><i></i><i></i><i></i><b>ichiba.by</b></div>
+    <img src="shots/home.jpg" alt="" />
+  </div>
+</section>
+
+<!-- 09 · the way to a thing: now and with ichiba -->
+<section class="slide" data-n="9">
+  <div class="top">{{WORDMARK}}<span class="meta">путь к вещи</span></div>
+  <div class="body">
+    <h2>Путь к вещи: сейчас и с <span style="color:var(--shu);">ichiba</span></h2>
+    <div style="margin-top:70px; border:2px solid var(--line-strong); border-radius:999px; padding:30px 48px; display:flex; align-items:center; gap:40px; color:var(--muted);">
+      <span style="font-size:36px; font-weight:600; width:200px;">сейчас</span>
+      <span style="font-size:26px;">листаешь каналы → спрашиваешь в директе размер и цену → переводишь предоплату → ждёшь и надеешься</span>
+    </div>
+    <div style="margin-top:28px; border:3px solid var(--shu); background:var(--surface); border-radius:999px; padding:38px 48px; display:flex; align-items:center; gap:40px; box-shadow:0 24px 60px rgb(200 16 46 / 0.16);">
+      <span style="font-size:44px; font-weight:700; width:200px; color:var(--shu);">ichiba</span>
+      <div>
+        <p style="font-size:32px; display:flex; gap:22px; align-items:center;">Поиск <span class="star">✦</span> Размер <span class="star">✦</span> Запрос <span class="star">✦</span> Получение</p>
+        <p style="font-size:24px; color:var(--ink-2); margin-top:8px;">вещь резервируется за вами, оплата — при получении</p>
+      </div>
+    </div>
+  </div>
+  <div class="num">09 / 18</div>
+</section>
+
+<!-- 10 · for buyers -->
+<section class="slide" data-n="10">
+  <div class="top">{{WORDMARK}}<span class="meta">покупателям</span></div>
+  <div class="body" style="display:grid; grid-template-columns: 420px 1fr; gap:60px;">
+    <div>
+      <h2>Найти своё</h2>
+      <p class="lead" style="margin-top:20px;">Покупатель ищет не по названию, а так, как думает о вещи.</p>
+      <div class="brush" style="margin-top:60px; font-size:200px; line-height:1; color:var(--shu);">探</div>
+    </div>
+    <ul class="list">
+      <li><b class="star">✦</b><div>Поиск по фото<span>загрузите снимок или скриншот — найдём похожие вещи</span></div></li>
+      <li><b class="star">✦</b><div>«Подойдёт ли размер»<span>по вашим замерам и замерам вещи</span></div></li>
+      <li><b class="star">✦</b><div>Лента «Для вас» и свайп<span>подборка учится на том, что вы смотрите и сохраняете</span></div></li>
+      <li><b class="star">✦</b><div>Подписки на бренды и гардеробы<span>новинки — в ленте подписок, снижение цены — в уведомлениях</span></div></li>
+      <li style="border-bottom:0;"><b class="star">✦</b><div>Торг, аукционы, скидка за комплект<span>правила видны заранее</span></div></li>
+    </ul>
+  </div>
+  <div class="num">10 / 18</div>
+</section>
+
+<!-- 11 · for brands -->
+<section class="slide" data-n="11">
+  <div class="top">{{WORDMARK}}<span class="meta">брендам</span></div>
+  <div class="body" style="display:grid; grid-template-columns: 420px 1fr; gap:60px;">
+    <div>
+      <h2>Лавка бренда</h2>
+      <p class="lead" style="margin-top:20px;">Бренды — в своём каталоге, не вперемешку с б/у.</p>
+      <div class="brush" style="margin-top:60px; font-size:200px; line-height:1; color:var(--shu);">銘</div>
+    </div>
+    <ul class="list">
+      <li><b class="star">✦</b><div>Отдельный каталог брендов<span>печать «Бренд» на профиле и вещах, метки «Новинка» и «Хит»</span></div></li>
+      <li><b class="star">✦</b><div>Переносим ассортимент сами<span>из Telegram-канала или с сайта — и держим в синхроне</span></div></li>
+      <li><b class="star">✦</b><div>Статистика по каждой вещи<span>просмотры, сохранения, чаты, предложения, продажи</span></div></li>
+      <li><b class="star">✦</b><div>Заказы приходят в Telegram<span>и на почту — ни один запрос не потеряется</span></div></li>
+      <li style="border-bottom:0;"><b class="star">✦</b><div>Страницы вещей в Google и Яндексе<span>у каждой вещи своя страница с разметкой товара</span></div></li>
+    </ul>
+  </div>
+  <div class="num">11 / 18</div>
+</section>
+
+<!-- 12 · made to measure -->
+<section class="slide" data-n="12" style="background: var(--kraft);">
+  <div class="top">{{WORDMARK}}<span class="meta" style="color:#4a3b1f;">новое</span></div>
+  <div class="body">
+    <h2 style="color:#2b2210;">Пошив по меркам</h2>
+    <p class="lead" style="margin-top:18px; max-width:1100px; color:#4a3b1f;">Бренд продаёт не только то, что сшито: покупатель заказывает модель под себя, а его мерки приходят вместе с заказом.</p>
+    <div style="margin-top:50px; display:grid; grid-template-columns:repeat(3,1fr); gap:22px;">
+      <div class="card" style="background:var(--surface); height:290px;"><span class="brush" style="font-size:64px; color:var(--shu); line-height:1;">一</span><h3 style="margin-top:20px;">Бренд отмечает модель</h3><p>«Шью по меркам» и срок пошива — прямо в карточке вещи.</p></div>
+      <div class="card" style="background:var(--surface); height:290px;"><span class="brush" style="font-size:64px; color:var(--shu); line-height:1;">二</span><h3 style="margin-top:20px;">Покупатель заказывает</h3><p>Кнопка «Сшить по моим меркам» на странице вещи.</p></div>
+      <div class="card" style="background:var(--surface); height:290px;"><span class="brush" style="font-size:64px; color:var(--shu); line-height:1;">三</span><h3 style="margin-top:20px;">Мерки — бренду</h3><p>Рост и обхваты из профиля покупателя уже в заказе. Дальше — обычная сделка.</p></div>
+    </div>
+  </div>
+  <div class="src" style="color:#4a3b1f;">15 из 86 брендов в нашем исследовании уже шьют по меркам или под заказ</div>
+  <div class="num" style="color:#4a3b1f;">12 / 18</div>
+</section>
+
+<!-- 13 · resale -->
+<section class="slide" data-n="13">
+  <div class="top">{{WORDMARK}}<span class="meta">вторичка</span></div>
+  <div class="body" style="display:grid; grid-template-columns: 1fr 660px; gap:60px;">
+    <div>
+      <h2>Свой гардероб — за минуту</h2>
+      <p class="lead" style="margin-top:20px;">Вторичка — отдельный раздел: вещи людей и секонд-магазинов не смешиваются с каталогом брендов.</p>
+      <ul class="list" style="margin-top:30px;">
+        <li><b class="star">✦</b><div>ИИ заполняет карточку по фото<span>категория, бренд, цвет и подсказка цены</span></div></li>
+        <li><b class="star">✦</b><div>Модерация до публикации<span>фото, описание, запрещённые вещи</span></div></li>
+        <li style="border-bottom:0;"><b class="star">✦</b><div>Торг и аукционы<span>автопринятие и автоотказ по вашим порогам</span></div></li>
+      </ul>
+    </div>
+    <div class="browser" style="align-self:center;">
+      <div class="bar"><i></i><i></i><i></i><b>ichiba.by/resale</b></div>
+      <img src="shots/resale.jpg" alt="" />
+    </div>
+  </div>
+  <div class="num">13 / 18</div>
+</section>
+
+<!-- 14 · the item page -->
+<section class="slide" data-n="14" style="background: var(--sunk);">
+  <div class="top">{{WORDMARK}}<span class="meta">карточка вещи</span></div>
+  <div class="browser" style="position:absolute; left:54px; top:130px; width:1000px;">
+    <div class="bar"><i></i><i></i><i></i><b>ichiba.by/item/…</b></div>
+    <img src="shots/item.jpg" alt="" />
+  </div>
+  <div style="position:absolute; left:1110px; top:170px; right:54px;">
+    <h2 style="font-size:52px;">У каждой вещи — своя страница</h2>
+    <p class="lead" style="margin-top:22px; font-size:24px;">Цена-бирка, размер, состояние, замеры и способы получения. Покупатель видит всё до первого сообщения.</p>
+    <p class="lead" style="margin-top:22px; font-size:24px;">Страницы вещей индексируют Google и Яндекс — покупатели приходят и из поиска.</p>
+  </div>
+  <div class="num">14 / 18</div>
+</section>
+
+<!-- 15 · the deal -->
+<section class="slide dark" data-n="15" style="background: var(--ink); color: var(--paper);">
+  <div class="top">{{WORDMARK_LIGHT}}<span class="meta">сделка</span></div>
+  <div style="position:absolute; left:54px; top:170px;">
+    <h1 style="font-size:84px; line-height:1.1;">Фиксируем условия.<br />Резервируем вещь.<br /><span style="color:#ff5a6e;">Разбираем споры.</span></h1>
+  </div>
+  <div style="position:absolute; left:54px; right:54px; bottom:110px; display:grid; grid-template-columns:repeat(5,1fr); gap:16px;">
+    <div style="border-top:2px solid rgb(244 239 230 / 0.3); padding-top:18px;"><p style="font-size:40px; font-weight:600;">48 ч</p><p style="font-size:20px; color:rgb(244 239 230 / 0.72); margin-top:6px;">на ответ продавца — иначе запрос отменится сам</p></div>
+    <div style="border-top:2px solid rgb(244 239 230 / 0.3); padding-top:18px;"><p style="font-size:40px; font-weight:600;">резерв</p><p style="font-size:20px; color:rgb(244 239 230 / 0.72); margin-top:6px;">вещь закрепляется за покупателем после подтверждения</p></div>
+    <div style="border-top:2px solid rgb(244 239 230 / 0.3); padding-top:18px;"><p style="font-size:40px; font-weight:600;">контакты</p><p style="font-size:20px; color:rgb(244 239 230 / 0.72); margin-top:6px;">открываются, когда сделка подтверждена</p></div>
+    <div style="border-top:2px solid rgb(244 239 230 / 0.3); padding-top:18px;"><p style="font-size:40px; font-weight:600;">спор</p><p style="font-size:20px; color:rgb(244 239 230 / 0.72); margin-top:6px;">сделка замирает, её разбирает модератор</p></div>
+    <div style="border-top:2px solid rgb(244 239 230 / 0.3); padding-top:18px;"><p style="font-size:40px; font-weight:600;">7 дней</p><p style="font-size:20px; color:rgb(244 239 230 / 0.72); margin-top:6px;">после передачи сделка завершается сама</p></div>
+  </div>
+  <div class="num">15 / 18</div>
+</section>
+
+<!-- 16 · money -->
+<section class="slide" data-n="16">
+  <div class="top">{{WORDMARK}}<span class="meta">монетизация</span></div>
+  <div class="body">
+    <h2>Как зарабатывает ichiba</h2>
+    <div style="margin-top:44px; display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
+      <div class="card" style="height:470px;">
+        <p class="eyebrow">сейчас</p>
+        <h3 style="font-size:56px; margin-top:14px;">Бесплатно</h3>
+        <p>Размещение и продажи бесплатны для всех. Покупатель платит при получении — лично или при доставке.</p>
+      </div>
+      <div class="card" style="height:470px; background:var(--shu); color:var(--on-shu);">
+        <p class="eyebrow" style="color:rgb(251 248 242 / 0.75);">с онлайн-оплатой</p>
+        <h3 style="font-size:56px; margin-top:14px;">5% с продажи</h3>
+        <p style="color:rgb(251 248 242 / 0.9);">Комиссия с продавца — только с завершённых сделок. Деньги хранятся у площадки до «Я получил»: это и есть безопасная сделка.</p>
+        <p style="margin-top:34px; font-size:30px; font-weight:600; color:var(--on-shu);">Вещь за 150 BYN → 7,50 BYN комиссии</p>
+      </div>
+    </div>
+  </div>
+  <div class="src">Размещение, поднятие в ленте и статистика остаются бесплатными. О старте комиссии объявим не меньше чем за 15 дней.</div>
+  <div class="num">16 / 18</div>
+</section>
+
+<!-- 17 · principles -->
+<section class="slide" data-n="17" style="background: var(--surface);">
+  <div class="top">{{WORDMARK}}<span class="meta">принципы</span></div>
+  <div class="body">
+    <h2>Как старый японский рынок</h2>
+    <div style="margin-top:56px; display:grid; grid-template-columns:repeat(4,1fr); gap:20px;">
+      <div><span class="brush" style="font-size:110px; color:var(--shu); line-height:1;">正</span><h3 style="font-size:34px; margin-top:20px;">Честно</h3><p class="lead" style="font-size:22px; margin-top:10px;">Пишем только то, что есть. Бренды отдельно от б/у.</p></div>
+      <div><span class="brush" style="font-size:110px; color:var(--shu); line-height:1;">守</span><h3 style="font-size:34px; margin-top:20px;">Надёжно</h3><p class="lead" style="font-size:22px; margin-top:10px;">Сроки, резерв и споры — у каждой сделки.</p></div>
+      <div><span class="brush" style="font-size:110px; color:var(--shu); line-height:1;">和</span><h3 style="font-size:34px; margin-top:20px;">Рядом</h3><p class="lead" style="font-size:22px; margin-top:10px;">Белорусские бренды и гардеробы соседей.</p></div>
+      <div><span class="brush" style="font-size:110px; color:var(--shu); line-height:1;">古</span><h3 style="font-size:34px; margin-top:20px;">Бережно</h3><p class="lead" style="font-size:22px; margin-top:10px;">У каждой вещи есть следующий хозяин.</p></div>
+    </div>
+  </div>
+  <div class="num">17 / 18</div>
+</section>
+
+<!-- 18 · call -->
+<section class="slide dark" data-n="18" style="background: radial-gradient(80% 100% at 100% 100%, #c8102e 0%, rgb(200 16 46 / 0.6) 40%, transparent 75%), var(--ink); color: var(--paper);">
+  <div class="top">{{WORDMARK_LIGHT}}<span class="meta">ichiba.by</span></div>
+  <div style="position:absolute; left:54px; top:220px; width:1100px;">
+    <h1 style="font-size:96px; line-height:1.05;">Откройте лавку на ichiba</h1>
+    <p class="lead" style="margin-top:28px; color:rgb(244 239 230 / 0.8);">Брендам, магазинам и всем, кто продаёт одежду. Перенесём ассортимент за вас.</p>
+    <p style="margin-top:56px; font-size:40px; font-weight:600;">ichiba.by/sellers</p>
+    <p style="margin-top:16px; font-size:26px; color:rgb(244 239 230 / 0.8);">c4erkaoui@gmail.com · +375 29 155-50-74</p>
+  </div>
+  <div class="brush vert" style="position:absolute; right:92px; top:230px; color:var(--paper); opacity:0.9;">古着市場</div>
+</section>
+
+</body>
+</html>

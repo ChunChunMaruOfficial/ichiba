@@ -22,7 +22,7 @@ import { AddToLook, LooksWithItem } from "@/components/looks";
 import { Avatar } from "@/components/avatar";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
-import { BundleNote, FitNote, DealsInline, FitProfilePrompt, ListingStatsCard, RatingInline } from "@/components/trust";
+import { BundleNote, FitNote, DealsInline, FitProfilePrompt, ListingStatsCard, MadeToMeasureNote, RatingInline } from "@/components/trust";
 import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
@@ -190,6 +190,10 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
     return true;
   };
   const buy = () => !needSize() && requireAuth(() => router.push(`/buy/${l.id}${pickedSize ? `?size=${encodeURIComponent(pickedSize)}` : ""}`));
+  // «Сшить по моим меркам»: no size to pick — the brand sews to the measurements in the buyer's profile, so a reserved
+  // ready piece doesn't stop it.
+  const canSew = !!l.madeToMeasure && !l.isOwner && (l.status === "PUBLISHED" || l.status === "RESERVED") && !activeRequest && !auctionRunning && !negotiable;
+  const sew = () => requireAuth(() => router.push(`/buy/${l.id}?sewn=1`));
   const openOffer = () => !needSize() && requireAuth(() => setOfferOpen(true));
   // «Узнать цену»: the question the buyer would type anyway, with the size they picked or a question about sizes.
   const priceQuestion = `Здравствуйте! Подскажите, пожалуйста, цену на «${l.title}»${pickedSize ? `, размер ${pickedSize}` : ""}.${!pickedSize && !shownSize(l.size) ? " И какие размеры есть в наличии?" : ""}`;
@@ -436,6 +440,11 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
             {(canBuy || shownInCart) && <CartButton inCart={shownInCart} onClick={toggleCart} />}
           </div>
           )}
+          {canSew && (
+            <Button size="lg" variant="secondary" block onClick={sew}>
+              Сшить по моим меркам
+            </Button>
+          )}
           {/* Brands sell at their price: no haggling under «Купить» (a priceless item is still bought by an offer). */}
           {canOffer && !negotiable && !l.seller.brand && (
             <Button size="lg" variant="secondary" block onClick={openOffer}>
@@ -455,6 +464,7 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
           Добавить в коллекцию
         </button>
       )}
+      {l.madeToMeasure && !sold && !auctionRunning && <MadeToMeasureNote days={l.madeToMeasure.days} />}
       {!sold && !auctionRunning && <BundleNote tiers={seller.bundleDiscounts ?? []} username={seller.username} />}
     </div>
   );

@@ -7,7 +7,7 @@ import { itemIdFrom } from "@/lib/item-path";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { FormSection } from "@/components/form-section";
-import { DetailFields, HandoverFields, ItemFields, LabelFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
+import { DetailFields, HandoverFields, ItemFields, LabelFields, MadeToMeasureFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
 import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
 import { usePriceSuggestion } from "@/components/ai-hints";
@@ -179,6 +179,11 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
         {me?.isBrand && (
           <FormSection kanji="判" title="Печати" index={4}>
             <LabelFields values={values} set={set} />
+          </FormSection>
+        )}
+        {me?.isBrand && (
+          <FormSection kanji="仕" title="Пошив по меркам" index={4}>
+            <MadeToMeasureFields values={values} set={set} errors={errors} />
           </FormSection>
         )}
         <FormSection kanji="詳" title="Детали" index={4}>

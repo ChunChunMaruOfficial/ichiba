@@ -6,7 +6,7 @@ import { SLIDES, slideId, slideSrc } from "@/lib/presentation";
 
 export const metadata: Metadata = {
   title: "Презентация ichiba",
-  description: "Презентация ichiba — маркетплейса открытых гардеробов Беларуси: как продавать и покупать вещи, торг и сделки, ИИ, что получают локальные бренды и как начать сотрудничество.",
+  description: "Презентация ichiba — маркетплейса одежды Беларуси: какую проблему решаем, что видим на рынке локальных брендов, как устроены поиск, пошив по меркам, сделка и монетизация.",
   alternates: { canonical: "/presentation" },
   openGraph: og("/presentation", {
     title: "Презентация ichiba",
@@ -26,9 +26,9 @@ export default function PresentationPage() {
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Презентация ichiba</h1>
       </TitleWithKanji>
       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-        Как устроен маркетплейс открытых гардеробов Беларуси и что он даёт продавцам, покупателям и локальным брендам. Хотите продавать на ichiba —{" "}
-        <Link href="/contacts" className="font-medium text-ink underline underline-offset-4">
-          напишите нам
+        Как устроен маркетплейс одежды Беларуси и что он даёт покупателям, брендам и продавцам. Хотите продавать на ichiba —{" "}
+        <Link href="/sellers" className="font-medium text-ink underline underline-offset-4">
+          откройте лавку
         </Link>
         .
       </p>

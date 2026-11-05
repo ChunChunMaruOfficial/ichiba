@@ -29,7 +29,7 @@ export const categoryOf = (type: string): TgCategory => {
 
 /** [emoji, heading, sentence]. */
 const TEXT: Record<string, (p: P) => [string, string, string]> = {
-  request_new: (p) => ['🛍', 'Хотят купить', `@${s(p.buyer)} хочет купить ${t(p)} за <b>${byn(p.price)}</b>\n\n<i>Ответьте в течение 48 часов — иначе запрос отменится сам.</i>`],
+  request_new: (p) => ['🛍', p.sewn ? 'Пошив по меркам' : 'Хотят купить', `@${s(p.buyer)} ${p.sewn ? 'просит сшить по своим меркам' : 'хочет купить'} ${t(p)} за <b>${byn(p.price)}</b>${p.sewn ? ' — мерки в сделке' : ''}\n\n<i>Ответьте в течение 48 часов — иначе запрос отменится сам.</i>`],
   request_accepted: (p) =>
     p.confirmed ? ['🤝', 'Сделка подтверждена', `@${s(p.buyer)} выбрал способ получения ${t(p)} — договоритесь о передаче`] : ['✅', 'Продавец подтвердил', `@${s(p.seller)} подтвердил запрос на ${t(p)}`],
   request_declined: (p) => ['✖️', 'Запрос отклонён', `Продавец отклонил запрос на ${t(p)}${p.reason ? `: ${lower(p.reason)}` : ''}`],

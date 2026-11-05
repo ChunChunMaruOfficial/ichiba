@@ -67,6 +67,8 @@ export class PrivacyService {
       this.prisma.message.updateMany({ where: { senderId: userId, kind: 'LOCATION' }, data: { lat: null, lng: null, accuracy: null } }),
       // Contacts left in past deals are personal data too.
       this.prisma.buyRequest.updateMany({ where: { buyerId: userId }, data: { contactPhone: null, deliveryPoint: null, buyerComment: null } }),
+      // Measurements sent for «Сшить по моим меркам» are the buyer's body data: gone with the account.
+      this.prisma.buyRequestItem.updateMany({ where: { request: { buyerId: userId }, bodyMeasurements: { not: Prisma.DbNull } }, data: { bodyMeasurements: Prisma.DbNull } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {

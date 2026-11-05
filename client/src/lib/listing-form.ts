@@ -49,6 +49,9 @@ export interface ListingValues {
   originalPrice: string;
   /** Seals on the card (brands only). */
   labels: ListingLabel[];
+  /** «Пошив по меркам» (brands only) and the days it takes («» = not stated). */
+  madeToMeasure: boolean;
+  madeToMeasureDays: string;
   autoAcceptPrice: string;
   /** «Несколько размеров»: every size in stock, in size order (empty for one size); the buyer picks one. */
   sizes: string[];
@@ -89,6 +92,8 @@ export const emptyValues = (city: string | null): ListingValues => ({
   gender: null,
   originalPrice: "",
   labels: [],
+  madeToMeasure: false,
+  madeToMeasureDays: "",
   autoAcceptPrice: "",
   sizes: [],
   video: null,
@@ -129,6 +134,8 @@ export function valuesFromListing(l: ListingDetail): ListingValues {
     gender: l.gender === "UNISEX" ? null : l.gender,
     originalPrice: l.originalPrice != null ? String(l.originalPrice) : "",
     labels: l.labels ?? [],
+    madeToMeasure: !!l.madeToMeasure,
+    madeToMeasureDays: l.madeToMeasure?.days != null ? String(l.madeToMeasure.days) : "",
     autoAcceptPrice: l.owner?.autoAcceptPrice != null ? String(l.owner.autoAcceptPrice) : "",
     sizes: l.stockSizes ?? [],
     video: l.video,
@@ -218,6 +225,8 @@ export function validate(values: ListingValues, meta: Meta | undefined, photos: 
       else if (values.minOfferPrice && auto <= Number(values.minOfferPrice)) e.autoAcceptPrice = "Должно быть выше порога автоотказа";
     }
     if (values.originalPrice && Number(values.originalPrice) <= price) e.originalPrice = "Цена в магазине должна быть выше вашей";
+    const days = Number(values.madeToMeasureDays);
+    if (values.madeToMeasure && values.madeToMeasureDays && (days < 1 || days > 90)) e.madeToMeasureDays = "От 1 до 90 дней";
     if (values.saleType === "AUCTION") {
       if (values.auctionReserve && Number(values.auctionReserve) < price) e.auctionReserve = "Резерв не может быть ниже стартовой цены";
       if (values.auctionStep && Number(values.auctionStep) < 1) e.auctionStep = "Шаг — от 1 BYN";
@@ -261,6 +270,8 @@ export function toPayload(values: ListingValues, photos: PhotoDraft[], ai: AiSta
     autoAcceptPrice: values.saleType === "FIXED" && values.acceptsOffers ? num(values.autoAcceptPrice) : null,
     originalPrice: num(values.originalPrice),
     labels: values.labels,
+    madeToMeasure: values.madeToMeasure,
+    madeToMeasureDays: values.madeToMeasure ? num(values.madeToMeasureDays) : null,
     gender: values.gender,
     videoId: values.video?.id ?? null,
     saleType: values.saleType,

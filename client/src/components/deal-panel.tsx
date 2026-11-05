@@ -9,7 +9,7 @@ import { useToast } from "@/components/toast";
 import { DeliveryLabel } from "@/components/delivery-label";
 import { Button, ButtonLink, DealBadge, Field, IconCheck, IconChevronDown, Modal, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { formatDateTime, formatPrice } from "@/lib/labels";
+import { formatDateTime, formatPrice, tailorLines } from "@/lib/labels";
 import type { Deal, RequestStatus } from "@/lib/types";
 
 /*
@@ -186,6 +186,24 @@ export function DealPanel({ deal, onChange }: { deal: Deal; onChange: (d?: Deal)
               {deal.deliveryPoint ? ` · ${deal.deliveryPoint}` : deal.sellerCity ? ` · ${deal.sellerCity}` : ""}
             </p>
           </div>
+
+          {deal.items.filter((it) => it.sewnTo).map((it) => (
+            <div key={it.id} className="rounded-2xl bg-surface-sunk px-4 py-3 text-sm">
+              <p className="font-semibold">
+                <span aria-hidden className="mr-1.5 font-display">仕</span>
+                {deal.role === "seller" ? "Сшить по меркам покупателя" : "Шьют по вашим меркам"}
+                {deal.items.length > 1 ? ` · ${it.title}` : ""}
+              </p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1">
+                {tailorLines(it.sewnTo).map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-ink-2">{label}</dt>
+                    <dd className="tabular font-semibold">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
 
           <div>
             <h3 className="mb-4 text-sm font-semibold">Как идёт сделка</h3>

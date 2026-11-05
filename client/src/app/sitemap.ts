@@ -46,10 +46,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/resale`, lastModified: listingsAt, changeFrequency: "hourly", priority: 0.8 },
     { url: `${SITE_URL}/brands`, lastModified: brandsAt, changeFrequency: "daily", priority: 0.7 },
     { url: `${SITE_URL}/contacts`, lastModified: new Date("2026-11-05"), changeFrequency: "yearly", priority: 0.3 },
-    { url: `${SITE_URL}/presentation`, lastModified: new Date("2026-11-03"), changeFrequency: "monthly", priority: 0.4 },
+    { url: `${SITE_URL}/presentation`, lastModified: new Date("2026-11-05"), changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/privacy`, lastModified: new Date("2026-11-05"), changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/terms`, lastModified: new Date("2026-11-05"), changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/rules`, lastModified: new Date("2026-11-05"), changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/sellers`, lastModified: new Date("2026-11-05"), changeFrequency: "monthly", priority: 0.5 },
+    { url: `${SITE_URL}/how-it-works`, lastModified: new Date("2026-11-05"), changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/complaint`, lastModified: new Date("2026-11-05"), changeFrequency: "yearly", priority: 0.2 },
     // Brand and category pages: only those with enough live items (the API's whitelist), lastmod = their newest change.
     ...(landings ?? []).map((p) => ({ url: `${SITE_URL}${landingHref(p.path)}`, lastModified: new Date(p.updatedAt), changeFrequency: "daily" as const, priority: p.kind === "category" || p.kind === "brand" ? 0.8 : 0.7 })),

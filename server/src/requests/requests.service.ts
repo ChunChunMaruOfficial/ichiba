@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { hideContacts } from '../ai/text-rules.js';
 import { withJobLock } from '../common/job-lock.js';
-import type { DeliveryMethod, Prisma, RequestSource, RequestStatus } from '../generated/prisma/client.js';
+import type { DeliveryMethod, ListingStatus, Prisma, RequestSource, RequestStatus } from '../generated/prisma/client.js';
 import { applyDiscount, discountFor, tiersOf } from '../listings/bundle.js';
 import { ChatService } from '../chat/chat.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
@@ -48,10 +48,22 @@ export interface CreateRequestInput extends DeliveryInput {
   sizes?: Record<string, string>;
   /** The total the buyer saw on the checkout screen; a different total now means the price changed meanwhile. */
   expectedTotal?: number;
+  /** «Сшить по моим меркам» («Купить» on one made-to-measure item of a brand). */
+  madeToMeasure?: boolean;
 }
 
 /** «Несколько размеров»: one listing with several sizes, never reserved or sold as a whole by a deal. */
 const multiSize = (l: { sizes: string[] }) => l.sizes.length > 1;
+/** A «Сшить по моим меркам» line: sewn anew for this buyer, so the listing itself stays on sale. */
+const sewn = (i: { bodyMeasurements: Prisma.JsonValue }) => i.bodyMeasurements != null;
+/** Deal lines whose listing the deal reserves and sells: everything but the made-to-measure ones. */
+const stockIds = (items: { listingId: string; bodyMeasurements: Prisma.JsonValue }[]) => items.filter((i) => !sewn(i)).map((i) => i.listingId);
+/** What a tailor needs of the buyer's profile measurements; null when none of the girths is filled in. */
+const tailorMeasurements = (body: Prisma.JsonValue) => {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const picked = Object.fromEntries((['height', 'chest', 'waist', 'hips'] as const).filter((k) => typeof b[k] === 'number').map((k) => [k, b[k] as number]));
+  return picked.chest || picked.waist || picked.hips ? picked : null;
+};
 /**
  * The size a buyer picked is still for sale on the listing as it is now: among its sizes, or — once the seller has
  * cut it down to one size — that one size. A size taken off since can't be sold.
@@ -106,8 +118,14 @@ export class RequestsService {
     const role = r.buyerId === viewerId ? 'buyer' : 'seller';
     const accepted = AFTER_ACCEPT.includes(r.status);
     const counterpart = role === 'buyer' ? r.seller : r.buyer;
-    // The size the buyer picked replaces the listing's «S · M · L».
-    const items = r.items.map((i) => ({ ...serializeCard(i.listing), ...(i.size ? { size: i.size } : {}), dealPrice: i.price }));
+    const items = r.items.map((i) => ({
+      ...serializeCard(i.listing),
+      // The size the buyer picked replaces the listing's «S · M · L»; sewn to measure, there is no size at all.
+      ...(i.bodyMeasurements != null ? { size: null } : i.size ? { size: i.size } : {}),
+      dealPrice: i.price,
+      /** «Сшить по моим меркам»: the measurements the buyer sent (cm), for the brand to sew by. */
+      sewnTo: i.bodyMeasurements ?? null,
+    }));
     return {
       id: r.id,
       number: r.number,
@@ -185,16 +203,20 @@ export class RequestsService {
     if (listings.some((l) => l.sellerId === buyerId)) throw new BadRequestException({ message: 'Это ваша вещь' });
     if (new Set(listings.map((l) => l.sellerId)).size > 1) throw new BadRequestException({ message: 'Один запрос — вещи одного продавца' });
     if (listings.some((l) => l.saleType === 'AUCTION')) throw new BadRequestException({ message: 'Это аукцион — сделайте ставку', code: 'AUCTION' });
-    if (listings.some((l) => l.status === 'RESERVED')) throw new ConflictException({ message: 'Пока вы оформляли, вещь зарезервировали', code: 'RESERVED' });
+    // Sewn to measure, a reserved ready piece is no obstacle: the brand sews a new one.
+    const onSale: ListingStatus[] = input.madeToMeasure ? ['PUBLISHED', 'RESERVED'] : ['PUBLISHED'];
+    if (!input.madeToMeasure && listings.some((l) => l.status === 'RESERVED')) throw new ConflictException({ message: 'Пока вы оформляли, вещь зарезервировали', code: 'RESERVED' });
     if (listings.some((l) => l.priceNegotiable)) throw new BadRequestException({ message: 'Цена договорная — предложите свою цену или напишите продавцу', code: 'NEGOTIABLE' });
-    if (listings.some((l) => l.status !== 'PUBLISHED' || !l.price)) throw new ConflictException({ message: 'Вещь недоступна для покупки', code: 'UNAVAILABLE' });
+    if (listings.some((l) => !onSale.includes(l.status) || !l.price)) throw new ConflictException({ message: 'Вещь недоступна для покупки', code: 'UNAVAILABLE' });
     const allowed = listings.reduce<DeliveryMethod[]>((acc, l) => acc.filter((m) => l.deliveryOptions.includes(m)), DELIVERY_METHODS);
     this.validateDelivery(input, allowed);
+    const measurements = input.madeToMeasure ? await this.sewingMeasurements(buyerId, listings) : null;
     const picked: Record<string, string | null> =
       input.source === 'CART'
         ? Object.fromEntries((await this.prisma.cartItem.findMany({ where: { userId: buyerId, listingId: { in: ids } } })).map((c) => [c.listingId, c.size]))
         : (input.sizes ?? {});
-    for (const l of listings.filter(multiSize)) {
+    // Sewn to measure, the size grid doesn't apply.
+    for (const l of measurements ? [] : listings.filter(multiSize)) {
       const size = picked[l.id];
       if (!size || !l.sizes.includes(size)) throw new BadRequestException({ message: `Выберите размер: ${l.title}`, code: 'SIZE', fields: { size: 'Выберите размер' } });
     }
@@ -228,7 +250,14 @@ export class RequestsService {
         buyerComment: commentOf(input.buyerComment),
         status: 'PENDING_SELLER',
         expiresAt: new Date(Date.now() + REPLY_MS),
-        items: { create: listings.map((l, i) => ({ listingId: l.id, price: priced.itemPrices[i], size: multiSize(l) ? picked[l.id] : null })) },
+        items: {
+          create: listings.map((l, i) => ({
+            listingId: l.id,
+            price: priced.itemPrices[i],
+            size: !measurements && multiSize(l) ? picked[l.id] : null,
+            ...(measurements ? { bodyMeasurements: measurements } : {}),
+          })),
+        },
         events: { create: [{ status: 'CREATED', byUserId: buyerId }, { status: 'PENDING_SELLER', byUserId: buyerId }] },
       },
       include: requestInclude,
@@ -237,13 +266,30 @@ export class RequestsService {
     await this.linkThreads(request.id, buyerId, ids);
     await this.postComment(request.id, buyerId, input.buyerComment);
     const title = listings.length > 1 ? `${listings[0].title} и ещё ${listings.length - 1}` : listings[0].title;
-    await this.notifications.notify(sellerId, 'request_new', { requestId: request.id, title, price: request.priceTotal, buyer: request.buyer.username });
+    await this.notifications.notify(sellerId, 'request_new', { requestId: request.id, title, price: request.priceTotal, buyer: request.buyer.username, ...(measurements ? { sewn: true } : {}) });
     for (const l of listings) {
       await this.recs.record(buyerId, 'request', l.id);
       this.stats.track(l.id, 'requests');
     }
     // Reloaded: posting the comment may have opened the conversation (threadId).
     return input.buyerComment?.trim() ? this.get(request.id, buyerId) : this.serialize(request, buyerId);
+  }
+
+  /**
+   * «Сшить по моим меркам»: allowed for one made-to-measure item of a confirmed brand, and only with measurements in
+   * the buyer's profile. Returns the measurements copied onto the order (the profile may change later; the order not).
+   */
+  private async sewingMeasurements(buyerId: string, listings: { madeToMeasure: boolean; sellerId: string }[]) {
+    const [l] = listings;
+    if (listings.length !== 1 || !l.madeToMeasure) throw new BadRequestException({ message: 'Эту вещь не шьют по меркам', code: 'NOT_SEWN' });
+    const [seller, buyer] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: l.sellerId }, select: { brandVerifiedAt: true } }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: buyerId }, select: { bodyMeasurements: true } }),
+    ]);
+    if (!seller?.brandVerifiedAt) throw new BadRequestException({ message: 'Эту вещь не шьют по меркам', code: 'NOT_SEWN' });
+    const m = tailorMeasurements(buyer.bodyMeasurements);
+    if (!m) throw new BadRequestException({ message: 'Укажите мерки в настройках: обхват груди, талии или бёдер', code: 'NO_MEASUREMENTS' });
+    return m;
   }
 
   /**
@@ -359,11 +405,16 @@ export class RequestsService {
       }
       // Several sizes: such a listing stays on sale (other sizes, other buyers); only one-of-a-kind items are reserved.
       // Decided from the rows read here, not from the request loaded before: the seller may have changed the sizes.
-      const single = current.filter((l) => !multiSize(l)).map((l) => l.id);
-      const multi = current.filter(multiSize).map((l) => l.id);
+      // A made-to-measure line is sewn anew: its listing isn't reserved (and may be reserved by someone else's order
+      // of the ready piece).
+      const stock = new Set(stockIds(r.items));
+      const single = current.filter((l) => !multiSize(l) && stock.has(l.id)).map((l) => l.id);
+      const multi = current.filter((l) => multiSize(l) && stock.has(l.id)).map((l) => l.id);
+      const sewnIds = current.filter((l) => !stock.has(l.id)).map((l) => l.id);
       const reserved = await tx.listing.updateMany({ where: { id: { in: single }, status: 'PUBLISHED' }, data: { status: 'RESERVED' } });
       const onSale = await tx.listing.count({ where: { id: { in: multi }, status: 'PUBLISHED' } });
-      if (reserved.count + onSale !== listingIds.length) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
+      const sewable = await tx.listing.count({ where: { id: { in: sewnIds }, status: { in: ['PUBLISHED', 'RESERVED'] } } });
+      if (reserved.count + onSale + sewable !== listingIds.length) throw new ConflictException({ message: 'Вещь уже недоступна', code: 'UNAVAILABLE' });
       const moved = await tx.buyRequest.updateMany({ where: { id, status: 'PENDING_SELLER' }, data: { status: 'WAITING_HANDOVER', expiresAt: null } });
       if (!moved.count) throw new ConflictException({ message: 'Статус сделки уже изменился — обновите страницу' });
       await tx.buyRequestEvent.createMany({
@@ -432,7 +483,7 @@ export class RequestsService {
       data: { cancelledById: actorId, expiresAt: null },
       // Reservation is released in the same transaction: the item goes back on sale and watchers hear about it.
       inTx: async (tx, r) => {
-        if (r.status === 'WAITING_HANDOVER' || r.status === 'ACCEPTED') released = await this.releaseTx(tx, id, r.items.map((i) => i.listingId));
+        if (r.status === 'WAITING_HANDOVER' || r.status === 'ACCEPTED') released = await this.releaseTx(tx, id, stockIds(r.items));
       },
     });
     await this.notifyReleased(r, released);
@@ -497,9 +548,10 @@ export class RequestsService {
     const { count } = await tx.buyRequest.updateMany({ where: { id, status: { in: from } }, data: { status: 'COMPLETED', completedAt: new Date() } });
     if (!count) return false;
     await tx.buyRequestEvent.create({ data: { requestId: id, status: 'COMPLETED', byUserId } });
-    const deal = await tx.buyRequest.findUniqueOrThrow({ where: { id }, select: { buyerId: true, items: { select: { listingId: true, listing: { select: { sizes: true } } } } } });
-    const single = deal.items.filter((i) => !multiSize(i.listing)).map((i) => i.listingId);
-    const multi = deal.items.filter((i) => multiSize(i.listing)).map((i) => i.listingId);
+    const deal = await tx.buyRequest.findUniqueOrThrow({ where: { id }, select: { buyerId: true, items: { select: { listingId: true, bodyMeasurements: true, listing: { select: { sizes: true } } } } } });
+    // A sewn-to-measure line leaves its listing on sale, like a size of a «Несколько размеров» listing.
+    const single = deal.items.filter((i) => !multiSize(i.listing) && !sewn(i)).map((i) => i.listingId);
+    const multi = deal.items.filter((i) => multiSize(i.listing) || sewn(i)).map((i) => i.listingId);
     await tx.listing.updateMany({ where: { id: { in: single } }, data: { status: 'SOLD', soldAt: new Date() } });
     // Bought: the strongest word on taste there is (on top of the request's signal).
     await tx.signal.createMany({ data: deal.items.map((i) => ({ userId: deal.buyerId, listingId: i.listingId, type: 'purchase', weight: SIGNAL_WEIGHTS.purchase })) });
@@ -533,7 +585,7 @@ export class RequestsService {
         const { count } = await tx.buyRequest.updateMany({ where: { id: r.id, status: r.status }, data: { status: 'CANCELLED', reason } });
         if (!count) return null;
         await tx.buyRequestEvent.create({ data: { requestId: r.id, status: 'CANCELLED', reason } });
-        return r.status === 'ACCEPTED' ? this.releaseTx(tx, r.id, r.items.map((i) => i.listingId)) : [];
+        return r.status === 'ACCEPTED' ? this.releaseTx(tx, r.id, stockIds(r.items)) : [];
       });
       if (!released) continue;
       await this.notifyReleased(r, released);

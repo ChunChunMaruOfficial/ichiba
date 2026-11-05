@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "oversized-h1",
+        "value": "*",
+        "files": [
+          "design/brand/deck/deck.html"
+        ],
+        "createdAt": "2026-11-05T19:41:56.009Z",
+        "reason": "Claude: 1600x900 slide artboards rendered to images, not a web page; display headlines are the slide design (diva-style deck the user asked for)"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "design/brand/deck/deck.html"
+        ],
+        "createdAt": "2026-11-05T19:41:56.224Z",
+        "reason": "Claude: screenshots are meant to sit flush inside the drawn browser frame on the slides; checked in the rendered WebPs"
+      }
+    ]
+  }
+}

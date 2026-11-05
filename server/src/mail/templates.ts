@@ -160,6 +160,9 @@ export function notificationEmail(type: string, p: Payload, unsubscribeUrl: stri
     render({ subject, preheader, title: heading, lines: lines.filter((l): l is string => !!l), cta: { label: cta[0], url: cta[1] }, unsubscribeUrl });
   switch (type) {
     case 'request_new':
+      if (p.sewn) {
+        return mail(`Сшить по меркам: «${title}»`, `${nick(p.buyer, 'Покупатель')} просит сшить «${title}» по своим меркам`, 'Заказ на пошив по меркам', [`${nick(p.buyer, 'Покупатель')} просит сшить «${title}» по своим меркам${p.price ? ` за ${price(p.price)}` : ''}. Мерки — на странице сделки.`, 'Ответьте в течение 48 часов — иначе запрос отменится сам.'], ['Открыть заказ', deal]);
+      }
       return mail(`Хотят купить «${title}»`, `${nick(p.buyer, 'Покупатель')} хочет купить «${title}»`, 'Новый запрос на покупку', [`${nick(p.buyer, 'Покупатель')} хочет купить «${title}»${p.price ? ` за ${price(p.price)}` : ''}.`, 'Ответьте в течение 48 часов — иначе запрос отменится сам.'], ['Ответить на запрос', deal]);
     case 'request_accepted':
       return p.confirmed

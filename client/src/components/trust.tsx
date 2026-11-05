@@ -110,6 +110,27 @@ export function FitProfilePrompt({ hasProfile, signedIn, hasSize }: { hasProfile
   );
 }
 
+// ---------- made to measure ----------
+
+/** «Пошив по меркам»: the brand also sews this model to the buyer's own measurements (the button sits above). */
+export function MadeToMeasureNote({ days, className }: { days: number | null; className?: string }) {
+  return (
+    <div className={clsx("flex items-start gap-3 rounded-2xl bg-surface-sunk px-4 py-3 text-sm text-ink-2", className)}>
+      <span aria-hidden className="font-display text-xl font-bold leading-none text-ink">
+        仕
+      </span>
+      <p>
+        <b className="font-semibold text-ink">Пошив по меркам.</b> Бренд сошьёт эту модель по вашим меркам
+        {days ? ` за ${days} ${plural(days, "день", "дня", "дней")}` : ""} — мерки из{" "}
+        <Link href="/settings#sizes" className="underline underline-offset-4">
+          вашего профиля
+        </Link>{" "}
+        придут ему вместе с заказом.
+      </p>
+    </div>
+  );
+}
+
 // ---------- bundle discount ----------
 
 export const tiersText = (tiers: BundleTier[]) => tiers.map((t) => `от ${t.minItems} ${plural(t.minItems, "вещи", "вещей", "вещей")} −${t.percent}%`).join(", ");

@@ -276,6 +276,10 @@ model Listing {
   originalPrice      Int?
   /// Seals a brand puts on the item's card: brand, new, hit, original (listings.dto LISTING_LABELS).
   labels             String[]           @default([])
+  /// «Пошив по меркам» (brands only): the brand also sews this model to a buyer's body measurements.
+  madeToMeasure      Boolean          @default(false)
+  /// Days the brand needs to sew it (null = not stated).
+  madeToMeasureDays  Int?
   /// Offers at or above this are accepted automatically (minOfferPrice is the auto-decline floor).
   autoAcceptPrice    Int?
   /// Draft to publish automatically at this time.
@@ -503,6 +507,9 @@ model BuyRequestItem {
   price     Int
   /// The size the buyer picked on a «Несколько размеров» listing.
   size      String?
+  /// «Сшить по моим меркам»: the buyer's body measurements (cm), copied from their profile when they asked. Such an
+  /// order never reserves or sells the listing — it is a model the brand sews again for the next buyer.
+  bodyMeasurements Json?
 
   @@id([requestId, listingId])
   @@index([listingId])

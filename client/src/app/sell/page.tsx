@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { FormSection } from "@/components/form-section";
-import { DetailFields, HandoverFields, ItemFields, LabelFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
+import { DetailFields, HandoverFields, ItemFields, LabelFields, MadeToMeasureFields, PriceFields, SizeConditionFields } from "@/components/listing-fields";
 import { PhotoManager } from "@/components/photo-manager";
 import { SchedulePicker, scheduleLabel } from "@/components/schedule-picker";
 import { usePriceSuggestion } from "@/components/ai-hints";
@@ -444,6 +444,11 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
           {me?.isBrand && (
             <FormSection kanji="判" title="Печати" index={1}>
               <LabelFields values={values} set={set} />
+            </FormSection>
+          )}
+          {me?.isBrand && (
+            <FormSection kanji="仕" title="Пошив по меркам" index={2}>
+              <MadeToMeasureFields values={values} set={set} errors={errors} />
             </FormSection>
           )}
         </div>

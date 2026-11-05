@@ -65,6 +65,9 @@ export const ListingInput = z
   originalPrice: z.number().int().min(1).max(1_000_000).nullish(),
   /** The seal a brand chooses for the item (one at most, shown on its card); ignored for non-brands. */
   labels: z.array(z.enum(LISTING_LABELS)).max(1, 'Одна печать на вещь').optional(),
+  /** «Пошив по меркам» (brands only): the brand also sews this model to a buyer's measurements, in that many days. */
+  madeToMeasure: z.boolean().optional(),
+  madeToMeasureDays: z.number().int('Целое число дней').min(1, 'От 1 дня').max(90, 'Не больше 90 дней').nullish(),
   gender: z.enum(['MALE', 'FEMALE', 'UNISEX']).nullish(),
   /** Other sizes of the same item, listed as separate copies on publish. */
   extraSizes: z.array(z.string().trim().min(1).max(20)).max(10).optional(),

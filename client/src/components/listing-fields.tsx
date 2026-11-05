@@ -489,6 +489,31 @@ export function PriceFields({
 }
 
 /**
+ * «Пошив по меркам» (brands only): besides the piece in stock, the brand sews this model to a buyer's measurements.
+ * The buyer then gets «Сшить по моим меркам» at checkout, and the measurements from their profile come with the order.
+ */
+export function MadeToMeasureFields({ values, set, errors }: Pick<FieldsProps, "values" | "set" | "errors">) {
+  return (
+    <div className="rounded-2xl bg-surface p-4 md:p-5">
+      <label className="flex items-center justify-between gap-4">
+        <span>
+          <span className="block font-medium">Шьёте эту модель по меркам?</span>
+          <span className="mt-0.5 block text-sm text-ink-2">Покупатель сможет заказать её по своим меркам — они придут вам вместе с заказом</span>
+        </span>
+        <input type="checkbox" className="size-5 accent-[var(--accent)]" checked={values.madeToMeasure} onChange={(e) => set({ madeToMeasure: e.target.checked })} />
+      </label>
+      {values.madeToMeasure && (
+        <div className="rise mt-4 max-w-xs">
+          <Field label="Срок пошива, дней" error={errors.madeToMeasureDays} hint="Покупатель увидит его до заказа">
+            <Input inputMode="numeric" value={values.madeToMeasureDays} onChange={(e) => set({ madeToMeasureDays: e.target.value.replace(/\D/g, "").slice(0, 2) })} error={errors.madeToMeasureDays} placeholder="Необязательно" />
+          </Field>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * «Печати» (brands only): which seals go on the item's card — бренд, новинка, хит, оригинал. Each tile shows the seal
  * itself; picked, it is pressed in and the tile is inked. One at most: tap it again to take it off.
  */

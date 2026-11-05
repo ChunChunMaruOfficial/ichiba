@@ -363,6 +363,69 @@ describe('deals with a picked size', () => {
   });
 });
 
+describe('made to measure', () => {
+  const BODY = { height: 172, chest: 90, waist: 72, hips: 98, footLength: 25 };
+  async function brandWith(over: Record<string, unknown> = {}) {
+    const seller = await user({ brandVerifiedAt: new Date(), brandName: 'Ателье' });
+    return { seller, item: await listing(seller.id, { madeToMeasure: true, madeToMeasureDays: 14, market: 'CATALOG', ...over }) };
+  }
+  const sew = (buyerId: string, listingId: string) => requests.create(buyerId, { listingIds: [listingId], source: 'BUY', deliveryMethod: 'IN_PERSON', madeToMeasure: true });
+
+  test('only a brand can mark a model as sewn to measure', async () => {
+    const brand = await user({ brandVerifiedAt: new Date() });
+    const person = await user();
+    const a = (await listings.create(brand.id, { title: 'Пальто', madeToMeasure: true, madeToMeasureDays: 10 })) as Any;
+    const b = (await listings.create(person.id, { title: 'Пальто', madeToMeasure: true, madeToMeasureDays: 10 })) as Any;
+    const row = (id: string) => prisma.listing.findUniqueOrThrow({ where: { id } });
+    assert.deepEqual([(await row(a.id)).madeToMeasure, (await row(a.id)).madeToMeasureDays], [true, 10]);
+    assert.deepEqual([(await row(b.id)).madeToMeasure, (await row(b.id)).madeToMeasureDays], [false, null]);
+  });
+
+  test('the order carries the buyer’s measurements, and needs them', async () => {
+    const { seller, item } = await brandWith();
+    const bare = await user();
+    await assert.rejects(sew(bare.id, item.id), (e: Any) => e?.getResponse?.().code === 'NO_MEASUREMENTS');
+    const buyer = await user({ bodyMeasurements: BODY });
+    const deal = (await sew(buyer.id, item.id)) as Any;
+    assert.deepEqual(deal.items[0].sewnTo, { height: 172, chest: 90, waist: 72, hips: 98 });
+    assert.equal(deal.items[0].size, null);
+    assert.ok(sent.some((s) => s.to === seller.id && s.type === 'request_new' && (s.payload as Any).sewn === true));
+  });
+
+  test('a model that isn’t sewn to measure, or a seller who lost the brand status, refuses it', async () => {
+    const buyer = await user({ bodyMeasurements: BODY });
+    const plain = await listing((await user({ brandVerifiedAt: new Date() })).id);
+    await assert.rejects(sew(buyer.id, plain.id), (e: Any) => e?.getResponse?.().code === 'NOT_SEWN');
+    const { seller, item } = await brandWith();
+    await prisma.user.update({ where: { id: seller.id }, data: { brandVerifiedAt: null } });
+    await assert.rejects(sew(buyer.id, item.id), (e: Any) => e?.getResponse?.().code === 'NOT_SEWN');
+  });
+
+  test('sewing never reserves or sells the model; a reserved ready piece can still be ordered sewn', async () => {
+    const { seller, item } = await brandWith();
+    const ready = await requests.create((await user()).id, { listingIds: [item.id], source: 'BUY', deliveryMethod: 'IN_PERSON' });
+    await requests.accept(seller.id, ready.id);
+    assert.equal(await statusOf(item.id), 'RESERVED');
+    const buyer = await user({ bodyMeasurements: BODY });
+    const order = (await sew(buyer.id, item.id)) as Any;
+    await requests.accept(seller.id, order.id);
+    await requests.handedOver(seller.id, order.id);
+    await requests.received(buyer.id, order.id);
+    assert.equal((await prisma.buyRequest.findUniqueOrThrow({ where: { id: order.id } })).status, 'COMPLETED');
+    // Still the ready piece's reservation, not sold by the sewn order.
+    assert.equal(await statusOf(item.id), 'RESERVED');
+    // Cancelling the ready deal frees the piece; the sewn order had no say in it.
+    await requests.cancel(seller.id, ready.id, 'передумали');
+    assert.equal(await statusOf(item.id), 'PUBLISHED');
+  });
+
+  test('a multi-size model sewn to measure needs no size', async () => {
+    const { item } = await brandWith({ sizes: ['S', 'M'], sizeValue: 'S' });
+    const deal = (await sew((await user({ bodyMeasurements: { chest: 88 } })).id, item.id)) as Any;
+    assert.deepEqual(deal.items[0].sewnTo, { chest: 88 });
+  });
+});
+
 // ---------- disputes ----------
 
 describe('dispute resolution', () => {

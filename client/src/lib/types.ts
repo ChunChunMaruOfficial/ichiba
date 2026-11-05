@@ -95,6 +95,9 @@ export interface BodyMeasurements {
   footLength?: number | null;
 }
 
+/** The part of the profile measurements a made-to-measure order carries. */
+export type TailorMeasurements = Pick<BodyMeasurements, "height" | "chest" | "waist" | "hips">;
+
 export interface BundleTier {
   minItems: number;
   percent: number;
@@ -248,6 +251,8 @@ export interface ListingDetail {
   title: string;
   /** Seals the brand chose for the item. */
   labels?: ListingLabel[];
+  /** «Пошив по меркам»: the brand sews this model to the buyer's measurements, in `days` when stated. */
+  madeToMeasure?: { days: number | null } | null;
   /** Section the item is shown in: brands = the main catalogue, resale = «Вторичка». */
   market?: "brands" | "resale";
   price: number | null;
@@ -339,7 +344,8 @@ export interface Deal {
   handedOverAt: string | null;
   completedAt: string | null;
   createdAt: string;
-  items: Array<Card & { dealPrice: number }>;
+  /** `sewnTo`: «Сшить по моим меркам» — the measurements the buyer sent, cm (null for a ready piece). */
+  items: Array<Card & { dealPrice: number; sewnTo?: TailorMeasurements | null }>;
   counterpart: { id: string; username: string; phone: string | null };
   sellerCity: string | null;
   threadId: string | null;

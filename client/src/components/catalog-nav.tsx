@@ -413,6 +413,15 @@ export function MobileCatalog() {
                   </Expand>
                 </li>
               </ul>
+              {/* The header's «Открыть лавку» and «Как работает сделка» don't fit a phone's header: they live here. */}
+              <div className="mt-2 flex flex-col border-t border-line px-3 pt-2">
+                <Link href="/sellers" onClick={close} className="py-3 text-[16px] font-medium">
+                  Открыть лавку
+                </Link>
+                <Link href="/how-it-works" onClick={close} className="py-3 text-[16px] font-medium">
+                  Как работает сделка
+                </Link>
+              </div>
             </div>
           </div>,
           document.body,

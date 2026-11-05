@@ -9,7 +9,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { Furoshiki } from "@/components/shop/furoshiki";
 import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, Input, OptionCard, PriceTag, Skeleton, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, PRICE_ON_REQUEST } from "@/lib/labels";
+import { canSewTo, conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, plural, PRICE_ON_REQUEST, tailorLines } from "@/lib/labels";
 import type { Deal, ListingDetail, ListingResponse, Me } from "@/lib/types";
 import { track } from "@/lib/analytics";
 
@@ -34,6 +34,8 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
   const requestId = params.get("request");
   /** «Несколько размеров»: the size picked on the item page. */
   const size = params.get("size");
+  /** «Сшить по моим меркам» chosen on the item page (the buyer can still switch here). */
+  const [sewChoice, setSewChoice] = useState(params.get("sewn") === "1");
   const { data: agreed, error: agreedError, mutate: mutateAgreed } = useSWR<Deal>(requestId ? `/requests/${encodeURIComponent(requestId)}` : null);
   const [method, setMethod] = useState<DeliveryWay | null>(null);
   const [point, setPoint] = useState("");
@@ -71,9 +73,13 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
     );
   }
   const l: ListingDetail = data;
+  // Made to measure: only a brand's model that offers it, and not on a deal already agreed for the ready piece.
+  const sewable = !!l.madeToMeasure && !confirming;
+  const sewn = sewable && sewChoice;
+  const measured = canSewTo(me.bodyMeasurements);
   // Bought on the item page, not with this form: a negotiable price (offer or chat), an auction (a bid), or a size
   // still to pick. The server refuses such a request anyway; this sends the buyer where they can go on.
-  const pickOnItemPage = !confirming && (l.priceNegotiable || l.saleType === "AUCTION" || ((l.stockSizes?.length ?? 0) > 1 && !(size && l.stockSizes?.includes(size))));
+  const pickOnItemPage = !confirming && (l.priceNegotiable || l.saleType === "AUCTION" || (!sewn && (l.stockSizes?.length ?? 0) > 1 && !(size && l.stockSizes?.includes(size))));
   if (pickOnItemPage) {
     return (
       <EmptyState
@@ -99,12 +105,12 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
           {/* the purchase, wrapped in cloth for the way home */}
           <Furoshiki className="rise sway absolute -bottom-6 -right-14 h-24" />
         </div>
-        <h1 className="rise mt-10 text-2xl font-bold">Запрос отправлен продавцу</h1>
+        <h1 className="rise mt-10 text-2xl font-bold">{sewn ? "Заказ на пошив отправлен" : "Запрос отправлен продавцу"}</h1>
         <Badge tone="warn" className="mt-3">
           Ожидает ответа
         </Badge>
         <p className="mt-4 text-ink-2">
-          Мы сообщим, когда @{l.seller.username} ответит. Продавец отвечает в течение 48 часов
+          {sewn ? "Ваши мерки уже у бренда. " : ""}Мы сообщим, когда @{l.seller.username} ответит. Продавец отвечает в течение 48 часов
           {sent.buyerComment ? " — ваш комментарий уже в переписке." : "."}
         </p>
         <div className="mt-8 flex w-full flex-col gap-3">
@@ -133,7 +139,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
       }
       // The price on screen goes along: if the seller changed it meanwhile the API answers PRICE_CHANGED instead of
       // quietly charging the new one, and the page reloads the item to show it.
-      const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...(size ? { size } : {}), ...(l.price != null ? { expectedTotal: l.price } : {}), ...body } });
+      const deal = await api<Deal>("/requests", { body: { listingId: l.id, ...(sewn ? { madeToMeasure: true } : size ? { size } : {}), ...(l.price != null ? { expectedTotal: l.price } : {}), ...body } });
       setSent(deal);
       track("buy_request", { price: l.price ?? 0 });
     } catch (e) {
@@ -147,13 +153,14 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
     }
   };
 
-  const reserved = !confirming && (l.status === "RESERVED" || error?.code === "RESERVED");
+  // A reserved ready piece doesn't stop a made-to-measure order: the brand sews a new one.
+  const reserved = !confirming && !sewn && (l.status === "RESERVED" || error?.code === "RESERVED");
   const price = confirming ? agreed.priceTotal : l.price;
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-8">
       <Breadcrumbs className="mb-4" items={[...itemCrumbs(l, undefined, l.market === "resale" ? "resale" : "brands"), { label: confirming ? "Получение" : "Покупка" }]} />
-      <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">{confirming ? (agreed.source === "AUCTION" ? "Вы выиграли аукцион" : "Цена согласована") : "Запрос на покупку"}</h1>
+      <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">{confirming ? (agreed.source === "AUCTION" ? "Вы выиграли аукцион" : "Цена согласована") : sewn ? "Пошив по меркам" : "Запрос на покупку"}</h1>
       {confirming && <p className="rise mt-2 text-ink-2">Вещь зарезервирована за вами. Выберите, как её получить — после этого откроются контакты продавца.</p>}
 
       <form
@@ -172,6 +179,50 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
           </div>
         ) : (
           <div className="rise flex flex-col gap-8">
+            {sewable && (
+              <fieldset>
+                <legend className="mb-3 text-lg font-semibold">Что заказываете</legend>
+                <div role="radiogroup" aria-label="Что заказываете" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <OptionCard name="sew" checked={!sewn} onChange={() => setSewChoice(false)} seal="品" title="Готовую вещь" hint={(size ?? l.size) ? `Размер ${size ?? l.size}` : "Как на фото"} />
+                  <OptionCard
+                    name="sew"
+                    checked={sewn}
+                    onChange={() => setSewChoice(true)}
+                    seal="仕"
+                    title="Сшить по моим меркам"
+                    hint={l.madeToMeasure?.days ? `Бренд шьёт за ${l.madeToMeasure.days} ${plural(l.madeToMeasure.days, "день", "дня", "дней")}` : "Срок бренд назовёт в чате"}
+                  />
+                </div>
+                {sewn && (
+                  <div className="rise mt-4 rounded-2xl bg-surface p-4 md:p-5">
+                    {measured ? (
+                      <>
+                        <p className="font-medium">Эти мерки уйдут бренду вместе с заказом</p>
+                        <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-4">
+                          {tailorLines(me.bodyMeasurements).map(([label, value]) => (
+                            <div key={label}>
+                              <dt className="text-ink-2">{label}</dt>
+                              <dd className="font-semibold">{value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <Link href="/settings#sizes" className="mt-3 inline-block text-sm text-ink-2 underline underline-offset-4 hover:text-ink">
+                          Изменить мерки
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium">В профиле пока нет мерок</p>
+                        <p className="mt-1 text-sm text-ink-2">Укажите хотя бы обхват груди, талии или бёдер — бренд сошьёт по ним.</p>
+                        <ButtonLink href="/settings#sizes" variant="secondary" className="mt-3">
+                          Указать мерки
+                        </ButtonLink>
+                      </>
+                    )}
+                  </div>
+                )}
+              </fieldset>
+            )}
             <fieldset>
               <legend className="mb-3 text-lg font-semibold">Способ получения</legend>
               {ways.length === 1 ? (
@@ -214,7 +265,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
             </div>
             <div className="min-w-0">
               <p className="font-medium">{l.title}</p>
-              <p className="mt-1 text-sm text-ink-2">{[(size ?? l.size) && `Размер ${size ?? l.size}`, l.condition && conditionLabel(l.condition, l.hasTags)].filter(Boolean).join(" · ")}</p>
+              <p className="mt-1 text-sm text-ink-2">{sewn ? "Пошив по вашим меркам" : [(size ?? l.size) && `Размер ${size ?? l.size}`, l.condition && conditionLabel(l.condition, l.hasTags)].filter(Boolean).join(" · ")}</p>
               <p className="mt-1 text-sm text-muted">@{l.seller.username}</p>
             </div>
           </Link>
@@ -240,11 +291,16 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
                       Открыть переписку
                     </Link>
                   )}
+                  {error.code === "NO_MEASUREMENTS" && (
+                    <Link href="/settings#sizes" className="ml-2 font-semibold underline">
+                      Указать мерки
+                    </Link>
+                  )}
                 </div>
               )}
               <div data-chrome="action-bar" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:border-0 lg:bg-transparent lg:p-0">
-                <Button type="submit" size="lg" block loading={busy} disabled={!chosen}>
-                  {busy ? "Отправляем…" : confirming ? "Подтвердить способ получения" : "Отправить запрос"}
+                <Button type="submit" size="lg" block loading={busy} disabled={!chosen || (sewn && !measured)}>
+                  {busy ? "Отправляем…" : confirming ? "Подтвердить способ получения" : sewn ? "Заказать пошив" : "Отправить запрос"}
                 </Button>
               </div>
               <p className="text-xs text-muted">{confirming ? "Выберите способ получения в течение 48 часов, иначе резерв снимется." : "Продавец ответит в течение 48 часов."}</p>

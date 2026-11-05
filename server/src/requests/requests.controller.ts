@@ -17,6 +17,8 @@ const CreateDto = DeliveryDto.extend({
   listingIds: z.array(z.uuid()).min(1).max(20).optional(),
   /** «Купить» on a listing with several sizes: the size picked. */
   size: z.string().trim().min(1).max(20).optional(),
+  /** «Сшить по моим меркам» on a brand's made-to-measure item: the buyer's measurements go with the request. */
+  madeToMeasure: z.boolean().optional(),
   /** The total shown to the buyer at checkout; when it no longer matches, the request is refused with PRICE_CHANGED. */
   expectedTotal: z.number().int().min(0).max(100_000_000).optional(),
 }).refine((d) => d.listingId || d.listingIds?.length, { message: 'Не выбрана вещь', path: ['listingId'] });
@@ -34,12 +36,13 @@ export class RequestsController {
   @Post('requests')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(CreateDto)) dto: z.infer<typeof CreateDto>) {
-    const { listingId, listingIds, size, ...delivery } = dto;
+    const { listingId, listingIds, size, madeToMeasure, ...delivery } = dto;
     return this.requests.create(user.id, {
       ...delivery,
       listingIds: listingIds ?? [listingId!],
       source: listingIds ? 'CART' : 'BUY',
       sizes: listingId && size ? { [listingId]: size } : undefined,
+      madeToMeasure: !!listingId && !!madeToMeasure,
     });
   }
 

@@ -42,6 +42,12 @@ const TILE_RATIO = 4 / 5;
 const MODERATED_FIELDS = ['title', 'description', 'brand', 'defectsDescription', 'category', 'subcategory'] as const;
 /** What a sold item can no longer change: its page stays up as the record of the sale and nothing moderates it again. */
 const FROZEN_WHEN_SOLD = [...MODERATED_FIELDS, 'price', 'labels'] as const;
+/** What only a confirmed brand may set on its items. */
+const BRAND_FIELDS = ['labels', 'madeToMeasure', 'madeToMeasureDays'] as const;
+/** Drops the brand-only fields from a non-brand's listing data. */
+const brandOnly = (data: Partial<Record<(typeof BRAND_FIELDS)[number], unknown>>) => {
+  for (const f of BRAND_FIELDS) delete data[f];
+};
 /** Statuses whose content the public sees (HIDDEN comes back as it is), so edits to them are moderated. */
 const SHOWN_STATUSES: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'HIDDEN'];
 /** Statuses anyone may see the page (and the «Похожие» built from it) of; the rest only their owner. */
@@ -144,7 +150,7 @@ export class ListingsService {
   async create(userId: string, input: ListingInputT) {
     const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { city: true, brandVerifiedAt: true, catalogApprovedAt: true } });
     const data = this.toData(input);
-    if (!me?.brandVerifiedAt) delete data.labels;
+    if (!me?.brandVerifiedAt) brandOnly(data);
     await this.assertListingMedia(userId, null, input.photos, input.videoId);
     const listing = await this.prisma.listing.create({
       data: { sellerId: userId, city: me?.city ?? null, deliveryOptions: ['IN_PERSON'], ...data, market: marketFor(me, data.condition, data.hasTags) },
@@ -159,8 +165,8 @@ export class ListingsService {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'BLOCKED') throw new ForbiddenException({ message: 'Вещь заблокирована модератором' });
     const data = this.toData(input);
-    // Seals are a brand's tool; anyone else's choice is ignored.
-    if (data.labels !== undefined && !(await this.prisma.user.findUnique({ where: { id: userId }, select: { brandVerifiedAt: true } }))?.brandVerifiedAt) delete data.labels;
+    // Seals and «Пошив по меркам» are a brand's tools; anyone else's choice is ignored.
+    if (BRAND_FIELDS.some((f) => data[f] !== undefined) && !(await this.prisma.user.findUnique({ where: { id: userId }, select: { brandVerifiedAt: true } }))?.brandVerifiedAt) brandOnly(data);
 
     // Arrays (labels) compare by value: a resent unchanged list isn't a change.
     const changes = (f: keyof typeof data & keyof Listing) => f in data && data[f] !== undefined && JSON.stringify(data[f]) !== JSON.stringify(listing[f]);
@@ -275,6 +281,8 @@ export class ListingsService {
     if (input.extraSizes !== undefined) data.extraSizes = [];
     // Seals keep one order on every card, whatever order they were ticked in.
     if (input.labels) data.labels = LISTING_LABELS.filter((l) => input.labels!.includes(l));
+    // A sewing time means nothing without the option itself.
+    if (input.madeToMeasure === false) data.madeToMeasureDays = null;
     // A negotiable price has no number, and nothing that compares against one.
     if (input.priceNegotiable) Object.assign(data, { price: null, autoAcceptPrice: null, minOfferPrice: null, saleType: 'FIXED' });
     return data;
@@ -825,6 +833,8 @@ export class ListingsService {
       previousPrice: listing.previousPrice,
       originalPrice: listing.originalPrice,
       labels: listing.labels,
+      /** «Пошив по меркам»: the brand sews this model to the buyer's measurements (in `days`, when stated). */
+      madeToMeasure: listing.madeToMeasure && seller?.brand ? { days: listing.madeToMeasureDays } : null,
       /** Section the item is shown in (brands = the main catalogue): links from its page stay in it. */
       market: marketOf(listing),
       /** «Несколько размеров»: every size in stock (empty for a one-size listing). */
