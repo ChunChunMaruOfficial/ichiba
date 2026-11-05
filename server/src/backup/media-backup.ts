@@ -12,7 +12,7 @@ import { RedisService } from '../redis/redis.js';
  * on the server's Railway volume (MEDIA_DRIVER=local), and Railway's plan keeps no backups of volumes, so one lost
  * volume would empty every listing. Files are named by UUID and never change: each night (and a few minutes after a
  * deploy) the files the bucket lacks are uploaded, nothing is ever deleted from it. The database has its own daily
- * dump (.github/workflows/backup-db.yml); docs/BACKUPS.md has the setup and the restore.
+ * dump (Railway cron service «db-backup», scripts/backup); docs/BACKUPS.md has the setup and the restore.
  *
  * Off unless BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_ACCESS_KEY_ID and BACKUP_S3_SECRET_ACCESS_KEY are set.
  * BACKUP_MEDIA_PING_URL (a Healthchecks.io check) hears about every run, so a backup that stops is noticed.
