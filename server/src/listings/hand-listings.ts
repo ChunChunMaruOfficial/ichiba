@@ -127,8 +127,13 @@ export class HandListingsService implements OnApplicationBootstrap {
         const title = item.input.title!;
         // A draft that failed to publish (deleted right away, never shown) doesn't count: the item is tried again.
         const listed = { sellerId: seller.id, title, NOT: { status: 'DELETED' as const, publishedAt: null } };
-        const live = await this.prisma.listing.findFirst({ where: listed, select: { id: true, status: true, _count: { select: { photos: true } } } });
+        const live = await this.prisma.listing.findFirst({ where: listed, select: { id: true, status: true, description: true, _count: { select: { photos: true } } } });
         if (live) {
+          if (item.retext && item.input.description && live.description !== item.input.description && live.status !== 'SOLD') {
+            // `updatedAt` moves with it, so the search snippet (seo.service.ts) is written again from the new text.
+            await this.prisma.listing.update({ where: { id: live.id }, data: { description: item.input.description } });
+            this.logger.log(`@${batch.username}: new text for «${title}»`);
+          }
           if (item.cover) {
             try {
               if (await this.setCover(live.id, batch.folder, item.cover)) this.logger.log(`@${batch.username}: new cover for «${title}»`);

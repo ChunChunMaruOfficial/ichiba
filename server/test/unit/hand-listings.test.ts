@@ -35,6 +35,9 @@ test('every hand-listed item fits the catalogue and has its photos', () => {
       for (const tag of i.styleTags ?? []) assert.ok(STYLE_TAGS.includes(tag), `${where}: style ${tag}`);
       assert.ok((i.styleTags ?? []).length <= 3, `${where}: style tags`);
       assert.ok(!i.description || i.description.length <= 2000, `${where}: description`);
+      // A channel's post decorations (star lines, «info/buy», «наличие») are not an item's text.
+      assert.ok(!/[⭐]|info\/buy|наличие\.$/mu.test(i.description ?? ''), `${where}: channel decoration in the description`);
+      assert.ok(!item.retext || i.description, `${where}: retext without a description`);
       assert.ok(item.photos.length >= 1 && item.photos.length <= 10, `${where}: photo count`);
       if (item.cover) assert.ok(item.photos.includes(item.cover), `${where}: cover ${item.cover} not among the photos`);
       for (const p of item.photos) {
