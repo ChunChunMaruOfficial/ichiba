@@ -53,16 +53,13 @@ function Favorites() {
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
-        <TitleWithKanji kanji="好み">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
-          </h1>
-        </TitleWithKanji>
-        {/* What changed since the last visit, at the right of the title. */}
-        {data && ((data.priceDropped ?? 0) > 0 || (data.reserved ?? 0) > 0) && <ShopNews priceDropped={data.priceDropped ?? 0} reserved={data.reserved ?? 0} />}
-      </div>
-      <div className="mt-6 flex items-center gap-2">
+      <TitleWithKanji kanji="好み">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
+        </h1>
+      </TitleWithKanji>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+        <div className="flex min-w-0 items-center gap-2">
         {/* Saved items only: the filter and the sorting as two icons, at the head of the tabs row. */}
         {tab === "items" && (
           <>
@@ -80,6 +77,9 @@ function Favorites() {
             </Chip>
           ))}
         </div>
+        </div>
+        {/* What changed since the last visit, at the right end of the tabs row (under the title, not beside it). */}
+        {data && ((data.priceDropped ?? 0) > 0 || (data.reserved ?? 0) > 0) && <ShopNews priceDropped={data.priceDropped ?? 0} reserved={data.reserved ?? 0} />}
       </div>
       <div className="mt-6">{tab === "items" ? <SavedItems sort={sort} onlyAvailable={onlyAvailable} /> : tab === "collections" ? <Collections /> : <FollowingFeed />}</div>
     </div>
@@ -105,9 +105,9 @@ function CountSeal({ kanji, n, ink }: { kanji: string; n: number; ink?: boolean 
  * News from the shop: what changed in favourites since the last visit, beside the title — seals on the paper,
  * 値下 (price cut) in cinnabar, 予約 (reserved) in ink.
  */
-function ShopNews({ priceDropped, reserved }: { priceDropped: number; reserved: number }) {
+function ShopNews({ priceDropped, reserved, className }: { priceDropped: number; reserved: number; className?: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+    <div className={clsx("flex flex-wrap items-center gap-x-8 gap-y-3", className)}>
       {priceDropped > 0 && (
         <div className="flex items-center gap-3">
           <CountSeal kanji="値下" n={priceDropped} />
