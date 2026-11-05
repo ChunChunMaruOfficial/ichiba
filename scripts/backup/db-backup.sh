@@ -42,7 +42,8 @@ trap 'fail "step at line $LINENO exited with $?"' ERR
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-s3() { aws --endpoint-url "$S3_ENDPOINT" --only-show-errors "$@"; }
+# --only-show-errors exists for cp and rm only: `aws s3 ls` refuses it.
+s3() { aws --endpoint-url "$S3_ENDPOINT" "$@"; }
 
 ping /start
 stamp=$(date -u +%Y-%m-%dT%H%MZ)
@@ -61,10 +62,10 @@ else
 fi
 size=$(wc -c <"$work/$name")
 
-s3 s3 cp "$work/$name" "s3://$S3_BUCKET/db/daily/$name"
+s3 s3 cp --only-show-errors "$work/$name" "s3://$S3_BUCKET/db/daily/$name"
 month=${stamp:0:7}
 if ! s3 s3 ls "s3://$S3_BUCKET/db/monthly/ichiba-$month" >/dev/null 2>&1; then
-  s3 s3 cp "$work/$name" "s3://$S3_BUCKET/db/monthly/$name"
+  s3 s3 cp --only-show-errors "$work/$name" "s3://$S3_BUCKET/db/monthly/$name"
 fi
 
 # Old dumps go by the date in their names (ISO stamps compare as strings).
@@ -76,7 +77,7 @@ prune() {
     ts=${ts%.gpg}
     ts=${ts%.dump}
     if [[ ( "$f" == ichiba-*.dump.gpg || "$f" == ichiba-*.dump ) && "$ts" < "$cutoff" ]]; then
-      s3 s3 rm "s3://$S3_BUCKET/$prefix$f"
+      s3 s3 rm --only-show-errors "s3://$S3_BUCKET/$prefix$f"
       echo "removed $prefix$f"
     fi
   done
