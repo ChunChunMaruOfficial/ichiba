@@ -228,7 +228,7 @@ export function CategoryTiles({ categories }: { categories: Array<{ slug: string
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {categories.map((c) => (
-        <Link key={c.slug} href={`/search?category=${c.slug}`} className="reveal group relative aspect-[4/5] overflow-hidden rounded-[18px] bg-skeleton">
+        <Link key={c.slug} href={`/?category=${c.slug}`} className="reveal group relative aspect-[4/5] overflow-hidden rounded-[18px] bg-skeleton">
           <div className="absolute inset-0 transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-105">
             <CoverImg cover={c.cover} alt="" large />
           </div>

@@ -17,7 +17,7 @@ export default function NotFound() {
           <Link href="/" className="inline-flex h-11 items-center btn-wa btn-wa-ink rounded-xl px-5 font-semibold">
             На главную
           </Link>
-          <Link href="/search" className="inline-flex h-11 items-center btn-wa btn-wa-paper rounded-xl px-5 font-semibold">
+          <Link href="/" className="inline-flex h-11 items-center btn-wa btn-wa-paper rounded-xl px-5 font-semibold">
             Поиск
           </Link>
         </div>

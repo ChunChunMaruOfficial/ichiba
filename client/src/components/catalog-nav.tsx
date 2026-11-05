@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useMarketZone, withMarket, type Zone } from "@/lib/market";
+import { searchHref, useMarketZone, type Zone } from "@/lib/market";
 import { usePresence } from "@/lib/presence";
 import type { Gender, Meta } from "@/lib/types";
 import { useBrandSuggestions } from "./brand-picker";
@@ -20,8 +20,8 @@ const BRANDS = "__brands__";
 
 const genderQuery = (g: Audience) => (g ? `&gender=${g}` : "");
 // Links stay in the market the menu was opened from (lib/market.ts).
-const categoryHref = (c: string, sub: string | undefined, g: Audience, zone: Zone) => withMarket(`/search?category=${c}${sub ? `&subcategory=${sub}` : ""}${genderQuery(g)}`, zone);
-const brandHref = (b: string, c: string | undefined, g: Audience, zone: Zone) => withMarket(`/search?brand=${encodeURIComponent(b)}${c ? `&category=${c}` : ""}${genderQuery(g)}`, zone);
+const categoryHref = (c: string, sub: string | undefined, g: Audience, zone: Zone) => searchHref(`category=${c}${sub ? `&subcategory=${sub}` : ""}${genderQuery(g)}`, zone);
+const brandHref = (b: string, c: string | undefined, g: Audience, zone: Zone) => searchHref(`brand=${encodeURIComponent(b)}${c ? `&category=${c}` : ""}${genderQuery(g)}`, zone);
 const forAudience = (categories: Category[], g: Audience) => (g ? categories.filter((c) => !c.genders || c.genders.includes(g)) : categories);
 
 /** "Все · Женщинам · Мужчинам" switch on top of the menu; the white pill slides to the chosen tab. */
@@ -188,7 +188,7 @@ function Rail({ categories, active, audience, setActive, onNavigate }: { categor
     <ul className="flex w-60 shrink-0 flex-col border-r border-line pr-4">
       {forAudience(categories, audience).map((c) => row(c.slug, c.label, categoryHref(c.slug, undefined, audience, zone)))}
       <li className="my-1.5 border-t border-line" aria-hidden />
-      {row(BRANDS, "Бренды", withMarket(audience ? `/search?gender=${audience}` : "/search", zone))}
+      {row(BRANDS, "Бренды", searchHref(audience ? `gender=${audience}` : "", zone))}
     </ul>
   );
 }

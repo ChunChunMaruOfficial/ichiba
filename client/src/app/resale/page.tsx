@@ -28,7 +28,7 @@ export default async function ResalePage({ searchParams }: { searchParams: Promi
   const guest = !jar.has("ichiba_token");
   const chip = resaleChip(typeof params.chip === "string" ? params.chip : null);
   const key = resaleFeedKey(chip, 0);
-  const ssr = guest && params.mode !== "swipe" && chip !== "for_you";
+  const ssr = guest && chip !== "for_you" && !Object.keys(params).some((k) => k !== "chip");
   const [feed, wardrobes] = ssr ? await Promise.all([serverFetch<{ items?: Card[] }>(key), serverFetch(RESALE_WARDROBES)]) : [null, null];
   // The first card's photo is the page's largest paint: its host and the file start from <head>, with the card's own
   // srcset and sizes so the browser reuses the download.

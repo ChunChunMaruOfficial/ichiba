@@ -26,7 +26,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const [params, jar] = await Promise.all([searchParams, cookies()]);
   const guest = !jar.has("ichiba_token");
   const key = homeFeedKey(homeChip(typeof params.chip === "string" ? params.chip : null, false), 0);
-  const [home, feed] = guest && params.mode !== "swipe" ? await Promise.all([serverFetch("/home"), serverFetch<{ items?: Card[] }>(key)]) : [null, null];
+  // Anything but the chip in the address is a search (components/search-view.tsx): the client shows results, not the feed.
+  const searching = Object.keys(params).some((k) => k !== "chip");
+  const [home, feed] = guest && !searching ? await Promise.all([serverFetch("/home"), serverFetch<{ items?: Card[] }>(key)]) : [null, null];
   // The first card's photo is the page's largest paint: the connection to the photo host (another origin) and the
   // photo itself start from <head>, before the browser reaches the card. Same srcset and sizes as the card, so the
   // browser takes the preloaded file for it.

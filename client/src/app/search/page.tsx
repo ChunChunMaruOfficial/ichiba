@@ -1,20 +1,19 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { FeedShell } from "@/components/feed-shell";
-import SearchClient from "./search-client";
+import { permanentRedirect } from "next/navigation";
 
-// Result pages for arbitrary queries are thin and endless: crawlers follow the items, but don't index the lists.
-export const metadata: Metadata = {
-  title: "Поиск",
-  description: "Поиск одежды, обуви и аксессуаров на ichiba: по словам, по фото, по размеру, бренду и цене.",
-  alternates: { canonical: "/search" },
-  robots: { index: false, follow: true },
-};
-
-export default function SearchPage() {
-  return (
-    <Suspense fallback={<FeedShell wide={false} />}>
-      <SearchClient />
-    </Suspense>
-  );
+/**
+ * Search lives on the home page (brands) and on «Вторичка» now (components/search-view.tsx): the old /search links
+ * (bookmarks, shares, search engines) land there with the same query. A search started on «Вторичка» carried
+ * market=resale; the page itself says that now.
+ */
+export default async function SearchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    const value = Array.isArray(v) ? v[0] : v;
+    if (value != null && k !== "market") q.set(k, value);
+  }
+  const resale = params.market === "resale";
+  if (params.market === "all") q.set("market", "all");
+  const query = q.toString();
+  permanentRedirect(`${resale ? "/resale" : "/"}${query ? `?${query}` : ""}`);
 }

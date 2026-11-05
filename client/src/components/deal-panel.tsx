@@ -205,7 +205,7 @@ export function DealPanel({ deal, onChange }: { deal: Deal; onChange: (d?: Deal)
               </ButtonLink>
             )}
             {deal.status === "DECLINED" && deal.role === "buyer" && (
-              <ButtonLink href={item ? `/item/${item.id}/similar` : "/search"} size="sm">
+              <ButtonLink href={item ? `/item/${item.id}/similar` : "/"} size="sm">
                 Похожие вещи
               </ButtonLink>
             )}

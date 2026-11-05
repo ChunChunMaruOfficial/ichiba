@@ -304,6 +304,10 @@ function seek(find: () => HTMLElement | null, frames: number, settleFrames = 0) 
   requestAnimationFrame(step);
 }
 
+/** The path on screen and when the last back/forward happened: a new path outside that is a fresh page. */
+let shownPath = "";
+let poppedAt = -Infinity;
+
 export function PhotoFlight() {
   const pathname = usePathname();
   const router = useRouter();
@@ -339,6 +343,7 @@ export function PhotoFlight() {
     let replaying = false;
     const onPop = (e: PopStateEvent) => {
       if (replaying) return;
+      poppedAt = performance.now();
       // Back while a tapped item has not opened yet (or is still flying in): that opening is off.
       if (flight?.dir === "open") land();
       // The page being left keeps its scroll; the one coming back gets its own once it is rendered.
@@ -380,6 +385,10 @@ export function PhotoFlight() {
 
   // Before paint, so the scroll restored for a page that came back lands with it (scroll-memory).
   useLayoutEffect(() => {
+    // A page opened by a link or a button starts at its top, whatever the last page's scroll was and whatever this
+    // page's remembered position is (that one is for back/forward only, which scroll-memory restores itself).
+    if (shownPath && shownPath !== pathname && performance.now() - poppedAt > 1500) window.scrollTo(0, 0);
+    shownPath = pathname;
     // The page on screen, for the back flight and the scroll memory (popstate fires with location already changed).
     document.documentElement.dataset.flyFrom = pathname;
     shownKey = location.pathname + location.search;

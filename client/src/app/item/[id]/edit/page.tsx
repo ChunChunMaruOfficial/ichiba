@@ -1,7 +1,7 @@
 "use client";
 
 import { TitleWithKanji } from "@/components/sections";
-import Link from "next/link";
+import { Breadcrumbs, itemCrumbs } from "@/components/breadcrumbs";
 import { useParams, useRouter } from "next/navigation";
 import { itemIdFrom } from "@/lib/item-path";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -149,9 +149,7 @@ function Editor({ listing, onSaved }: { listing: ListingDetail; onSaved: () => v
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-8">
-      <Link href={`/item/${listing.id}`} className="text-sm text-ink-2 hover:text-ink">
-        ← К вещи
-      </Link>
+      <Breadcrumbs items={[...itemCrumbs(listing, undefined, listing.market === "resale" ? "resale" : "brands"), { label: draft ? "Черновик" : "Редактирование" }]} />
       <TitleWithKanji kanji="編集" className="mt-3">
         <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">{draft ? "Черновик" : "Редактировать вещь"}</h1>
       </TitleWithKanji>

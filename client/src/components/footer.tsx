@@ -46,7 +46,7 @@ const COLUMNS: Array<[string, Array<[string, string]>]> = [
     "Покупателям",
     [
       ["/", "Лента"],
-      ["/search", "Поиск и фильтры"],
+      ["/?filters=1", "Поиск и фильтры"],
       ["/resale?chip=auctions", "Аукционы"],
       ["/favorites", "Избранное"],
       // The journal (app/journal): linked from every page, so its guides are found and weighed like the catalogue.

@@ -30,7 +30,8 @@ import { reportZoom, useItemEngagement } from "@/lib/engagement";
 import { useFavorite } from "@/lib/hooks";
 import { conditionLabel, deliveryWays, formatPrice, listingPrice, plural, PRICE_ON_REQUEST, shownSize, timeAgo } from "@/lib/labels";
 import { useListingActions } from "@/lib/listing-actions";
-import { withMarket } from "@/lib/market";
+import { searchHref } from "@/lib/market";
+import { Breadcrumbs, itemCrumbs } from "@/components/breadcrumbs";
 import type { Card, ListingDetail, ListingResponse, Offer } from "@/lib/types";
 import { itemHref } from "@/lib/item-path";
 import { landingHref, type ItemLandings } from "@/lib/landing";
@@ -309,7 +310,7 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
     ["Бренд", l.brand && (
       <>
         {/* The brand's own page when it has one (indexed, both markets), else a search in this item's market. */}
-        <Link href={landings?.brand ? landingHref(landings.brand.path) : withMarket(`/search?brand=${encodeURIComponent(l.brand)}`, zone)} className="hover:underline">{l.brand}</Link>
+        <Link href={landings?.brand ? landingHref(landings.brand.path) : searchHref(`brand=${encodeURIComponent(l.brand)}`, zone)} className="hover:underline">{l.brand}</Link>
         {l.seo?.brandRu && <span className="text-muted"> ({l.seo.brandRu})</span>}
       </>
     )],
@@ -460,26 +461,8 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
 
   return (
     <div className={clsx("mx-auto max-w-[1280px] px-4 pb-8 pt-4 md:px-6 md:pb-16", flightIn && "flight-in")}>
-      <nav aria-label="Хлебные крошки" className="mb-4 hidden text-sm text-muted md:block">
-        <Link href="/" className="hover:text-ink">Главная</Link>
-        {/* The category pages search engines index (/c/…); a search in the item's market where there is none. */}
-        {l.categoryLabel && (
-          <>
-            {" / "}
-            <Link href={landings?.category ? landingHref(landings.category.path) : withMarket(`/search?category=${l.category}`, zone)} className="hover:text-ink">{landings?.category?.name ?? l.categoryLabel}</Link>
-          </>
-        )}
-        {l.subcategoryLabel && (
-          <>
-            {" / "}
-            {landings?.subcategory ? (
-              <Link href={landingHref(landings.subcategory.path)} className="hover:text-ink">{landings.subcategory.name}</Link>
-            ) : (
-              <span className="text-ink-2">{l.subcategoryLabel}</span>
-            )}
-          </>
-        )}
-      </nav>
+      {/* The way here (the category pages search engines index, or a search in the item's market), the item last. */}
+      <Breadcrumbs className="mb-4" items={itemCrumbs(l, landings, zone)} />
 
       <div className="flight-keep grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] md:gap-12">
         <Gallery

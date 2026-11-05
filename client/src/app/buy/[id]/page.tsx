@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Breadcrumbs, itemCrumbs } from "@/components/breadcrumbs";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import useSWR from "swr";
 import { RequireAuth } from "@/components/require-auth";
 import { Furoshiki } from "@/components/shop/furoshiki";
-import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, IconChevronLeft, Input, OptionCard, PriceTag, Skeleton, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, Input, OptionCard, PriceTag, Skeleton, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, PRICE_ON_REQUEST } from "@/lib/labels";
 import type { Deal, ListingDetail, ListingResponse, Me } from "@/lib/types";
@@ -151,9 +152,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-8">
-      <button onClick={() => router.back()} className="mb-4 inline-flex items-center gap-1 text-sm text-ink-2 hover:text-ink">
-        <IconChevronLeft className="size-4" /> Назад
-      </button>
+      <Breadcrumbs className="mb-4" items={[...itemCrumbs(l, undefined, l.market === "resale" ? "resale" : "brands"), { label: confirming ? "Получение" : "Покупка" }]} />
       <h1 className="rise text-3xl font-bold tracking-tight md:text-4xl">{confirming ? (agreed.source === "AUCTION" ? "Вы выиграли аукцион" : "Цена согласована") : "Запрос на покупку"}</h1>
       {confirming && <p className="rise mt-2 text-ink-2">Вещь зарезервирована за вами. Выберите, как её получить — после этого откроются контакты продавца.</p>}
 

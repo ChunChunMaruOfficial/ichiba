@@ -10,7 +10,8 @@ import { useSession } from "@/components/session";
 import { Noren } from "@/components/shop/noren";
 import { DragRow } from "@/components/drag-row";
 import { SwipeDeck } from "@/components/swipe-deck";
-import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
+import { PhotoResults, SearchChips, SearchResults, useSearching } from "@/components/search-view";
+import { ButtonLink, Chip, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { FIRST_SCREEN, homeChip, homeFeedKey } from "@/lib/home-feed";
 import type { Card, Cover, SellerSummary } from "@/lib/types";
@@ -40,7 +41,10 @@ function HomeFeed() {
   const forYou = !!home.data?.forYouAvailable;
   // Default chip: «Для вас» for returning users, «Новое» for new ones (frame 06).
   const chip = homeChip(params.get("chip"), forYou);
-  const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) => (!home.data ? null : homeFeedKey(chip, offset)));
+  // A search in the address (components/search-view.tsx) takes the feed's place; a search by photo the whole page.
+  const searching = useSearching();
+  const photo = params.get("photo");
+  const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) => (!home.data || searching || photo ? null : homeFeedKey(chip, offset)));
   const sentinel = useSentinel(feed.loadMore, !feed.done);
 
   const setChip = (c: string) => router.replace(c === (forYou ? "for_you" : "new") ? "/" : `/?chip=${c}`, { scroll: false });
@@ -71,13 +75,15 @@ function HomeFeed() {
     };
   }, [swipeMode]);
 
+  if (photo) return <PhotoResults key={photo} id={photo} />;
+
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       {/* Discovery bar */}
       <div className="under-header z-30 -mx-4 px-4 pb-3 pt-4 md:-mx-6 md:px-6">
         {/* One row that scrolls as a whole on phones: the mode switch travels with the chips. */}
         <DragRow viewportClassName="-mx-4 -my-2 md:-mx-6" className="items-center gap-3 px-4 py-2 md:px-6">
-          {!noSwipe && (
+          {!noSwipe && !searching && (
           <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
             {(
               [
@@ -100,13 +106,11 @@ function HomeFeed() {
           {!swipeMode && (
             <div className="flex shrink-0 gap-2">
               {chips.map(([key, label]) => (
-                <Chip key={key} active={chip === key} onClick={() => setChip(key)}>
+                <Chip key={key} active={!searching && chip === key} onClick={() => setChip(key)}>
                   {label}
                 </Chip>
               ))}
-              <Chip onClick={() => router.push("/search?filters=1")}>
-                <IconFilter className="size-4" /> Фильтры
-              </Chip>
+              <SearchChips />
             </div>
           )}
         </DragRow>
@@ -116,6 +120,8 @@ function HomeFeed() {
         <div className="py-6">
           <SwipeDeck context="swipe_mode" market="brands" limit={30} onEmpty={onSwipeEmpty} />
         </div>
+      ) : searching ? (
+        <SearchResults />
       ) : home.error || feed.error ? (
         <ErrorState message="Не удалось загрузить вещи" onRetry={() => (home.mutate(), feed.mutate())} />
       ) : !feed.data ? (

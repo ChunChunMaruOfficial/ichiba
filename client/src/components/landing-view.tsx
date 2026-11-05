@@ -56,8 +56,7 @@ function searchHref(d: LandingData, market: "brands" | "resale") {
   if (d.subcategory) q.set("subcategory", d.subcategory);
   if (d.brand) q.set("brand", d.brand);
   if (d.gender) q.set("gender", d.gender);
-  if (market === "resale") q.set("market", "resale");
-  return `/search?${q}`;
+  return `${market === "resale" ? "/resale" : "/"}?${q}`;
 }
 
 const SECTION_TITLE = { brands: "Новое — каталог брендов", resale: "Вторичка" } as const;

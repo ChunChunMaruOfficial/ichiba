@@ -1,26 +1,25 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore } from "react";
 
 /**
  * Brands and the second-hand market («Вторичка») are kept apart everywhere: brands don't stand next to people's
- * closets. The zone is where the person is now — «Вторичка» and its wardrobes, or a search started there
- * (market=resale) — and every link into search carries it, so a category or a brand opens in the same market.
+ * closets. The zone is where the person is now — «Вторичка» and its wardrobes, or the brands' home — and every
+ * link into search stays in it: a search on «Вторичка» is /resale?…, on the brands /?… (components/search-view.tsx).
  */
 export type Zone = "brands" | "resale";
 
-const noop = () => () => {};
-const currentSearch = () => window.location.search;
-
 export function useMarketZone(): Zone {
   const pathname = usePathname();
-  // Read at render: the menus and the search box re-render when used, so a stale value never reaches a link.
-  const search = useSyncExternalStore(noop, currentSearch, () => "");
-  if (/^\/(resale|wardrobes)(\/|$)/.test(pathname)) return "resale";
-  if (pathname === "/search" && new URLSearchParams(search).get("market") === "resale") return "resale";
-  return "brands";
+  return /^\/(resale|wardrobes)(\/|$)/.test(pathname) ? "resale" : "brands";
 }
 
-/** A link into search within the given market (brands need nothing: they are the default). */
-export const withMarket = (href: string, zone: Zone) => (zone === "resale" ? `${href}${href.includes("?") ? "&" : "?"}market=resale` : href);
+/** The page a zone searches on. */
+export const searchBase = (zone: Zone) => (zone === "resale" ? "/resale" : "/");
+
+/** A link into search within the given zone: `query` without the leading «?». */
+export const searchHref = (query: string, zone: Zone) => {
+  const base = searchBase(zone);
+  const clean = query.replace(/^[?&]+/, "");
+  return clean ? `${base}?${clean}` : base;
+};

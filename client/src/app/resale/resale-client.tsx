@@ -9,7 +9,8 @@ import { fullCollage, SectionHeader, SellBand, WardrobeCards } from "@/component
 import { useSession } from "@/components/session";
 import { DragRow } from "@/components/drag-row";
 import { SwipeDeck } from "@/components/swipe-deck";
-import { ButtonLink, Chip, EmptyState, ErrorState, IconFilter, Spinner } from "@/components/ui";
+import { PhotoResults, SearchChips, SearchResults, useSearching } from "@/components/search-view";
+import { ButtonLink, Chip, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { RESALE_CHIPS, RESALE_PAGE, RESALE_WARDROBES, resaleChip, resaleFeedKey } from "@/lib/resale-feed";
 import type { Card, Cover, SellerSummary } from "@/lib/types";
@@ -29,7 +30,10 @@ function ResaleFeed() {
   const { me, loading: sessionLoading } = useSession();
   const chip = resaleChip(params.get("chip"));
   const setChip = (c: string) => router.replace(c === "new" ? "/resale" : `/resale?chip=${c}`, { scroll: false });
-  const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) => resaleFeedKey(chip, offset));
+  // A search in the address (components/search-view.tsx) takes the feed's place; a search by photo the whole page.
+  const searching = useSearching();
+  const photo = params.get("photo");
+  const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) => (searching || photo ? null : resaleFeedKey(chip, offset)));
   const sentinel = useSentinel(feed.loadMore, !feed.done);
   const wardrobes = useSWR<{ items: Wardrobe[] }>(RESALE_WARDROBES);
   const fullWardrobes = wardrobes.data?.items.filter(fullCollage).slice(0, 10) ?? [];
@@ -56,7 +60,7 @@ function ResaleFeed() {
     };
   }, [swipeMode]);
 
-  const modeSwitch = !noSwipe && (
+  const modeSwitch = !noSwipe && !searching && (
     <div role="radiogroup" aria-label="Режим просмотра" className="flex shrink-0 rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
       {(
         [
@@ -76,6 +80,8 @@ function ResaleFeed() {
       ))}
     </div>
   );
+
+  if (photo) return <PhotoResults key={photo} id={photo} />;
 
   if (swipeMode) {
     return (
@@ -99,18 +105,18 @@ function ResaleFeed() {
           {modeSwitch}
           <div className="flex shrink-0 gap-2">
             {chips.map(([key, label]) => (
-              <Chip key={key} active={chip === key} onClick={() => setChip(key)}>
+              <Chip key={key} active={!searching && chip === key} onClick={() => setChip(key)}>
                 {label}
               </Chip>
             ))}
-            <Chip onClick={() => router.push("/search?filters=1&market=resale")}>
-              <IconFilter className="size-4" /> Фильтры
-            </Chip>
+            <SearchChips />
           </div>
         </DragRow>
       </div>
 
-      {feed.error ? (
+      {searching ? (
+        <SearchResults />
+      ) : feed.error ? (
         <ErrorState message="Не удалось загрузить вещи" onRetry={() => feed.mutate()} />
       ) : !feed.data ? (
         <div className="pt-2">

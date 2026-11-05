@@ -2,25 +2,23 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import { useBrandSuggestions } from "@/components/brand-picker";
-import { FeedShell } from "@/components/feed-shell";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
-import { CardRow, CategoryTiles, SectionHeader } from "@/components/sections";
+import { CardRow, SectionHeader } from "@/components/sections";
 import { useMeta, useSession } from "@/components/session";
-import { Button, Chip, EmptyState, ErrorState, IconChevronLeft, IconFilter, IconSearch, IconSparkle, IconX, Input, SheetHandle, Spinner, useSheetDrag } from "@/components/ui";
+import { Button, Chip, EmptyState, ErrorState, IconChevronLeft, IconFilter, IconSparkle, IconX, Input, SheetHandle, Spinner, useSheetDrag } from "@/components/ui";
 import { api, qs } from "@/lib/api";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { CONDITION_LABEL, items as itemsLabel } from "@/lib/labels";
 import { usePresence } from "@/lib/presence";
-import { pushRecent } from "@/lib/recent-searches";
 import type { Card, Meta, SearchInterpretation } from "@/lib/types";
 import { Select } from "@/components/select";
 import { IconCameraSearch, PhotoSearchButton } from "@/components/photo-search-button";
 import { DragRow } from "@/components/drag-row";
-import { type Zone, withMarket } from "@/lib/market";
+import { searchBase, type Zone } from "@/lib/market";
 import { photoSearchResult } from "@/lib/photo-search";
 
 const LIST_KEYS = ["category", "subcategory", "style", "gender", "size", "condition", "color", "brand"] as const;
@@ -74,6 +72,36 @@ function readFilters(sp: URLSearchParams): Filters {
 const cleared = (f: Filters): Filters => ({ ...readFilters(new URLSearchParams()), market: homeMarket(f) });
 /** Where the search started: «Вторичка» (resale) or the brands (undefined). */
 const homeMarket = (f: Filters): Market | undefined => (f.market === "resale" || f.from === "resale" ? "resale" : undefined);
+
+/**
+ * Search happens on the feed pages themselves: «Вторичка» searches on /resale, the brands on / — the address gains
+ * the query and the page shows the results in place of its feed (app/search only forwards old links here).
+ */
+const useBase = () => (usePathname() === "/resale" ? "/resale" : "/");
+
+/** The filters in the address; on /resale the market is the page's own unless the address says «all». */
+function useFilters(sp: { toString(): string }, base: string) {
+  return useMemo(() => {
+    const f = readFilters(new URLSearchParams(sp.toString()));
+    if (base === "/resale" && !f.market) f.market = "resale";
+    return f;
+  }, [sp, base]);
+}
+
+/** The address of a search on `base`: the page's own market needs no parameter. */
+function searchUrl(base: string, f: Filters, extra: Record<string, string | undefined> = {}) {
+  const sp = new URLSearchParams(filterQuery(f, extra).replace(/^\?/, ""));
+  if (base === "/resale" && sp.get("market") === "resale") sp.delete("market");
+  const s = sp.toString();
+  return s ? `${base}?${s}` : base;
+}
+
+const SEARCH_KEYS = [...LIST_KEYS, "q", "sort", "nl", "raw", "market", "city", "seller", "price_min", "price_max", "available", "my_size"];
+/** Whether the address asks for a search rather than the page's feed. */
+export function useSearching() {
+  const sp = useSearchParams();
+  return SEARCH_KEYS.some((k) => sp.has(k));
+}
 
 const filterQuery = (f: Filters, extra: Record<string, string | undefined> = {}) =>
   qs({ ...extra, ...Object.fromEntries(LIST_KEYS.map((k) => [k, f[k]])), city: f.city, seller: f.seller, price_min: f.price_min, price_max: f.price_max, available: f.available === "0" ? "0" : undefined, my_size: f.my_size, market: f.market, from: f.market === "all" ? f.from : undefined });
@@ -298,50 +326,61 @@ function SortMenu({ value, onChange }: { value: string; onChange: (v: string) =>
   return <Select variant="pill" aria-label="Сортировка" value={value} onChange={onChange} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />;
 }
 
-function SearchLanding({ meta }: { meta: Meta }) {
-  const home = useSWR<{ categories: Array<{ slug: string; label: string; count: number; cover: Card["cover"] }>; fresh: Card[] }>("/home");
-  return (
-    <div className="flex flex-col gap-12 py-6">
-      {home.data && home.data.categories.length > 0 && (
-        <section>
-          <SectionHeader kanji="分類" title="Популярные категории" />
-          <CategoryTiles categories={home.data.categories} />
-        </section>
-      )}
-      <section>
-        <SectionHeader kanji="銘柄" title="Популярные бренды" />
-        <div className="flex flex-wrap gap-2">
-          {meta.brands.slice(0, 10).map((b) => (
-            <Link key={b} href={`/search?brand=${encodeURIComponent(b)}`} className="rounded-full border border-line-strong bg-surface px-4 py-2 text-sm hover:border-ink">
-              {b}
-            </Link>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function SearchView() {
+/**
+ * The search controls of a feed page's chip row: «Фильтры» (the drawer), «Мой размер» and the top categories. A
+ * choice turns the page into a search (the address gains the query, the results take the feed's place); the feed's
+ * own chips bring it back.
+ */
+export function SearchChips() {
   const router = useRouter();
   const sp = useSearchParams();
+  const base = useBase();
   const meta = useMeta();
+  const searching = useSearching();
   const { me, requireAuth } = useSession();
   const hasSizes = !!me?.sizes && Object.values(me.sizes).some((v) => v?.length);
   const q = sp.get("q") ?? "";
   const sort = sp.get("sort") ?? "new";
-  const filters = useMemo(() => readFilters(new URLSearchParams(sp.toString())), [sp]);
+  const filters = useFilters(sp, base);
+  const chips = activeChips(filters, meta);
   const [drawer, setDrawer] = useState(sp.get("filters") === "1");
-  const [input, setInput] = useState(q);
-  const [prevQ, setPrevQ] = useState(q);
-  if (q !== prevQ) {
-    setPrevQ(q);
-    setInput(q);
-  }
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Into a search from the feed: a new page, so Back returns to the feed; within a search: the same page.
+  const navigate = (f: Filters) => {
+    const url = searchUrl(base, f, { q: q || undefined, sort: sort !== "new" ? sort : undefined });
+    if (searching) router.replace(url, { scroll: false });
+    else router.push(url, { scroll: false });
+  };
+  return (
+    <>
+      <Chip active={drawer} onClick={() => setDrawer(true)}>
+        <IconFilter className="size-4" /> Фильтры{chips.length ? ` · ${chips.length}` : ""}
+      </Chip>
+      <Chip active={!!filters.my_size} onClick={() => requireAuth(() => (hasSizes || filters.my_size ? navigate({ ...filters, my_size: filters.my_size ? undefined : "1" }) : router.push("/settings#sizes")))}>
+        Мой размер
+      </Chip>
+      {meta?.categories.slice(0, 6).map((c) => (
+        <Chip key={c.slug} active={filters.category.includes(c.slug)} onClick={() => navigate({ ...filters, category: toggle(filters.category, c.slug) })}>
+          {c.label}
+        </Chip>
+      ))}
+      {meta && <FilterDrawer open={drawer} onClose={() => setDrawer(false)} initial={filters} onApply={(f) => navigate(f)} q={q} meta={meta} />}
+    </>
+  );
+}
+
+/** The results of the search in the address, in place of the page's feed; the chip row above is the page's own. */
+export function SearchResults() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const page = useBase();
+  const meta = useMeta();
+  const q = sp.get("q") ?? "";
+  const sort = sp.get("sort") ?? "new";
+  const filters = useFilters(sp, page);
+  const [drawer, setDrawer] = useState(false);
 
   const chips = activeChips(filters, meta);
-  const hasQuery = !!q || chips.length > 0 || sp.has("sort") || !!filters.market;
+  const hasQuery = !!q || chips.length > 0 || sp.has("sort") || sp.has("market");
   const base = filterQuery(filters, { q: q || undefined, sort: sort !== "new" ? sort : undefined });
 
   // Natural-language search: a phrase is turned into filters first («платье на свадьбу до 50» → Платья · Classic · до 50 BYN).
@@ -360,8 +399,8 @@ function SearchView() {
       price_min: p.price_min != null ? String(p.price_min) : filters.price_min,
       price_max: p.price_max != null ? String(p.price_max) : filters.price_max,
     } as Filters;
-    router.replace(`/search${filterQuery(merged, { q: p.q || undefined, nl: q, sort: sort !== "new" ? sort : undefined })}`, { scroll: false });
-  }, [interpreted, filters, q, sort, router]);
+    router.replace(searchUrl(page, merged, { q: p.q || undefined, nl: q, sort: sort !== "new" ? sort : undefined }), { scroll: false });
+  }, [interpreted, filters, q, sort, router, page]);
 
   const results = useInfiniteCards<{ items: Card[]; total: number; relax: { filter: string; label: string; count: number } | null }>((offset) =>
     hasQuery && !parsing && !interpreted ? `/search${base}${base ? "&" : "?"}offset=${offset}&limit=24` : null,
@@ -372,70 +411,27 @@ function SearchView() {
   const navigate = (f: Filters, extra: { q?: string; sort?: string } = {}) => {
     const nextQ = extra.q ?? q;
     const nextSort = extra.sort ?? sort;
-    router.replace(`/search${filterQuery(f, { q: nextQ || undefined, sort: nextSort !== "new" ? nextSort : undefined })}`, { scroll: false });
+    router.replace(searchUrl(page, f, { q: nextQ || undefined, sort: nextSort !== "new" ? nextSort : undefined }), { scroll: false });
   };
 
   const relax = results.pages[0]?.relax;
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 md:px-6">
+    <>
       <h1 className="sr-only">{q ? `Поиск: ${q}` : "Поиск вещей"}</h1>
-      {/* Mobile search field (desktop uses the header search) */}
-      <form
-        role="search"
-        className="pt-3 md:hidden"
-        onSubmit={(e) => {
-          e.preventDefault();
-          pushRecent(input);
-          inputRef.current?.blur();
-          navigate(filters, { q: input.trim() });
-        }}
-      >
-        <label className="flex h-12 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 focus-within:border-ink">
-          <IconSearch className="size-5 shrink-0 text-muted" />
-          <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Что ищете?" className="h-full flex-1 bg-transparent outline-none" enterKeyHint="search" aria-label="Поиск" />
-          <PhotoSearchButton className="-mr-1.5 size-9 rounded-full hover:bg-ink/5" />
-        </label>
-      </form>
-
-      <div className="under-header z-30 -mx-4 px-4 py-3 md:-mx-6 md:px-6">
-        <div className="flex items-center gap-2">
-          <DragRow viewportClassName="-my-1.5 min-w-0 flex-1" className="gap-2 py-1.5">
-            <Chip onClick={() => setDrawer(true)}>
-              <IconFilter className="size-4" /> Все фильтры{chips.length ? ` · ${chips.length}` : ""}
-            </Chip>
-            <Chip
-              active={!!filters.my_size}
-              onClick={() =>
-                requireAuth(() => (hasSizes || filters.my_size ? navigate({ ...filters, my_size: filters.my_size ? undefined : "1" }) : router.push("/settings#sizes")))
-              }
-            >
-              Мой размер
-            </Chip>
-            {meta?.categories.slice(0, 6).map((c) => (
-              <Chip key={c.slug} active={filters.category.includes(c.slug)} onClick={() => navigate({ ...filters, category: toggle(filters.category, c.slug) })}>
-                {c.label}
-              </Chip>
-            ))}
-          </DragRow>
-          <div className="hidden shrink-0 md:block">
-            <SortMenu value={sort} onChange={(v) => navigate(filters, { sort: v })} />
-          </div>
-        </div>
-        {chips.length > 0 && (
-          <DragRow viewportClassName="mt-3" className="items-center gap-2">
-            {chips.map((c) => (
-              <button key={c.key} onClick={() => navigate(c.remove(filters))} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-ink px-3 text-sm text-accent-ink">
-                {c.label} <IconX className="size-3.5" />
-                <span className="sr-only">убрать фильтр</span>
-              </button>
-            ))}
-            <button className="shrink-0 px-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => navigate(cleared(filters))}>
-              Сбросить всё
+      {chips.length > 0 && (
+        <DragRow viewportClassName="-mx-4 md:-mx-6" className="items-center gap-2 px-4 pb-3 md:px-6">
+          {chips.map((c) => (
+            <button key={c.key} onClick={() => navigate(c.remove(filters))} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-ink px-3 text-sm text-accent-ink">
+              {c.label} <IconX className="size-3.5" />
+              <span className="sr-only">убрать фильтр</span>
             </button>
-          </DragRow>
-        )}
-      </div>
+          ))}
+          <button className="shrink-0 px-2 text-sm text-ink-2 underline underline-offset-4" onClick={() => navigate(cleared(filters))}>
+            Сбросить всё
+          </button>
+        </DragRow>
+      )}
 
       {nlFrom && (
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-ai-soft/70 px-4 py-2.5 text-sm">
@@ -443,15 +439,13 @@ function SearchView() {
             <IconSparkle className="size-4" filled />
             Подобрали фильтры по запросу «{nlFrom}»
           </span>
-          <Link href={`/search?q=${encodeURIComponent(nlFrom)}&raw=1`} className="ml-auto font-medium text-ink-2 underline underline-offset-4">
+          <Link href={`${page}?q=${encodeURIComponent(nlFrom)}&raw=1`} className="ml-auto font-medium text-ink-2 underline underline-offset-4">
             Искать как текст
           </Link>
         </div>
       )}
 
-      {!hasQuery ? (
-        meta && <SearchLanding meta={meta} />
-      ) : results.error ? (
+      {!hasQuery ? null : results.error ? (
         <ErrorState message="Не удалось загрузить результаты" onRetry={() => results.mutate()} />
       ) : (
         <>
@@ -460,9 +454,7 @@ function SearchView() {
               {nlFrom ? `Результаты для «${nlFrom}»` : q ? `Результаты для «${q}»` : filters.market === "resale" ? "Вещи на вторичке" : "Вещи"}
               {results.data && <span className="ml-2 text-base font-normal text-muted">{itemsLabel(results.total)}</span>}
             </h1>
-            <div className="md:hidden">
-              <SortMenu value={sort} onChange={(v) => navigate(filters, { sort: v })} />
-            </div>
+            <SortMenu value={sort} onChange={(v) => navigate(filters, { sort: v })} />
           </div>
           {parsing ? (
             <div className="flex items-center gap-2 pb-4 text-sm text-ai">
@@ -514,7 +506,7 @@ function SearchView() {
       )}
 
       {meta && <FilterDrawer open={drawer} onClose={() => setDrawer(false)} initial={filters} onApply={(f) => navigate(f)} q={q} meta={meta} />}
-    </div>
+    </>
   );
 }
 
@@ -533,9 +525,10 @@ const PHOTO_SORTS = [
  * thumbnail (× drops it) and «Уточните, что ищете» for words that narrow the items down, then sorting («Похожие»
  * keeps the photo's ranking) and the filters. All of it goes through /search?ids=… over the ranked items.
  */
-function PhotoResults({ id }: { id: string }) {
+export function PhotoResults({ id }: { id: string }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const page = useBase();
   const meta = useMeta();
   // Kept in this tab's storage: unknown while rendering on the server (undefined), null when gone.
   const result = useSyncExternalStore(
@@ -564,9 +557,9 @@ function PhotoResults({ id }: { id: string }) {
   const navigate = (f: Filters, extra: { q?: string; sort?: string } = {}) => {
     const nextQ = extra.q ?? q;
     const nextSort = extra.sort ?? sort;
-    router.replace(`/search${filterQuery(f, { photo: id, q: nextQ || undefined, sort: nextSort !== "similar" ? nextSort : undefined })}`, { scroll: false });
+    router.replace(`${page}${filterQuery(f, { photo: id, q: nextQ || undefined, sort: nextSort !== "similar" ? nextSort : undefined })}`, { scroll: false });
   };
-  const reset = () => router.push(withMarket("/search", result?.market ?? "brands"));
+  const reset = () => router.push(searchBase(result?.market ?? "brands"));
 
   const base = filterQuery(filters, { q: q || undefined, ids, sort });
   const results = useInfiniteCards<{ items: Card[]; total: number }>((offset) => (ids ? `/search${base}&offset=${offset}&limit=24` : null));
@@ -683,18 +676,5 @@ function PhotoResults({ id }: { id: string }) {
 
       {meta && result && <FilterDrawer open={drawer} onClose={() => setDrawer(false)} initial={filters} onApply={(f) => navigate(f)} q={q} meta={meta} scope={scope} />}
     </div>
-  );
-}
-
-function SearchRoute() {
-  const photo = useSearchParams().get("photo");
-  return photo ? <PhotoResults key={photo} id={photo} /> : <SearchView />;
-}
-
-export default function SearchPage() {
-  return (
-    <Suspense fallback={<FeedShell wide={false} />}>
-      <SearchRoute />
-    </Suspense>
   );
 }
