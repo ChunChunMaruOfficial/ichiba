@@ -81,6 +81,12 @@ export function SellBand() {
       <div>
         <h2 className="text-4xl font-bold leading-[1.05] md:text-5xl">Продайте то, что не носите</h2>
         <p className="mt-4 max-w-md text-[17px] leading-relaxed text-ink-2">У каждой вещи в шкафу есть кто-то, кто её давно ищет. Объявление занимает около минуты.</p>
+        {/* On a wide screen the call sits under the words, in the text column; a band-wide bar there looked like a footer. */}
+        <div className="mt-8 hidden md:block">
+          <ButtonLink href="/sell" variant="shu" size="lg">
+            Продать вещь
+          </ButtonLink>
+        </div>
       </div>
       <ol className="flex flex-col gap-6 self-center">
         {steps.map(([n, title, text]) => (
@@ -95,10 +101,12 @@ export function SellBand() {
           </li>
         ))}
       </ol>
-      {/* The call comes after the steps: at the very bottom of the band, across its whole width. */}
-      <ButtonLink href="/sell" variant="shu" size="lg" block className="-mt-2 md:col-span-2 md:-mt-4">
-        Продать вещь
-      </ButtonLink>
+      {/* On a phone the call comes after the steps, at the bottom of the band, across its whole width. */}
+      <div className="-mt-2 md:hidden">
+        <ButtonLink href="/sell" variant="shu" size="lg" block>
+          Продать вещь
+        </ButtonLink>
+      </div>
     </section>
   );
 }
