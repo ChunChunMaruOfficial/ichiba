@@ -99,9 +99,12 @@ export function Footer() {
             <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
               Маркетплейс одежды из открытых гардеробов Беларуси. Продавайте то, что не носите, и находите то, что давно искали.
             </p>
-            <Link href="/sell" className="btn-wa btn-wa-shu mt-6 inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-semibold">
-              Продать вещь
-            </Link>
+            {/* Brand pages are about the brands' own things: no call to sell one's own there. */}
+            {!pathname.startsWith("/brands") && (
+              <Link href="/sell" className="btn-wa btn-wa-shu mt-6 inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-semibold">
+                Продать вещь
+              </Link>
+            )}
           </div>
           {COLUMNS.map(([title, links]) => (
             <nav key={title} aria-label={title}>
