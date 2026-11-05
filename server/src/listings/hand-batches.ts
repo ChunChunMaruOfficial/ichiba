@@ -7,7 +7,9 @@ import type { ListingInputT } from './listings.dto.js';
  * with nick and password, the password's bcrypt hash coming from HAND_PASSWORD_HASHES='{"nick":"$2b$10$…"}' (kept out
  * of the public repository, like TG_PASSWORD_HASHES) and set only while the account has none.
  * `account.brandName` makes it a verified brand (its new items go to the catalogue) and `account.logo`, a square image
- * in the batch's folder, becomes its profile photo while it has none.
+ * in the batch's folder, becomes its profile photo while it has none. `account.catalog` (with a brand name) puts every
+ * item the seller has in the catalogue, worn ones too, the way an admin places an item by hand: the owner wants these
+ * resellers on the home page next to the brands rather than among the wardrobes of «Вторичка».
  */
 export interface HandItem {
   photos: string[];
@@ -19,7 +21,7 @@ export interface HandItem {
   input: Omit<ListingInputT, 'photos'>;
 }
 
-export const BATCHES: Array<{ username: string; folder: string; account?: { bio: string; brandName?: string; logo?: string }; items: HandItem[] }> = [
+export const BATCHES: Array<{ username: string; folder: string; account?: { bio: string; brandName?: string; logo?: string; catalog?: boolean }; items: HandItem[] }> = [
   {
     // 2026-10-15, «Вторичка», sizes and prices exactly as the owner gave them.
     username: 'bodrowa2007',
@@ -594,7 +596,9 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     // 28–29); photos and wording from the posts, condition as the owner states it.
     username: 'sss1lv3r',
     folder: 'sss1lv3r',
-    account: { bio: 'sss1lv3r — продажа личного гардероба: винтаж, кожа, деним, архивные вещи. Возврата нет.', logo: 'logo.jpg' },
+    // 2026-11-05 evening: the owner wants these three on the home page with the brands, so each is a brand with all of
+    // its items in the catalogue (`catalog`), worn as they are.
+    account: { bio: 'sss1lv3r — продажа личного гардероба: винтаж, кожа, деним, архивные вещи. Возврата нет.', brandName: 'sss1lv3r', logo: 'logo.jpg', catalog: true },
     items: [
       {
         photos: ['2062-0.jpg', '2062-1.jpg', '2062-2.jpg', '2062-3.jpg'],
@@ -1634,7 +1638,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     // «condition 9,5» → LIKE_NEW. Two posts hold two items each (a jacket and shorts, a tee and shorts): split by photo.
     username: 'harajuku2',
     folder: 'harajuku2',
-    account: { bio: 'harajuku原宿 — личные вещи: архивные куртки, обувь, сумки. Доставка по всему миру.', logo: 'logo.jpg' },
+    account: { bio: 'harajuku原宿 — личные вещи: архивные куртки, обувь, сумки. Доставка по всему миру.', brandName: 'harajuku原宿', logo: 'logo.jpg', catalog: true },
     items: [
       {
         photos: ['429-0.jpg', '429-1.jpg', '429-2.jpg'],
@@ -1863,7 +1867,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     // open there and not already in the sss1lv3r stock channel, so nothing is listed twice; prices as for sss1lv3r.
     username: 'worldvtg',
     folder: 'worldvtg',
-    account: { bio: 'world.vtg — винтаж и архив: деним, кожа, сумки. Возврата нет.', logo: 'logo.jpg' },
+    account: { bio: 'world.vtg — винтаж и архив: деним, кожа, сумки. Возврата нет.', brandName: 'world.vtg', logo: 'logo.jpg', catalog: true },
     items: [
       {
         photos: ['789-0.jpg', '789-1.jpg'],

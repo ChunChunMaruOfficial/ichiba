@@ -140,6 +140,15 @@ export class HandListingsService implements OnApplicationBootstrap {
           this.logger.warn(`@${batch.username}: «${title}» failed: ${(e as Error).message}`);
         }
       }
+      // Placed in the catalogue as by an admin (marketByAdmin), so the rules for worn items never move them back; an
+      // item already placed, by this or by an admin, is left as it is.
+      if (batch.account?.catalog && batch.account.brandName) {
+        const { count } = await this.prisma.listing.updateMany({
+          where: { sellerId: seller.id, status: { not: 'DELETED' }, marketByAdmin: false },
+          data: { market: 'CATALOG', marketByAdmin: true },
+        });
+        if (count) this.logger.log(`@${batch.username}: ${count} items moved to the catalogue`);
+      }
     }
   }
 }
