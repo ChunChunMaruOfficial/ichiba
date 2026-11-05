@@ -605,6 +605,8 @@ export const IconX = icon(<path d="M6 6l12 12M18 6 6 18" />);
 export const IconChevronLeft = icon(<path d="m15 5-7 7 7 7" />);
 export const IconChevronRight = icon(<path d="m9 5 7 7-7 7" />);
 export const IconChevronDown = icon(<path d="m6 9 6 6 6-6" />);
+export const IconPencil = icon(<><path d="M4 20h4L19 9l-4-4L4 16Z" /><path d="m13.5 6.5 4 4" /></>);
+export const IconPhone = icon(<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />);
 export const IconCamera = icon(<><path d="M4 8h3l2-2.5h6L17 8h3v11H4Z" /><circle cx="12" cy="13" r="3.5" /></>);
 export const IconExpand = icon(<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />);
 export const IconShare = icon(<><path d="M12 4v11" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M5 13v6h14v-6" /></>);

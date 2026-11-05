@@ -1426,3 +1426,14 @@ html[data-immersive] [data-chrome="main"] {
   line-height: 1.5;
   color: var(--ink);
 }
+
+/* The cover photo while the AI reads the photos on the sell page (components/photo-manager.tsx): a breathing
+   glow in the AI's violet around the tile instead of a line of text under it. */
+@keyframes ai-reading {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ai), 0 0 14px 2px color-mix(in srgb, var(--ai) 40%, transparent); }
+  50% { box-shadow: 0 0 0 3px var(--ai), 0 0 28px 8px color-mix(in srgb, var(--ai) 65%, transparent); }
+}
+.ai-reading { animation: ai-reading 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ai-reading { animation: none; box-shadow: 0 0 0 2px var(--ai), 0 0 18px 4px color-mix(in srgb, var(--ai) 50%, transparent); }
+}

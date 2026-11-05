@@ -16,7 +16,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { useMeta } from "@/components/session";
 import { IconTrash } from "@/components/chat/icons";
 import { useToast } from "@/components/toast";
-import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconSparkle, IconX, Spinner } from "@/components/ui";
+import { Button, ButtonLink, Hanko, IconCheck, IconChevronLeft, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { type AiState, applySuggestionToEmpty, emptyValues, type ListingValues, type PhotoDraft, photosFromListing, toPayload, validate, valuesFromListing } from "@/lib/listing-form";
 import type { AiSuggestion, Card, ListingDetail, ListingResponse, Me } from "@/lib/types";
@@ -103,15 +103,6 @@ function StepIndicator({ step, onStep }: { step: Step; onStep: (s: Step) => void
         );
       })}
     </ol>
-  );
-}
-
-/** Under the photos while the AI reads them; the fields stay open and editable meanwhile. */
-function AiStatus() {
-  return (
-    <p className="mt-3 flex items-center gap-2 text-sm font-medium text-ai" role="status">
-      <IconSparkle className="size-4 animate-pulse" filled /> Определяем вещь по фото — поля заполнятся сами
-    </p>
   );
 }
 
@@ -417,8 +408,8 @@ function Sell({ me, draft }: { me: Me; draft: ListingDetail | null }) {
           <div className="flex flex-col gap-8 md:gap-10">
             {aiFlags?.not_clothing && <p className="rise rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">На фото не видно вещи — можно заменить фото или продолжить вручную.</p>}
             <FormSection kanji="写" title="Фото и видео" index={0}>
-              <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} big video={values.video} onVideo={(video) => set({ video })} />
-              {(aiPhase === "running" || (aiPhase === "idle" && photos.length > 0)) && <AiStatus />}
+              {/* The cover glows while the AI reads the photos; the fields stay open and editable meanwhile. */}
+              <PhotoManager photos={photos} onChange={setPhotos} error={errors.photos} big video={values.video} onVideo={(video) => set({ video })} ai={aiPhase === "running" || (aiPhase === "idle" && photos.length > 0)} />
             </FormSection>
             <FormSection kanji="品" title="Что за вещь" index={1}>
               <ItemFields {...fieldProps} />

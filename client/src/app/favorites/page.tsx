@@ -47,35 +47,39 @@ function Favorites() {
   const params = useSearchParams();
   const tab = (TABS.find(([k]) => k === params.get("tab"))?.[0] ?? "items") as Tab;
   const setTab = (t: Tab) => router.replace(t === "items" ? "?" : `?tab=${t}`, { scroll: false });
-  const { data } = useSWR<{ total: number }>("/favorites?sort=recent");
+  const { data } = useSWR<{ total: number; priceDropped?: number; reserved?: number }>("/favorites?sort=recent");
   const [sort, setSort] = useState<Sort>("recent");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
         <TitleWithKanji kanji="好み">
           <h1 className="text-3xl font-semibold tracking-tight">
             Избранное{data && <span className="ml-2 text-xl font-normal text-muted">· {data.total}</span>}
           </h1>
         </TitleWithKanji>
-        {/* Saved items only: the filter and the sorting as two icons, level with the title so the tabs keep the
-            whole width of a phone. */}
+        {/* What changed since the last visit, at the right of the title. */}
+        {data && ((data.priceDropped ?? 0) > 0 || (data.reserved ?? 0) > 0) && <ShopNews priceDropped={data.priceDropped ?? 0} reserved={data.reserved ?? 0} />}
+      </div>
+      <div className="mt-6 flex items-center gap-2">
+        {/* Saved items only: the filter and the sorting as two icons, at the head of the tabs row. */}
         {tab === "items" && (
-          <div className="flex shrink-0 gap-2">
+          <>
             <IconChip active={onlyAvailable} onClick={() => setOnlyAvailable((v) => !v)} label="Только доступные">
               <IconCheckCircle className="size-5" />
             </IconChip>
             <SortMenu value={sort} onChange={setSort} />
-          </div>
+            <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-line" />
+          </>
         )}
-      </div>
-      <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="tablist">
-        {TABS.map(([key, label]) => (
-          <Chip key={key} role="tab" aria-selected={tab === key} active={tab === key} onClick={() => setTab(key)}>
-            {label}
-          </Chip>
-        ))}
+        <div className="no-scrollbar flex min-w-0 gap-2 overflow-x-auto" role="tablist">
+          {TABS.map(([key, label]) => (
+            <Chip key={key} role="tab" aria-selected={tab === key} active={tab === key} onClick={() => setTab(key)}>
+              {label}
+            </Chip>
+          ))}
+        </div>
       </div>
       <div className="mt-6">{tab === "items" ? <SavedItems sort={sort} onlyAvailable={onlyAvailable} /> : tab === "collections" ? <Collections /> : <FollowingFeed />}</div>
     </div>
@@ -98,29 +102,29 @@ function CountSeal({ kanji, n, ink }: { kanji: string; n: number; ink?: boolean 
 }
 
 /**
- * News from the shop: what changed in favourites since the last visit, on a kraft slip with shippo circles and
- * seals — 値下 (price cut) in cinnabar, 予約 (reserved) in ink.
+ * News from the shop: what changed in favourites since the last visit, beside the title — seals on the paper,
+ * 値下 (price cut) in cinnabar, 予約 (reserved) in ink.
  */
 function ShopNews({ priceDropped, reserved }: { priceDropped: number; reserved: number }) {
   return (
-    <div className="pattern-shippo pattern-fade-r mt-5 flex flex-wrap items-center gap-x-10 gap-y-5 overflow-hidden rounded-[24px] bg-kraft/70 px-5 py-5 text-kraft-ink md:px-7">
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
       {priceDropped > 0 && (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <CountSeal kanji="値下" n={priceDropped} />
           <div>
-            <p className="font-display text-xl font-bold leading-tight">Цена снижена</p>
-            <p className="text-[15px] opacity-80">
+            <p className="font-display text-[17px] font-bold leading-tight">Цена снижена</p>
+            <p className="text-sm text-ink-2">
               у {priceDropped} {plural(priceDropped, "вещи", "вещей", "вещей")} из избранного
             </p>
           </div>
         </div>
       )}
       {reserved > 0 && (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <CountSeal kanji="予約" n={reserved} ink />
           <div>
-            <p className="font-display text-xl font-bold leading-tight">{plural(reserved, "Забронирована", "Забронированы", "Забронированы")}</p>
-            <p className="text-[15px] opacity-80">
+            <p className="font-display text-[17px] font-bold leading-tight">{plural(reserved, "Забронирована", "Забронированы", "Забронированы")}</p>
+            <p className="text-sm text-ink-2">
               {reserved} {plural(reserved, "вещь", "вещи", "вещей")} — если сделка сорвётся, мы напишем
             </p>
           </div>
@@ -194,7 +198,7 @@ function SortMenu({ value, onChange }: { value: Sort; onChange: (v: Sort) => voi
         <IconFilter className="size-5" />
       </IconChip>
       {pop.mounted && (
-        <div data-closing={pop.closing || undefined} className="panel menu-pop absolute right-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl p-1.5" style={{ transformOrigin: "top right" }}>
+        <div data-closing={pop.closing || undefined} className="panel menu-pop absolute left-0 top-[calc(100%+8px)] z-50 w-60 rounded-2xl p-1.5" style={{ transformOrigin: "top left" }}>
           <p className="px-3 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Сортировка</p>
           {options}
         </div>
@@ -210,7 +214,6 @@ function SavedItems({ sort, onlyAvailable }: { sort: Sort; onlyAvailable: boolea
   const { data, error, mutate } = useSWR<{ items: Card[]; total: number; reserved: number; priceDropped: number }>(`/favorites?sort=${sort}${onlyAvailable ? "&available=1" : ""}`);
   return (
     <>
-      {data && (data.reserved > 0 || data.priceDropped > 0) && <ShopNews priceDropped={data.priceDropped} reserved={data.reserved} />}
       <div className="mt-6">
         {error ? (
           <ErrorState message="Не удалось загрузить избранное" onRetry={() => mutate()} />

@@ -3,6 +3,7 @@ import {
 import { z } from 'zod';
 import { findContacts } from '../ai/text-rules.js';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { USERNAME_RE } from '../auth/auth.service.js';
 import { CITIES } from '../catalog/catalog.js';
 import { ZodPipe } from '../common/zod.js';
 import { ChatService } from '../chat/chat.js';
@@ -87,6 +88,8 @@ export class UsersService {
 }
 
 const UpdateMeDto = z.object({
+  /** The nickname, changed on the wardrobe page itself; the old /u/… address stops working. */
+  username: z.string().trim().toLowerCase().regex(USERNAME_RE, 'Латиница, цифры и _, от 3 до 24 символов').optional(),
   city: z.enum(CITIES as [string, ...string[]]).nullish(),
   bio: z
     .string()
@@ -147,8 +150,12 @@ export class UsersController {
         },
       });
     } catch (e) {
-      // The number belongs to another account (unique column): say so instead of a 500.
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException({ message: 'Этот номер уже привязан к другому аккаунту', fields: { phone: 'Номер занят' } });
+      // The number or the nickname belongs to another account (unique columns): say so instead of a 500.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        const target = String((e.meta as { target?: unknown } | undefined)?.target ?? '');
+        if (target.includes('username')) throw new ConflictException({ message: '@' + rest.username + ' занят', fields: { username: 'Ник занят' } });
+        throw new ConflictException({ message: 'Этот номер уже привязан к другому аккаунту', fields: { phone: 'Номер занят' } });
+      }
       throw e;
     }
     // A look setting is not a profile edit for the admin log.

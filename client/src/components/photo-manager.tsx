@@ -28,6 +28,7 @@ export function PhotoManager({
   error,
   video,
   onVideo,
+  ai,
 }: {
   photos: PhotoDraft[];
   onChange: (update: (prev: PhotoDraft[]) => PhotoDraft[]) => void;
@@ -35,6 +36,8 @@ export function PhotoManager({
   error?: string;
   video?: VideoView | null;
   onVideo?: (v: VideoView | null) => void;
+  /** The AI is reading the photos (the sell page): the cover's frame glows meanwhile. */
+  ai?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
@@ -174,8 +177,13 @@ export function PhotoManager({
               if (dragKey) moveTo(dragKey, p.key);
               setDragKey(null);
             }}
-            className={clsx("pop group relative overflow-hidden rounded-2xl bg-skeleton shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-1", big ? "h-[200px] w-40" : "h-[150px] w-[120px]", p.status === "error" && "ring-2 ring-danger", dragKey === p.key && "opacity-50")}
+            className={clsx("pop group relative overflow-hidden rounded-2xl bg-skeleton shadow-[var(--shadow-paper)] transition-transform duration-200 hover:-translate-y-1", big ? "h-[200px] w-40" : "h-[150px] w-[120px]", p.status === "error" && "ring-2 ring-danger", dragKey === p.key && "opacity-50", ai && i === 0 && p.status !== "error" && "ai-reading")}
           >
+            {ai && i === 0 && (
+              <span className="sr-only" role="status">
+                Определяем вещь по фото — поля заполнятся сами
+              </span>
+            )}
             {p.status === "done" ? (
               // Tapping the photo opens the editor (crop, turn, draw).
               <button type="button" aria-label={`Редактировать фото ${i + 1}`} title="Нажмите, чтобы обрезать, повернуть или нарисовать" onClick={() => setEditing(p)} className="block size-full cursor-pointer">

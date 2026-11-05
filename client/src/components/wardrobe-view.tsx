@@ -7,9 +7,11 @@ import { Daruma } from "@/components/shop/daruma";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
+import { api, ApiError } from "@/lib/api";
 import { plural } from "@/lib/labels";
+import { uploadPhoto } from "@/lib/upload";
 import { useListingActions } from "@/lib/listing-actions";
 import { usePresence } from "@/lib/presence";
 import type { Card, Deal, Offer, SellerSummary } from "@/lib/types";
@@ -19,11 +21,13 @@ import { ReviewsSection } from "./reviews";
 import { BundleNote, DealsInline, RatingInline } from "./trust";
 import { OfferCard } from "./offer";
 import { Avatar } from "./avatar";
+import { AvatarCropper } from "./avatar-cropper";
+import { InlineChoice, InlineText } from "./inline-edit";
 import { Masonry, MasonrySkeleton } from "./masonry";
 import { FollowButton } from "./sections";
-import { useSession } from "./session";
+import { useMeta, useSession } from "./session";
 import { useToast } from "./toast";
-import { ButtonLink, Chip, EmptyState, ErrorState, IconMore, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
+import { ButtonLink, Chip, EmptyState, ErrorState, IconMore, IconPencil, IconPlus, IconSettings, IconShare, Modal, Skeleton, Spinner } from "./ui";
 import { Select } from "./select";
 
 export interface WardrobeData {
@@ -195,11 +199,16 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   const section = (FILTERS.find(([k]) => k === params.get("section"))?.[0] ?? "all") as (typeof FILTERS)[number][0];
   const sort = SORTS.find(([k]) => k === params.get("sort"))?.[0] ?? "new";
   const tab = params.get("tab") === "reviews" ? "reviews" : "items";
-  const { me } = useSession();
+  const { me, refresh } = useSession();
+  const meta = useMeta();
   const toast = useToast();
   const router = useRouter();
   const [people, setPeople] = useState<"followers" | "following" | null>(null);
   const [creatingLook, setCreatingLook] = useState(false);
+  /** A picked profile photo open in the round crop (its object URL is freed on close). */
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInput = useRef<HTMLInputElement>(null);
   const { mutate: globalMutate } = useSWRConfig();
   const setQuery = (next: { section?: string; sort?: string; tab?: string }) => {
     const sp = new URLSearchParams(params.toString());
@@ -246,6 +255,33 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   // A «Бренд» account goes by its brand name everywhere on its page; everyone else by the nickname.
   const name = s?.brand || s?.username || username;
   const owner = !!data?.isOwner;
+  /** The owner's profile, edited on this page: a field saved, the page and the session read again. */
+  const saveProfile = async (body: Record<string, unknown>, done = "Сохранено") => {
+    try {
+      await api("/users/me", { method: "PATCH", body });
+      await Promise.all([refresh(), mutate()]);
+      toast(done);
+      return true;
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Не удалось сохранить", { tone: "error" });
+      return false;
+    }
+  };
+  const closeAvatar = () => {
+    if (avatarSrc) URL.revokeObjectURL(avatarSrc);
+    setAvatarSrc(null);
+  };
+  const uploadAvatar = async (file: File) => {
+    setAvatarBusy(true);
+    try {
+      const photo = await uploadPhoto(file, undefined, undefined, "avatar");
+      await saveProfile({ avatarId: photo.id }, "Фото профиля обновлено");
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Не получилось загрузить фото", { tone: "error" });
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
   const onFollow = (v: boolean) => mutate((d) => d && { ...d, seller: { ...d.seller, isFollowing: v, followers: d.seller.followers + (v ? 1 : -1) } }, { revalidate: false });
   const share = async () => {
     const url = `${window.location.origin}/u/${username}`;
@@ -292,23 +328,80 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             {/* Phones: the photo on its own row beside the corner buttons, the nickname under it across the whole cover
                 — beside the photo a long one ran under ⚙ and «Поделиться». */}
             <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:gap-4">
-              {s.avatar ? (
-                <Avatar username={s.username} avatar={s.avatar} ring className="size-16 md:size-20" />
-              ) : (
-                // No photo: a personal seal, the nickname's first letter pressed in cinnabar.
-                <span aria-hidden className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-3xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
-                  {s.username.slice(0, 1)}
-                </span>
-              )}
+              <span className="group/avatar relative shrink-0">
+                {s.avatar ? (
+                  <Avatar username={s.username} avatar={s.avatar} ring className="size-16 md:size-20" />
+                ) : (
+                  // No photo: a personal seal, the nickname's first letter pressed in cinnabar.
+                  <span aria-hidden className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-3xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
+                    {s.username.slice(0, 1)}
+                  </span>
+                )}
+                {/* The owner's pencil on the photo: a new photo, cropped round, in a popup. */}
+                {owner && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label={s.avatar ? "Сменить фото профиля" : "Добавить фото профиля"}
+                      title={s.avatar ? "Сменить фото" : "Добавить фото"}
+                      disabled={avatarBusy}
+                      onClick={() => avatarInput.current?.click()}
+                      className="absolute -bottom-1 -right-1 grid size-8 place-items-center rounded-full bg-paper text-ink opacity-0 shadow-[0_2px_8px_rgb(0_0_0/0.35)] transition-[opacity,transform] duration-200 hover:scale-105 focus-visible:opacity-100 group-hover/avatar:opacity-100 disabled:opacity-60 [@media(pointer:coarse)]:opacity-100"
+                    >
+                      {avatarBusy ? <Spinner className="size-4" /> : <IconPencil className="size-4" />}
+                    </button>
+                    <input
+                      ref={avatarInput}
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      tabIndex={-1}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) setAvatarSrc(URL.createObjectURL(file));
+                      }}
+                    />
+                  </>
+                )}
+              </span>
               <div className="min-w-0 max-w-full">
-                {/* A brand is named as a brand: «MIRARWEAR», the account's nickname only small under it. */}
-                <div className="flex min-w-0 items-center gap-3">
-                  <h1 title={name} className={clsx("truncate font-bold leading-[1.05] md:text-6xl", name.length > 16 ? "text-2xl" : name.length > 12 ? "text-3xl" : "text-4xl")}>
-                    {name}
-                  </h1>
-                </div>
+                {/* A brand is named as a brand: «MIRARWEAR», the account's nickname only small under it. The owner of an
+                    ordinary account changes the nickname right here; a brand's name is the one that was verified. */}
+                <h1 title={name} className={clsx("min-w-0 font-bold leading-[1.05] md:text-6xl", name.length > 16 ? "text-2xl" : name.length > 12 ? "text-3xl" : "text-4xl")}>
+                  {owner && !s.brand ? (
+                    <InlineText
+                      value={s.username}
+                      placeholder="ник"
+                      label="Изменить ник"
+                      maxLength={24}
+                      textClassName="truncate"
+                      normalize={(v) => v.toLowerCase().replace(/[^a-z0-9_]/g, "")}
+                      onSave={async (v) => {
+                        if (!/^[a-z0-9_]{3,24}$/.test(v)) {
+                          toast("Ник — латиница, цифры и _, от 3 до 24 символов", { tone: "error" });
+                          return false;
+                        }
+                        const ok = await saveProfile({ username: v }, "Ник изменён");
+                        if (ok) router.replace(`/u/${v}`);
+                        return ok;
+                      }}
+                    />
+                  ) : (
+                    <span className="block truncate">{name}</span>
+                  )}
+                </h1>
                 <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
-                  {[s.brand && `@${s.username}`, s.city, `на ichiba с ${sinceLabel(s.createdAt)}`].filter(Boolean).join(" · ")}
+                  {s.brand && <>@{s.username} · </>}
+                  {owner ? (
+                    <>
+                      <InlineChoice value={s.city ?? ""} options={(meta?.cities ?? []).map((c) => ({ value: c, label: c }))} placeholder="Город не указан" label="Изменить город" onSave={(v) => saveProfile({ city: v || null }, v ? "Город сохранён" : "Город убран")} />
+                      {" · "}
+                    </>
+                  ) : (
+                    s.city && <>{s.city} · </>
+                  )}
+                  на ichiba с {sinceLabel(s.createdAt)}
                 </p>
               </div>
             </div>
@@ -342,7 +435,13 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </dl>
             <RatingInline rating={s.rating} username={s.username} className="mt-3" />
             <DealsInline count={s.completedDeals} className="mt-1" />
-            {s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>}
+            {owner ? (
+              <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">
+                <InlineText value={s.bio ?? ""} placeholder="Рассказать о себе" label="Изменить описание" multiline maxLength={160} onSave={(v) => saveProfile({ bio: v || null }, v ? "Описание сохранено" : "Описание убрано")} />
+              </p>
+            ) : (
+              s.bio && <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">{s.bio}</p>
+            )}
             {/* How buying here goes, for a visitor: the one rule that holds for every item. */}
             {!owner && <p className="mt-3 text-sm text-ink-2">Оплата при получении · способ получения указан у каждой вещи</p>}
           </div>
@@ -371,6 +470,18 @@ export function WardrobeView({ username, initial }: { username: string; initial?
       )}
       {owner && creatingLook && s && <LookEditor username={s.username} open onClose={() => setCreatingLook(false)} onSaved={() => void globalMutate(`/users/${s.username}/looks`)} />}
       {s && <PeopleModal username={s.username} list={people} onClose={() => setPeople(null)} />}
+      {avatarSrc && (
+        <AvatarCropper
+          key={avatarSrc}
+          src={avatarSrc}
+          open
+          onClose={closeAvatar}
+          onSave={(file) => {
+            closeAvatar();
+            void uploadAvatar(file);
+          }}
+        />
+      )}
 
       {s && !owner && s.bundleDiscounts.length > 0 && <BundleNote tiers={s.bundleDiscounts} username={s.username} className="mt-6 max-w-2xl" />}
 

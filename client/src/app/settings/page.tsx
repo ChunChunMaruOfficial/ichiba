@@ -7,19 +7,15 @@ import { TitleWithKanji } from "@/components/sections";
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Avatar } from "@/components/avatar";
-import { PhotoEditor } from "@/components/photo-editor";
+import { useEffect, useState } from "react";
 import { useMeta, useSession } from "@/components/session";
 import { useToast } from "@/components/toast";
 import { tiersText } from "@/components/trust";
-import { Button, Chip, Field, Input, Modal, Spinner, Textarea } from "@/components/ui";
+import { Button, Chip, Field, IconPhone, IconX, Input, Modal, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { uploadPhoto } from "@/lib/upload";
 import { usePrefs } from "@/lib/prefs";
 import { DARK_THEME_ENABLED, type ThemeChoice } from "@/lib/theme";
 import type { BodyMeasurements, BundleTier, Me, PreferredSizes } from "@/lib/types";
-import { Select } from "@/components/select";
 
 export default function SettingsPage() {
   const { me, loading } = useSession();
@@ -45,7 +41,7 @@ function GuestSettings() {
       </div>
       <div className="flex flex-col gap-10">
         <AppearanceSection me={null} />
-        <Section title="Аккаунт" hint="Профиль, размеры, уведомления и статус бренда — после входа. Выбранное здесь оформление перейдёт в аккаунт.">
+        <Section title="Аккаунт" hint="Телефон, размеры, уведомления и статус бренда — после входа. Выбранный здесь вид карточек перейдёт в аккаунт.">
           <Button onClick={openAuth}>Войти</Button>
         </Section>
       </div>
@@ -167,8 +163,8 @@ function Settings({ me }: { me: Me }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
       <SettingsNav
         items={[
-          ["appearance", "装", "Оформление"],
-          ["profile", "個", "Профиль"],
+          ["appearance", "装", "Карточки вещей"],
+          ["phone", "電", "Телефон"],
           ["sizes", "寸", "Мои размеры"],
           ...(me.isSeller ? ([["bundle", "組", "Скидка за комплект"]] as const) : []),
           ...(me.isSeller || me.isBrand ? ([["notify", "便", "Уведомления на почту"]] as const) : []),
@@ -179,7 +175,7 @@ function Settings({ me }: { me: Me }) {
       />
       <div className="flex min-w-0 max-w-3xl flex-col gap-10">
       <AppearanceSection me={me} />
-      <ProfileSection me={me} />
+      <PhoneSection me={me} />
       <SizesSection me={me} />
       {me.isSeller && <BundleSection me={me} />}
       {(me.isSeller || me.isBrand) && <NotifyEmailSection me={me} Section={Section} />}
@@ -212,11 +208,11 @@ function Settings({ me }: { me: Me }) {
   );
 }
 
-/** A row of exclusive choices drawn as cards (card style, theme). */
-function Choices<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Array<[T, string, string]>; onChange: (v: T) => void }) {
+/** A row of exclusive choices drawn as cards (card style, theme); a choice may carry a small picture of itself. */
+function Choices<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Array<[T, string, string, React.ReactNode?]>; onChange: (v: T) => void }) {
   return (
     <div role="radiogroup" aria-label={label} className={clsx("grid grid-cols-1 gap-2", options.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3")}>
-      {options.map(([v, title, hint]) => (
+      {options.map(([v, title, hint, picture]) => (
         <button
           key={v}
           type="button"
@@ -224,15 +220,44 @@ function Choices<T extends string>({ label, value, options, onChange }: { label:
           aria-checked={value === v}
           onClick={() => onChange(v)}
           className={clsx(
-            "flex flex-col items-start gap-1 rounded-2xl p-3.5 text-left transition-shadow",
+            "flex items-start gap-4 rounded-2xl p-3.5 text-left transition-shadow",
             value === v ? "bg-indigo-soft shadow-[inset_0_0_0_1.5px_var(--indigo)]" : "bg-paper shadow-[inset_0_0_0_1px_var(--line-strong)] hover:shadow-[inset_0_0_0_1px_var(--line-control)]",
           )}
         >
-          <span className={clsx("text-[15px] font-semibold", value === v && "text-indigo")}>{title}</span>
-          <span className="text-xs text-ink-2">{hint}</span>
+          {picture}
+          <span className="flex min-w-0 flex-col gap-1">
+            <span className={clsx("text-[15px] font-semibold", value === v && "text-indigo")}>{title}</span>
+            <span className="text-xs text-ink-2">{hint}</span>
+          </span>
         </button>
       ))}
     </div>
+  );
+}
+
+/** A small drawing of an item card in one of the two styles: the photo with a price tag, or with the lines under it. */
+function CardPicture({ detailed }: { detailed: boolean }) {
+  return (
+    <span aria-hidden className="block w-[76px] shrink-0">
+      <span className="relative block aspect-[4/5] overflow-hidden rounded-[10px] bg-gradient-to-br from-skeleton to-line">
+        {/* A tee, folded flat. */}
+        <svg viewBox="0 0 40 50" className="absolute inset-0 size-full text-ink/15">
+          <path d="M12 11 20 8l8 3 7 5-4 6-3-2v21H12V20l-3 2-4-6Z" fill="currentColor" />
+        </svg>
+        {!detailed && <span className="absolute bottom-1.5 left-1.5 h-3.5 w-7 rounded-[3px] bg-kraft" />}
+      </span>
+      {detailed && (
+        <span className="mt-1.5 flex flex-col gap-[5px]">
+          <span className="h-2.5 w-8 rounded-full bg-ink/75" />
+          <span className="h-1.5 w-full rounded-full bg-ink/35" />
+          <span className="h-1.5 w-2/3 rounded-full bg-ink/20" />
+          <span className="flex items-center gap-1">
+            <span className="size-2.5 rounded-full bg-shu/70" />
+            <span className="h-1.5 w-6 rounded-full bg-ink/20" />
+          </span>
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -242,9 +267,9 @@ function Choices<T extends string>({ label, value, options, onChange }: { label:
  */
 function AppearanceSection({ me }: { me: Me | null }) {
   const { prefs, set } = usePrefs();
-  const cards: Array<["minimal" | "detailed", string, string]> = [
-    ["minimal", "Минималистичные", "Фото и ценник; название, размер и кнопки появляются при наведении"],
-    ["detailed", "Подробные", "Цена, размер, название, состояние и продавец под каждым фото"],
+  const cards: Array<["minimal" | "detailed", string, string, React.ReactNode]> = [
+    ["minimal", "Минималистичные", "Фото и ценник; название, размер и кнопки появляются при наведении", <CardPicture key="m" detailed={false} />],
+    ["detailed", "Подробные", "Цена, размер, название, состояние и продавец под каждым фото", <CardPicture key="d" detailed />],
   ];
   const themes: Array<[ThemeChoice, string, string]> = [
     ["system", "Как на устройстве", "Светлая днём, тёмная ночью — если так настроен телефон"],
@@ -252,138 +277,72 @@ function AppearanceSection({ me }: { me: Me | null }) {
     ["dark", "Тёмная", "Ночная тушь, тёплая, не серая"],
   ];
   return (
-    <Section id="appearance" title="Оформление" hint={me ? "Сохраняется в аккаунте и действует на всех ваших устройствах" : "Сохраняется на этом устройстве; после входа — в аккаунте, на всех устройствах"}>
-      <div className="flex flex-col gap-5">
-        <div>
-          <p className="mb-2 text-sm font-medium">Карточки вещей</p>
-          <Choices label="Карточки вещей" value={prefs.cardStyle} options={cards} onChange={(v) => void set({ cardStyle: v })} />
-        </div>
-        {DARK_THEME_ENABLED && (
-          <div>
-            <p className="mb-2 text-sm font-medium">Тема</p>
-            <Choices label="Тема" value={prefs.theme} options={themes} onChange={(v) => void set({ theme: v })} />
-          </div>
-        )}
-      </div>
-    </Section>
+    <>
+      <Section id="appearance" title="Карточки вещей" hint={me ? undefined : "После входа выбор перейдёт в аккаунт"}>
+        <Choices label="Карточки вещей" value={prefs.cardStyle} options={cards} onChange={(v) => void set({ cardStyle: v })} />
+      </Section>
+      {DARK_THEME_ENABLED && (
+        <Section id="theme" title="Тема">
+          <Choices label="Тема" value={prefs.theme} options={themes} onChange={(v) => void set({ theme: v })} />
+        </Section>
+      )}
+    </>
   );
 }
 
 /**
- * Profile photo: shown on the seller card of every item and on wardrobe cards. A tap on the photo opens it in the
- * listing photo editor (square crop to start with); a new photo goes through the editor before it is uploaded.
+ * The phone: the one profile field that stays in the settings — it is shown to the other side of a deal, not on the
+ * page. The photo, the nickname, the city and the «о себе» line are changed on the wardrobe page itself.
  */
-function AvatarPicker({ me }: { me: Me }) {
-  const toast = useToast();
-  const { refresh } = useSession();
-  const [busy, setBusy] = useState(false);
-  /** The photo open in the editor: the current one, or a picked file (its object URL is freed on close). */
-  const [editing, setEditing] = useState<{ src: string; local: boolean } | null>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const set = async (avatarId: string | null, done: string) => {
-    await api("/users/me", { method: "PATCH", body: { avatarId } });
-    toast(done);
-    await refresh();
-  };
-  const closeEditor = () => {
-    if (editing?.local) URL.revokeObjectURL(editing.src);
-    setEditing(null);
-  };
-  const upload = async (file: File) => {
-    setBusy(true);
-    try {
-      const photo = await uploadPhoto(file, undefined, undefined, "avatar");
-      await set(photo.id, "Фото профиля обновлено");
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : "Не получилось загрузить фото", { tone: "error" });
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="flex items-center gap-4">
-      <button
-        type="button"
-        aria-label={me.avatar ? "Редактировать фото профиля" : "Добавить фото профиля"}
-        disabled={busy}
-        onClick={() => (me.avatar ? setEditing({ src: me.avatar.l, local: false }) : input.current?.click())}
-        className="relative shrink-0 rounded-full transition-[transform,opacity] duration-200 hover:opacity-90 active:scale-95 disabled:opacity-60"
-      >
-        <Avatar username={me.username} avatar={me.avatar} ring className="size-20" />
-        {busy && (
-          <span className="absolute inset-0 grid place-items-center rounded-full bg-paper/60">
-            <Spinner />
-          </span>
-        )}
-      </button>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => input.current?.click()} className="px-4">
-          {me.avatar ? "Сменить фото" : "Добавить фото"}
-        </Button>
-        <input
-          ref={input}
-          type="file"
-          accept="image/*"
-          className="sr-only"
-          tabIndex={-1}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) setEditing({ src: URL.createObjectURL(file), local: true });
-          }}
-        />
-        {me.avatar && (
-          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void set(null, "Фото убрано")}>
-            Убрать
-          </Button>
-        )}
-      </div>
-      {editing && (
-        <PhotoEditor
-          key={editing.src}
-          src={editing.src}
-          aspect={1}
-          open
-          onClose={closeEditor}
-          onSave={(file) => {
-            closeEditor();
-            void upload(file);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function ProfileSection({ me }: { me: Me }) {
-  const meta = useMeta();
+function PhoneSection({ me }: { me: Me }) {
   const { saving, fields, save } = useSave();
-  const [city, setCity] = useState(me.city ?? "");
-  const [bio, setBio] = useState(me.bio ?? "");
   const [phone, setPhone] = useState(me.phone ?? "");
   return (
-    <Section id="profile" title="Профиль">
+    <Section id="phone" title="Телефон" hint="Покажем другой стороне только после подтверждения сделки">
       <form
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-3 sm:flex-row sm:items-start"
         onSubmit={(e) => {
           e.preventDefault();
-          void save({ city: city || null, bio: bio || null, phone: phone || null });
+          void save({ phone: phone || null }, phone ? "Телефон сохранён" : "Телефон убран");
         }}
       >
-        <AvatarPicker me={me} />
-        <Field label="Город" htmlFor="city" hint="Подставляется в новые вещи">
-          <Select id="city" value={city} onChange={setCity} options={[{ value: "", label: "Не указан" }, ...(meta?.cities ?? []).map((c) => ({ value: c, label: c }))]} />
-        </Field>
-        <Field label="О себе" htmlFor="bio" error={fields.bio} hint={`${bio.length}/160 · видно в гардеробе`}>
-          <Textarea id="bio" maxLength={160} value={bio} onChange={(e) => setBio(e.target.value)} className="min-h-20" />
-        </Field>
-        <Field label="Телефон" htmlFor="phone" hint="Покажем другой стороне только после подтверждения сделки">
-          <Input id="phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+375 29 …" />
-        </Field>
-        <Button type="submit" loading={saving} className="self-start">
+        <div className="min-w-0 flex-1">
+          <label
+            className={clsx(
+              "flex h-14 items-center gap-3 rounded-2xl bg-paper px-4 transition-shadow focus-within:shadow-[inset_0_0_0_1.5px_var(--indigo)]",
+              fields.phone ? "shadow-[inset_0_0_0_1.5px_var(--danger)]" : "shadow-[inset_0_0_0_1px_var(--line-strong)]",
+            )}
+          >
+            <IconPhone className="size-5 shrink-0 text-ink-2" />
+            <input
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              aria-label="Телефон"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+375 29 123-45-67"
+              className="h-full min-w-0 flex-1 bg-transparent text-[17px] tabular outline-none placeholder:text-muted"
+            />
+            {phone && (
+              <button type="button" aria-label="Очистить" onClick={() => setPhone("")} className="-mr-1 rounded-full p-1 text-muted hover:bg-ink/5 hover:text-ink">
+                <IconX className="size-4" />
+              </button>
+            )}
+          </label>
+          {fields.phone && <p className="mt-1.5 text-sm text-danger">{fields.phone}</p>}
+        </div>
+        <Button type="submit" loading={saving} disabled={phone === (me.phone ?? "")} className="h-14 shrink-0 px-6">
           Сохранить
         </Button>
       </form>
+      <p className="mt-4 text-sm text-ink-2">
+        Фото, ник, город и «о себе» меняются прямо в{" "}
+        <Link href={`/u/${me.username}`} className="font-medium text-ink underline underline-offset-4">
+          вашем гардеробе
+        </Link>
+        : наведите на имя, описание или фото.
+      </p>
     </Section>
   );
 }

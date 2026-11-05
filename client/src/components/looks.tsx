@@ -104,12 +104,8 @@ export function LookEditor({ username, open, onClose, look, initial, onSaved }: 
         </Field>
 
         {/* What's in the look so far; a tap takes a piece out. */}
-        <div>
-          <p className="mb-2 flex justify-between text-sm">
-            <span className="font-medium">В образе</span>
-            <span className="tabular text-muted">{picked.length} из 8</span>
-          </p>
-          {picked.length ? (
+        {picked.length > 0 && (
+          <div>
             <ul className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
               {picked.map((c, i) => (
                 <li key={c.id} className="relative shrink-0">
@@ -121,10 +117,8 @@ export function LookEditor({ username, open, onClose, look, initial, onSaved }: 
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="text-sm text-muted">Выберите вещи ниже — из избранного, своего гардероба или со всего сайта.</p>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {(
@@ -139,6 +133,9 @@ export function LookEditor({ username, open, onClose, look, initial, onSaved }: 
             </button>
           ))}
           {source === "search" && <Input aria-label="Поиск вещей" placeholder="Что ищем? Например, «джинсы»" value={q} onChange={(e) => setQ(e.target.value)} className="h-9 min-w-0 flex-1 basis-48" />}
+          <span className="ml-auto shrink-0 tabular text-sm text-muted" aria-live="polite">
+            {picked.length} из 8
+          </span>
         </div>
 
         {!data ? (
