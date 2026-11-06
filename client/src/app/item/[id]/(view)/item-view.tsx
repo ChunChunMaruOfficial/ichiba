@@ -336,7 +336,9 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
           Редактировать
         </ButtonLink>
       )}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Two different exits, each with what it is for written under it: a pause (the ♡ wait, the return is announced
+          and lifted) or a sale shown off (the item stays as proof and counts in the profile). */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
         {l.status === "PUBLISHED" && (
           <Button variant="secondary" onClick={() => actions.hide(l.id)}>
             Снять с продажи
@@ -351,6 +353,16 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
           <Button variant="secondary" onClick={() => actions.markSold(l.id)}>
             Пометить проданным
           </Button>
+        )}
+        {(l.status === "PUBLISHED" || l.status === "HIDDEN") && (
+          <>
+            <p className="px-1 text-xs leading-snug text-ink-2">
+              {l.status === "PUBLISHED"
+                ? "Пауза: вещь скроется, ♡ покупателей сохранятся. Вернёте через день и позже — все, кто сохранил, узнают «Снова в продаже», а вещь поднимется в ленте."
+                : "Все, кто сохранил вещь, узнают «Снова в продаже», а вещь поднимется в ленте (если снята больше суток назад)."}
+            </p>
+            <p className="px-1 text-xs leading-snug text-ink-2">Вещь останется в гардеробе с печатью «Продано» и войдёт в счётчик продаж профиля — покупатели видят, что у вас берут.</p>
+          </>
         )}
       </div>
       {reserved && <p className="text-sm text-muted">Идёт сделка — завершите или отмените её в «Мои продажи».</p>}

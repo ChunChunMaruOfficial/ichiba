@@ -39,6 +39,9 @@ export interface UiPrefs {
   theme?: "system" | "light" | "dark";
 }
 
+/** The groups of mailed notifications, each switched on or off on its own (server: mail/templates NOTIFY_GROUPS). */
+export type NotifyGroup = "requests" | "offers" | "auctions" | "reviews" | "disputes" | "moderation";
+
 export interface Me {
   id: string;
   username: string;
@@ -51,7 +54,8 @@ export interface Me {
   onboardedAt: string | null;
   createdAt: string;
   emailVerified: boolean;
-  emailPrefs: { deals: boolean };
+  /** `notifyOff`: groups of notifications not copied to the bound address (settings → «Уведомления на почту»). */
+  emailPrefs: { deals: boolean; notifyOff?: NotifyGroup[] };
   uiPrefs: UiPrefs | null;
   /** Confirmed address for notification emails (settings → «Уведомления на почту»); null = site only. */
   notifyEmail: string | null;

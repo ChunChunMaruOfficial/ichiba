@@ -58,7 +58,7 @@ const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => strin
   deal_completed: (p) => `Сделка по «${p.title}» завершена${p.sizes?.length ? ` · продан размер ${p.sizes.join(", ")} — уберите его из наличия` : ""}`,
   price_drop: (p) => `Цена снижена: «${p.title}» — ${p.newPrice} BYN вместо ${p.oldPrice}`,
   item_reserved: (p) => `«${p.title}» из избранного зарезервирована`,
-  item_sold: (p) => `«${p.title}» из избранного продана`,
+  item_sold: (p) => `«${p.title}» из избранного продана — посмотрите похожие`,
   item_available: (p) => `«${p.title}» снова в продаже`,
   offer_new: (p) => `@${p.buyer} предлагает ${p.amount} BYN за «${p.title}»${p.price != null ? ` вместо ${p.price}` : ""}`,
   offer_countered: (p) => `@${p.by} предлагает ${p.amount} BYN за «${p.title}»`,
@@ -91,6 +91,8 @@ export const notificationHref = (n: Pick<NotificationRow, "type" | "payload">) =
   if ((n.type === "auction_won" || n.type === "auction_runner_up") && p.listingId && p.requestId) return `/buy/${p.listingId}?request=${p.requestId}`;
   if ((n.type === "offer_accepted" || n.type === "offer_auto_accepted") && p.requestId) return `/deals/${p.requestId}`;
   if (n.type === "listing_schedule_failed" && p.listingId) return `/item/${p.listingId}/edit`;
+  // A saved item was sold: what is like it, not the page of a thing that can't be bought.
+  if (n.type === "item_sold" && p.listingId) return `/item/${p.listingId}/similar`;
   if (n.type === "review_request" && p.requestId) return `/deals/${p.requestId}#review`;
   if (n.type === "review_new" || n.type === "review_reply") return p.requestId ? `/deals/${p.requestId}#review` : "/wardrobe?tab=reviews";
   if (n.type.startsWith("offer_") && p.listingId) return n.type === "offer_new" ? "/sales" : `/item/${p.listingId}`;

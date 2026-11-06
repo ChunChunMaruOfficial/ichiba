@@ -12,6 +12,7 @@ import { useToast } from "@/components/toast";
 import { tiersText } from "@/components/trust";
 import { Button, Chip, Field, IconPhone, IconX, Input, Modal, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { plural } from "@/lib/labels";
 import { usePrefs } from "@/lib/prefs";
 import { DARK_THEME_ENABLED, type ThemeChoice } from "@/lib/theme";
 import type { BodyMeasurements, BundleTier, Me, PreferredSizes } from "@/lib/types";
@@ -406,6 +407,27 @@ function SizesSection({ me }: { me: Me }) {
   );
 }
 
+/**
+ * A number typed inside a sentence: no box, the type of the text around it but larger and bold, a dotted line under
+ * it saying it can be changed (solid while typed in). As wide as its digits.
+ */
+function TierNumber({ label, value, onChange, suffix }: { label: string; value: string; onChange: (v: string) => void; suffix?: string }) {
+  return (
+    <span className="inline-flex items-baseline">
+      <input
+        aria-label={label}
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 2))}
+        onFocus={(e) => e.currentTarget.select()}
+        style={{ width: `${Math.max(1, value.length)}ch` }}
+        className="tabular min-w-[1ch] appearance-none border-0 border-b-2 border-dotted border-ink/30 bg-transparent p-0 text-center font-display text-2xl font-bold text-ink caret-shu outline-none transition-colors hover:border-ink/60 focus:border-solid focus:border-shu"
+      />
+      {suffix && <span className="ml-0.5 font-display text-2xl font-bold">{suffix}</span>}
+    </span>
+  );
+}
+
 function BundleSection({ me }: { me: Me }) {
   const { saving, fields, save } = useSave();
   const [tiers, setTiers] = useState<Array<{ minItems: string; percent: string }>>(() => me.bundleDiscounts.map((t) => ({ minItems: String(t.minItems), percent: String(t.percent) })));
@@ -419,13 +441,13 @@ function BundleSection({ me }: { me: Me }) {
     <Section id="bundle" title="Скидка за комплект" hint="Покупатели, которые берут у вас несколько вещей сразу, получают скидку автоматически — в корзине и в запросе на покупку. Комплекты продаются быстрее.">
       <div className="flex flex-col gap-3">
         {tiers.map((t, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-2 text-[15px]">
+          // One sentence, its two numbers typed where they stand: «От 2 вещей — скидка 10 %».
+          <div key={i} className="group flex flex-wrap items-baseline gap-x-2 gap-y-1 text-lg">
             <span>От</span>
-            <Input aria-label="Количество вещей" inputMode="numeric" value={t.minItems} onChange={(e) => setTiers((all) => all.map((x, j) => (j === i ? { ...x, minItems: e.target.value.replace(/\D/g, "").slice(0, 2) } : x)))} className="h-10 w-16 text-center" />
-            <span>вещей — скидка</span>
-            <Input aria-label="Скидка, %" inputMode="numeric" value={t.percent} onChange={(e) => setTiers((all) => all.map((x, j) => (j === i ? { ...x, percent: e.target.value.replace(/\D/g, "").slice(0, 2) } : x)))} className="h-10 w-16 text-center" />
-            <span>%</span>
-            <button type="button" aria-label="Удалить ступень" className="ml-1 text-sm text-ink-2 underline underline-offset-4" onClick={() => setTiers((all) => all.filter((_, j) => j !== i))}>
+            <TierNumber label="Количество вещей" value={t.minItems} onChange={(v) => setTiers((all) => all.map((x, j) => (j === i ? { ...x, minItems: v } : x)))} />
+            <span>{plural(Number(t.minItems) || 0, "вещи", "вещей", "вещей")} — скидка</span>
+            <TierNumber label="Скидка, %" value={t.percent} onChange={(v) => setTiers((all) => all.map((x, j) => (j === i ? { ...x, percent: v } : x)))} suffix="%" />
+            <button type="button" aria-label="Удалить ступень" className="ml-2 text-sm text-ink-2 underline underline-offset-4 hover:text-ink" onClick={() => setTiers((all) => all.filter((_, j) => j !== i))}>
               Удалить
             </button>
           </div>

@@ -53,6 +53,8 @@ const SHOWN_STATUSES: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'HIDDEN'];
 /** Statuses anyone may see the page (and the «Похожие» built from it) of; the rest only their owner. */
 const PUBLIC_STATUSES: ListingStatus[] = ['PUBLISHED', 'RESERVED', 'SOLD'];
 const DAY_MS = 24 * 3600_000;
+/** Back on sale after this long off it: lifted in the feed and announced to the ♡ (a quick undo is neither). */
+const RETURN_LIFT_AFTER_MS = DAY_MS;
 /** A price counts as the «was» price of a discount only after it was asked this long (no fake «−50 %» overnight). */
 const DISCOUNT_AFTER_MS = 7 * DAY_MS;
 /** Wardrobe page size (per section). */
@@ -460,6 +462,12 @@ export class ListingsService {
     recordActivity(this.prisma, userId, 'listing_published', { listingId: id, detail: hidden ? 'скрыто: объявления аккаунта скрыты администрацией' : null });
     await this.moderator.record(listing, verdict);
     if (hidden) return this.getForOwner(userId, id);
+    // «Снять с продажи» is a pause, not a goodbye: an item back after a day (not the undo of a misclick) is lifted to
+    // the top of the feed, and everyone who kept it in ♡ hears it is on sale again.
+    if (listing.status === 'HIDDEN' && listing.hiddenAt && Date.now() - listing.hiddenAt.getTime() >= RETURN_LIFT_AFTER_MS) {
+      await this.prisma.listing.update({ where: { id }, data: { liftedAt: new Date(), hiddenAt: null } });
+      await this.notifyWatchers(id, 'item_available', listing.title);
+    }
     if (!listing.publishedAt) {
       const [followers, seller] = await Promise.all([
         this.prisma.follow.findMany({ where: { sellerId: userId }, select: { followerId: true } }),
@@ -599,7 +607,7 @@ export class ListingsService {
     const listing = await this.ownListing(userId, id);
     if (listing.status !== 'PUBLISHED') throw new ConflictException({ message: 'Скрыть можно только вещь в продаже' });
     await this.stopAuction(id);
-    await this.prisma.listing.update({ where: { id }, data: { status: 'HIDDEN' } });
+    await this.prisma.listing.update({ where: { id }, data: { status: 'HIDDEN', hiddenAt: new Date() } });
     await this.prisma.offer.updateMany({ where: { listingId: id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
     recordActivity(this.prisma, userId, 'listing_hidden', { listingId: id, market: listing.market });
     return { ok: true };

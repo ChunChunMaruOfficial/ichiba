@@ -148,6 +148,21 @@ export const NOTIFY_EMAIL_TYPES = new Set([
   'catalog_rejected',
 ]);
 
+/**
+ * The switches in settings → «Уведомления на почту»: each group of mailed notifications can be turned off on its own
+ * (User.emailPrefs.notifyOff); what is off stays in 🔔 on the site.
+ */
+export const NOTIFY_GROUPS = ['requests', 'offers', 'auctions', 'reviews', 'disputes', 'moderation'] as const;
+export type NotifyGroup = (typeof NOTIFY_GROUPS)[number];
+export function notifyGroupOf(type: string): NotifyGroup {
+  if (type.startsWith('offer_')) return 'offers';
+  if (type.startsWith('auction_')) return 'auctions';
+  if (type.startsWith('review_')) return 'reviews';
+  if (type.startsWith('dispute_')) return 'disputes';
+  if (type.startsWith('request_') || type.startsWith('deal_')) return 'requests';
+  return 'moderation';
+}
+
 /** The email for one notification (links match notificationHref on the client), or null for a type not emailed. */
 export function notificationEmail(type: string, p: Payload, unsubscribeUrl: string): ReturnType<typeof render> | null {
   const title = String(p.title ?? 'вещь');

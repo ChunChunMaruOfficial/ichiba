@@ -6,15 +6,20 @@ import { Public } from '../auth/auth.guard.js';
 import { background } from '../common/background.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MailerService } from './mailer.js';
-import { appUrl, codeEmail, esc, notificationEmail, NOTIFY_EMAIL_TYPES } from './templates.js';
+import { appUrl, codeEmail, esc, notificationEmail, NOTIFY_EMAIL_TYPES, NOTIFY_GROUPS, notifyGroupOf, type NotifyGroup } from './templates.js';
 
 /** Retry schedule after a failed attempt: 1 min, 5 min, 30 min, 2 h, 6 h; then the message is FAILED. */
 const BACKOFF_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 3600_000, 6 * 3600_000];
 
 export interface EmailPrefs {
   deals: boolean;
+  /** Groups of notifications not copied to the bound address (settings → «Уведомления на почту»). */
+  notifyOff: NotifyGroup[];
 }
-export const emailPrefsOf = (raw: unknown): EmailPrefs => ({ deals: (raw as Partial<EmailPrefs> | null)?.deals !== false });
+export const emailPrefsOf = (raw: unknown): EmailPrefs => {
+  const p = (raw as Partial<EmailPrefs> | null) ?? {};
+  return { deals: p.deals !== false, notifyOff: Array.isArray(p.notifyOff) ? p.notifyOff.filter((g): g is NotifyGroup => (NOTIFY_GROUPS as readonly string[]).includes(g)) : [] };
+};
 
 /**
  * Outbox: notification emails are stored first and sent by a worker, so an SMTP outage delays mail instead of
@@ -93,8 +98,10 @@ export class NotifyEmails {
 
   async send(userIds: string[], type: string, payload: Record<string, unknown>) {
     if (!NOTIFY_EMAIL_TYPES.has(type)) return;
-    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, notifyEmail: { not: null }, blockedAt: null, deletedAt: null }, select: { id: true, notifyEmail: true } });
+    const group = notifyGroupOf(type);
+    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, notifyEmail: { not: null }, blockedAt: null, deletedAt: null }, select: { id: true, notifyEmail: true, emailPrefs: true } });
     for (const u of users) {
+      if (emailPrefsOf(u.emailPrefs).notifyOff.includes(group)) continue;
       const mail = notificationEmail(type, payload, unsubscribeUrl(this.jwt, u.id));
       if (mail) await this.outbox.enqueue({ to: u.notifyEmail!, ...mail, kind: type, userId: u.id });
     }

@@ -28,10 +28,14 @@ export function useListingActions(onDone: () => void) {
   return {
     /** No confirmation; undo in the toast. */
     hide: (id: string) =>
-      call(() => api(`/listings/${id}/hide`, { method: "POST" }), "Вещь скрыта", { label: "Отменить", run: () => api(`/listings/${id}/publish`, { method: "POST" }) }),
+      call(() => api(`/listings/${id}/hide`, { method: "POST" }), "Вещь снята с продажи — ♡ покупателей сохранятся", { label: "Отменить", run: () => api(`/listings/${id}/publish`, { method: "POST" }) }),
     unhide: (id: string) => call(() => api(`/listings/${id}/publish`, { method: "POST" }), "Вещь снова в продаже"),
     markSold: async (id: string) =>
-      (await confirm({ title: "Продали вне платформы?", message: "Вещь пропадёт из поиска, активные запросы будут отклонены.", confirmLabel: "Отметить проданной" }))
+      (await confirm({
+        title: "Продали вне платформы?",
+        message: "Вещь останется в гардеробе с печатью «Продано» и войдёт в счётчик продаж профиля. Из поиска она уйдёт, активные запросы будут отклонены, а те, кто её сохранил, увидят похожие.",
+        confirmLabel: "Отметить проданной",
+      }))
         ? call(() => api(`/listings/${id}/sold`, { method: "POST" }), "Отмечено как проданное")
         : false,
     remove: async (id: string) =>

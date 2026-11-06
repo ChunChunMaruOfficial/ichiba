@@ -257,6 +257,9 @@ model Listing {
   hiddenByAdmin      Boolean          @default(false)
   /// Hidden only because its seller was blocked: unblocking the seller puts it back on sale (nothing else does).
   hiddenByBlock      Boolean          @default(false)
+  /// When the seller last took it off sale («Снять с продажи»): back on sale after a day, it is lifted in the feed and
+  /// everyone who saved it hears «снова в продаже».
+  hiddenAt           DateTime?
   saleType           SaleType         @default(FIXED)
   /// Section of the site, set by the server only: a brand's items go to the catalogue, everyone else's to «Вторичка»;
   /// an admin can move a single item either way (a reseller's new original item, a brand's worn one).

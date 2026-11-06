@@ -3,13 +3,54 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { Me } from "@/lib/types";
+import type { Me, NotifyGroup } from "@/lib/types";
 import { useSession } from "./session";
 import { useToast } from "./toast";
-import { Badge, Button, Field, Input } from "./ui";
+import { Badge, Button, Chip, Field, IconCheck, Input } from "./ui";
 
-/** What lands in the inbox (server: mail/templates NOTIFY_EMAIL_TYPES); the rest stays in 🔔 on the site. */
-const WHAT = ["Хотят купить", "Предложения цены", "Итоги аукционов", "Отзывы", "Споры", "Решения модерации"];
+/** What can land in the inbox (server: mail/templates NOTIFY_GROUPS), each switched on or off; the rest stays in 🔔. */
+const WHAT: Array<[NotifyGroup, string]> = [
+  ["requests", "Хотят купить"],
+  ["offers", "Предложения цены"],
+  ["auctions", "Итоги аукционов"],
+  ["reviews", "Отзывы"],
+  ["disputes", "Споры"],
+  ["moderation", "Решения модерации"],
+];
+
+/** The switches: a tap turns a kind of letter on or off at once (saved to the account, nothing to confirm). */
+function MailSwitches({ me }: { me: Me }) {
+  const { refresh } = useSession();
+  const toast = useToast();
+  const [off, setOff] = useState<NotifyGroup[]>(() => me.emailPrefs.notifyOff ?? []);
+  const toggle = async (g: NotifyGroup, label: string) => {
+    const next = off.includes(g) ? off.filter((x) => x !== g) : [...off, g];
+    setOff(next);
+    try {
+      await api("/users/me", { method: "PATCH", body: { emailPrefs: { notifyOff: next } } });
+      void refresh();
+      toast(next.includes(g) ? `«${label}» — только на сайте` : `«${label}» — и на почту`);
+    } catch (e) {
+      setOff(off);
+      toast(e instanceof ApiError ? e.message : "Не удалось сохранить", { tone: "error" });
+    }
+  };
+  return (
+    <ul className="flex flex-wrap gap-2" aria-label="Что приходит на почту">
+      {WHAT.map(([g, label]) => {
+        const on = !off.includes(g);
+        return (
+          <li key={g}>
+            <Chip active={on} onClick={() => void toggle(g, label)} title={on ? "Приходит на почту — нажмите, чтобы отключить" : "Не приходит на почту — нажмите, чтобы включить"}>
+              {on && <IconCheck className="size-3.5" />}
+              {label}
+            </Chip>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 type Start = { bound: true } | { bound: false; target: string; resendIn: number };
 
@@ -104,7 +145,7 @@ export function NotifyEmailSection({ me, Section }: { me: Me; Section: React.Com
   const loginEmail = me.email && me.emailVerified && me.email !== me.notifyEmail ? me.email : null;
 
   return (
-    <Section id="notify" title="Уведомления на почту" hint="Привяжите одну почту — и узнавайте о покупателях сразу, даже когда сайт закрыт.">
+    <Section id="notify" title="Уведомления на почту">
       {me.notifyEmail && !editing ? (
         <div className="rise flex flex-col gap-4 rounded-2xl bg-surface p-4 shadow-[inset_0_0_0_1px_var(--line-strong)] sm:p-5">
           <div className="flex items-center gap-4">
@@ -118,13 +159,7 @@ export function NotifyEmailSection({ me, Section }: { me: Me; Section: React.Com
               </p>
             </div>
           </div>
-          <ul className="flex flex-wrap gap-1.5" aria-label="Что приходит на почту">
-            {WHAT.map((w) => (
-              <li key={w}>
-                <Badge tone="muted">{w}</Badge>
-              </li>
-            ))}
-          </ul>
+          <MailSwitches me={me} />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => (setEditing(true), setErrors({}))}>
               Сменить почту
@@ -181,14 +216,6 @@ export function NotifyEmailSection({ me, Section }: { me: Me; Section: React.Com
         </form>
       ) : (
         <div className="rise flex flex-col gap-4">
-          {!me.notifyEmail && (
-            <div className="flex items-start gap-4 rounded-2xl bg-surface p-4 shadow-[inset_0_0_0_1px_var(--line-strong)]">
-              <Stamp muted />
-              <p className="text-[15px] text-ink-2">
-                Сейчас уведомления только на сайте. На почту будут приходить: <span className="text-ink">{WHAT.join(", ").toLowerCase()}</span>.
-              </p>
-            </div>
-          )}
           {loginEmail && (
             <button
               type="button"
@@ -212,23 +239,24 @@ export function NotifyEmailSection({ me, Section }: { me: Me; Section: React.Com
               void send(email.trim());
             }}
           >
+            {/* No label above the field: the button stands level with it. */}
             <div className="min-w-0 flex-1">
-              <Field label={loginEmail ? "Или другая почта" : "Почта для уведомлений"} htmlFor="notify-email" error={errors.email}>
-                <Input
-                  id="notify-email"
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  spellCheck={false}
-                  autoCapitalize="none"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  error={errors.email}
-                  placeholder="shop@example.com"
-                />
-              </Field>
+              <Input
+                id="notify-email"
+                aria-label={loginEmail ? "Другая почта для уведомлений" : "Почта для уведомлений"}
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                spellCheck={false}
+                autoCapitalize="none"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={errors.email}
+                placeholder={loginEmail ? "или другая почта: shop@example.com" : "shop@example.com"}
+              />
+              {errors.email && <p className="mt-1.5 text-sm text-danger">{errors.email}</p>}
             </div>
-            <Button type="submit" loading={busy === "send"} disabled={!email.includes("@") || !!busy} className="sm:mt-[30px]">
+            <Button type="submit" loading={busy === "send"} disabled={!email.includes("@") || !!busy} className="shrink-0">
               Получить код
             </Button>
           </form>

@@ -11,6 +11,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { BundleTiersDto } from '../listings/bundle.js';
 import { BodyMeasurementsDto, SizesDto } from '../listings/fit.js';
 import { emailPrefsOf } from '../mail/mail.module.js';
+import { NOTIFY_GROUPS } from '../mail/templates.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { botEnabled } from '../telegram/bot-api.js';
@@ -108,7 +109,7 @@ const UpdateMeDto = z.object({
   sizes: SizesDto.nullish(),
   bodyMeasurements: BodyMeasurementsDto.nullish(),
   bundleDiscounts: BundleTiersDto.optional(),
-  emailPrefs: z.object({ deals: z.boolean() }).optional(),
+  emailPrefs: z.object({ deals: z.boolean().optional(), notifyOff: z.array(z.enum(NOTIFY_GROUPS)).max(NOTIFY_GROUPS.length).optional() }).strict().optional(),
   /** A part of the look settings (client lib/prefs.ts): merged into what is stored. */
   uiPrefs: z.object({ cardStyle: z.enum(['minimal', 'detailed']).optional(), theme: z.enum(['system', 'light', 'dark']).optional() }).strict().optional(),
   onboarded: z.boolean().optional(),
@@ -127,6 +128,8 @@ export class UsersController {
   async update(@CurrentUser() user: AuthUser, @Body(new ZodPipe(UpdateMeDto)) dto: z.infer<typeof UpdateMeDto>) {
     const { onboarded, sizes, bodyMeasurements, bundleDiscounts, emailPrefs, avatarId, uiPrefs, ...rest } = dto;
     const storedPrefs = uiPrefs !== undefined ? ((await this.prisma.user.findUnique({ where: { id: user.id }, select: { uiPrefs: true } }))?.uiPrefs as object | null) ?? {} : undefined;
+    // A part of the mail settings (one switch) is merged into what is stored, as the look settings are.
+    const storedMail = emailPrefs !== undefined ? emailPrefsOf((await this.prisma.user.findUnique({ where: { id: user.id }, select: { emailPrefs: true } }))?.emailPrefs) : undefined;
     if (avatarId) {
       const photo = await this.prisma.photo.findUnique({ where: { id: avatarId }, select: { ownerId: true, listingId: true, messageId: true } });
       if (!photo || photo.ownerId !== user.id || photo.listingId || photo.messageId) throw new BadRequestException({ message: 'Это фото нельзя поставить на аватар' });
@@ -143,7 +146,7 @@ export class UsersController {
           ...(sizes !== undefined ? { sizes: json(sizes) } : {}),
           ...(bodyMeasurements !== undefined ? { bodyMeasurements: json(bodyMeasurements) } : {}),
           ...(bundleDiscounts !== undefined ? { bundleDiscounts: [...bundleDiscounts].sort((a, b) => a.minItems - b.minItems) } : {}),
-          ...(emailPrefs !== undefined ? { emailPrefs } : {}),
+          ...(emailPrefs !== undefined ? { emailPrefs: { ...storedMail, ...emailPrefs } } : {}),
           ...(uiPrefs !== undefined ? { uiPrefs: { ...storedPrefs, ...uiPrefs } } : {}),
           ...(onboarded ? { onboardedAt: new Date() } : {}),
           ...(avatarId !== undefined ? { avatarId } : {}),
