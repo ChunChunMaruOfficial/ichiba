@@ -2016,4 +2016,2104 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
       },
     ],
   },
+  {
+    // 2026-11-06: psy (t.me/psysectiony), a Minsk reseller of vintage and archive — denim, leather, outerwear, shoes.
+    // Only the posts still open there (a «#наличие» post with a price and no sold mark); the channel's own BYN prices.
+    // Photo 0 of a post is the whole item laid flat, so it is the cover as it stands. Posts of several items at once,
+    // items held in Russia and new stock in several sizes are left out.
+    username: 'psysectiony',
+    folder: 'psysectiony',
+    account: { bio: 'psy — винтаж и архив из Минска: деним, кожа, верхняя одежда, обувь. Без возврата; встреча в Минске, отправка по Беларуси.', brandName: 'psy', logo: 'logo.jpg', catalog: true },
+    items: [
+      {
+        photos: ['3045-0.jpg', '3045-1.jpg', '3045-2.jpg'],
+        input: {
+          title: 'Кеды Converse Polka Dot Double в горох',
+          category: 'shoes', subcategory: 'keds', sizeSystem: 'SHOE_EU', sizeValue: '40', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Converse', color: 'red', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: 40 (255 мм).\nОчень рарная пара, 2 слоя ткани для разных способов стилизации, ebay от 120$.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3133-0.jpg', '3133-1.jpg'],
+        input: {
+          title: 'Камуфляжные шорты Brandit light camo',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Brandit', color: 'beige', gender: null, material: 'Хлопок', styleTags: ['Outdoor'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 60 см, полупояс 45 см, выход 29 см.',
+        },
+      },
+      {
+        photos: ['3220-0.jpg', '3220-1.jpg'],
+        input: {
+          title: 'Джинсовые шорты карго с выцветанием',
+          category: 'shorts', subcategory: 'denim-shorts', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage', 'Streetwear'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, полупояс 50 см, выход 32 см.',
+        },
+      },
+      {
+        photos: ['3222-0.jpg', '3222-1.jpg'],
+        input: {
+          title: 'Широкие серые джинсовые шорты со шнуровкой',
+          category: 'shorts', subcategory: 'denim-shorts', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Vintage', 'Streetwear'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 78 см, полупояс 48 см, выход 35 см.',
+        },
+      },
+      {
+        photos: ['3226-0.jpg', '3226-1.jpg'],
+        input: {
+          title: 'Джинсовые шорты карго Combats',
+          category: 'shorts', subcategory: 'denim-shorts', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage', 'Streetwear'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 68 см, полупояс 47 см, выход 31 см.',
+        },
+      },
+      {
+        photos: ['3249-0.jpg'],
+        input: {
+          title: 'Шорты карго Ochenta с ремешками, оливковые',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 70,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'green', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: XL.\nСерая пара из того же поста продаётся отдельно.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, полупояс 50 см, выход 30 см.',
+        },
+      },
+      {
+        photos: ['3249-1.jpg'],
+        input: {
+          title: 'Шорты карго Ochenta с ремешками, серые',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 70,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: XL.\nОливковая пара из того же поста продаётся отдельно.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, полупояс 50 см, выход 30 см.',
+        },
+      },
+      {
+        photos: ['3269-0.jpg'],
+        input: {
+          title: 'Шлёпанцы на платформе 4 см',
+          category: 'shoes', subcategory: 'slides', sizeSystem: 'OTHER', sizeValue: '41–43', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 41–43 (275 мм).\nПлатформа 4 см.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3273-0.jpg'],
+        input: {
+          title: 'Кепка Diesel в милитари-стиле',
+          category: 'accessories', subcategory: 'cap', price: 66,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'green', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: one size.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3278-0.jpg', '3278-1.jpg'],
+        input: {
+          title: 'Укороченная джинсовая куртка Pinko с заклёпками',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 180,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Pinko', color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S.\nОтличный вариант на летний вечер или весну/осень, красивый фейд + аккуратный дистресс, красивая вещь, сделано в Италии.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 44 см, рукав 60 см, ширина 62 см.',
+        },
+      },
+      {
+        photos: ['3295-0.jpg', '3295-1.jpg', '3295-2.jpg'],
+        input: {
+          title: 'Кеды Burberry Kingly Graffiti',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'OTHER', sizeValue: '40,5', price: 500,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Burberry', color: 'multi', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 40,5 (260–265 мм).\nСостояние по оценке продавца: 8,5/10.',
+        },
+      },
+      {
+        photos: ['3397-0.jpg', '3397-1.jpg'],
+        input: {
+          title: 'Винтажное поло Yves Saint Laurent pour homme',
+          category: 'tshirts', subcategory: 'polo', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Yves Saint Laurent', color: 'red', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 46 см, ширина 66 см.',
+        },
+      },
+      {
+        photos: ['3426-0.jpg', '3426-1.jpg'],
+        input: {
+          title: 'Кроссовки adidas Mactelo 90-х',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'OTHER', sizeValue: '39 1/3', price: 270,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'adidas', color: 'white', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: 39⅓ (245 мм).\nСостояние по оценке продавца: 8,5/10.',
+        },
+      },
+      {
+        photos: ['3447-0.jpg'],
+        input: {
+          title: 'Футболка Iron Maiden Zombie, официальный мерч',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 76 см, рукав 39 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['3450-0.jpg'],
+        input: {
+          title: 'Футболка Missguided Dead Metal со шнуровкой',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Missguided', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 64 см, рукав 44 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['3451-0.jpg', '3451-1.jpg'],
+        input: {
+          title: 'Джинсовая куртка Loft с выцветанием и принтом на спине',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L–XL.\nКачественный плотный деним, отличный фит.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 68 см, рукав 88 см, ширина 62 см.',
+        },
+      },
+      {
+        photos: ['3469-0.jpg', '3469-1.jpg', '3469-2.jpg', '3469-3.jpg'],
+        input: {
+          title: 'Джинсы bootcut Marithé + François Girbaud',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Marithé + François Girbaud', color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 102 см, полупояс 37 см, выход 20 см.',
+        },
+      },
+      {
+        photos: ['3482-0.jpg', '3482-1.jpg'],
+        input: {
+          title: 'Джинсы True Religion Julie Disco',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'True Religion', color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: 29.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 40 см, выход 19 см.',
+        },
+      },
+      {
+        photos: ['3484-0.jpg', '3484-1.jpg'],
+        input: {
+          title: 'Шорты карго G-Star в клетку',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'G-Star', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 68 см, полупояс 50 см, выход 31 см.',
+        },
+      },
+      {
+        photos: ['3486-0.jpg', '3486-1.jpg', '3486-2.jpg'],
+        input: {
+          title: 'Джинсовые шорты карго Karl Kani',
+          category: 'shorts', subcategory: 'denim-shorts', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Karl Kani', color: 'beige', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 58 см, полупояс 48 см, выход 30 см.',
+        },
+      },
+      {
+        photos: ['3489-0.jpg', '3489-1.jpg'],
+        input: {
+          title: 'Шорты карго с металлическим отливом',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 63 см, полупояс 48 см, выход 31 см.',
+        },
+      },
+      {
+        photos: ['3491-0.jpg', '3491-1.jpg'],
+        input: {
+          title: 'Джинсы True Religion Row bootcut со средней посадкой',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'W25', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'True Religion', color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: 25.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 108 см, полупояс 38–40 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['3582-0.jpg', '3582-1.jpg'],
+        input: {
+          title: 'Кожаная куртка с капюшоном, коричневая',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'brown', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 8,5/10.\nЗамеры: длина 58 см, рукав 77 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['3584-0.jpg'],
+        input: {
+          title: 'Винтажная куртка Diesel',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 280,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'black', gender: null, styleTags: ['Vintage'],
+          description: 'Размер по бирке: ≈XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 77 см, рукав 89 см, ширина 68 см.',
+        },
+      },
+      {
+        photos: ['3586-0.jpg'],
+        input: {
+          title: 'Дерби Melvin & Hamilton из кожи',
+          category: 'shoes', subcategory: 'shoes', sizeSystem: 'OTHER', sizeValue: '44–45', price: 220,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Melvin & Hamilton', color: 'brown', gender: null, material: 'Кожа', styleTags: ['Classic'],
+          description: 'Размер по бирке: 44–45 (290–305 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3594-0.jpg', '3594-1.jpg'],
+        input: {
+          title: 'Джинсы с сильным выцветанием DD',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 45 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['3611-0.jpg'],
+        input: {
+          title: 'Пальто Gothicana Elite Vampire от EMP',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'ALPHA', sizeValue: 'M', price: 300,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Gothicana', color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: ≈M.\nИзящное пальто от emp, красивый авангардный фит, приятные материалы, в нём чувствуешь себя дракулой.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 146 см, рукав 80 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['3620-0.jpg', '3620-1.jpg'],
+        input: {
+          title: 'Высокие кеды Versace Versus',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'OTHER', sizeValue: '40–42,5', price: 450,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Versus Versace', color: 'white', gender: null, material: 'Кожа', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: 40–42,5 (275 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3631-0.jpg'],
+        input: {
+          title: 'Кожаная куртка с тиснением, кроваво-красная',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 200,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'red', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: ≈M.\nКрасивый паттерн тиснения на коже, интересные навесные карманы, шикарная фурнитура.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, рукав 78 см, ширина 48 см.',
+        },
+      },
+      {
+        photos: ['3637-0.jpg', '3637-1.jpg'],
+        input: {
+          title: 'Зип-худи Tribal с выцветанием',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nЗамеры: длина 72 см, рукав 80 см, ширина 70 см.',
+        },
+      },
+      {
+        photos: ['3647-0.jpg', '3647-1.jpg'],
+        input: {
+          title: 'Винтажный кожаный бомбер, графитовый',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 330,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L–XL.\nНатуральная овечья кожа, подклад из вискозы, глубокий графитовый цвет.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 88 см, ширина 66 см.',
+        },
+      },
+      {
+        photos: ['3649-0.jpg'],
+        input: {
+          title: 'Укороченная коричневая куртка на пуговицах',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'brown', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, рукав 76 см, ширина 48 см.',
+        },
+      },
+      {
+        photos: ['3664-0.jpg'],
+        input: {
+          title: 'Архивный свитер с дистрессом',
+          category: 'knitwear', subcategory: 'sweater', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nЗамеры: длина 82 см, рукав 92 см, ширина 74 см.',
+        },
+      },
+      {
+        photos: ['3668-0.jpg', '3668-1.jpg'],
+        input: {
+          title: 'Винтажная асимметричная дублёнка',
+          category: 'outerwear', subcategory: 'sheepskin', sizeSystem: 'ALPHA', sizeValue: 'L', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: ≈L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 69 см, рукав 78 см, ширина 74 см.',
+        },
+      },
+      {
+        photos: ['3670-0.jpg'],
+        input: {
+          title: 'Серое шерстяное пальто-оверкот',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 220,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Шерсть', styleTags: ['Classic'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 84 см, ширина 66 см.',
+        },
+      },
+      {
+        photos: ['3671-0.jpg', '3671-1.jpg'],
+        input: {
+          title: 'Чёрные классические брюки',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Classic'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 100 см, полупояс 39 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['3682-0.jpg', '3682-1.jpg', '3682-2.jpg'],
+        input: {
+          title: 'Архивная шуба из искусственного меха с капюшоном',
+          category: 'outerwear', subcategory: 'fur', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'brown', gender: 'FEMALE', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСуперская шубка из искусственного меха с меховым капюшоном, офигенный фит, много крутых деталей.\nСостояние по оценке продавца: 8/10.\nЗамеры: длина 55 см, рукав 64 см, ширина 46 см.',
+        },
+      },
+      {
+        photos: ['3686-0.jpg'],
+        input: {
+          title: 'Винтажное шерстяное пальто с капюшоном в клетку',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 200,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Шерсть', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСъемный капюшон.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 68 см, рукав 64 см, ширина 50 см.',
+        },
+      },
+      {
+        photos: ['3702-0.jpg', '3702-1.jpg'],
+        input: {
+          title: 'Джинсы Dolce & Gabbana slim с дистрессом',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'ALPHA', sizeValue: 'M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Dolce & Gabbana', color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: ≈M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 102 см, полупояс 40 см, выход 18 см.',
+        },
+      },
+      {
+        photos: ['3710-0.jpg', '3710-1.jpg'],
+        input: {
+          title: 'Винтажная вощёная куртка Mantaray',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Mantaray', color: 'brown', gender: null, material: 'Хлопок', styleTags: ['Outdoor'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 77 см, рукав 82 см, ширина 62 см.',
+        },
+      },
+      {
+        photos: ['3716-0.jpg', '3716-1.jpg'],
+        input: {
+          title: 'Кожаный бомбер с тиснением под змею',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 200,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Экокожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nЗамеры: длина 72 см, рукав 84 см, ширина 64 см.',
+        },
+      },
+      {
+        photos: ['3719-0.jpg', '3719-1.jpg'],
+        input: {
+          title: 'Винтажные джинсы Tommy Hilfiger с выцветанием',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Tommy Hilfiger', color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 104 см, полупояс 38 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['3727-0.jpg', '3727-1.jpg'],
+        input: {
+          title: 'Велюровые брюки Calvin Klein bootcut',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Calvin Klein', color: 'black', gender: null, styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 108 см, полупояс 39 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['3729-0.jpg', '3729-1.jpg'],
+        input: {
+          title: 'Винтажные джинсы straight из сырого денима',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 120 см, полупояс 50 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['3735-0.jpg', '3735-1.jpg'],
+        input: {
+          title: 'Чёрная кожаная куртка Slayer с капюшоном',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nХлопковый капюшон отстёгивается.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 67 см, рукав 80 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['3738-0.jpg'],
+        input: {
+          title: 'Шерстяное пальто с асимметричной молнией и меховым капюшоном',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 200,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Шерсть', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 72 см, ширина 52 см.',
+        },
+      },
+      {
+        photos: ['3746-0.jpg', '3746-1.jpg', '3746-2.jpg', '3746-3.jpg'],
+        input: {
+          title: 'Укороченная куртка Fishbone с асимметричной молнией',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Fishbone', color: 'black', gender: null, styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: ≈M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 56 см, рукав 78 см, ширина 48 см.',
+        },
+      },
+      {
+        photos: ['3750-0.jpg'],
+        input: {
+          title: 'Винтажный свитшот Ramones',
+          category: 'knitwear', subcategory: 'sweatshirt', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 115,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 64 см, рукав 74 см, ширина 62 см.',
+        },
+      },
+      {
+        photos: ['3752-0.jpg'],
+        input: {
+          title: 'Лонгслив Buzz Kill',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 78 см, рукав 88 см, ширина 70 см.',
+        },
+      },
+      {
+        photos: ['3753-0.jpg', '3753-1.jpg'],
+        input: {
+          title: 'Лонгслив Bliiind с принтом',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'white', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 70 см, рукав 80 см, ширина 50 см.',
+        },
+      },
+      {
+        photos: ['3755-0.jpg'],
+        input: {
+          title: 'Бомбер MA-1 PM',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'L', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Нейлон', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: ≈L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 70 см, рукав 76 см, ширина 64 см.',
+        },
+      },
+      {
+        photos: ['3765-0.jpg', '3765-1.jpg'],
+        input: {
+          title: 'Ветровка Superdry Japan с тройной молнией',
+          category: 'outerwear', subcategory: 'windbreaker', sizeSystem: 'ALPHA', sizeValue: 'M', price: 185,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Superdry', color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: ≈M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 82 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['3767-0.jpg', '3767-1.jpg'],
+        input: {
+          title: 'Ветровка Bench в клетку',
+          category: 'outerwear', subcategory: 'windbreaker', sizeSystem: 'ALPHA', sizeValue: 'M', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Bench', color: 'gray', gender: null, styleTags: ['Casual'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 63 см, рукав 80 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['3770-0.jpg', '3770-1.jpg'],
+        input: {
+          title: 'Гранж-кофта на молнии с эффектом состаривания',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, styleTags: ['Vintage', 'Streetwear'],
+          description: 'Размер по бирке: M–L.\nЭффект состаривания, множество карманов, личная полка.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 68 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['3780-0.jpg', '3780-1.jpg'],
+        input: {
+          title: 'Винтажные джинсы Akka bootcut с клапанами',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 45 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['3791-0.jpg', '3791-1.jpg'],
+        input: {
+          title: 'Кожаные кроссовки-раннеры на липучках',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'OTHER', sizeValue: '44–45', price: 270,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 44–45 (285–290 мм).\nСостояние по оценке продавца: 8/10.',
+        },
+      },
+      {
+        photos: ['3797-0.jpg', '3797-1.jpg'],
+        input: {
+          title: 'Авангардные замшевые ботинки с щитком',
+          category: 'shoes', subcategory: 'boots', sizeSystem: 'SHOE_EU', sizeValue: '38', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Замша', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 38 (245–250 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3799-0.jpg', '3799-1.jpg'],
+        input: {
+          title: 'Джинсы VLT bootcut индиго',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 120 см, полупояс 46 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['3805-0.jpg', '3805-1.jpg'],
+        input: {
+          title: 'Nike Air Force 1 x Undercover Gore-Tex Low Black',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'SHOE_EU', sizeValue: '44', price: 550,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Nike', color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 44 (280 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3809-0.jpg', '3809-1.jpg'],
+        input: {
+          title: 'Чёрные джинсы Dolce & Gabbana slim с выцветанием',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 130,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'Dolce & Gabbana', color: 'black', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 110 см, полупояс 39 см, выход 18 см.',
+        },
+      },
+      {
+        photos: ['3811-0.jpg', '3811-1.jpg'],
+        input: {
+          title: 'Тёмные джинсы Dolce & Gabbana slim',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Dolce & Gabbana', color: 'black', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 104 см, полупояс 39 см, выход 17 см.',
+        },
+      },
+      {
+        photos: ['3815-0.jpg', '3815-1.jpg'],
+        input: {
+          title: 'Джинсы ZMC wide leg карго',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 104 см, полупояс 44 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['3823-0.jpg', '3823-1.jpg', '3823-2.jpg', '3823-3.jpg'],
+        input: {
+          title: 'Винтажные японские selvedge-джинсы Edwin ED-71',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'JEANS_W', sizeValue: 'W38', price: 300,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'Edwin', color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: W38/L32.\nОригинальный японский selvedge denim Edwin ED-71 Slim плотностью 14 oz, ткань японского производства. Артикул I008139. Редкая старая версия ED-71 начала 2010-х. 100% cotton.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 118 см, полупояс 54 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['3829-0.jpg', '3829-1.jpg'],
+        input: {
+          title: 'Тёмные джинсы клёш с выцветанием',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 105 см, полупояс 38 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['3833-0.jpg', '3833-1.jpg'],
+        input: {
+          title: 'Винтажные камуфляжные ботинки на молнии',
+          category: 'shoes', subcategory: 'boots', sizeSystem: 'SHOE_EU', sizeValue: '39', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'green', gender: null, styleTags: ['Vintage'],
+          description: 'Размер по бирке: 39.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3837-0.jpg', '3837-1.jpg'],
+        input: {
+          title: 'Винтажный армейский кожаный ремень с заклёпками',
+          category: 'accessories', subcategory: 'belt', price: 115,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: 132 × 5 см.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3841-0.jpg', '3841-1.jpg'],
+        input: {
+          title: 'Стёганая нейлоновая куртка Dolce & Gabbana с капюшоном',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 330,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Dolce & Gabbana', color: 'black', gender: null, material: 'Нейлон', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 8/10.\nЗамеры: длина 66 см, рукав 74 см, ширина 46–50 см.',
+        },
+      },
+      {
+        photos: ['3843-0.jpg'],
+        input: {
+          title: 'Укороченная джинсовая куртка карго с капюшоном',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 61 см, рукав 72 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['3846-0.jpg', '3846-1.jpg'],
+        input: {
+          title: 'Винтажные кожаные сапоги Prada 90-х',
+          category: 'shoes', subcategory: 'high-boots', sizeSystem: 'SHOE_EU', sizeValue: '39', price: 2000,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Prada', color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: 39 (255 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3856-0.jpg', '3856-1.jpg'],
+        input: {
+          title: 'Винтажные джинсы bootcut с низкой посадкой и кожаными вставками',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 105 см, полупояс 38 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['3858-0.jpg', '3858-1.jpg'],
+        input: {
+          title: 'Джинсы MW wide leg bootcut с дистрессом',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 108 см, полупояс 42 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['3877-0.jpg'],
+        input: {
+          title: 'Тяжёлый кожаный бомбер',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: ≈S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 63 см, рукав 70 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['3882-0.jpg', '3882-1.jpg'],
+        input: {
+          title: 'Nike Air Force 1 Low Black',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'OTHER', sizeValue: '43–44', price: 270,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Nike', color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 43–44 (280 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3889-0.jpg', '3889-1.jpg'],
+        input: {
+          title: 'Куртка харрингтон в традиционном стиле',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, styleTags: ['Classic'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 68 см, рукав 85 см, ширина 64 см.',
+        },
+      },
+      {
+        photos: ['3898-0.jpg', '3898-1.jpg'],
+        input: {
+          title: 'Укороченная вощёная куртка LTB с асимметричной молнией',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'LTB', color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 52 см, рукав 80 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['3900-0.jpg', '3900-1.jpg'],
+        input: {
+          title: 'Графитовая матовая косуха с асимметричной молнией',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Экокожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 68 см, ширина 62 см.',
+        },
+      },
+      {
+        photos: ['3902-0.jpg', '3902-1.jpg'],
+        input: {
+          title: 'Шерстяное пальто Zara',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Zara', color: 'black', gender: null, material: 'Шерсть', styleTags: ['Classic'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 60 см, рукав 63 см, ширина 46 см.',
+        },
+      },
+      {
+        photos: ['3904-0.jpg', '3904-1.jpg'],
+        input: {
+          title: 'Шерстяное пальто в клетку без застёжки',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Шерсть', styleTags: ['Classic'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 70 см, рукав 82 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['3906-0.jpg', '3906-1.jpg'],
+        input: {
+          title: 'Винтажная тёмная куртка Medicine с капюшоном',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Medicine', color: 'black', gender: null, styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 80 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['3918-0.jpg', '3918-1.jpg'],
+        input: {
+          title: 'Чёрные джинсы bootcut washed',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 112 см, полупояс 48 см, выход 28 см.',
+        },
+      },
+      {
+        photos: ['3924-0.jpg'],
+        input: {
+          title: 'Джинсовая куртка Selected Homme индиго с выцветанием',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Selected Homme', color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 65 см, рукав 82 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['3930-0.jpg', '3930-1.jpg'],
+        input: {
+          title: 'Кеды Valentino Garavani Open Rockstud, оливковые',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'SHOE_EU', sizeValue: '42', price: 400,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Valentino', color: 'white', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 42 (275 мм).\nСостояние по оценке продавца: 8/10.',
+        },
+      },
+      {
+        photos: ['3932-0.jpg', '3932-1.jpg'],
+        input: {
+          title: 'Укороченный пуховик Mo.Zips с высоким воротом',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'ALPHA', sizeValue: 'S', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 54 см, рукав 74 см, ширина 48 см.',
+        },
+      },
+      {
+        photos: ['3951-0.jpg', '3951-1.jpg'],
+        input: {
+          title: 'Серые джинсы dark wash с дистрессом',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'ALPHA', sizeValue: 'M', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 116 см, полупояс 41 см, выход 21 см.',
+        },
+      },
+      {
+        photos: ['3953-0.jpg'],
+        input: {
+          title: 'Бронзовые вощёные джинсы',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'brown', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 104 см, полупояс 43 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['3976-0.jpg', '3976-1.jpg'],
+        input: {
+          title: 'Кожаные брюки wide leg Amcouture с заклёпками',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'OTHER', sizeValue: 'M–XL', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 114 см, полупояс 44–50 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['3987-0.jpg', '3987-1.jpg'],
+        input: {
+          title: 'Чёрные замшевые челси',
+          category: 'shoes', subcategory: 'chelsea', sizeSystem: 'SHOE_EU', sizeValue: '45', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Замша', styleTags: ['Classic'],
+          description: 'Размер по бирке: 45 (290 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3989-0.jpg', '3989-1.jpg'],
+        input: {
+          title: 'Кожаный ремень Diesel',
+          category: 'accessories', subcategory: 'belt', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'black', gender: null, material: 'Кожа', styleTags: ['Casual'],
+          description: 'Размер по бирке: 100 × 4 см.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3995-0.jpg'],
+        input: {
+          title: 'Винтажная кожаная сумка с полосами',
+          category: 'bags', subcategory: 'crossbody', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Состояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['3997-0.jpg', '3997-1.jpg', '3997-2.jpg', '3997-3.jpg', '3997-4.jpg'],
+        input: {
+          title: 'Шерстяной свитер MD75 AW2020 Rot-Fade',
+          category: 'knitwear', subcategory: 'sweater', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 400,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'MD75', color: 'black', gender: null, material: 'Шерсть', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: XL.\nПроработанный крой, натуральная овечья шерсть, made in Italy, крутые детали и структура, на дропе такой свитер стоил чуть больше 500€.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 76 см, рукав 94 см, ширина 64 см.',
+        },
+      },
+      {
+        photos: ['4009-0.jpg'],
+        input: {
+          title: 'Сумка Comme des Garçons Shirt',
+          category: 'bags', subcategory: 'tote', price: 300,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Comme des Garçons', color: 'multi', gender: null, styleTags: ['Streetwear'],
+          description: 'Состояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['4010-0.jpg', '4010-1.jpg'],
+        input: {
+          title: 'Бежевая ветровка Sublevel',
+          category: 'outerwear', subcategory: 'windbreaker', sizeSystem: 'ALPHA', sizeValue: 'M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Sublevel', color: 'beige', gender: null, styleTags: ['Casual'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 64 см, рукав 74 см, ширина 48 см.',
+        },
+      },
+      {
+        photos: ['4012-0.jpg', '4012-1.jpg', '4012-2.jpg', '4012-3.jpg'],
+        input: {
+          title: 'Вощёный тренч G-Star Raw Garber',
+          category: 'outerwear', subcategory: 'trench', sizeSystem: 'ALPHA', sizeValue: 'M', price: 150,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'G-Star Raw', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nКрутейший тренч из вощёной плотной хлопковой ткани, фирменная фурнитура и пуговицы, скрытые карманы, ремешок на воротнике доя защиты от ветра, детали.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 84 см, рукав 84 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['4016-0.jpg', '4016-1.jpg'],
+        input: {
+          title: 'Чёрное шерстяное пальто с многослойной застёжкой',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Шерсть', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nКрутецкое пальтишко с теплым подкладом, фурнитура уkk, несколько вариантов носки,.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 84 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['4018-0.jpg', '4018-1.jpg'],
+        input: {
+          title: 'Винтажный лонгслив Boss Liberté Mermaid',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'Boss', color: 'red', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 68 см, рукав 84 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['4020-0.jpg', '4020-1.jpg'],
+        input: {
+          title: 'Винтажный лонгслив Trussardi Gold Stars USA',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 110,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'Trussardi', color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 74 см, рукав 82 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['4027-0.jpg', '4027-1.jpg'],
+        input: {
+          title: 'Винтажная куртка из мягкой кожи Gipsy',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 350,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Gipsy', color: 'brown', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L–XL.\nС личной полки, классная фактурная мягкая кожа, красивый не однотонный цвет, фурнитура YKK, шикарный мужицкий фит.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 69 см, рукав 87 см, ширина 66 см.',
+        },
+      },
+      {
+        photos: ['4030-0.jpg', '4030-1.jpg'],
+        input: {
+          title: 'Кожаная куртка Burberry',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 750,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Burberry', color: 'black', gender: null, material: 'Кожа', styleTags: ['Classic'],
+          description: 'Размер по бирке: M.\nСделано в италии, брендированная фурнитура, приятная мягкая натуральная кожа, подойдет на температуру 5-15 градусов, с теплой кофтой можно пробовать на 0 градусов.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 67 см, рукав 78 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['4032-0.jpg', '4032-1.jpg'],
+        input: {
+          title: 'Тяжёлый кожаный бомбер Ben Sherman',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 230,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Ben Sherman', color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nКлассная тяжелая натуральная кожа, на реального босса.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 69 см, рукав 86 см, ширина 62 см.',
+        },
+      },
+      {
+        photos: ['4034-0.jpg', '4034-1.jpg'],
+        input: {
+          title: 'Камуфляжный пуховик-бомбер O’Neill',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'ALPHA', sizeValue: 'M', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'O’Neill', color: 'green', gender: null, styleTags: ['Outdoor'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 60 см, рукав 78 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['4036-0.jpg'],
+        input: {
+          title: 'Байкерская куртка из вощёной ткани и кожи',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: ≈XL.\nКрасивый фейд эффект, плотный материал и мягкая кожа.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 76 см, рукав 84 см, ширина 65 см.',
+        },
+      },
+      {
+        photos: ['4037-0.jpg'],
+        input: {
+          title: 'Пальто Adrianno Damianii с вязаным капюшоном',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: 'FEMALE', styleTags: ['Classic'],
+          description: 'Размер по бирке: M–L женский.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 80 см, рукав 77 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['4038-0.jpg'],
+        input: {
+          title: 'Тяжёлое шерстяное пальто с капюшоном',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: 'FEMALE', material: 'Шерсть', styleTags: ['Classic'],
+          description: 'Размер по бирке: S–M женский.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 90 см, рукав 72 см, ширина 42 см.',
+        },
+      },
+      {
+        photos: ['4039-0.jpg'],
+        input: {
+          title: 'Бордовое пальто Bloody Marry с капюшоном',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'red', gender: 'FEMALE', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M женский.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 82 см, рукав 72 см, ширина 44 см.',
+        },
+      },
+      {
+        photos: ['4050-0.jpg', '4050-1.jpg', '4050-2.jpg', '4050-3.jpg'],
+        input: {
+          title: 'Выбеленные джинсы Jeansnet с множеством карманов',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Jeansnet', color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: XL.\nMade in Italy.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 117 см, полупояс 47 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['4058-0.jpg', '4058-1.jpg'],
+        input: {
+          title: 'Чёрные брюки wide leg Amcouture из шерсти с вискозой',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 250,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Шерсть', styleTags: ['Minimal'],
+          description: 'Размер по бирке: L–XL.\nСделаны в италии, в составе ткани шерсть и вискоза, приятный материал, шикарный фит.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 122 см, полупояс 44–48 см, выход 33 см.',
+        },
+      },
+      {
+        photos: ['4064-0.jpg', '4064-1.jpg'],
+        input: {
+          title: 'Чёрные утеплённые брюки wide straight',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nУтепленные.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 44 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['4070-0.jpg', '4070-1.jpg'],
+        input: {
+          title: 'Парка карго хаки с дистрессом',
+          category: 'outerwear', subcategory: 'parka', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 250,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: null, color: 'green', gender: null, material: 'Деним', styleTags: ['Outdoor'],
+          description: 'Размер по бирке: L–XL.\nШикарная тёплая парка, оболочка из плотного денима, оч теплая, 6 вместительных внешних карманов, красивый фит.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 94 см, рукав 70 см, ширина 64 см.',
+        },
+      },
+      {
+        photos: ['4076-0.jpg', '4076-1.jpg'],
+        input: {
+          title: 'Серое укороченное пальто Royal Sunday',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'ALPHA', sizeValue: 'M', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 64 см, рукав 64 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['4081-0.jpg', '4081-1.jpg'],
+        input: {
+          title: 'Тёплый пуховик Code-X с мехом',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 330,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Outdoor'],
+          description: 'Размер по бирке: XL.\nЛучший пухан на эту зиму на большого парня, будет согревать в погоду до -30-35, плотные манжеты, съемный капюшон и мех, утепленные карманы.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 74 см, рукав 72 см, ширина 70 см.',
+        },
+      },
+      {
+        photos: ['4083-0.jpg', '4083-1.jpg'],
+        input: {
+          title: 'Зимняя куртка Guinness от EMP',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'L', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Outdoor'],
+          description: 'Размер по бирке: L.\nШикарный детализированный теплый куртец, подклад из искусственного меха, брендированная фурнитура.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 72 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['4089-0.jpg', '4089-1.jpg'],
+        input: {
+          title: 'Меховые сапоги йети',
+          category: 'shoes', subcategory: 'high-boots', sizeSystem: 'SHOE_EU', sizeValue: '39', price: 185,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: null, color: 'gray', gender: 'FEMALE', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: 39 (245–250 мм).\nСостояние по оценке продавца: 10/10.',
+        },
+      },
+      {
+        photos: ['4104-0.jpg', '4104-1.jpg'],
+        input: {
+          title: 'Укороченная аляска Naughty с окрасом под кожу',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'ALPHA', sizeValue: 'S', price: 200,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S.\nШикарная аляска с красивым окрасом, напоминающим кожу, классный кроп силуэт, множество карманов и красивая фурнитура.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 56 см, рукав 63 см, ширина 50 см.',
+        },
+      },
+      {
+        photos: ['4110-0.jpg', '4110-1.jpg'],
+        input: {
+          title: 'Чёрно-белый микропуховик HV-EXP',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 185,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M.\nМикропух с необычным красивым окрасом, классные плотные манжеты, глубокий капюшон и высокий воротник.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, рукав 62 см, ширина 49 см.',
+        },
+      },
+      {
+        photos: ['4117-0.jpg', '4117-1.jpg'],
+        input: {
+          title: 'Винтажный коричневый кожаный ремень Diesel',
+          category: 'accessories', subcategory: 'belt', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'brown', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: 114 × 3,5 см.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['4122-0.jpg', '4122-1.jpg', '4122-2.jpg', '4122-3.jpg', '4122-4.jpg'],
+        input: {
+          title: 'Редкие винтажные джинсы Robin’s Jean',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W30', price: 450,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Robin’s Jean', color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: 30.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 40 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['4127-0.jpg', '4127-1.jpg', '4127-2.jpg', '4127-3.jpg', '4127-4.jpg', '4127-5.jpg'],
+        input: {
+          title: 'Брюки карго Brandit с ремешками',
+          category: 'trousers', subcategory: 'cargo', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Brandit', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 40–45 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['4178-0.jpg', '4178-1.jpg'],
+        input: {
+          title: 'Винтажные кожаные кроссовки Diesel Vector',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'SHOE_EU', sizeValue: '42', price: 270,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'black', gender: null, material: 'Кожа', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: 42.\nШикарная винтажная пара выполнена в эстетике начала 2000-х годов, обувь изготовлена из плотной черной кожи со вставками из дышащей сетки, имеет характерный вышитый красный логотип «D» на верхнем ремешке, массивная протекторная подошва с контрастными красными элементами.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['4180-0.jpg', '4180-1.jpg'],
+        input: {
+          title: 'Джинсы G-Star Raw с молниями и дистрессом',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 150,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'G-Star Raw', color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 118 см, полупояс 44 см, выход 21 см.',
+        },
+      },
+      {
+        photos: ['4182-0.jpg', '4182-1.jpg'],
+        input: {
+          title: 'Винтажные серые брюки G-Star Raw',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'G-Star Raw', color: 'gray', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 112 см, полупояс 47 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['4186-0.jpg', '4186-1.jpg', '4186-2.jpg', '4186-3.jpg'],
+        input: {
+          title: 'Камуфляжные брюки карго Mars the Label с ремешками',
+          category: 'trousers', subcategory: 'cargo', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Mars the Label', color: 'beige', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 120 см, полупояс 36–46 см, выход 28 см.',
+        },
+      },
+      {
+        photos: ['4194-0.jpg', '4194-1.jpg'],
+        input: {
+          title: 'Серые джинсы с многослойным выцветанием',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 41 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['4199-0.jpg', '4199-1.jpg'],
+        input: {
+          title: 'Светлые джинсы wide leg с бахромой',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 108 см, полупояс 44 см, выход 34 см.',
+        },
+      },
+      {
+        photos: ['4220-0.jpg', '4220-1.jpg'],
+        input: {
+          title: 'Замшевые челси Graceland',
+          category: 'shoes', subcategory: 'chelsea', sizeSystem: 'SHOE_EU', sizeValue: '42', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Graceland', color: 'black', gender: null, material: 'Замша', styleTags: ['Casual'],
+          description: 'Размер по бирке: 42 (270 мм).\nСостояние по оценке продавца: 8/10.',
+        },
+      },
+      {
+        photos: ['4227-0.jpg', '4227-1.jpg'],
+        input: {
+          title: 'Ботинки Highway с лентой',
+          category: 'shoes', subcategory: 'ankle-boots', sizeSystem: 'OTHER', sizeValue: '44,5', price: 200,
+          condition: 'VISIBLE_WEAR', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 44,5 (285–295 мм).\nСостояние по оценке продавца: 7,5/10.',
+        },
+      },
+      {
+        photos: ['4231-0.jpg', '4231-1.jpg'],
+        input: {
+          title: 'Свитшот Diesel Flip',
+          category: 'knitwear', subcategory: 'sweatshirt', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, рукав 82 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['4239-0.jpg', '4239-1.jpg'],
+        input: {
+          title: 'Кофта Bono хаки с асимметричной молнией',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'green', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, рукав 87 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['4241-0.jpg', '4241-1.jpg', '4241-2.jpg', '4241-3.jpg'],
+        input: {
+          title: 'Джинсы Biepa slim/straight в стиле пэчворк',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'multi', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 44 см, выход 20 см.',
+        },
+      },
+      {
+        photos: ['4247-0.jpg', '4247-1.jpg'],
+        input: {
+          title: 'Зимний бомбер Diverse',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 200,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diverse', color: 'black', gender: null, styleTags: ['Outdoor'],
+          description: 'Размер по бирке: S–M.\nПлотненький тёплый куртец, 6 внешних утепленный вместительных карманов, качественная брендированная фурнитура, подклад из искусвенного меха и плотные приятные манжеты.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, рукав 62 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['4249-0.jpg', '4249-1.jpg', '4249-2.jpg'],
+        input: {
+          title: 'Свитер Made Extreme Skulz',
+          category: 'knitwear', subcategory: 'sweater', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 91 см, ширина 74 см.',
+        },
+      },
+      {
+        photos: ['4254-0.jpg', '4254-1.jpg'],
+        input: {
+          title: 'Кожаные ботинки Pan на меху',
+          category: 'shoes', subcategory: 'boots', sizeSystem: 'SHOE_EU', sizeValue: '42', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Classic'],
+          description: 'Размер по бирке: 42 (270–275 мм).\nУтеплены мехом.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['4256-0.jpg', '4256-1.jpg'],
+        input: {
+          title: 'Коричневые ботинки Gino Rossi из мягкой кожи',
+          category: 'shoes', subcategory: 'boots', sizeSystem: 'OTHER', sizeValue: '46–47', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Gino Rossi', color: 'brown', gender: null, material: 'Кожа', styleTags: ['Classic'],
+          description: 'Размер по бирке: 46–47 (310–320 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['4268-0.jpg', '4268-1.jpg'],
+        input: {
+          title: 'Худи Guess slim fit в вафельную текстуру',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Guess', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 86 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['4270-0.jpg', '4270-1.jpg'],
+        input: {
+          title: 'Кожаный ремень Diesel с двойной пряжкой',
+          category: 'accessories', subcategory: 'belt', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'black', gender: null, material: 'Кожа', styleTags: ['Casual'],
+          description: 'Размер по бирке: 105 × 3,5 см.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['4274-0.jpg', '4274-1.jpg'],
+        input: {
+          title: 'Чёрные джинсы Arizona bootcut',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'M', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Arizona', color: 'black', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M.\nЗамеры: длина 116 см, полупояс 40 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['4276-0.jpg', '4276-1.jpg'],
+        input: {
+          title: 'Демисезонная аляска Clap',
+          category: 'outerwear', subcategory: 'parka', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, styleTags: ['Outdoor'],
+          description: 'Размер по бирке: S–M.\nТоповая демисезонная аляска, на поясе есть утяжки для регулировки фита, подойдет на лёгкие холода.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 60 см, рукав 65 см, ширина 52 см.',
+        },
+      },
+      {
+        photos: ['4291-0.jpg', '4291-1.jpg'],
+        input: {
+          title: 'Двусторонний бомбер из кожи и меха',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 270,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nШикарный двусторонний кожаный бомбер, множество деталей, красивый густой искусственный мех, отличный вариант на холода.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 63 см, рукав 76 см, ширина 66 см.',
+        },
+      },
+      {
+        photos: ['4293-0.jpg', '4293-1.jpg', '4293-2.jpg', '4293-3.jpg'],
+        input: {
+          title: 'Винтажные джинсы Diesel straight с низкой посадкой',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 120,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'Diesel', color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 104 см, полупояс 39 см, выход 20 см.',
+        },
+      },
+      {
+        photos: ['4297-0.jpg', '4297-1.jpg', '4297-2.jpg', '4297-3.jpg', '4297-4.jpg'],
+        input: {
+          title: 'Джинсы Royal slim bootcut',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'S', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 109 см, полупояс 37 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['4309-0.jpg', '4309-1.jpg'],
+        input: {
+          title: 'Винтажный кожаный бомбер Premier Man',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'L', price: 230,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L.\nВинтажный бомбер из приятной тяжелой кожи, фурнитура YKK, есть утепляющий подклад.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 71 см, рукав 88 см, ширина 68 см.',
+        },
+      },
+      {
+        photos: ['4315-0.jpg', '4315-1.jpg'],
+        input: {
+          title: 'Винтажные полосатые джинсы Prisoner',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 123 см, полупояс 44 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['4320-0.jpg', '4320-1.jpg'],
+        input: {
+          title: 'Матовый кожаный бомбер Armour со съёмными рукавами',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 330,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nИдеальный кожаный бомбер, стойкий высокий воротник, приятный материал, шикарная детализация, можно превратить в жилет, сняв рукава, крутейший босяцкий фит.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 72 см, рукав 88 см, ширина 72 см.',
+        },
+      },
+      {
+        photos: ['4322-0.jpg', '4322-1.jpg', '4322-2.jpg', '4322-3.jpg'],
+        input: {
+          title: 'Винтажные джинсы Kaporal straight с выцветанием',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Kaporal', color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 104 см, полупояс 45 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['4326-0.jpg', '4326-1.jpg', '4326-2.jpg', '4326-3.jpg', '4326-4.jpg'],
+        input: {
+          title: 'Винтажная вощёная джинсовая куртка Khujo',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 330,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Khujo', color: 'black', gender: null, material: 'Деним', styleTags: ['Outdoor'],
+          description: 'Размер по бирке: L–XL.\nШикарная теплая вощеная куртка от немецкого бренда, офигенный фит, объемный капюшон, скрывающийся в стойкий воротник, множество карманов и интересная детализация.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 88 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['4331-0.jpg', '4331-1.jpg', '4331-2.jpg', '4331-3.jpg'],
+        input: {
+          title: 'Джинсы карго Animal wide leg, хаки',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Animal', color: 'green', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 45 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['4336-0.jpg', '4336-1.jpg', '4336-2.jpg', '4336-3.jpg'],
+        input: {
+          title: 'Винтажные джинсы G-Star Raw с выцветанием',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'G-Star Raw', color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 42 см, выход 21 см.',
+        },
+      },
+      {
+        photos: ['4340-0.jpg'],
+        input: {
+          title: 'Микропуховик Diesel',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 170,
+          condition: 'LIKE_NEW', defectsPresent: false,
+          brand: 'Diesel', color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M.\nИдеальный микропух от дизель, интересный слим фит, подойдет на начало/конец зимы- весну/осень.\nСостояние по оценке продавца: 10/10.\nЗамеры: длина 64 см, рукав 75 см, ширина 47+ см.',
+        },
+      },
+      {
+        photos: ['4345-0.jpg', '4345-1.jpg', '4345-2.jpg', '4345-3.jpg'],
+        input: {
+          title: 'Джинсы Diesel Larkee',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 42 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['4349-0.jpg', '4349-1.jpg'],
+        input: {
+          title: 'Винтажные джинсы карго Diesel DD256 wide leg',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Diesel', color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 46 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['4351-0.jpg', '4351-1.jpg', '4351-2.jpg', '4351-3.jpg'],
+        input: {
+          title: 'Ботинки Dolce & Gabbana с пряжкой-монком, 2000-е',
+          category: 'shoes', subcategory: 'ankle-boots', sizeSystem: 'SHOE_EU', sizeValue: '46', price: 450,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Dolce & Gabbana', color: 'brown', gender: null, material: 'Кожа', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: ≈46 (300–310 мм).\nСостояние по оценке продавца: 8,5/10.',
+        },
+      },
+      {
+        photos: ['4359-0.jpg', '4359-1.jpg', '4359-2.jpg', '4359-3.jpg'],
+        input: {
+          title: 'Винтажный бомбер CWU с меховым подкладом',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 290,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Нейлон', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L–XL.\nШикарный дутый бомбер, теплый подстег из искусственного меха, много глубоких карманов, высокий стойкий ворот, весь мех отстегивается, поэтому пойдет на зиму или демисезон, так же отстегиваются рукава, множество деталей, фурнитура YKK, плотные манжеты, классный актуальный фит.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 74 см, ширина 72 см.',
+        },
+      },
+      {
+        photos: ['4363-0.jpg', '4363-1.jpg'],
+        input: {
+          title: 'Винтажный серый шерстяной бомбер с капюшоном',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'M', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Шерсть', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M.\nИнтересное пальто-бомбер с красивой фурнитурой, глубокий капюшон, тугие манжеты, классный айтем на прохладную осень/весну.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 67 см, рукав 74 см, ширина 55 см.',
+        },
+      },
+      {
+        photos: ['4365-0.jpg'],
+        input: {
+          title: 'Винтажное укороченное зип-худи с мехом',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 63 см, рукав 68 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['4370-0.jpg', '4370-1.jpg', '4370-2.jpg', '4370-3.jpg'],
+        input: {
+          title: 'Байкерское зип-худи EMP с молниями и шипами',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 150,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'EMP', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 76 см, рукав 86 см, ширина 66 см.',
+        },
+      },
+      {
+        photos: ['4376-0.jpg', '4376-1.jpg'],
+        input: {
+          title: 'Чёрные джинсы Base wide leg',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: S–M.\nЗамеры: длина 114 см, полупояс 38–42 см, выход 28 см.',
+        },
+      },
+      {
+        photos: ['4380-0.jpg'],
+        input: {
+          title: 'Винтажные джинсы super wide leg из сырого денима',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 39 см, выход 45 см.',
+        },
+      },
+      {
+        photos: ['4381-0.jpg', '4381-1.jpg'],
+        input: {
+          title: 'Винтажные тёмные джинсы wide bootcut',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 130,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 108 см, полупояс 43 см, выход 29 см.',
+        },
+      },
+      {
+        photos: ['4385-0.jpg', '4385-1.jpg', '4385-2.jpg', '4385-3.jpg'],
+        input: {
+          title: 'Вязаное зип-худи Fuga 2016 с драпировкой',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 270,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Fuga', color: 'gray', gender: null, material: 'Трикотаж', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nИзделие отличается высоким воротником-капюшоном, легкой меланжевой трикотажной текстурой и облегающим удлиненным кроем; капюшон с гибким каркасом позволяет менять форму и надежно фиксировать ее в нужном положении.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 75 см, ширина 52 см.',
+        },
+      },
+      {
+        photos: ['4389-0.jpg', '4389-1.jpg'],
+        input: {
+          title: 'Серые джинсы wide leg bootcut с выцветанием',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: S–M.\nЗамеры: длина 112 см, полупояс 40 см, выход 35 см.',
+        },
+      },
+      {
+        photos: ['4391-0.jpg', '4391-1.jpg'],
+        input: {
+          title: 'Джинсы ultra wide leg',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'ALPHA', sizeValue: 'M', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nЗамеры: длина 110 см, полупояс 42 см, выход 42 см.',
+        },
+      },
+      {
+        photos: ['4393-0.jpg', '4393-1.jpg'],
+        input: {
+          title: 'Матовая аляска-пуховик slim',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 230,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nКрутая матовая аляска с шикарной опушкой, актуальный слим фит, глубокий капюшон, трикотажные манжеты.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 80 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['4397-0.jpg'],
+        input: {
+          title: 'Пуховик-аляска Boss',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 230,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Boss', color: 'black', gender: null, styleTags: ['Outdoor'],
+          description: 'Размер по бирке: L–XL.\nКлассная теплая босяцкая аляска, обилие глубоких карманов, съемный глубокий капюшон, спасёт морозной зимой.\nСостояние по оценке продавца: 8/10.\nЗамеры: длина 72 см, рукав 84 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['4398-0.jpg', '4398-1.jpg'],
+        input: {
+          title: 'Тёмные джинсы wide leg bootcut с выцветанием',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 120,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 44–46 см, выход 31 см.',
+        },
+      },
+      {
+        photos: ['4400-0.jpg', '4400-1.jpg'],
+        input: {
+          title: 'Серые джинсы Pieces wide leg',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Pieces', color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 114 см, полупояс 45 см, выход 31 см.',
+        },
+      },
+      {
+        photos: ['4402-0.jpg', '4402-1.jpg', '4402-2.jpg', '4402-3.jpg', '4402-4.jpg'],
+        input: {
+          title: 'Винтажная глянцевая аляска с асимметричной молнией',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 250,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nИдеальная глянцевая аляска с асимметричным зипом, глубокий капюшон с шикарной опушкой, качественная фурнитура, утяжки снизу для защиты от ветра.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 62 см, рукав 64 см, ширина 50 см.',
+        },
+      },
+      {
+        photos: ['4414-0.jpg', '4414-1.jpg'],
+        input: {
+          title: 'Винтажное зип-худи Armani Exchange 90-х с искусственной овчиной',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 170,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Armani Exchange', color: 'black', gender: null, styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nТекстурированная замшевая поверхность и мягкая подкладка из искусственной овчины. Произведена в Гонконге в золотую эпоху бренда, она отличается характерной фурнитурой, включая фирменные застежки-молнии и застежку-фиксатор на воротнике.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 60 см, рукав 74 см, ширина 58 см.',
+        },
+      },
+    ],
+  },
+  {
+    // 2026-11-06: балкон (t.me/balconysection), the same seller's second channel — the simpler and cheaper things:
+    // jeans, tees, hoodies. The same rules as for psy.
+    username: 'balconysection',
+    folder: 'balconysection',
+    account: { bio: 'балкон — вторая полка psy: джинсы, футболки, худи попроще и подешевле. Без возврата; встреча в Минске, отправка по Беларуси.', brandName: 'балкон', logo: 'logo.jpg', catalog: true },
+    items: [
+      {
+        photos: ['930-0.jpg'],
+        input: {
+          title: 'Винтажная джинсовая куртка LTB',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'LTB', color: 'black', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 54 см, рукав 66 см, ширина 46 см.',
+        },
+      },
+      {
+        photos: ['1087-0.jpg'],
+        input: {
+          title: 'Снэпбэк Peak с шипами',
+          category: 'accessories', subcategory: 'cap', price: 75,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: one size.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['1093-0.jpg', '1093-1.jpg'],
+        input: {
+          title: 'Скейтерские шорты Hawk',
+          category: 'shorts', subcategory: 'sport-shorts', sizeSystem: 'ALPHA', sizeValue: 'M', price: 50,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Tony Hawk', color: 'beige', gender: null, styleTags: ['Sport'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 58 см, полупояс 42 см, выход 32 см.',
+        },
+      },
+      {
+        photos: ['1095-0.jpg'],
+        input: {
+          title: 'Укороченная куртка с металлическим блеском',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 50 см, рукав 72 см, ширина 52 см.',
+        },
+      },
+      {
+        photos: ['1274-0.jpg', '1274-1.jpg'],
+        input: {
+          title: 'Бежевые шорты карго Request с ремнём',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'beige', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 64 см, полупояс 50 см, выход 29 см.',
+        },
+      },
+      {
+        photos: ['1284-0.jpg', '1284-1.jpg'],
+        input: {
+          title: 'Чёрные брюки клёш',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 117 см, полупояс 37 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['1286-0.jpg', '1286-1.jpg'],
+        input: {
+          title: 'Шорты Carhartt прямого кроя',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'ALPHA', sizeValue: 'M', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Carhartt', color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 54 см, полупояс 44 см, выход 28 см.',
+        },
+      },
+      {
+        photos: ['1298-0.jpg', '1298-1.jpg'],
+        input: {
+          title: 'Джинсы Esprit bootcut',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Esprit', color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 105 см, полупояс 38–39 см, выход 21 см.',
+        },
+      },
+      {
+        photos: ['1304-0.jpg'],
+        input: {
+          title: 'Свитшот Lipsy California',
+          category: 'knitwear', subcategory: 'sweatshirt', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 50,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Lipsy', color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Casual'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 70 см, рукав 80 см, ширина 52 см.',
+        },
+      },
+      {
+        photos: ['1306-0.jpg'],
+        input: {
+          title: 'Рубашка с надписью Life',
+          category: 'shirts', subcategory: 'overshirt', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 65,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 84 см, ширина 54 см.',
+        },
+      },
+      {
+        photos: ['1345-0.jpg'],
+        input: {
+          title: 'Худи с гербом, укороченный крой',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 64 см, рукав 76 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['1348-0.jpg'],
+        input: {
+          title: 'Футболка Страханет',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 50,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 74 см, рукав 40 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['1374-0.jpg'],
+        input: {
+          title: 'Укороченная футболка со смертью с косой',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 50,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 66 см, рукав 35 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['1382-0.jpg'],
+        input: {
+          title: 'Ретро-футболка Красный мост',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 60,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 60 см, рукав 30 см, ширина 48 см.',
+        },
+      },
+      {
+        photos: ['1383-0.jpg'],
+        input: {
+          title: 'Винтажная укороченная футболка Винни-Пух',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'M', price: 65,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'white', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: ≈M.\nСостояние по оценке продавца: 8/10.\nЗамеры: длина 58 см, рукав 40 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['1385-0.jpg', '1385-1.jpg'],
+        input: {
+          title: 'Укороченная футболка Misfits',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 65,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 42 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['1391-0.jpg'],
+        input: {
+          title: 'Кроссовки Nike Court Borough Mid 2',
+          category: 'shoes', subcategory: 'sneakers', sizeSystem: 'SHOE_EU', sizeValue: '39', price: 100,
+          condition: 'VISIBLE_WEAR', defectsPresent: false,
+          brand: 'Nike', color: 'white', gender: null, styleTags: ['Sport'],
+          description: 'Размер по бирке: 39 (245 мм).\nСостояние по оценке продавца: 7,5/10.',
+        },
+      },
+      {
+        photos: ['1406-0.jpg'],
+        input: {
+          title: 'Футболка со скелетом, хэллоуин',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'M', price: 50,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['1407-0.jpg'],
+        input: {
+          title: 'Серая выстиранная футболка в полоску',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 65,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['1408-0.jpg'],
+        input: {
+          title: 'Футболка Argonaut с черепом на молнии',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: XL.\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['1416-0.jpg', '1416-1.jpg'],
+        input: {
+          title: 'Джинсы bootcut с выцветанием и короной',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 103 см, полупояс 36 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['1422-0.jpg', '1422-1.jpg'],
+        input: {
+          title: 'Простые чёрные джинсы bootcut',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 100 см, полупояс 37 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['1434-0.jpg', '1434-1.jpg'],
+        input: {
+          title: 'Джинсы bootcut со средней посадкой',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 102 см, полупояс 39 см, выход 25 см.',
+        },
+      },
+      {
+        photos: ['1441-0.jpg', '1441-1.jpg'],
+        input: {
+          title: 'Джинсы PK bootcut с низкой посадкой',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 36 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['1443-0.jpg'],
+        input: {
+          title: 'Лонгслив Hard Rock с черепом',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Hard Rock', color: 'blue', gender: null, material: 'Хлопок', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 72 см, рукав 84 см, ширина 60 см.',
+        },
+      },
+      {
+        photos: ['1450-0.jpg', '1450-1.jpg'],
+        input: {
+          title: 'Куртка DD Ranger хаки',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'green', gender: null, styleTags: ['Outdoor'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 70 см, рукав 82 см, ширина 58 см.',
+        },
+      },
+      {
+        photos: ['1459-0.jpg', '1459-1.jpg'],
+        input: {
+          title: 'Винтажные джинсы D с фактурным выцветанием',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'ALPHA', sizeValue: 'S', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 100 см, полупояс 39 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['1466-0.jpg'],
+        input: {
+          title: 'Худи Gladiator с рыцарем',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 68 см, рукав 80 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['1468-0.jpg'],
+        input: {
+          title: 'Лонгслив Sonneti в полоску с выцветанием',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Sonneti', color: 'green', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L–XL.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 70 см, рукав 85 см, ширина 56 см.',
+        },
+      },
+      {
+        photos: ['1469-0.jpg', '1469-1.jpg'],
+        input: {
+          title: 'Джинсы Edc slim/straight с дистрессом',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'ALPHA', sizeValue: 'M', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Edc', color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 107 см, полупояс 41 см, выход 18 см.',
+        },
+      },
+      {
+        photos: ['1473-0.jpg', '1473-1.jpg'],
+        input: {
+          title: 'Светлые джинсы bootcut большого размера',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'L', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'lightblue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 117 см, полупояс 45 см, выход 28 см.',
+        },
+      },
+      {
+        photos: ['1475-0.jpg', '1475-1.jpg'],
+        input: {
+          title: 'Спортивные штаны slim flare с карманами и ремешками',
+          category: 'trousers', subcategory: 'sweatpants', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 36–42 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['1477-0.jpg', '1477-1.jpg'],
+        input: {
+          title: 'Джинсы Miss Sixty Radio slim с низкой посадкой',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Miss Sixty', color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 39 см, выход 16 см.',
+        },
+      },
+      {
+        photos: ['1479-0.jpg', '1479-1.jpg'],
+        input: {
+          title: 'Серые джинсы bootcut с кармашками',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Y2K', 'Vintage'],
+          description: 'Размер по бирке: S–M.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 100 см, полупояс 39 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['1483-0.jpg', '1483-1.jpg'],
+        input: {
+          title: 'Серые выстиранные широкие джинсы',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'XS–S', price: 75,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: XS–S.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 111 см, полупояс 36 см, выход 29 см.',
+        },
+      },
+      {
+        photos: ['1487-0.jpg', '1487-1.jpg'],
+        input: {
+          title: 'Серые утеплённые джинсы slim/straight',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'ALPHA', sizeValue: 'M', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M.\nУтеплены.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 104 см, полупояс 41 см, выход 18 см.',
+        },
+      },
+      {
+        photos: ['1491-0.jpg'],
+        input: {
+          title: 'Высокие кеды Loong камуфляжные',
+          category: 'shoes', subcategory: 'keds', sizeSystem: 'SHOE_EU', sizeValue: '39', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'green', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер по бирке: 39 (240–245 мм).\nСостояние по оценке продавца: 9/10.',
+        },
+      },
+      {
+        photos: ['1492-0.jpg', '1492-1.jpg'],
+        input: {
+          title: 'Плотные джинсы straight индиго',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 112 см, полупояс 42 см, выход 21 см.',
+        },
+      },
+      {
+        photos: ['1494-0.jpg', '1494-1.jpg'],
+        input: {
+          title: 'Джинсы Tom Denim straight',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 90,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 107 см, полупояс 44 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['1497-0.jpg', '1497-1.jpg'],
+        input: {
+          title: 'Джинсы &denim bootcut',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'ALPHA', sizeValue: 'L', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: '&denim', color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 108 см, полупояс 45 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['1499-0.jpg', '1499-1.jpg'],
+        input: {
+          title: 'Джинсы bootcut Mud со средней посадкой',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nПояс хорошо тянется до 43, красивый окрас.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 106 см, полупояс 40 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['1502-0.jpg', '1502-1.jpg'],
+        input: {
+          title: 'Джинсы NL wide leg индиго',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 100,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: M–L.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 110 см, полупояс 45 см, выход 32 см.',
+        },
+      },
+    ],
+  },
 ];
