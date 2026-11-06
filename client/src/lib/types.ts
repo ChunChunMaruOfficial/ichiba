@@ -148,6 +148,11 @@ export interface Card {
   publishedAt: string | null;
   saleType?: "FIXED" | "AUCTION";
   auction?: { endsAt: string; currentBid: number | null; startPrice: number; bidsCount: number } | null;
+  /**
+   * The owner's own wardrobe only: views, ♡, contacts (wrote, offered a price, asked to buy), photos, and the days
+   * since publication (null for a draft).
+   */
+  stats?: { views: number; favorites: number; contacts: number; photos: number; days: number | null } | null;
 }
 
 export interface AuctionView {

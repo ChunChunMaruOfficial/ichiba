@@ -79,6 +79,16 @@ class MemoCache {
 
 const isUniqueViolation = (e: unknown) => (e as { code?: string } | null)?.code === 'P2002';
 
+/** An item's numbers for its owner (wardrobe cards and list view). */
+interface OwnerStats {
+  views: number;
+  favorites: number;
+  contacts: number;
+  photos: number;
+  /** Days on sale since publication; null for a draft. */
+  days: number | null;
+}
+
 @Injectable()
 export class ListingsService {
   constructor(
@@ -1481,7 +1491,10 @@ export class ListingsService {
 
     const hasMore = rows.length > WARDROBE_PAGE;
     const page = rows.slice(0, WARDROBE_PAGE);
-    const cards = await this.cards(page, viewerId);
+    // The owner sees each item's numbers on its card and in the list view; visitors never do.
+    const stats = isOwner ? await this.ownerStats([...page, ...draftRows]) : null;
+    const withStats = <T extends { id: string }>(c: T) => (stats ? { ...c, stats: stats.get(c.id) ?? null } : c);
+    const cards = (await this.cards(page, viewerId)).map(withStats);
     // The default order mixes kinds (no two of a kind side by side); an explicit sort is kept as asked.
     // For visitors sold items stay last (frame 09): the page is already ordered that way, so each part is mixed apart.
     const mix = (part: typeof cards) => {
@@ -1501,7 +1514,7 @@ export class ListingsService {
       /** The page in the order asked for (sort, or the mixed default with sold last): the grid shows this. */
       items: ordered,
       groups,
-      drafts: isOwner ? mix(await this.cards(draftRows, viewerId)) : [],
+      drafts: isOwner ? mix((await this.cards(draftRows, viewerId)).map(withStats)) : [],
       offset,
       /** More of this section past this page: ask again with `offset` + 200. */
       hasMore,
@@ -1513,6 +1526,34 @@ export class ListingsService {
    * WARDROBE_PAGE + 1 items of a wardrobe from `offset` (the extra one tells there is more). For visitors the unsold
    * items come first and sold ones after, paged as one list.
    */
+  /**
+   * What the owner sees under each of their items: views and ♡ (kept on the listing), contacts — how many wrote,
+   * offered a price or asked to buy (ListingStat, every day summed; ichiba shows no phone, so this is the
+   * «просмотр контактов» of a classifieds site) — the photos, and the days since it went on sale.
+   */
+  private async ownerStats(listings: Array<{ id: string; viewsCount: number; favoritesCount: number; publishedAt: Date | null }>) {
+    const ids = listings.map((l) => l.id);
+    if (!ids.length) return new Map<string, OwnerStats>();
+    const [contacts, photos] = await Promise.all([
+      this.prisma.listingStat.groupBy({ by: ['listingId'], where: { listingId: { in: ids } }, _sum: { chats: true, offers: true, requests: true } }),
+      this.prisma.photo.groupBy({ by: ['listingId'], where: { listingId: { in: ids } }, _count: { _all: true } }),
+    ]);
+    const contactsBy = new Map(contacts.map((c) => [c.listingId, (c._sum.chats ?? 0) + (c._sum.offers ?? 0) + (c._sum.requests ?? 0)]));
+    const photosBy = new Map(photos.map((p) => [p.listingId, p._count._all]));
+    return new Map<string, OwnerStats>(
+      listings.map((l) => [
+        l.id,
+        {
+          views: l.viewsCount,
+          favorites: l.favoritesCount,
+          contacts: contactsBy.get(l.id) ?? 0,
+          photos: photosBy.get(l.id) ?? 0,
+          days: l.publishedAt ? Math.max(0, Math.floor((Date.now() - l.publishedAt.getTime()) / DAY_MS)) : null,
+        },
+      ]),
+    );
+  }
+
   private async wardrobePage(where: Prisma.ListingWhereInput, orderBy: Prisma.ListingOrderByWithRelationInput, offset: number, isOwner: boolean): Promise<CardListing[]> {
     const take = WARDROBE_PAGE + 1;
     if (isOwner) return this.prisma.listing.findMany({ where, include: cardInclude, orderBy, skip: offset, take });

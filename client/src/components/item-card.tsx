@@ -15,6 +15,7 @@ import { AuctionTimer, auctionPrice } from "./auction";
 import { scheduleLabel } from "./schedule-picker";
 import { useSession } from "./session";
 import { usePrefs } from "@/lib/prefs";
+import { OwnerActions } from "./owner-stats";
 import { Nefuda } from "./shop/nefuda";
 import { Hanko, IconHeart, Seal, StatusBadge } from "./ui";
 
@@ -73,8 +74,7 @@ function ItemPhoto({ card, sizes = "(min-width: 1024px) 25vw, 50vw", className, 
 function BuyButton({ card, className }: { card: Card; className?: string }) {
   const router = useRouter();
   const { me, requireAuth } = useSession();
-  if (me?.id === card.seller.id) return <span className={clsx("rounded-xl bg-ink/5 px-3 py-2 text-center text-sm text-ink-2", className)}>Ваша вещь</span>;
-  if (card.status === "SOLD") return null;
+  if (me?.id === card.seller.id || card.status === "SOLD") return null;
   if (card.auction) {
     return (
       <Link href={itemHref(card)} className={clsx("btn-wa btn-wa-ink rounded-xl px-3 py-2 text-center text-sm font-semibold", className)}>
@@ -236,14 +236,20 @@ export function ItemCard({ card, source = "search", eager, uniform }: { card: Ca
           <p className="truncate text-xs text-ink-2">
             {[size, card.condition && conditionLabel(card.condition, card.hasTags)].filter(Boolean).join(" · ")}
           </p>
-          <div className="mt-2.5 flex items-center gap-2">
-            <BuyButton card={card} className="flex-1" />
-            {!mine && <HeartButton card={card} source={source === "search" ? "feed" : source} className="!bg-surface !shadow-[inset_0_0_0_1px_var(--line-strong)]" />}
-          </div>
-          {live && (
-            <Link href={`/item/${card.id}/similar`} className="mt-2 block text-center text-xs font-medium text-ink-2 hover:text-ink">
-              Похожие
-            </Link>
+          {mine ? (
+            <OwnerActions card={card} className="mt-2.5" />
+          ) : (
+            <>
+              <div className="mt-2.5 flex items-center gap-2">
+                <BuyButton card={card} className="flex-1" />
+                <HeartButton card={card} source={source === "search" ? "feed" : source} className="!bg-surface !shadow-[inset_0_0_0_1px_var(--line-strong)]" />
+              </div>
+              {live && (
+                <Link href={`/item/${card.id}/similar`} className="mt-2 block text-center text-xs font-medium text-ink-2 hover:text-ink">
+                  Похожие
+                </Link>
+              )}
+            </>
           )}
         </div>
         <div className="card-info -mx-1 mt-1 rounded-lg px-1.5 py-0.5 text-[13px] text-ink-2 md:hidden">
@@ -294,6 +300,8 @@ export function ItemCard({ card, source = "search", eager, uniform }: { card: Ca
             )}
           </div>
         </Link>
+        {/* One's own item: edit it, and its numbers under the button. */}
+        {mine && <OwnerActions card={card} className="mt-2 px-0.5" />}
         {!mine && (
           <div className="flex items-center justify-between gap-2 px-0.5">
             {/* -my-1 py-1: a 24 px tap height (WCAG 2.5.8) for these two small links, without moving the row. */}

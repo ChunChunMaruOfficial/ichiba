@@ -24,6 +24,7 @@ import { Avatar } from "./avatar";
 import { AvatarCropper } from "./avatar-cropper";
 import { InlineChoice, InlineText } from "./inline-edit";
 import { Masonry, MasonrySkeleton } from "./masonry";
+import { useWardrobeView, ViewSwitch, WardrobeList, type WardrobeView } from "./wardrobe-list";
 import { FollowButton } from "./sections";
 import { useMeta, useSession } from "./session";
 import { useToast } from "./toast";
@@ -144,9 +145,11 @@ function OwnerMenu({ card, onDone }: { card: Card; onDone: () => void }) {
   );
 }
 
-/** Items laid like bricks, as in the home feed; the owner gets a menu on each card. */
-function Grid({ items, owner, onDone }: { items: Card[]; owner: boolean; onDone: () => void }) {
-  return <Masonry items={items} source="wardrobe" overlay={owner ? (c) => <OwnerMenu card={c} onDone={onDone} /> : undefined} />;
+/** Items laid like bricks, as in the home feed, or as a detailed list; the owner gets a menu on each. */
+function Grid({ items, owner, onDone, view }: { items: Card[]; owner: boolean; onDone: () => void; view: WardrobeView }) {
+  const menu = owner ? (c: Card) => <OwnerMenu card={c} onDone={onDone} /> : undefined;
+  if (view === "list") return <WardrobeList items={items} owner={owner} menu={menu} />;
+  return <Masonry items={items} source="wardrobe" overlay={menu} />;
 }
 
 function ActionRequired({ onChange }: { onChange: () => void }) {
@@ -204,6 +207,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
   const toast = useToast();
   const router = useRouter();
   const [people, setPeople] = useState<"followers" | "following" | null>(null);
+  const [view, setView] = useWardrobeView();
   const [creatingLook, setCreatingLook] = useState(false);
   /** A picked profile photo open in the round crop (its object URL is freed on close). */
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
@@ -512,6 +516,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                 </Chip>
               ))}
             </DragRow>
+            <ViewSwitch view={view} onChange={setView} />
             <Select variant="pill" aria-label="Сортировка" value={sort} onChange={setSort} options={SORTS.map(([v, l]) => ({ value: v, label: l }))} />
           </div>
 
@@ -521,13 +526,13 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </div>
           ) : section === "all" ? (
             <div className="mt-4 flex flex-col gap-14">
-              <Grid items={shown} owner={owner} onDone={() => mutate()} />
+              <Grid items={shown} owner={owner} onDone={() => mutate()} view={view} />
               {owner && data.drafts.length > 0 && (
                 <section>
                   <h2 className="mb-4 text-xl font-bold">
                     Черновики <span className="font-sans text-base font-normal text-muted">{data.drafts.length}</span>
                   </h2>
-                  <Grid items={data.drafts} owner onDone={() => mutate()} />
+                  <Grid items={data.drafts} owner onDone={() => mutate()} view={view} />
                 </section>
               )}
             </div>
@@ -535,7 +540,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             <EmptyState title={`В разделе «${FILTERS.find(([k]) => k === section)?.[1]}» пока ничего нет`} />
           ) : (
             <div className="mt-4">
-              <Grid items={shown} owner={owner} onDone={() => mutate()} />
+              <Grid items={shown} owner={owner} onDone={() => mutate()} view={view} />
             </div>
           )}
         </>
