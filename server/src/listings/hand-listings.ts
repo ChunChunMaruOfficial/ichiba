@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PRIVACY_VERSION } from '../auth/auth.service.js';
@@ -7,7 +8,7 @@ import { hashDistance, MediaService, usableHash } from '../media/media.service.j
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.js';
 import { ADOPT_SELECT, importerMayAdopt } from '../tg/adopt.js';
-import { BATCHES } from './hand-batches.js';
+import { BATCHES, MERGES } from './hand-batches.js';
 import { ListingsService } from './listings.service.js';
 import { reclassifySeller } from './market.js';
 
@@ -71,8 +72,59 @@ export class HandListingsService implements OnApplicationBootstrap {
     ]);
   }
 
+  /**
+   * Two accounts this import made become one: the listings, their photos and videos move to `into`, the `from`
+   * account is deleted the way the owner's own deletion does it (nick freed, sessions ended). Once: a second run
+   * finds no `from` account.
+   */
+  private async merge(fromNick: string, intoNick: string) {
+    const from = await this.prisma.user.findUnique({ where: { username: fromNick }, select: { id: true, ...ADOPT_SELECT } });
+    const into = await this.prisma.user.findUnique({ where: { username: intoNick }, select: { id: true } });
+    if (!from || !into) return;
+    if (!importerMayAdopt(from)) {
+      this.logger.warn(`@${fromNick}: the nick belongs to an account the import didn't create — not merged`);
+      return;
+    }
+    const [{ count: moved }] = await this.prisma.$transaction([
+      this.prisma.listing.updateMany({ where: { sellerId: from.id }, data: { sellerId: into.id } }),
+      this.prisma.photo.updateMany({ where: { ownerId: from.id }, data: { ownerId: into.id } }),
+      this.prisma.video.updateMany({ where: { ownerId: from.id }, data: { ownerId: into.id } }),
+      this.prisma.follow.deleteMany({ where: { OR: [{ followerId: from.id }, { sellerId: from.id }] } }),
+      this.prisma.user.update({
+        where: { id: from.id },
+        data: {
+          username: `deleted_${randomBytes(4).toString('hex')}`,
+          passwordHash: null,
+          brandName: null,
+          brandVerifiedAt: null,
+          catalogApprovedAt: null,
+          avatarId: null,
+          bio: null,
+          deletedAt: new Date(),
+          sessionVersion: { increment: 1 },
+        },
+      }),
+    ]);
+    this.logger.log(`@${fromNick} merged into @${intoNick}: ${moved} items moved, account deleted`);
+  }
+
   async run() {
+    // A merge that didn't happen leaves its `into` batch alone this time: that batch holds the `from` items too, and
+    // listing them under `into` while `from` still has them would show every one twice.
+    const unmerged = new Set<string>();
+    for (const m of MERGES) {
+      try {
+        await this.merge(m.from, m.into);
+      } catch (e) {
+        this.logger.warn(`@${m.from} → @${m.into}: merge failed: ${(e as Error).message}`);
+      }
+      if (await this.prisma.user.findUnique({ where: { username: m.from }, select: { id: true } })) unmerged.add(m.into);
+    }
     for (const batch of BATCHES) {
+      if (unmerged.has(batch.username)) {
+        this.logger.warn(`@${batch.username}: an account merging into it is still there — batch skipped`);
+        continue;
+      }
       const existing = await this.prisma.user.findUnique({
         where: { username: batch.username },
         select: { id: true, passwordHash: true, brandVerifiedAt: true, catalogApprovedAt: true, avatarId: true, ...ADOPT_SELECT },

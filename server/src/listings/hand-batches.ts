@@ -32,6 +32,12 @@ export interface HandItem {
   input: Omit<ListingInputT, 'photos'>;
 }
 
+/**
+ * Accounts this import made and the owner later wanted as one: everything `from` listed moves to `into` and the
+ * `from` account is deleted (hand-listings.ts does it once, before the batches; a merge whose `from` is gone is a no-op).
+ */
+export const MERGES: Array<{ from: string; into: string }> = [{ from: 'balconysection', into: 'psysectiony' }];
+
 export const BATCHES: Array<{ username: string; folder: string; account?: { bio: string; brandName?: string; logo?: string; catalog?: boolean }; items: HandItem[] }> = [
   {
     // 2026-10-15, «Вторичка», sizes and prices exactly as the owner gave them.
@@ -2017,7 +2023,10 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     ],
   },
   {
-    // 2026-11-06: psy (t.me/psysectiony), a Minsk reseller of vintage and archive — denim, leather, outerwear, shoes.
+    // 2026-11-06: psy (t.me/psysectiony), a Minsk reseller of vintage and archive — denim, leather, outerwear, shoes;
+    // the items of its second channel балкон (t.me/balconysection, the simpler and cheaper things: post ids 930–1502)
+    // are in the same batch since 2026-11-06 evening — the owner wanted one account, so @balconysection was merged into
+    // @psysectiony (MERGES below) and its photos moved into this folder.
     // Only the posts still open there (a «#наличие» post with a price and no sold mark); the channel's own BYN prices.
     // Photo 0 of a post is the whole item laid flat, so it is the cover as it stands. Posts of several items at once,
     // items held in Russia and new stock in several sizes are left out.
@@ -3685,15 +3694,6 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
           description: 'Размер по бирке: S–M.\nТекстурированная замшевая поверхность и мягкая подкладка из искусственной овчины. Произведена в Гонконге в золотую эпоху бренда, она отличается характерной фурнитурой, включая фирменные застежки-молнии и застежку-фиксатор на воротнике.\nСостояние по оценке продавца: 9/10.\nЗамеры: длина 60 см, рукав 74 см, ширина 58 см.',
         },
       },
-    ],
-  },
-  {
-    // 2026-11-06: балкон (t.me/balconysection), the same seller's second channel — the simpler and cheaper things:
-    // jeans, tees, hoodies. The same rules as for psy.
-    username: 'balconysection',
-    folder: 'balconysection',
-    account: { bio: 'балкон — вторая полка psy: джинсы, футболки, худи попроще и подешевле. Без возврата; встреча в Минске, отправка по Беларуси.', brandName: 'балкон', logo: 'logo.jpg', catalog: true },
-    items: [
       {
         photos: ['930-0.jpg'],
         input: {
