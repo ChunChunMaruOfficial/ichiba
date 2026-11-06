@@ -181,12 +181,28 @@ model User {
   tgSources       TgSource[]
   shopSources     ShopSource[]
   brandApplications BrandApplication[]
+  deviceKeys      DeviceKey[]
   blockedAt       DateTime?
   /// Bumped when every session of the account must end (password reset, block, deletion): tokens carry the
   /// version they were issued with and are refused once it moves on.
   sessionVersion  Int            @default(0)
 
   @@index([tgChatId])
+}
+
+/// One tap back into an account this browser signed out of (auth: device-key / device-login). The key itself lives
+/// in the browser's localStorage; only its SHA-256 is kept. Refused once the account's sessionVersion moves on.
+model DeviceKey {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keyHash        String    @unique
+  sessionVersion Int
+  createdAt      DateTime  @default(now())
+  lastUsedAt     DateTime?
+  expiresAt      DateTime
+
+  @@index([userId])
 }
 
 model VerificationCode {

@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { createHash, createHmac, randomInt, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { CodePurpose, Prisma, User } from '../generated/prisma/client.js';
@@ -38,6 +38,8 @@ export const DEV_ANY_CODE = process.env.AUTH_DEV_ANY_CODE === 'true' && process.
 const appleJwks = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
 
 export const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
+const DEVICE_KEY_DAYS = 90;
+const hashDeviceKey = (key: string) => createHash('sha256').update(key).digest('hex');
 /** Nicks an account made by hand may carry (a shop named in Cyrillic): what signing in by nick accepts. */
 const LOGIN_NICK_RE = /^[a-z0-9_а-яё]{3,24}$/;
 
@@ -106,6 +108,41 @@ export class AuthService {
    * Accounts whose verified email is listed in ADMIN_EMAILS (comma-separated) become admins on sign-in:
    * the way to get the first moderator on a fresh production database.
    */
+  // ---------- device keys: one tap back into an account this browser signed out of ----------
+
+  /** A fresh key for the signed-in account, to be kept by the browser; 90 days. Only its hash is stored. */
+  async createDeviceKey(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { sessionVersion: true, blockedAt: true, deletedAt: true } });
+    if (!user || user.blockedAt || user.deletedAt) throw new UnauthorizedException({ message: 'Войдите заново' });
+    const key = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + DEVICE_KEY_DAYS * 24 * 3600 * 1000);
+    await this.prisma.deviceKey.create({ data: { userId, keyHash: hashDeviceKey(key), sessionVersion: user.sessionVersion, expiresAt } });
+    // A browser keeps one key per account; the account keeps the last few, so an old browser's key still works.
+    const stale = await this.prisma.deviceKey.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, skip: 10, select: { id: true } });
+    if (stale.length) await this.prisma.deviceKey.deleteMany({ where: { id: { in: stale.map((k) => k.id) } } });
+    return { key, expiresAt };
+  }
+
+  /** The account behind a key, for a session; an expired or outdated key is refused and dropped. */
+  async deviceLogin(key: string) {
+    const stored = await this.prisma.deviceKey.findUnique({ where: { keyHash: hashDeviceKey(key) }, include: { user: true } });
+    const gone = new UnauthorizedException({ message: 'Быстрый вход устарел — войдите заново', code: 'DEVICE_KEY_GONE' });
+    if (!stored) throw gone;
+    const { user } = stored;
+    if (stored.expiresAt < new Date() || stored.sessionVersion !== user.sessionVersion || user.deletedAt) {
+      await this.prisma.deviceKey.delete({ where: { id: stored.id } }).catch(() => undefined);
+      throw gone;
+    }
+    if (user.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку' });
+    await this.prisma.deviceKey.update({ where: { id: stored.id }, data: { lastUsedAt: new Date() } });
+    return { user, isNew: false };
+  }
+
+  /** The browser forgot the account: the key goes too. */
+  async revokeDeviceKey(key: string) {
+    await this.prisma.deviceKey.deleteMany({ where: { keyHash: hashDeviceKey(key) } });
+  }
+
   async ensureAdmin(user: User): Promise<User> {
     const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
     if (user.role === 'ADMIN' || !user.email || !user.emailVerifiedAt || !admins.includes(user.email.toLowerCase())) return user;

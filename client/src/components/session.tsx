@@ -4,7 +4,8 @@ import { guestCart } from "@/lib/guest-cart";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
-import { api } from "@/lib/api";
+import { forgetAccount, rememberAccount, type RememberedAccount } from "@/lib/accounts";
+import { api, ApiError } from "@/lib/api";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
 import { connectRealtime, type RealtimeStatus } from "@/lib/realtime";
 import type { ChatMessage, Me, MessageRisk, Meta } from "@/lib/types";
@@ -16,6 +17,8 @@ interface SessionValue {
   loading: boolean;
   refresh: () => Promise<unknown>;
   logout: () => Promise<void>;
+  /** One tap into an account this browser signed out of (lib/accounts.ts): the current one is remembered first. */
+  switchAccount: (account: RememberedAccount) => Promise<void>;
   /** Runs `action` now if signed in; otherwise opens the auth modal and runs it after sign-in (frame 18). */
   requireAuth: (action: (me: Me) => void | Promise<void>) => void;
   openAuth: () => void;
@@ -188,7 +191,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [mutate, resetCache, toast, router],
   );
 
+  /** The signed-in account is kept on this browser with a device key, to come back with one tap. */
+  const rememberCurrent = useCallback(async (me: Me) => {
+    try {
+      const { key, expiresAt } = await api<{ key: string; expiresAt: string }>("/auth/device-key", { method: "POST" });
+      rememberAccount({ id: me.id, username: me.username, avatar: me.avatar ?? null, key, expiresAt });
+    } catch {
+      // No key (offline, storage blocked): the account is simply not offered for a one-tap return.
+    }
+  }, []);
+
   const logout = useCallback(async () => {
+    if (user) await rememberCurrent(user);
     await api("/auth/logout", { method: "POST" });
     await mutate({ user: null }, { revalidate: false });
     await resetCache();
@@ -200,13 +214,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     // Ask the API who is signed in now rather than trusting the optimistic null.
     void mutate();
-  }, [mutate, resetCache]);
+  }, [user, rememberCurrent, mutate, resetCache]);
+
+  const switchAccount = useCallback(
+    async (account: RememberedAccount) => {
+      if (user?.id === account.id) return;
+      if (user) await rememberCurrent(user);
+      try {
+        const r = await api<{ user: Me; isNew: boolean }>("/auth/device-login", { body: { key: account.key } });
+        await onSignedIn(r.user, r.isNew);
+      } catch (e) {
+        // The key is gone (expired, password changed): the account leaves the list and the usual sign-in opens.
+        if (e instanceof ApiError && e.status === 401) forgetAccount(account.id);
+        toast(e instanceof ApiError ? e.message : "Не удалось войти", { tone: "error" });
+        setAuthOpen(true);
+      }
+    },
+    [user, rememberCurrent, onSignedIn, toast],
+  );
 
   const refresh = useCallback(() => mutate(), [mutate]);
   // A stable value: every consumer of useSession() re-renders only when something in it actually changes.
   const value = useMemo<SessionValue>(
-    () => ({ me: user, loading: isLoading, refresh, logout, requireAuth, openAuth, realtime }),
-    [user, isLoading, refresh, logout, requireAuth, openAuth, realtime],
+    () => ({ me: user, loading: isLoading, refresh, logout, switchAccount, requireAuth, openAuth, realtime }),
+    [user, isLoading, refresh, logout, switchAccount, requireAuth, openAuth, realtime],
   );
 
   return (

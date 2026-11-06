@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
+import { forgetAccount, useRememberedAccounts } from "@/lib/accounts";
 import { api, ApiError } from "@/lib/api";
+import { Avatar } from "./avatar";
 import { usePresence } from "@/lib/presence";
 import type { Me } from "@/lib/types";
 import { track } from "@/lib/analytics";
-import { Button, Field, IconChevronRight, Input, Modal } from "./ui";
+import { Button, Field, IconChevronRight, IconX, Input, Modal } from "./ui";
 
 /**
  * Sign-in and sign-up in one flow, the way Avito, Kufar and Vinted do it:
@@ -80,6 +82,7 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
   const { data: providers } = useSWR<{ google: string | null; apple: string | null; telegram?: string | null; telegramBotId?: string | null; devAnyCode?: boolean }>("/auth/providers");
   const codeInput = useRef<HTMLInputElement>(null);
   const hint = step === "profile" && username.length >= 3 ? usernameHint : null;
+  const remembered = useRememberedAccounts();
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -141,6 +144,21 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
       track("sign_up");
     });
 
+  /** One tap on a remembered account (lib/accounts.ts); a dead key drops the account from the list. */
+  const deviceLogin = (account: (typeof remembered)[number]) =>
+    run(async () => {
+      try {
+        finish(await api<SessionResult>("/auth/device-login", { body: { key: account.key } }));
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) forgetAccount(account.id);
+        throw e;
+      }
+    });
+  const forget = (account: (typeof remembered)[number]) => {
+    forgetAccount(account.id);
+    void api("/auth/device-key", { method: "DELETE", body: { key: account.key } }).catch(() => undefined);
+  };
+
   const passwordLogin = () =>
     run(async () => {
       const r = await api<SessionResult | { needsVerification: true; target: string }>("/auth/login", { body: { login, password } });
@@ -181,6 +199,40 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <div aria-hidden className="pattern-asanoha pattern-fade-b pointer-events-none absolute inset-x-0 top-0 h-32 rounded-t-[inherit]" />
+
+      {/* Accounts this browser signed out of: back in with one tap, no password (lib/accounts.ts). */}
+      {step === "start" && remembered.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Ваши аккаунты</p>
+          <ul className="flex flex-col gap-1.5">
+            {remembered.map((a) => (
+              <li key={a.id} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void deviceLogin(a)}
+                  className="group flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-paper px-3 py-2.5 text-left shadow-[inset_0_0_0_1px_var(--line)] transition-[box-shadow,background-color] hover:bg-surface hover:shadow-[inset_0_0_0_1px_var(--line-strong)] disabled:opacity-60"
+                >
+                  <Avatar username={a.username} avatar={a.avatar} className="size-9" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">@{a.username}</span>
+                    <span className="block text-xs text-ink-2">Войти в один клик</span>
+                  </span>
+                  <IconChevronRight className="size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" />
+                </button>
+                <button type="button" aria-label={`Забыть @${a.username}`} title="Забыть на этом устройстве" disabled={busy} onClick={() => forget(a)} className="grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-ink/5 hover:text-ink">
+                  <IconX className="size-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-5 flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-line" />
+            или другой аккаунт
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </div>
+      )}
 
       {step === "start" && (providers?.google || providers?.telegram) && (
         <>

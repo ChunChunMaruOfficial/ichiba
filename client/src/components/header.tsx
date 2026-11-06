@@ -1,5 +1,6 @@
 "use client";
 
+import { useRememberedAccounts } from "@/lib/accounts";
 import { useGuestCart } from "@/lib/guest-cart";
 import { searchHref, useMarketZone } from "@/lib/market";
 import clsx from "clsx";
@@ -13,6 +14,7 @@ import { timeAgo } from "@/lib/labels";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
 import { usePresence } from "@/lib/presence";
 import { getRecent, pushRecent, removeRecent } from "@/lib/recent-searches";
+import { Avatar } from "./avatar";
 import { CatalogButton, MobileCatalog } from "./catalog-nav";
 import { Wordmark } from "./logo";
 import { PhotoSearchButton } from "./photo-search-button";
@@ -270,7 +272,8 @@ function NotificationsMenu({ unread }: { unread: number }) {
 }
 
 function AccountMenu() {
-  const { me } = useSession();
+  const { me, switchAccount } = useSession();
+  const remembered = useRememberedAccounts();
   const [open, setOpen] = useState(false);
   const pop = usePresence(open);
   const box = useRef<HTMLDivElement>(null);
@@ -312,6 +315,28 @@ function AccountMenu() {
               {!!badge && <span className="rounded-full bg-shu px-1.5 text-xs font-semibold text-on-shu">{badge}</span>}
             </Link>
           ))}
+          {/* Other accounts this browser signed out of: one tap switches (the current one is remembered first). */}
+          {remembered.some((a) => a.id !== me.id) && (
+            <>
+              <p className="mt-1 border-t border-line px-3 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Сменить аккаунт</p>
+              {remembered
+                .filter((a) => a.id !== me.id)
+                .map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      void switchAccount(a);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-ink/5"
+                  >
+                    <Avatar username={a.username} avatar={a.avatar} className="size-[22px]" />
+                    <span className="flex-1 truncate">@{a.username}</span>
+                  </button>
+                ))}
+            </>
+          )}
         </div>
       )}
     </div>

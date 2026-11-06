@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Post, Query, Res, UnauthorizedException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -13,6 +13,8 @@ const SESSION_DAYS = 30;
 const login = z.string().trim().min(3, 'Введите email или телефон');
 const password = z.string().min(8, 'Минимум 8 символов').max(128);
 const code = z.string().regex(/^\d{6}$/, 'Код — 6 цифр');
+
+const DeviceKeyDto = z.object({ key: z.string().min(20).max(200) });
 
 const RegisterDto = z.object({
   login,
@@ -134,6 +136,32 @@ export class AuthController {
   @HttpCode(200)
   async apple(@Body(new ZodPipe(TokenDto)) dto: { idToken: string }, @Res({ passthrough: true }) res: Response) {
     return this.startSession(res, await this.auth.apple(dto.idToken));
+  }
+
+  // ---------- device keys: «Войти как @nick» after a sign-out on this browser ----------
+
+  /** A key for the signed-in account; the browser keeps it (localStorage) and shows the account in the sign-in popup. */
+  @Post('device-key')
+  @HttpCode(200)
+  deviceKey(@CurrentUser() user?: AuthUser) {
+    if (!user) throw new UnauthorizedException({ message: 'Войдите заново' });
+    return this.auth.createDeviceKey(user.id);
+  }
+
+  /** The tap on a remembered account: a session from its key. */
+  @Post('device-login')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async deviceLogin(@Body(new ZodPipe(DeviceKeyDto)) dto: z.infer<typeof DeviceKeyDto>, @Res({ passthrough: true }) res: Response) {
+    return this.startSession(res, await this.auth.deviceLogin(dto.key));
+  }
+
+  /** «Забыть»: the key is revoked, not just dropped from the browser. */
+  @Delete('device-key')
+  @HttpCode(200)
+  async forgetDeviceKey(@Body(new ZodPipe(DeviceKeyDto)) dto: z.infer<typeof DeviceKeyDto>) {
+    await this.auth.revokeDeviceKey(dto.key);
+    return { ok: true };
   }
 
   @Post('logout')
