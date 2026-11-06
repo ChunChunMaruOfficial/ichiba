@@ -1,6 +1,5 @@
 import { TitleWithKanji } from "@/components/sections";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { og } from "@/lib/og";
 import { SLIDES, slideId, slideSrc } from "@/lib/presentation";
 
@@ -25,23 +24,8 @@ export default function PresentationPage() {
       <TitleWithKanji kanji="市場">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Презентация ichiba</h1>
       </TitleWithKanji>
-      <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-        Как устроен маркетплейс одежды Беларуси и что он даёт покупателям, брендам и продавцам. Хотите продавать на ichiba —{" "}
-        <Link href="/sellers" className="font-medium text-ink underline underline-offset-4">
-          откройте лавку
-        </Link>
-        .
-      </p>
 
-      <nav aria-label="Слайды" className="mt-6 flex flex-wrap gap-2">
-        {SLIDES.map((s) => (
-          <a key={s.n} href={`#${slideId(s.n)}`} className="rounded-full border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-2 hover:border-ink hover:text-ink">
-            <span className="tabular text-muted">{String(s.n).padStart(2, "0")}</span> {s.title}
-          </a>
-        ))}
-      </nav>
-
-      <ol className="mt-10 flex flex-col gap-10">
+      <ol className="mt-8 flex flex-col gap-10">
         {SLIDES.map((s) => (
           <li key={s.n} id={slideId(s.n)} className="scroll-mt-24">
             <figure>

@@ -8,6 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
+import { glideToTop, HOME_REFRESH } from "@/lib/glide";
 import { timeAgo } from "@/lib/labels";
 import { notificationHref, notificationText, type NotificationRow } from "@/lib/notifications";
 import { usePresence } from "@/lib/presence";
@@ -533,6 +534,14 @@ export function BottomNav() {
   const { me } = useSession();
   if (focusedFlow(pathname)) return null;
 
+  // «Главная» tapped again on the feed itself (a chip may be on, a search may not): the feed glides to its top and
+  // loads afresh, the way a phone app's home tab does. A search in the address is left the usual way, by the link.
+  const onHomeTap = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (pathname !== "/" || [...new URLSearchParams(window.location.search).keys()].some((k) => k !== "chip")) return;
+    e.preventDefault();
+    void glideToTop().then(() => window.dispatchEvent(new Event(HOME_REFRESH)));
+  };
+
   const item = (href: string, label: string, Icon: typeof IconHome, opts: { badge?: number } = {}) => {
     const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
     const content = (
@@ -550,7 +559,7 @@ export function BottomNav() {
     // basis-0 + min-w-0: five equal tabs that never push past the screen edge, even at 320 px.
     const cls = clsx("flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 pb-1 pt-2", active ? "text-ink" : "text-ink-2");
     return (
-      <Link key={href} href={href} className={cls}>
+      <Link key={href} href={href} className={cls} onClick={href === "/" ? onHomeTap : undefined}>
         {content}
       </Link>
     );

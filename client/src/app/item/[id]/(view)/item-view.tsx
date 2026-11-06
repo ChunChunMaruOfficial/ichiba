@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { BuyButton, CartButton } from "@/components/buy-buttons";
-import { DeliveryLabel } from "@/components/delivery-label";
 import { Gallery } from "@/components/gallery";
 import { LikersOfferButton } from "@/components/likers-offer";
 import { MEASURE_LABEL } from "@/components/measure-guide";
@@ -23,7 +22,7 @@ import { Avatar } from "@/components/avatar";
 import { OfferSheet, OfferStatusPanel } from "@/components/offer";
 import { ReportModal } from "@/components/report-modal";
 import { BundleNote, FitNote, DealsInline, FitProfilePrompt, ListingStatsCard, MadeToMeasureNote, RatingInline } from "@/components/trust";
-import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconHeart, IconMessage, IconShare, Modal, Skeleton, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, DealBadge, EmptyState, ErrorState, Field, IconHeart, IconMessage, IconPin, IconShare, IconTruck, IconWallet, Modal, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { reportZoom, useItemEngagement } from "@/lib/engagement";
@@ -604,20 +603,18 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
 
           <div className="mt-6">{l.isOwner ? ownerPanel : buyerPanel}</div>
 
-          {/* How buying goes, right under the buttons: no online payment, and how the item reaches the buyer. */}
-          <ul className="mt-5 flex flex-col gap-1.5 text-sm text-ink-2">
+          {/* How buying goes, right under the buttons: each way as a short line behind its own small seal. */}
+          <ul className="mt-5 flex flex-col gap-2.5 text-sm font-semibold text-ink">
             {!l.isOwner && !sold && (
-              <li>
-                <b className="font-semibold text-ink">Оплата при получении</b> — онлайн платить не нужно
+              <li className="flex items-center gap-3">
+                <InfoSeal><IconWallet className="size-[18px]" /></InfoSeal>
+                Оплата при получении
               </li>
             )}
             {deliveryWays(l.deliveryOptions).map((w) => (
-              <li key={w}>
-                <b className="font-semibold text-ink">
-                  {w === "DELIVERY" ? <DeliveryLabel method="DELIVERY" /> : "Передача лично"}
-                  {w === "DELIVERY" ? " по Беларуси" : l.city ? ` · ${l.city}` : ""}
-                </b>{" "}
-                — {w === "DELIVERY" ? "продавец отправит и пришлёт трек-номер, доставка оплачивается отдельно" : "место и время обсудите в чате"}
+              <li key={w} className="flex items-center gap-3">
+                <InfoSeal>{w === "DELIVERY" ? <IconTruck className="size-[18px]" /> : <IconPin className="size-[18px]" />}</InfoSeal>
+                {w === "DELIVERY" ? "Доставка по Беларуси" : l.city ? `Передача лично · ${l.city}` : "Передача лично"}
               </li>
             ))}
           </ul>
@@ -751,6 +748,11 @@ function Product({ listing: l, related, refresh, landings }: { listing: ListingD
 
     </div>
   );
+}
+
+/** A small round seal for an icon in the «how buying goes» lines under the buttons. */
+function InfoSeal({ children }: { children: React.ReactNode }) {
+  return <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface text-ink-2 ring-1 ring-line">{children}</span>;
 }
 
 function AppealModal({ open, onClose, listingId, onDone }: { open: boolean; onClose: () => void; listingId: string; onDone: () => void }) {

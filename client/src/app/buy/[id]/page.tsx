@@ -7,7 +7,8 @@ import { Suspense, useState } from "react";
 import useSWR from "swr";
 import { RequireAuth } from "@/components/require-auth";
 import { Furoshiki } from "@/components/shop/furoshiki";
-import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, Input, OptionCard, PriceTag, Skeleton, Textarea } from "@/components/ui";
+import { Nefuda } from "@/components/shop/nefuda";
+import { Badge, Button, ButtonLink, EmptyState, ErrorState, Field, Input, OptionCard, Skeleton, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { canSewTo, conditionLabel, DELIVERY_WAY, type DeliveryWay, deliveryWays, formatPrice, plural, PRICE_ON_REQUEST, tailorLines } from "@/lib/labels";
 import type { Deal, ListingDetail, ListingResponse, Me } from "@/lib/types";
@@ -263,26 +264,25 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {cover && <img src={cover.urls.s} alt="" className="size-full object-contain" />}
             </div>
-            <div className="min-w-0">
+            <div className="flex min-w-0 flex-1 flex-col">
               <p className="font-medium">{l.title}</p>
               <p className="mt-1 text-sm text-ink-2">{sewn ? "Пошив по вашим меркам" : [(size ?? l.size) && `Размер ${size ?? l.size}`, l.condition && conditionLabel(l.condition, l.hasTags)].filter(Boolean).join(" · ")}</p>
               <p className="mt-1 text-sm text-muted">@{l.seller.username}</p>
+              {/* The price on the shop's paper tag, in the card's bottom-right corner (the same tag as on the item). */}
+              {!reserved && (
+                <div className="mt-auto flex flex-wrap items-end justify-end gap-x-2 pt-3">
+                  {confirming && price !== l.price && (
+                    <span className="pb-1 text-xs">
+                      <span className="text-ok">согласовано</span> <s className="ml-1 text-muted">{formatPrice(l.price)}</s>
+                    </span>
+                  )}
+                  <Nefuda className="tabular text-[22px] font-bold leading-tight">{formatPrice(price)}</Nefuda>
+                </div>
+              )}
             </div>
           </Link>
           {!reserved && (
-            <div className="flex flex-col gap-4 rounded-[28px] bg-surface p-5 shadow-[var(--shadow-paper)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="text-ink-2">
-                  К оплате
-                  <span className="block text-sm text-muted">при получении</span>
-                </span>
-                <PriceTag>{formatPrice(price)}</PriceTag>
-              </div>
-              {confirming && price !== l.price && (
-                <p className="-mt-2 text-right text-sm">
-                  <span className="text-ok">согласовано</span> <s className="ml-1 text-muted">{formatPrice(l.price)}</s>
-                </p>
-              )}
+            <div className="flex flex-col gap-3">
               {error && !Object.keys(fields).length && (
                 <div role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">
                   {error.message}
@@ -303,7 +303,7 @@ function BuyRequest({ id, me }: { id: string; me: Me }) {
                   {busy ? "Отправляем…" : confirming ? "Подтвердить способ получения" : sewn ? "Заказать пошив" : "Отправить запрос"}
                 </Button>
               </div>
-              <p className="text-xs text-muted">{confirming ? "Выберите способ получения в течение 48 часов, иначе резерв снимется." : "Продавец ответит в течение 48 часов."}</p>
+              {confirming && <p className="text-xs text-muted">Выберите способ получения в течение 48 часов, иначе резерв снимется.</p>}
             </div>
           )}
         </aside>

@@ -6,8 +6,10 @@ import { IconTruck } from "./ui";
 export function DeliveryLabel({ method }: { method: DeliveryMethod }) {
   if (method !== "DELIVERY") return <>{DELIVERY_LABEL[method]}</>;
   return (
-    <span className="inline-flex items-center gap-1 align-[-0.15em]">
-      <IconTruck className="size-[1.15em] shrink-0" />
+    // Plain inline text with the icon dropped a little below the baseline: an inline-flex box here took its baseline
+    // from the icon and lifted the word above the text around it.
+    <span className="whitespace-nowrap">
+      <IconTruck className="mr-1 inline-block size-[1.15em] align-[-0.22em]" />
       {DELIVERY_LABEL[method]}
     </span>
   );

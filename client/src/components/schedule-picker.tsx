@@ -3,11 +3,10 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { usePresence } from "@/lib/presence";
-import { Button, Input } from "./ui";
+import { Button } from "./ui";
+import { WheelPicker } from "./wheel-picker";
 
 const pad = (n: number) => String(n).padStart(2, "0");
-/** Value for <input type="datetime-local"> in the user's time zone. */
-const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 /** "сегодня в 19:00", "завтра в 10:00", "12 октября в 19:00". */
 export function scheduleLabel(iso: string) {
@@ -22,19 +21,24 @@ export function scheduleLabel(iso: string) {
   return `${date} в ${time}`;
 }
 
-/** Evenings and weekend mornings are when people browse; offered as one-tap options. */
-function presets() {
-  const now = new Date();
-  const at = (days: number, h: number) => {
-    const d = new Date(now);
+/** Days on the first wheel: today and the 30 after it (the server allows a month ahead). */
+const DAYS = 31;
+const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: pad(h) }));
+const MINUTES = Array.from({ length: 12 }, (_, i) => ({ value: String(i * 5), label: pad(i * 5) }));
+
+/** The first sensible time to offer: this evening at 19:00, or tomorrow at 10:00 once the evening is too close. */
+function firstChoice(today: Date) {
+  const now = Date.now();
+  for (const [days, h] of [[0, 19], [1, 10], [1, 19]] as const) {
+    const d = new Date(today);
     d.setDate(d.getDate() + days);
     d.setHours(h, 0, 0, 0);
-    return d;
-  };
-  return [at(0, 19), at(1, 10), at(1, 19), at(2, 19)].filter((d) => d.getTime() - now.getTime() > 15 * 60_000).slice(0, 3);
+    if (d.getTime() - now > 15 * 60_000) return { day: days, hour: h, minute: 0 };
+  }
+  return { day: 1, hour: 10, minute: 0 };
 }
 
-/** "Опубликовать позже" (eBay scheduled listings): pick a time up to 30 days ahead. */
+/** "Опубликовать позже" (eBay scheduled listings): a day, an hour and a minute on three drums, up to 30 days ahead. */
 /** `compact`: on phones the button is just a clock icon, so it fits next to the main action. */
 export function SchedulePicker({
   onSchedule,
@@ -51,7 +55,6 @@ export function SchedulePicker({
 }) {
   const [open, setOpen] = useState(false);
   const pop = usePresence(open);
-  const [value, setValue] = useState("");
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -61,15 +64,36 @@ export function SchedulePicker({
     return () => document.removeEventListener("pointerdown", onDoc);
   }, [open]);
 
-  // Bounds are fixed when the picker mounts (the server re-checks: at least 5 minutes ahead, at most 30 days).
-  const [bounds] = useState(() => ({ min: toLocalInput(new Date(Date.now() + 10 * 60_000)), max: toLocalInput(new Date(Date.now() + 30 * 86_400_000)), presets: presets() }));
-  const chosen = value ? new Date(value) : null;
-  const valid = !!chosen && value >= bounds.min && value <= bounds.max;
+  // The days are counted from the moment the picker mounts (the server re-checks: at least 5 minutes ahead, at most 30 days).
+  const [setup] = useState(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Array.from({ length: DAYS }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      const label = i === 0 ? "Сегодня" : i === 1 ? "Завтра" : d.toLocaleDateString("ru", { weekday: "short", day: "numeric", month: "short" });
+      return { value: String(i), label };
+    });
+    return { today, days, first: firstChoice(today) };
+  });
+  const [pick, setPick] = useState(setup.first);
+  /** The clock as of opening the menu: «already passed» is judged against it, not against every render. */
+  const [now, setNow] = useState(() => setup.today.getTime());
+  const chosen = new Date(setup.today);
+  chosen.setDate(chosen.getDate() + pick.day);
+  chosen.setHours(pick.hour, pick.minute, 0, 0);
+  const ahead = chosen.getTime() - now;
+  const valid = ahead >= 10 * 60_000 && ahead <= 30 * 86_400_000;
 
   return (
         // Compact (phone bar): the menu is anchored to the fixed bottom bar and spans it, so it never leaves the screen.
     <div ref={box} className={clsx(compact ? "md:relative" : "relative", className)}>
-      <Button type="button" variant="secondary" size={compact ? "lgTight" : "lg"} disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Запланировать" className={buttonClassName}>
+      <Button type="button" variant="secondary" size={compact ? "lgTight" : "lg"} disabled={disabled} onClick={() => {
+          setNow(Date.now());
+          setOpen((v) => !v);
+        }}
+        aria-expanded={open}
+        aria-label="Запланировать" className={buttonClassName}>
         {compact && (
           <svg viewBox="0 0 24 24" className="size-6 shrink-0 md:hidden" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <circle cx="12" cy="12" r="8.5" />
@@ -82,14 +106,13 @@ export function SchedulePicker({
         <div data-closing={pop.closing || undefined} className={clsx("fade-in absolute bottom-[calc(100%+8px)] z-50 rounded-2xl border border-line bg-surface p-4 shadow-xl md:left-auto md:right-0 md:w-80", compact ? "inset-x-3" : "left-0 w-[min(88vw,320px)]")}>
           <p className="font-semibold">Опубликовать позже</p>
           <p className="mt-1 text-sm text-muted">Проверим объявление сейчас, а в каталоге оно появится в выбранное время.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {bounds.presets.map((d) => (
-              <button key={d.toISOString()} type="button" onClick={() => setValue(toLocalInput(d))} className="rounded-full border border-line-strong px-3 py-1.5 text-sm hover:border-ink">
-                {scheduleLabel(d.toISOString())}
-              </button>
-            ))}
+          {/* Day, hour and minute on drums, like the wheels for measurements in onboarding. */}
+          <div className="mt-3 flex items-stretch gap-1">
+            <WheelPicker label="День" options={setup.days} value={String(pick.day)} onChange={(v) => setPick((p) => ({ ...p, day: Number(v) }))} className="min-w-0 flex-[1.7]" />
+            <WheelPicker label="Час" options={HOURS} value={String(pick.hour)} onChange={(v) => setPick((p) => ({ ...p, hour: Number(v) }))} className="min-w-0 flex-1" />
+            <span aria-hidden className="grid place-items-center pb-0.5 text-lg font-semibold text-ink-2">:</span>
+            <WheelPicker label="Минуты" options={MINUTES} value={String(pick.minute)} onChange={(v) => setPick((p) => ({ ...p, minute: Number(v) }))} className="min-w-0 flex-1" />
           </div>
-          <Input type="datetime-local" aria-label="Дата и время публикации" min={bounds.min} max={bounds.max} value={value} onChange={(e) => setValue(e.target.value)} className="mt-3" />
           <Button
             type="button"
             block
@@ -97,10 +120,10 @@ export function SchedulePicker({
             disabled={!valid || disabled}
             onClick={() => {
               setOpen(false);
-              onSchedule(chosen!);
+              onSchedule(chosen);
             }}
           >
-            {valid ? `Запланировать на ${scheduleLabel(chosen!.toISOString())}` : "Выберите время"}
+            {valid ? `Запланировать на ${scheduleLabel(chosen.toISOString())}` : ahead < 10 * 60_000 ? "Это время уже прошло" : "Не дальше чем через 30 дней"}
           </Button>
         </div>
       )}

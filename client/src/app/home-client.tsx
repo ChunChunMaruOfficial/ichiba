@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useLayoutEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import useSWR from "swr";
 import { FeedShell } from "@/components/feed-shell";
 import { Masonry, MasonrySkeleton } from "@/components/masonry";
@@ -13,6 +13,7 @@ import { SwipeDeck } from "@/components/swipe-deck";
 import { PhotoResults, SearchChips, SearchResults, SearchSort, useSearching } from "@/components/search-view";
 import { ButtonLink, Chip, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
+import { HOME_REFRESH } from "@/lib/glide";
 import { FIRST_SCREEN, homeChip, homeFeedKey } from "@/lib/home-feed";
 import type { Card, Cover, SellerSummary } from "@/lib/types";
 
@@ -46,6 +47,20 @@ function HomeFeed() {
   const photo = params.get("photo");
   const feed = useInfiniteCards<{ items: Card[]; total: number; chip: string }>((offset) => (!home.data || searching || photo ? null : homeFeedKey(chip, offset)));
   const sentinel = useSentinel(feed.loadMore, !feed.done);
+  // A second tap on «Главная» (BottomNav): the page is at its top by now; the feed starts again from its first
+  // page with whatever is new, and fades a little while it loads so the tap visibly did something.
+  const [refreshing, setRefreshing] = useState(false);
+  const { mutate: reloadHome } = home;
+  const { setSize } = feed;
+  useEffect(() => {
+    const onRefresh = () => {
+      setRefreshing(true);
+      // setSize revalidates by itself: back to one page, and that page fetched anew.
+      void Promise.all([reloadHome(), setSize(1)]).finally(() => setRefreshing(false));
+    };
+    window.addEventListener(HOME_REFRESH, onRefresh);
+    return () => window.removeEventListener(HOME_REFRESH, onRefresh);
+  }, [reloadHome, setSize]);
 
   const setChip = (c: string) => router.replace(c === (forYou ? "for_you" : "new") ? "/" : `/?chip=${c}`, { scroll: false });
   const isDefaultChip = !CHIPS.some(([key]) => key === params.get("chip"));
@@ -159,7 +174,7 @@ function HomeFeed() {
       ) : (
         <>
           {smallCatalog && <p className="mb-4 text-sm text-muted">Вещей пока мало — загляните скоро или выставьте свою.</p>}
-          <div className="pt-2">
+          <div className={`pt-2 transition-opacity duration-300 ${refreshing ? "opacity-40" : ""}`} aria-busy={refreshing}>
             <Masonry items={first} source="feed" />
           </div>
 

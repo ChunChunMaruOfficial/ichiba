@@ -244,21 +244,6 @@ export function OptionCard({
   );
 }
 
-/** A price on a kraft-paper hang tag, tied on with a string. */
-export function PriceTag({ label, children, className }: { label?: React.ReactNode; children: React.ReactNode; className?: string }) {
-  return (
-    <span className={clsx("price-tag-wrap", className)}>
-      <svg aria-hidden viewBox="0 0 40 30" className="price-tag-string" fill="none">
-        <path d="M2 4c10 2 18 6 22 12s8 10 14 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-      <span className="price-tag">
-        {label && <span className="block text-[11px] font-medium uppercase tracking-[0.12em] opacity-75">{label}</span>}
-        <span className="tabular block text-2xl font-bold leading-tight">{children}</span>
-      </span>
-    </span>
-  );
-}
-
 export function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return <div aria-hidden className={clsx("skeleton rounded-lg", className)} style={style} />;
 }
@@ -600,6 +585,7 @@ export const IconLocate = icon(<><circle cx="12" cy="12" r="6.5" /><circle cx="1
 export const IconHome = icon(<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1Z" />);
 export const IconHanger = icon(<><path d="M12 7.5a2 2 0 1 1 2-2c0 1-.8 1.5-2 2.3v1.2" /><path d="m12 9-8.5 6.2A1 1 0 0 0 4 17h16a1 1 0 0 0 .5-1.8Z" /></>);
 export const IconTruck = icon(<><path d="M2.5 6.5h11v9.5h-11Z" /><path d="M13.5 9.5h4l3 3.5v3h-7" /><circle cx="6.5" cy="17.5" r="1.8" /><circle cx="17" cy="17.5" r="1.8" /></>);
+export const IconWallet = icon(<><path d="M17 5.5H6.5a2.5 2.5 0 0 0 0 5" /><path d="M4 8v9.5a2 2 0 0 0 2 2h14v-9H6.5" /><circle cx="16.2" cy="15" r="1.1" /></>);
 export const IconBag = icon(<><path d="M5 8h14l-1 12H6Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></>);
 export const IconX = icon(<path d="M6 6l12 12M18 6 6 18" />);
 export const IconChevronLeft = icon(<path d="m15 5-7 7 7 7" />);

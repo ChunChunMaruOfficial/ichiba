@@ -759,7 +759,6 @@ function Thread({ id }: { id: string }) {
             )}
           </div>
         )}
-        {messages.length === 0 && <p className="py-10 text-center text-sm text-muted">Напишите продавцу — например, есть ли замеры или можно ли посмотреть вещь вживую.</p>}
         {/* Until the seller accepts a deal, the server hides contacts in messages: say so before anyone tries. */}
         {!(deal.data && CONTACTS_OPEN.includes(deal.data.status)) && (
           <p className="mx-auto mb-2 max-w-sm rounded-xl bg-ink/5 px-3 py-2 text-center text-xs leading-snug text-muted">

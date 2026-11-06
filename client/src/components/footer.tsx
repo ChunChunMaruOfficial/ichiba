@@ -4,6 +4,7 @@ import { SakuraBranch } from "./shop/sakura-branch";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { reopenConsent } from "@/lib/analytics";
+import { glideToTop } from "@/lib/glide";
 import { LEGAL } from "@/lib/legal";
 import { Wordmark } from "./logo";
 import { focusedFlow } from "./header";
@@ -15,33 +16,9 @@ const COOKIE_SETTINGS = "#cookie-settings";
 
 /**
  * A footer link is read from the bottom of a page: the page it opens (or the same page, with a query) must start at
- * its top. The page glides there first — two thirds of a second, easing in and out, the way a «наверх» button does —
- * and only then the link is followed, so the next page never jumps in halfway through the glide. Resolves when the
- * top is reached (at once with reduced motion, or when the page is already there).
+ * its top. The page glides there first (lib/glide.ts) and only then the link is followed, so the next page never
+ * jumps in halfway through the glide. A new tab (modifier keys, middle button) goes as usual.
  */
-function glideToTop() {
-  return new Promise<void>((resolve) => {
-    const from = window.scrollY;
-    if (from <= 0) return resolve();
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      window.scrollTo(0, 0);
-      return resolve();
-    }
-    // Longer for a longer way, within reason: a short page takes half a second, a long one just under one.
-    const duration = Math.min(900, Math.max(500, from / 3));
-    const t0 = performance.now();
-    const step = (t: number) => {
-      const k = Math.min(1, (t - t0) / duration);
-      const eased = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-      window.scrollTo(0, Math.round(from * (1 - eased)));
-      if (k < 1) requestAnimationFrame(step);
-      else resolve();
-    };
-    requestAnimationFrame(step);
-  });
-}
-
-/** The click on a footer link: the glide, then the page. A new tab (modifier keys, middle button) goes as usual. */
 function useGlideClick() {
   const router = useRouter();
   return (e: React.MouseEvent<HTMLAnchorElement>) => {
