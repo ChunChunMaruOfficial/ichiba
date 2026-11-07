@@ -85,7 +85,11 @@ export default function ContactsPage() {
 
         <dt className="font-semibold text-ink">Брендам</dt>
         <dd>
-          Хотите продавать на ichiba как бренд или магазин — напишите на почту выше: расскажите о себе, и мы откроем вам лавку с печатью «Бренд».
+          Хотите продавать на ichiba как бренд или магазин оригиналов —{" "}
+          <Link href="/sellers/apply" className="font-medium text-ink underline underline-offset-4">
+            заполните анкету
+          </Link>
+          : после проверки откроем лавку с печатью «Бренд».
         </dd>
 
         <dt className="font-semibold text-ink">Оператор сайта</dt>

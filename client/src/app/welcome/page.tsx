@@ -227,14 +227,14 @@ function Welcome({ me }: { me: Me }) {
                 <Daruma eyes={1} className="h-24 shrink-0" />
                 <div>
                   <p className="font-bold">Лавка бренда</p>
-                  <p className="mt-1 text-sm text-ink-2">Напишите нам пару слов о бренде — и на всех ваших вещах появится печать «Бренд», а гардероб попадёт в каталог на главной.</p>
+                  <p className="mt-1 text-sm text-ink-2">Заполните короткую анкету со ссылкой на соцсеть или сайт — после проверки на всех ваших вещах появится печать «Бренд».</p>
                 </div>
               </div>
               <Button size="lg" block loading={busy} onClick={() => finish("/sell")}>
                 Добавить первую вещь
               </Button>
-              <Button size="lg" block variant="secondary" disabled={busy} onClick={() => finish("/contacts")}>
-                Написать нам о бренде
+              <Button size="lg" block variant="secondary" disabled={busy} onClick={() => finish("/sellers/apply")}>
+                Заполнить анкету бренда
               </Button>
               <Button variant="link" className="self-center" disabled={busy} onClick={() => finish("/")}>
                 На главную

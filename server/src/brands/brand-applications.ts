@@ -2,7 +2,11 @@ import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
+import { background } from '../common/background.js';
 import { ZodPipe } from '../common/zod.js';
+import { EmailOutbox, emailPrefsOf } from '../mail/mail.module.js';
+import { appUrl, esc, notifyGroupOf, render } from '../mail/templates.js';
+import { linkButton, TelegramNotifier } from '../telegram/notifier.js';
 import { AdminGuard } from '../moderation/moderation.js';
 import { reclassifySeller } from '../listings/market.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -10,8 +14,9 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { recordActivity } from '../activity/activity.js';
 
 /**
- * «Статус бренда»: a seller applies from Settings with the brand's details and contacts; an admin reviews the
- * application in the admin panel. An approved brand gets the «Бренд» seal on its items and profile.
+ * «Статус бренда»: a signed-in seller fills the form at /sellers/apply (the brand's details, an email and at least one
+ * link to a social network or a site); admins hear about it in Telegram and review it in the admin panel. An approved
+ * brand gets the «Бренд» seal on its items and profile; the answer also goes to the email given in the form.
  *
  * The same flow admits a seller who is not a brand (a reseller of original items) to the main catalogue
  * (kind CATALOG): the admin checks the seller and their stock; after approval their new items with tags are listed
@@ -46,13 +51,19 @@ const ApplicationDto = z
       .nullish()
       .or(z.literal('').transform(() => null)),
     contactName: z.string().trim().min(2, 'Как к вам обращаться').max(80),
-    email: z.email('Проверьте почту').nullish().or(z.literal('').transform(() => null)),
+    // The answer is mailed here, so it is required.
+    email: z.email('Проверьте почту — на неё придёт ответ'),
     phone: opt(30),
     telegram: opt(40),
-    links: z.array(link).max(10, 'Не больше 10 ссылок').default([]).transform((l) => l.filter(Boolean).slice(0, 5)),
+    // How the admin checks that the brand is real: a social network or a site is the one thing that must be there.
+    links: z
+      .array(link)
+      .max(10, 'Не больше 10 ссылок')
+      .default([])
+      .transform((l) => l.filter(Boolean).slice(0, 5))
+      .refine((l) => l.length > 0, 'Укажите соцсеть или сайт — по ним мы проверяем бренд'),
     description: z.string().trim().min(20, 'Расскажите о бренде хотя бы в паре предложений').max(2000),
   })
-  .refine((d) => d.email || d.phone || d.telegram, { message: 'Оставьте хотя бы один контакт', path: ['email'] })
   .refine((d) => !['IP', 'LLC'].includes(d.legalForm) || d.unp, { message: 'Для ИП и организации нужен УНП', path: ['unp'] });
 
 @Injectable()
@@ -60,6 +71,8 @@ export class BrandApplicationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly outbox: EmailOutbox,
+    private readonly telegram: TelegramNotifier,
   ) {}
 
   async mine(userId: string) {
@@ -82,7 +95,58 @@ export class BrandApplicationsService {
     if (application?.status === 'PENDING') throw new ConflictException({ message: 'Заявка уже на рассмотрении' });
     const created = await this.prisma.brandApplication.create({ data: { userId, ...dto } });
     recordActivity(this.prisma, userId, 'brand_applied', { detail: `${dto.kind === 'CATALOG' ? 'магазин' : 'бренд'}: ${dto.brandName}` });
+    background(this.tellAdmins(dto), 'brand-application-telegram');
     return created;
+  }
+
+  /** A Telegram line to every admin with a linked chat: a brand is waiting to be let in. */
+  private async tellAdmins(dto: z.infer<typeof ApplicationDto>) {
+    const admins = await this.prisma.user.findMany({ where: { role: 'ADMIN', tgChatId: { not: null }, blockedAt: null, deletedAt: null }, select: { tgChatId: true } });
+    const chats = [...new Set(admins.map((a) => a.tgChatId!))];
+    if (!chats.length) return;
+    const html = [
+      `🏮 <b>Анкета ${dto.kind === 'CATALOG' ? 'магазина оригиналов' : 'бренда'}</b>`,
+      `«${esc(dto.brandName)}» · ${esc(dto.contactName)} · ${esc(dto.email)}`,
+      ...dto.links.map((l) => esc(l)),
+    ].join('\n');
+    const open = linkButton('Открыть', '/admin/brands');
+    for (const chatId of chats) await this.telegram.send(chatId, html, open.length ? [open] : []);
+  }
+
+  /**
+   * The answer to the email given in the form. Skipped only when it is the address the account already gets its
+   * notifications at (with moderation letters on): the notification itself carries the answer there.
+   */
+  private async mailAnswer(a: { userId: string; email: string | null; kind: string; brandName: string }, approve: boolean, note: string | null, name: string) {
+    if (!a.email) return;
+    const user = await this.prisma.user.findUnique({ where: { id: a.userId }, select: { username: true, notifyEmail: true, emailPrefs: true } });
+    if (!user) return;
+    const shop = a.kind === 'CATALOG';
+    const type = shop ? (approve ? 'catalog_approved' : 'catalog_rejected') : approve ? 'brand_approved' : 'brand_rejected';
+    const covered = user.notifyEmail?.toLowerCase() === a.email.toLowerCase() && !emailPrefsOf(user.emailPrefs).notifyOff.includes(notifyGroupOf(type));
+    if (covered) return;
+    const mail = approve
+      ? render({
+          subject: shop ? `«${name}» — в основном каталоге ichiba` : `«${name}» — лавка бренда на ichiba открыта`,
+          preheader: shop ? 'Новые вещи с биркой теперь в основном каталоге' : 'Печать «Бренд» уже на вашем профиле и вещах',
+          title: shop ? 'Магазин допущен в каталог' : 'Статус бренда подтверждён',
+          lines: [
+            shop
+              ? `Анкету «${name}» проверили: новые вещи с биркой теперь показываются в основном каталоге ichiba, поношенные — на вторичке.`
+              : `Анкету «${name}» проверили: у профиля @${user.username} и всех его вещей теперь печать «Бренд».`,
+            ...(note ? [`Комментарий: ${note}`] : []),
+            'Выставьте первые вещи — или напишите нам, и мы перенесём ассортимент из Telegram-канала или с сайта.',
+          ],
+          cta: { label: 'Выставить вещь', url: `${appUrl()}/sell` },
+        })
+      : render({
+          subject: `Анкета «${a.brandName}» — нужна доработка`,
+          preheader: note ? note.slice(0, 120) : 'Анкету можно поправить и отправить снова',
+          title: 'Анкету пока не одобрили',
+          lines: [`Мы посмотрели анкету «${a.brandName}» и пока не можем её одобрить.`, ...(note ? [`Причина: ${note}`] : []), 'Поправьте анкету и отправьте снова — проверим ещё раз.'],
+          cta: { label: 'Открыть анкету', url: `${appUrl()}/sellers/apply` },
+        });
+    await this.outbox.enqueue({ to: a.email, ...mail, kind: `${type}_direct`, userId: a.userId });
   }
 
   list(status: string) {
@@ -124,6 +188,7 @@ export class BrandApplicationsService {
     });
     const type = kind === 'BRAND' ? (approve ? 'brand_approved' : 'brand_rejected') : approve ? 'catalog_approved' : 'catalog_rejected';
     await this.notifications.notify(a.userId, type, { brand: name, note });
+    background(this.mailAnswer(a, approve, note, name), 'brand-application-mail');
     return { ok: true };
   }
 

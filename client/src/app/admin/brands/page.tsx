@@ -22,7 +22,10 @@ const TABS = [
 
 const date = (s: string) => new Date(s).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
 
-/** Brand applications from Settings: who asked, their details and contacts; approve or decline with a reason. */
+/**
+ * Brand and shop forms from /sellers/apply: who asked, their links and contacts; approve or decline with a reason.
+ * The answer goes to the site's notifications and to the email given in the form.
+ */
 export default function AdminBrandsPage() {
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("PENDING");
   const { data, mutate } = useSWR<{ items: Row[] }>(`/admin/brand-applications?status=${tab}`);
@@ -35,12 +38,12 @@ export default function AdminBrandsPage() {
     const note = approve
       ? (await confirm(
           catalog
-            ? { title: `Допустить @${r.user.username} в основной каталог?`, message: "Новые вещи с биркой этого продавца будут в каталоге, поношенные и без бирки — на вторичке. Проверьте происхождение товаров.", confirmLabel: "Допустить" }
-            : { title: `Дать статус бренда «${r.brandName}»?`, message: `@${r.user.username} получит печать «Бренд», новые вещи встанут в основной каталог.`, confirmLabel: "Одобрить" },
+            ? { title: `Допустить @${r.user.username} в основной каталог?`, message: `Новые вещи с биркой этого продавца будут в каталоге, поношенные и без бирки — на вторичке. Проверьте происхождение товаров. Ответ уйдёт на ${r.email ?? "почту из анкеты"}.`, confirmLabel: "Допустить" }
+            : { title: `Дать статус бренда «${r.brandName}»?`, message: `@${r.user.username} получит печать «Бренд», новые вещи встанут в основной каталог. Ответ уйдёт на ${r.email ?? "почту из анкеты"}.`, confirmLabel: "Одобрить" },
         ))
         ? ""
         : null
-      : await prompt({ title: `Отклонить «${r.brandName}»?`, label: "Причина — её увидит пользователь", multiline: true, confirmLabel: "Отклонить", danger: true });
+      : await prompt({ title: `Отклонить «${r.brandName}»?`, label: "Причина — её увидят в уведомлениях и в письме", multiline: true, confirmLabel: "Отклонить", danger: true });
     if (note === null || (!approve && !note)) return;
     setBusy(r.id);
     try {
