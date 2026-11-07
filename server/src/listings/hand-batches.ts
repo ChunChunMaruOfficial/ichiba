@@ -36,7 +36,10 @@ export interface HandItem {
  * Accounts this import made and the owner later wanted as one: everything `from` listed moves to `into` and the
  * `from` account is deleted (hand-listings.ts does it once, before the batches; a merge whose `from` is gone is a no-op).
  */
-export const MERGES: Array<{ from: string; into: string }> = [{ from: 'balconysection', into: 'psysectiony' }];
+export const MERGES: Array<{ from: string; into: string }> = [
+  { from: 'balconysection', into: 'psysectiony' },
+  { from: 'worldvtg', into: 'sss1lv3r' },
+];
 
 export const BATCHES: Array<{ username: string; folder: string; account?: { bio: string; brandName?: string; logo?: string; catalog?: boolean }; items: HandItem[] }> = [
   {
@@ -610,7 +613,9 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     // 2026-11-05, «Вторичка»: a reseller of a personal wardrobe and vintage (t.me/sss1lv3r, the owner's second channel is
     // t.me/worldvtg; what is in stock sits in t.me/sss1lv3r_items). Every item of the stock channel on 2026-11-05 except
     // one already marked sold in the main channel; ₽ prices at 29 ₽/BYN rounded to 5 (the owner's own byn/₽ pairs use
-    // 28–29); photos and wording from the posts, condition as the owner states it.
+    // 28–29); photos and wording from the posts, condition as the owner states it. Since 2026-11-07 the items of the
+    // owner's second channel world.vtg (t.me/worldvtg: post ids 789–1415, the ones not in the stock channel) are in this
+    // batch too: the owner wanted one account, so @worldvtg was merged into @sss1lv3r (MERGES) and its photos moved here.
     username: 'sss1lv3r',
     folder: 'sss1lv3r',
     // 2026-11-05 evening: the owner wants these three on the home page with the brands, so each is a brand with all of
@@ -1683,6 +1688,80 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
           description: 'Размер по бирке: 41,5 (265).\nВинтажные кожаные ботинки немецкой армейской авиации Bundeswehr в глубоком чёрном оттенке. Массивный округлый мыс, высокий милитари-силуэт, плотная гладкая кожа с естественными заломами и выразительная контрастная прошивка вдоль подошвы.\nНеобычная конструкция с фронтальными панелями на полноразмерных молниях и высокой шнуровкой для удобного надевания. Натуральная кожаная подкладка с оригинальным армейским клеймом, металлические люверсы и массивная резиновая подошва с рельефным протектором. Аутентичный немецкий винтаж с характерной авангардной эстетикой.\nСостояние хорошее, для возраста считаются новыми.',
         },
       },
+      {
+        photos: ['789-0.jpg', '789-1.jpg'],
+        retext: true,
+        input: {
+          title: 'Пушистая укороченная кофта из перьев',
+          category: 'knitwear', subcategory: 'cardigan', sizeSystem: 'ALPHA', sizeValue: 'S', price: 85,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: 'FEMALE', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S.\nКороткая пушистая и мягкая кофта. Плотный, но лёгкий ворс придаёт объём и шелковистый блеск, а укороченный крой подчёркивает талию. Модель с открытым передом и облегающим рукавом. Сама кофта выполнена из кружевного материала. Универсальная носка.\nЗамеры: ширина 43 см, длина 42 см, рукав 64 см.',
+        },
+      },
+      {
+        photos: ['854-0.jpg', '854-1.jpg', '854-2.jpg', '854-3.jpg', '854-4.jpg'],
+        retext: true,
+        input: {
+          title: 'Бордовая кожаная куртка с меховой отделкой',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 180,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'red', gender: 'FEMALE', material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S.\nПриталенная куртка насыщенного винно‑бордового цвета, выполненная из мягкой натуральной кожи. Имеется эффектная пушистая оторочка на воротнике и по краю рукавов. Мех плавно переходит от тёмно‑бордового к светло‑розовому. На куртке присутствует итальянская фурнитура Lampo, с двойным бегунком. Идеальный вариант для холодной погоды, когда хочется выглядеть стильно и не терять комфорта.\nЗамеры: длина 56 см, ширина 45 см, рукав 70 см.',
+        },
+      },
+      {
+        photos: ['1106-0.jpg', '1106-1.jpg', '1106-2.jpg', '1106-3.jpg', '1106-4.jpg'],
+        input: {
+          title: 'Худи цвета асфальт с меховой опушкой капюшона',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 115,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер по бирке: M.\nШикарное худи из 100% хлопка. Цвет асфальта, матовый выстиранный черный. Огромный капюшон с пышной опушкой, капюшон буквально на две головы. Контрастная строчка. Широкий укороченный крой, все что тебе нужно от этого худи.',
+        },
+      },
+      {
+        photos: ['1111-0.jpg', '1111-1.jpg', '1111-2.jpg', '1111-3.jpg', '1111-4.jpg', '1111-5.jpg', '1111-6.jpg'],
+        retext: true,
+        input: {
+          title: 'Джинсы Oakley straight индиго',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W38', price: 115,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'Oakley', color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Размер по бирке: 38x32.\nЛучшие портки под ремень.\nДжинсы твоего любимого бренда из плотного денима тёмно‑индиго/синий оттенок. Модель прямого кроя, straight силуэта. Брендированная фурнитура, внутри пояса контрастная подкладка. На поясе дополнительный шнурок с фирменными наконечниками. Легкие естественные складки и выцветание по бедрам и коленям.',
+        },
+      },
+      {
+        photos: ['1342-0.jpg', '1342-1.jpg', '1342-2.jpg', '1342-3.jpg', '1342-4.jpg'],
+        input: {
+          title: 'Серое бланковое худи с винтажной потёртостью',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'L', price: 75,
+          condition: 'GOOD', defectsPresent: false,
+          brand: null, color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер по бирке: L.\nПрекраснейшее, бланковое худи с эффектом благородной винтажной потертости; плотный хлопок, внутри легкий флис. Чистый холст без логотипов и надписей, на любой повод. Капюшон с двойной строчкой и регулируемым шнурком; при надобности нужно вставить шнурок в манжет.\nЗамеры: длина 63 см, ширина 76 см, рукав 73 см.',
+        },
+      },
+      {
+        cover: '1411-1.jpg',
+        photos: ['1411-0.jpg', '1411-1.jpg', '1411-2.jpg', '1411-3.jpg'],
+        input: {
+          title: 'Сумка George Gina & Lucy utility',
+          category: 'bags', subcategory: 'handbag', price: 155,
+          condition: 'GOOD', defectsPresent: false,
+          brand: 'George Gina & Lucy', color: 'blue', gender: null, styleTags: ['Y2K', 'Vintage'],
+          description: 'Редкая и максимально характерная сумка в духе early 00s / tech utility. Яркий blue корпус, тёмно-синие стропы и массивная металлическая фурнитура дают очень сильный контраст. Спереди фирменный карабин GG&L, ремни на пряжках, заклёпки и куча мелких технических деталей. Есть короткие ручки и длинный регулируемый ремень — можно носить как в руке, так и через плечо. Внутри полноценное отделение с дополнительным карманом. За счёт цвета и количества фурнитуры выглядит как полноценный акцент в образе, а не просто обычная сумка.\nСредний размер.',
+        },
+      },
+      {
+        photos: ['1415-0.jpg', '1415-1.jpg', '1415-2.jpg', '1415-3.jpg', '1415-4.jpg', '1415-5.jpg', '1415-6.jpg'],
+        input: {
+          title: 'Чёрная кожаная косуха washed',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 110,
+          condition: 'GOOD', defectsPresent: true, defectsDescription: 'Незначительные потёртости.',
+          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер по бирке: S–M.\nУдачная чёрная косуха с правильным винтажным характером — не гладкая эко кожа, а живая фактура с естественными заломами, потёртостями и слегка выцветшими участками. За счёт этого куртка со временем будет становиться только красивее.\nКлассическая конструкция с асимметричной центральной молнией, двумя карманами на металлических молниях, длинными молниями на манжетах и ремешками снизу. Посадка достаточно компактная и аккуратная по корпусу, при этом рукава вытянутые. Незначительные потертости.\nЗамеры: длина 56 см, плечи 42 см, ширина 45 см, рукав от плеча 64 см.',
+        },
+      },
     ],
   },
   {
@@ -1935,89 +2014,6 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
           condition: 'LIKE_NEW', defectsPresent: false,
           brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
           description: 'Размер по бирке: L.\nНатуральная кожа прошитая паттерном рептилии показывает силу человека как живого существа. Крутая вещь с характером. Острый воротник. Качественная фурнитура и теплая подкладка.\nСостояние по оценке продавца: 9,5/10.',
-        },
-      },
-    ],
-  },
-  {
-    // 2026-11-05, «Вторичка»: world.vtg (t.me/worldvtg), the second channel of the sss1lv3r owner. Only the posts still
-    // open there and not already in the sss1lv3r stock channel, so nothing is listed twice; prices as for sss1lv3r.
-    username: 'worldvtg',
-    folder: 'worldvtg',
-    account: { bio: 'world.vtg — винтаж и архив: деним, кожа, сумки. Возврата нет.', brandName: 'world.vtg', logo: 'logo.jpg', catalog: true },
-    items: [
-      {
-        photos: ['789-0.jpg', '789-1.jpg'],
-        retext: true,
-        input: {
-          title: 'Пушистая укороченная кофта из перьев',
-          category: 'knitwear', subcategory: 'cardigan', sizeSystem: 'ALPHA', sizeValue: 'S', price: 85,
-          condition: 'GOOD', defectsPresent: false,
-          brand: null, color: 'black', gender: 'FEMALE', styleTags: ['Vintage'],
-          description: 'Размер по бирке: S.\nКороткая пушистая и мягкая кофта. Плотный, но лёгкий ворс придаёт объём и шелковистый блеск, а укороченный крой подчёркивает талию. Модель с открытым передом и облегающим рукавом. Сама кофта выполнена из кружевного материала. Универсальная носка.\nЗамеры: ширина 43 см, длина 42 см, рукав 64 см.',
-        },
-      },
-      {
-        photos: ['854-0.jpg', '854-1.jpg', '854-2.jpg', '854-3.jpg', '854-4.jpg'],
-        retext: true,
-        input: {
-          title: 'Бордовая кожаная куртка с меховой отделкой',
-          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 180,
-          condition: 'GOOD', defectsPresent: false,
-          brand: null, color: 'red', gender: 'FEMALE', material: 'Кожа', styleTags: ['Vintage'],
-          description: 'Размер по бирке: S.\nПриталенная куртка насыщенного винно‑бордового цвета, выполненная из мягкой натуральной кожи. Имеется эффектная пушистая оторочка на воротнике и по краю рукавов. Мех плавно переходит от тёмно‑бордового к светло‑розовому. На куртке присутствует итальянская фурнитура Lampo, с двойным бегунком. Идеальный вариант для холодной погоды, когда хочется выглядеть стильно и не терять комфорта.\nЗамеры: длина 56 см, ширина 45 см, рукав 70 см.',
-        },
-      },
-      {
-        photos: ['1106-0.jpg', '1106-1.jpg', '1106-2.jpg', '1106-3.jpg', '1106-4.jpg'],
-        input: {
-          title: 'Худи цвета асфальт с меховой опушкой капюшона',
-          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 115,
-          condition: 'GOOD', defectsPresent: false,
-          brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
-          description: 'Размер по бирке: M.\nШикарное худи из 100% хлопка. Цвет асфальта, матовый выстиранный черный. Огромный капюшон с пышной опушкой, капюшон буквально на две головы. Контрастная строчка. Широкий укороченный крой, все что тебе нужно от этого худи.',
-        },
-      },
-      {
-        photos: ['1111-0.jpg', '1111-1.jpg', '1111-2.jpg', '1111-3.jpg', '1111-4.jpg', '1111-5.jpg', '1111-6.jpg'],
-        retext: true,
-        input: {
-          title: 'Джинсы Oakley straight индиго',
-          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W38', price: 115,
-          condition: 'GOOD', defectsPresent: false,
-          brand: 'Oakley', color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
-          description: 'Размер по бирке: 38x32.\nЛучшие портки под ремень.\nДжинсы твоего любимого бренда из плотного денима тёмно‑индиго/синий оттенок. Модель прямого кроя, straight силуэта. Брендированная фурнитура, внутри пояса контрастная подкладка. На поясе дополнительный шнурок с фирменными наконечниками. Легкие естественные складки и выцветание по бедрам и коленям.',
-        },
-      },
-      {
-        photos: ['1342-0.jpg', '1342-1.jpg', '1342-2.jpg', '1342-3.jpg', '1342-4.jpg'],
-        input: {
-          title: 'Серое бланковое худи с винтажной потёртостью',
-          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'L', price: 75,
-          condition: 'GOOD', defectsPresent: false,
-          brand: null, color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
-          description: 'Размер по бирке: L.\nПрекраснейшее, бланковое худи с эффектом благородной винтажной потертости; плотный хлопок, внутри легкий флис. Чистый холст без логотипов и надписей, на любой повод. Капюшон с двойной строчкой и регулируемым шнурком; при надобности нужно вставить шнурок в манжет.\nЗамеры: длина 63 см, ширина 76 см, рукав 73 см.',
-        },
-      },
-      {
-        cover: '1411-1.jpg',
-        photos: ['1411-0.jpg', '1411-1.jpg', '1411-2.jpg', '1411-3.jpg'],
-        input: {
-          title: 'Сумка George Gina & Lucy utility',
-          category: 'bags', subcategory: 'handbag', price: 155,
-          condition: 'GOOD', defectsPresent: false,
-          brand: 'George Gina & Lucy', color: 'blue', gender: null, styleTags: ['Y2K', 'Vintage'],
-          description: 'Редкая и максимально характерная сумка в духе early 00s / tech utility. Яркий blue корпус, тёмно-синие стропы и массивная металлическая фурнитура дают очень сильный контраст. Спереди фирменный карабин GG&L, ремни на пряжках, заклёпки и куча мелких технических деталей. Есть короткие ручки и длинный регулируемый ремень — можно носить как в руке, так и через плечо. Внутри полноценное отделение с дополнительным карманом. За счёт цвета и количества фурнитуры выглядит как полноценный акцент в образе, а не просто обычная сумка.\nСредний размер.',
-        },
-      },
-      {
-        photos: ['1415-0.jpg', '1415-1.jpg', '1415-2.jpg', '1415-3.jpg', '1415-4.jpg', '1415-5.jpg', '1415-6.jpg'],
-        input: {
-          title: 'Чёрная кожаная косуха washed',
-          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 110,
-          condition: 'GOOD', defectsPresent: true, defectsDescription: 'Незначительные потёртости.',
-          brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Vintage'],
-          description: 'Размер по бирке: S–M.\nУдачная чёрная косуха с правильным винтажным характером — не гладкая эко кожа, а живая фактура с естественными заломами, потёртостями и слегка выцветшими участками. За счёт этого куртка со временем будет становиться только красивее.\nКлассическая конструкция с асимметричной центральной молнией, двумя карманами на металлических молниях, длинными молниями на манжетах и ремешками снизу. Посадка достаточно компактная и аккуратная по корпусу, при этом рукава вытянутые. Незначительные потертости.\nЗамеры: длина 56 см, плечи 42 см, ширина 45 см, рукав от плеча 64 см.',
         },
       },
     ],
