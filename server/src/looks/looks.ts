@@ -8,6 +8,7 @@ import { ListingsService } from '../listings/listings.service.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { recordActivity } from '../activity/activity.js';
+import { visibleProfile } from '../users/visibility.js';
 
 /**
  * «Образы»: anyone puts 2–8 items from the whole site together into an outfit. Looks sit on their author's
@@ -65,8 +66,7 @@ export class LooksService {
   }
 
   async byUser(username: string, viewerId?: string) {
-    const user = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
-    if (!user) throw new NotFoundException({ message: 'Такого гардероба нет' });
+    const user = await visibleProfile(this.prisma, username, viewerId);
     const looks = await this.prisma.look.findMany({ where: { userId: user.id }, include: { items: true }, orderBy: { createdAt: 'desc' } });
     const out = await this.serializeMany(looks, viewerId);
     // A look whose items were all sold off and deleted has nothing left to show.

@@ -35,6 +35,7 @@ interface Detail {
 const FILTERS = [
   ["all", "Все"],
   ["blocked", "Заблокированные"],
+  ["hidden", "Скрытые"],
   ["admins", "Админы"],
   ["deleted", "Удалённые"],
 ] as const;
@@ -213,7 +214,7 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
             {typeof u.googleSub === "string" && <>· <span>Google</span></>}
             {typeof u.telegramId === "string" && <>· <span>Telegram</span></>}
             {u.blockedAt && <>· <span className="text-danger">заблокирован {date(u.blockedAt)}</span></>}
-            {u.listingsHiddenAt && <>· <span className="text-warn">объявления скрыты {date(u.listingsHiddenAt)}</span></>}
+            {u.listingsHiddenAt && <>· <span className="text-warn">аккаунт скрыт {date(u.listingsHiddenAt)}</span></>}
             {u.deletedAt && <>· <span>удалён {date(u.deletedAt)}</span></>}
           </div>
 
@@ -346,8 +347,8 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
               </Button>
             )}
             {u.listingsHiddenAt ? (
-              <Button variant="secondary" loading={busy === "listings"} onClick={() => run("listings", () => api(`/admin/users/${id}/show-listings`, { method: "POST" }), "Объявления снова видны")}>
-                Показать объявления
+              <Button variant="secondary" loading={busy === "listings"} onClick={() => run("listings", () => api(`/admin/users/${id}/show-listings`, { method: "POST" }), "Аккаунт снова виден")}>
+                Показать аккаунт
               </Button>
             ) : (
               <Button
@@ -356,15 +357,15 @@ function UserPanel({ id, onClose, onChanged }: { id: string; onClose: () => void
                 onClick={async () => {
                   if (
                     await confirm({
-                      title: `Скрыть объявления @${u.username}?`,
-                      message: "Все вещи в продаже пропадут из ленты и поиска, но не удалятся. Аккаунт продолжит работать, сделки в процессе завершатся. Новые вещи тоже будут скрыты, пока вы не покажете объявления снова.",
-                      confirmLabel: "Скрыть объявления",
+                      title: `Скрыть аккаунт @${u.username}?`,
+                      message: "Профиль перестанет открываться, вещи пропадут из ленты, поиска и по прямым ссылкам, но ничего не удалится. Владелец сможет входить, сделки в процессе завершатся. Новые вещи тоже будут скрыты, пока вы не покажете аккаунт снова.",
+                      confirmLabel: "Скрыть аккаунт",
                     })
                   )
-                    void run("listings", () => api(`/admin/users/${id}/hide-listings`, { method: "POST" }), "Объявления скрыты");
+                    void run("listings", () => api(`/admin/users/${id}/hide-listings`, { method: "POST" }), "Аккаунт скрыт");
                 }}
               >
-                Скрыть объявления
+                Скрыть аккаунт
               </Button>
             )}
             {u.blockedAt ? (

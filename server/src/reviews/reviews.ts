@@ -10,6 +10,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.js';
+import { visibleProfile } from '../users/visibility.js';
 
 /**
  * Reviews (feature 3; decision: buyer → seller only). One review per completed deal within 30 days, editable
@@ -127,8 +128,7 @@ export class ReviewsService {
 
   /** Public reviews of a seller with a rating summary; newest first, cursor by createdAt. */
   async forSeller(username: string, viewerId: string | undefined, opts: { before?: Date; rating?: number }) {
-    const seller = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
-    if (!seller) throw new NotFoundException({ message: 'Такого гардероба нет' });
+    const seller = await visibleProfile(this.prisma, username, viewerId);
     const where: Prisma.ReviewWhereInput = { sellerId: seller.id, hidden: false };
     const [rows, groups] = await Promise.all([
       this.prisma.review.findMany({

@@ -6,6 +6,7 @@ import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildLandings, emptyLanding, type Landing, landingCrumbs, landingLinks, landingStats, landingText, type LiveRow, normalizeLandingPath } from './landing.js';
+import { PUBLIC_PROFILE } from '../users/visibility.js';
 
 /** How long the set of pages and their counts are reused: crawlers and item pages ask often, listings change slowly. */
 const INDEX_TTL_MS = 10 * 60_000;
@@ -97,7 +98,7 @@ export class LandingService {
     const key = brandKey(name);
     if (!key) return null;
     const brands = await this.prisma.user.findMany({
-      where: { brandVerifiedAt: { not: null }, brandName: { not: null } },
+      where: { brandVerifiedAt: { not: null }, brandName: { not: null }, ...PUBLIC_PROFILE },
       select: { username: true, brandName: true, bio: true, city: true, avatar: { select: { key: true, provider: true } } },
       orderBy: { brandVerifiedAt: 'asc' },
     });

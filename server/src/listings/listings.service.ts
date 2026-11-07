@@ -28,6 +28,7 @@ import { LISTING_LABELS, type ListingInputT, type SearchQueryT } from './listing
 import { type Market, marketFor, marketOf, marketWhere } from './market.js';
 import { itemPath, SOLD_INDEXED_DAYS, seoOf } from '../seo/seo.service.js';
 import { recordActivity } from '../activity/activity.js';
+import { PUBLIC_PROFILE, visibleProfile } from '../users/visibility.js';
 
 export { type Market, marketOf, marketWhere };
 
@@ -715,7 +716,7 @@ export class ListingsService {
    */
   async restoreAfterUnblock(sellerId: string) {
     const seller = await this.prisma.user.findUnique({ where: { id: sellerId }, select: { listingsHiddenAt: true } });
-    // The account's items are also hidden by an admin: they wait for «Показать объявления» instead.
+    // The account's items are also hidden by an admin: they wait for «Показать аккаунт» instead.
     const hiddenByAdminToo = !!seller?.listingsHiddenAt;
     const [{ count }] = await this.prisma.$transaction([
       this.prisma.listing.updateMany({
@@ -782,13 +783,19 @@ export class ListingsService {
   async get(id: string, viewerId?: string, opts: { trackView?: boolean; viewer?: string } = {}) {
     const listing = await this.prisma.listing.findUnique({
       where: { id },
-      include: { photos: { orderBy: { order: 'asc' } }, video: true, seller: { select: { id: true, username: true, city: true, createdAt: true } } },
+      include: { photos: { orderBy: { order: 'asc' } }, video: true, seller: { select: { id: true, username: true, city: true, createdAt: true, listingsHiddenAt: true, deletedAt: true } } },
     });
     if (!listing || listing.status === 'DELETED') throw new NotFoundException({ message: 'Такой вещи нет' });
 
     const isOwner = viewerId === listing.sellerId;
     if (!isOwner) {
       if (listing.status === 'DRAFT') throw new NotFoundException({ message: 'Такой вещи нет' });
+      // An account hidden by an admin (or deleted) shows nothing to the public, sold and reserved items included: the
+      // page reads «unavailable», with no link to a wardrobe that isn't there. A buyer with a deal on it still sees it.
+      if (listing.seller.listingsHiddenAt || listing.seller.deletedAt) {
+        const buyer = viewerId ? await this.prisma.buyRequest.count({ where: { buyerId: viewerId, items: { some: { listingId: id } } } }) : 0;
+        if (!buyer) return { unavailable: 'blocked', id: listing.id, seller: { username: listing.seller.username } } as const;
+      }
       if (listing.status === 'HIDDEN' || listing.status === 'BLOCKED') {
         return { unavailable: listing.status === 'HIDDEN' ? 'hidden' : 'blocked', id: listing.id, seller: { username: listing.seller.username } } as const;
       }
@@ -1435,14 +1442,14 @@ export class ListingsService {
     const [listings, sellers] = await Promise.all([
       // Sold items stay while their page is still in search (item page metadata); the cover goes in as an image entry.
       this.prisma.listing.findMany({
-        where: { OR: [{ status: { in: ['PUBLISHED', 'RESERVED'] } }, { status: 'SOLD', soldAt: { gte: soldSince } }], hiddenByAdmin: false },
+        where: { OR: [{ status: { in: ['PUBLISHED', 'RESERVED'] } }, { status: 'SOLD', soldAt: { gte: soldSince } }], hiddenByAdmin: false, seller: PUBLIC_PROFILE },
         include: { photos: { where: { isDefect: false }, orderBy: [{ isCover: 'desc' }, { order: 'asc' }], take: 3 } },
         orderBy: { liftedAt: 'desc' },
         take: 45_000,
       }),
       this.prisma.listing.groupBy({ by: ['sellerId'], where: { status: 'PUBLISHED' }, _max: { updatedAt: true } }),
     ]);
-    const users = await this.prisma.user.findMany({ where: { id: { in: sellers.map((s) => s.sellerId) }, blockedAt: null }, select: { id: true, username: true } });
+    const users = await this.prisma.user.findMany({ where: { id: { in: sellers.map((s) => s.sellerId) }, blockedAt: null, ...PUBLIC_PROFILE }, select: { id: true, username: true } });
     const last = new Map(sellers.map((s) => [s.sellerId, s._max.updatedAt]));
     return {
       listings: listings.map((l) => ({ id: l.id, path: itemPath(l), updatedAt: l.updatedAt, images: l.photos.map((p) => photoUrls(p).l) })),
@@ -1457,8 +1464,8 @@ export class ListingsService {
    * big shop's wardrobe isn't loaded whole on every visit. Visitors see sold items after everything else.
    */
   async wardrobe(username: string, viewerId: string | undefined, section: string, sort: string, offset = 0) {
-    const user = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
-    if (!user) throw new NotFoundException({ message: 'Такого гардероба нет' });
+    // A hidden or deleted account has no public wardrobe; its owner still sees theirs.
+    const user = await visibleProfile(this.prisma, username, viewerId);
     const isOwner = viewerId === user.id;
 
     // Visitors see PUBLISHED, RESERVED and SOLD; the owner also sees hidden and blocked items, and drafts apart.

@@ -2,6 +2,7 @@ import { BadRequestException, Controller, Delete, NotFoundException, Param, Post
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
+import { visibleProfile } from '../users/visibility.js';
 
 @Controller('follows')
 export class FollowsController {
@@ -10,7 +11,9 @@ export class FollowsController {
     private readonly recs: RecommendationsService,
   ) {}
 
-  private async seller(username: string) {
+  /** Following a hidden or deleted account isn't possible; unfollowing it is (the button may still be on a stale page). */
+  private async seller(username: string, mustBeVisible = true) {
+    if (mustBeVisible) return visibleProfile(this.prisma, username);
     const seller = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
     if (!seller) throw new NotFoundException({ message: 'Такого гардероба нет' });
     return seller;
@@ -30,7 +33,7 @@ export class FollowsController {
 
   @Delete(':username')
   async unfollow(@CurrentUser() user: AuthUser, @Param('username') username: string) {
-    const seller = await this.seller(username);
+    const seller = await this.seller(username, false);
     await this.prisma.follow.deleteMany({ where: { followerId: user.id, sellerId: seller.id } });
     return { isFollowing: false };
   }

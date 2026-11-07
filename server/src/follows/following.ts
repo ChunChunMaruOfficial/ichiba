@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -8,6 +8,7 @@ import { ListingsService } from '../listings/listings.service.js';
 import { photoUrls } from '../media/media.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { kindOf } from '../recommendations/recommendations.service.js';
+import { PUBLIC_PROFILE, visibleProfile } from '../users/visibility.js';
 
 /** People per page of a follower / following list. */
 const PAGE = 30;
@@ -62,8 +63,7 @@ export class FollowingController {
   }
 
   private async lists(username: string, list: 'followers' | 'following', offsetRaw: string, viewer?: AuthUser) {
-    const u = await this.prisma.user.findUnique({ where: { username: username.toLowerCase() }, select: { id: true } });
-    if (!u) throw new NotFoundException({ message: 'Такого гардероба нет' });
+    const u = await visibleProfile(this.prisma, username, viewer?.id);
     const { offset } = pageOf(offsetRaw, '', PAGE, PAGE);
     const ids =
       list === 'followers'
@@ -92,8 +92,9 @@ export class FollowingController {
    */
   private async summaries(ids: string[], viewerId?: string) {
     const [users, listingCounts, followers, following, deals, ratings, viewerFollows] = await Promise.all([
+      // Hidden and deleted accounts drop out of follower lists: their profile would open on «no such wardrobe».
       this.prisma.user.findMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, ...PUBLIC_PROFILE },
         select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true, avatar: { select: { key: true, provider: true } } },
       }),
       this.prisma.listing.groupBy({ by: ['sellerId', 'status'], where: { sellerId: { in: ids }, status: { in: ['PUBLISHED', 'RESERVED', 'SOLD'] } }, _count: { _all: true } }),

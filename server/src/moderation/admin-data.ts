@@ -89,7 +89,7 @@ export class AdminDataController {
       ...(term
         ? { OR: [{ username: { contains: term.toLowerCase() } }, { email: { contains: term.toLowerCase() } }, { phone: { contains: term } }, ...(/^[0-9a-f-]{36}$/i.test(term) ? [{ id: term }] : [])] }
         : {}),
-      ...(filter === 'blocked' ? { blockedAt: { not: null } } : filter === 'admins' ? { role: 'ADMIN' } : filter === 'deleted' ? { deletedAt: { not: null } } : {}),
+      ...(filter === 'blocked' ? { blockedAt: { not: null } } : filter === 'admins' ? { role: 'ADMIN' } : filter === 'hidden' ? { listingsHiddenAt: { not: null } } : filter === 'deleted' ? { deletedAt: { not: null } } : {}),
     };
     const skip = (Math.max(1, Number(page) || 1) - 1) * PAGE;
     const [total, rows] = await Promise.all([
@@ -185,8 +185,9 @@ export class AdminDataController {
   }
 
   /**
-   * Hide every listing of an account without deleting or blocking it: on-sale items go hidden (marked as hidden by an
-   * admin, so the owner can't bring them back), items in a deal finish it, and new ones are saved hidden too.
+   * «Скрыть аккаунт»: the account disappears from the site without being deleted or blocked. Its profile answers «no
+   * such wardrobe» (users/visibility.ts), on-sale items go hidden (marked as hidden by an admin, so the owner can't
+   * bring them back), items in a deal finish it, and new ones are saved hidden too. The owner still signs in.
    */
   @Post('users/:id/hide-listings')
   @HttpCode(200)
@@ -200,7 +201,7 @@ export class AdminDataController {
     return { ok: true, hidden: count };
   }
 
-  /** Brings back exactly what an admin hid; listings the owner hid themselves stay hidden. */
+  /** «Показать аккаунт»: the profile is public again, with exactly the items an admin hid; the owner's own stay hidden. */
   @Post('users/:id/show-listings')
   @HttpCode(200)
   async showListings(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
