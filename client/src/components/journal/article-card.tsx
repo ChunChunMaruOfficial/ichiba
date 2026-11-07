@@ -7,7 +7,11 @@ import { articleHref, formatDate, rubricHref, type ArticleMeta } from "@/lib/jou
 export function Cover({ a, sizes, priority, className }: { a: ArticleMeta; sizes: string; priority?: boolean; className?: string }) {
   return (
     <div className={clsx("relative overflow-hidden bg-kraft/60", className)}>
-      {a.cover ? (
+      {a.cover?.startsWith("http") ? (
+        // A reader's cover is on the photo host, already resized: a plain <img> (next/image isn't set up for it).
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={a.cover} alt={a.coverAlt ?? a.title} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} className="absolute inset-0 size-full object-cover" />
+      ) : a.cover ? (
         <Image src={a.cover} alt={a.coverAlt ?? a.title} fill sizes={sizes} priority={priority} className="object-cover" />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center font-brush text-5xl text-shu/70" aria-hidden>

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { allArticles, articleHref, rubricHref } from "@/lib/journal";
+import { allArticles, articleHref, coverUrl, rubricHref } from "@/lib/journal";
 import { RUBRICS } from "@/lib/journal-rubrics";
 import { landingHref, type LandingEntry } from "@/lib/landing";
 import { serverFetch, SITE_URL } from "@/lib/server";
@@ -35,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           const own = published.filter((a) => a.rubric.slug === r.slug);
           return own.length ? [{ url: `${SITE_URL}${rubricHref(r.slug)}`, lastModified: new Date(own[0].updatedAt), changeFrequency: "weekly" as const, priority: 0.6 }] : [];
         }),
-        ...published.map((a) => ({ url: `${SITE_URL}${articleHref(a.slug)}`, lastModified: new Date(a.updatedAt), changeFrequency: "monthly" as const, priority: 0.7, images: a.cover ? [`${SITE_URL}${a.cover}`] : undefined })),
+        ...published.map((a) => ({ url: `${SITE_URL}${articleHref(a.slug)}`, lastModified: new Date(a.updatedAt), changeFrequency: "monthly" as const, priority: 0.7, images: a.cover ? [coverUrl(a.cover)] : undefined })),
       ]
     : [];
   return [

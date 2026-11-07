@@ -12,9 +12,14 @@ export interface Author {
   kind: "person" | "team";
   /** Public pages that confirm the person: a site, Telegram, Instagram. */
   links?: Array<{ href: string; label: string }>;
-  /** A square photo under public/journal/authors; omitted = an initial on kraft. */
+  /** A square photo under public/journal/authors (or a full URL for a reader); omitted = an initial on kraft. */
   photo?: string;
+  /** Where the name leads, when not to /journal/authors/<id>: a reader-author's own profile. */
+  href?: string;
 }
+
+/** The page an author's name leads to. */
+export const authorHref = (a: Author) => a.href ?? `/journal/authors/${a.id}`;
 
 export const AUTHORS: Author[] = [
   {

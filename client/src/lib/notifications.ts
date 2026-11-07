@@ -28,6 +28,9 @@ export interface NotificationRow {
     /** brand_approved / brand_rejected */
     brand?: string;
     note?: string | null;
+    /** journal_published: the article's address; journal_rejected: it was taken off the journal, not just returned. */
+    slug?: string;
+    unpublished?: boolean;
     /** dispute_resolved: complete | cancel. */
     outcome?: string;
     /** request_new: «Сшить по моим меркам» — the buyer's measurements are in the deal. */
@@ -52,6 +55,8 @@ const NOTIFICATION_TEXT: Record<string, (p: NotificationRow["payload"]) => strin
   deal_in_transit: (p) => `«${p.title}» в пути${p.trackingNumber ? `, трек ${p.trackingNumber}` : ""}`,
   brand_approved: (p) => `Статус бренда «${p.brand}» подтверждён — печать «Бренд» уже на ваших вещах`,
   brand_rejected: (p) => `Заявка на статус бренда «${p.brand}» отклонена${p.note ? `: ${p.note}` : ""}`,
+  journal_published: (p) => `Ваша статья «${p.title}» вышла в журнале ichiba`,
+  journal_rejected: (p) => `${p.unpublished ? "Статья снята с журнала" : "Статью вернули на доработку"}: «${p.title}»${p.note ? ` — ${p.note}` : ""}`,
   catalog_approved: () => "Вас допустили в основной каталог — новые вещи с биркой теперь показываются там",
   catalog_rejected: (p) => `Заявка на размещение в основном каталоге отклонена${p.note ? `: ${p.note}` : ""}`,
   dispute_resolved: (p) => `Спор по «${p.title}» решён: ${p.outcome === "complete" ? "сделка завершена" : "сделка отменена"}${p.reason ? ` — ${p.reason}` : ""}`,
@@ -96,6 +101,8 @@ export const notificationHref = (n: Pick<NotificationRow, "type" | "payload">) =
   if (n.type === "review_request" && p.requestId) return `/deals/${p.requestId}#review`;
   if (n.type === "review_new" || n.type === "review_reply") return p.requestId ? `/deals/${p.requestId}#review` : "/wardrobe?tab=reviews";
   if (n.type.startsWith("offer_") && p.listingId) return n.type === "offer_new" ? "/sales" : `/item/${p.listingId}`;
+  if (n.type === "journal_published" && p.slug) return `/journal/${p.slug}`;
+  if (n.type === "journal_rejected") return "/journal/mine";
   if (p.requestId) return `/deals/${p.requestId}`;
   if (p.listingId) return `/item/${p.listingId}`;
   return "/notifications";

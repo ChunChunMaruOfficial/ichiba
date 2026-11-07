@@ -28,4 +28,6 @@ export const ROBOTS_DISALLOW = [
   "/api/",
   ...PRIVATE_SECTIONS.filter((s) => s !== "admin").flatMap((s) => [`/${s}$`, `/${s}/`, `/${s}?`]),
   "/item/*/edit",
+  "/journal/write",
+  "/journal/mine",
 ];

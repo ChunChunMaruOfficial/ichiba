@@ -1,4 +1,4 @@
-import { allArticles, articleHref } from "@/lib/journal";
+import { allArticles, articleHref, coverUrl } from "@/lib/journal";
 import { SITE_URL } from "@/lib/server";
 
 /** RSS of the journal for readers, Дзен and aggregators; linked from the journal's <head>. Built with the site. */
@@ -18,7 +18,7 @@ export async function GET() {
       <description>${esc(a.description)}</description>
       <category>${esc(a.rubric.name)}</category>
       <author>${esc(a.author.name)}</author>
-      <pubDate>${new Date(`${a.publishedAt}T09:00:00+03:00`).toUTCString()}</pubDate>${a.cover ? `\n      <enclosure url="${SITE_URL}${a.cover}" type="image/${a.cover.endsWith(".png") ? "png" : a.cover.endsWith(".webp") ? "webp" : "jpeg"}" length="0"/>` : ""}
+      <pubDate>${new Date(`${a.publishedAt}T09:00:00+03:00`).toUTCString()}</pubDate>${a.cover ? `\n      <enclosure url="${coverUrl(a.cover)}" type="image/${a.cover.endsWith(".png") ? "png" : a.cover.endsWith(".webp") ? "webp" : "jpeg"}" length="0"/>` : ""}
     </item>`,
     )
     .join("\n");

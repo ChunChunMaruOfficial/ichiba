@@ -268,8 +268,8 @@ export class MediaService implements OnModuleInit {
     const unused = { listingId: null, messageId: null, createdAt: { lt: new Date(Date.now() - olderThanMs) } };
     let removed = 0;
     let failed = 0;
-    // Profile photos belong to no listing or message but are in use.
-    const photos = await this.prisma.photo.findMany({ where: { ...unused, avatarOf: { is: null } }, select: { id: true, key: true, provider: true }, take: 500 });
+    // Profile photos and journal covers belong to no listing or message but are in use.
+    const photos = await this.prisma.photo.findMany({ where: { ...unused, avatarOf: { is: null }, articleCoverOf: { is: null } }, select: { id: true, key: true, provider: true }, take: 500 });
     for (const p of photos) {
       try {
         const shared = await this.prisma.photo.count({ where: { key: p.key, id: { not: p.id } } });

@@ -42,6 +42,8 @@ const TEXT: Record<string, (p: P) => [string, string, string]> = {
   deal_completed: (p) => ['🎉', 'Сделка завершена', `Сделка по ${t(p)} завершена${Array.isArray(p.sizes) && p.sizes.length ? ` · продан размер ${s(p.sizes.join(', '))} — уберите его из наличия` : ''}`],
   brand_approved: (p) => ['🏮', 'Статус бренда подтверждён', `Статус бренда «${s(p.brand)}» подтверждён — печать «Бренд» уже на ваших вещах`],
   brand_rejected: (p) => ['📝', 'Заявка на бренд отклонена', `Заявка на статус бренда «${s(p.brand)}» отклонена${p.note ? `: ${s(p.note)}` : ''}`],
+  journal_published: (p) => ['📰', 'Статья опубликована', `Ваша статья «${s(p.title)}» вышла в журнале ichiba`],
+  journal_rejected: (p) => ['📝', p.unpublished ? 'Статья снята с журнала' : 'Статья не прошла проверку', `${p.unpublished ? 'Статья снята с журнала' : 'Статью вернули на доработку'}: «${s(p.title)}»${p.note ? ` — ${s(p.note)}` : ''}`],
   catalog_approved: () => ['🏮', 'Вы в основном каталоге', 'Вас допустили в основной каталог — новые вещи с биркой теперь показываются там'],
   catalog_rejected: (p) => ['📝', 'Заявка в каталог отклонена', `Заявка на размещение в основном каталоге отклонена${p.note ? `: ${s(p.note)}` : ''}`],
   price_drop: (p) => ['🏷', 'Цена снижена', `${t(p)} — <b>${byn(p.newPrice)}</b> вместо <s>${s(p.oldPrice)}</s>`],
@@ -89,6 +91,8 @@ export function notificationPath(type: string, p: P) {
   if (type === 'review_request' && requestId) return `/deals/${requestId}#review`;
   if (type === 'review_new' || type === 'review_reply') return requestId ? `/deals/${requestId}#review` : '/wardrobe?tab=reviews';
   if (type.startsWith('offer_') && listingId) return type === 'offer_new' ? '/sales' : `/item/${listingId}`;
+  if (type === 'journal_published' && str('slug')) return `/journal/${str('slug')}`;
+  if (type === 'journal_rejected') return '/journal/mine';
   if (requestId) return `/deals/${requestId}`;
   if (listingId) return `/item/${listingId}`;
   return '/notifications';

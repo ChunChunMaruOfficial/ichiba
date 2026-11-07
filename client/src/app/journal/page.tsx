@@ -103,6 +103,24 @@ export default async function JournalPage() {
         </section>
       )}
 
+      {/* Readers write too: the editor is one tap away, the way in is said in one line. */}
+      <section className="mt-14 flex flex-col gap-4 rounded-3xl bg-kraft/50 p-6 md:flex-row md:items-center md:justify-between md:p-8" aria-labelledby="write-title">
+        <div className="max-w-xl">
+          <h2 id="write-title" className="text-2xl font-bold leading-tight md:text-[28px]">
+            Напишите в журнал
+          </h2>
+          <p className="mt-2 text-[15px] leading-relaxed text-ink-2">Как продали, нашли, починили или выбрали вещь — расскажите. Редактор прочитает и опубликует.</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-3">
+          <Link href="/journal/write" className="btn-wa btn-wa-ink inline-flex h-11 items-center px-5 text-sm font-medium">
+            Написать статью
+          </Link>
+          <Link href="/journal/mine" className="inline-flex h-11 items-center px-2 text-sm font-medium text-ink-2 underline underline-offset-4 hover:text-ink">
+            Мои статьи
+          </Link>
+        </div>
+      </section>
+
       <section className="mt-14" aria-labelledby="rubrics-title">
         <h2 id="rubrics-title" className="text-2xl font-bold leading-tight md:text-[28px]">
           Рубрики

@@ -48,7 +48,9 @@ export type NotificationType =
   | 'catalog_approved'
   | 'catalog_rejected'
   | 'dispute_opened'
-  | 'dispute_resolved';
+  | 'dispute_resolved'
+  | 'journal_published'
+  | 'journal_rejected';
 
 /**
  * In-app notifications, pushed live over SSE (frame 15). The ones that matter are also emailed to sellers and

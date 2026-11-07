@@ -1,14 +1,19 @@
 import clsx from "clsx";
 import Image from "next/image";
 import Link from "next/link";
-import type { Author } from "@/lib/journal-authors";
+import { authorHref, type Author } from "@/lib/journal-authors";
 
 export function Avatar({ author, size = 40, className }: { author: Author; size?: number; className?: string }) {
+  // A reader's photo lives on the photo host, which next/image isn't set up for: a plain <img>, already small.
+  if (author.photo?.startsWith("http")) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={author.photo} alt="" width={size} height={size} className={clsx("shrink-0 rounded-full object-cover", className)} style={{ width: size, height: size }} />;
+  }
   return author.photo ? (
     <Image src={author.photo} alt="" width={size} height={size} className={clsx("rounded-full object-cover", className)} />
   ) : (
     <span className={clsx("inline-flex shrink-0 items-center justify-center rounded-full bg-kraft font-semibold text-kraft-ink", className)} style={{ width: size, height: size, fontSize: size * 0.42 }} aria-hidden>
-      {author.name.trim()[0]}
+      {author.name.replace(/^@/, "").trim()[0]?.toUpperCase()}
     </span>
   );
 }
@@ -19,7 +24,7 @@ export function Byline({ author, children }: { author: Author; children?: React.
     <div className="flex items-center gap-3 text-sm">
       <Avatar author={author} />
       <div className="min-w-0">
-        <Link href={`/journal/authors/${author.id}`} className="font-medium text-ink hover:underline">
+        <Link href={authorHref(author)} className="font-medium text-ink hover:underline">
           {author.name}
         </Link>
         <span className="text-muted"> · {author.role}</span>
@@ -37,7 +42,7 @@ export function AuthorCard({ author }: { author: Author }) {
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-muted">Автор</p>
         <p className="mt-0.5 font-semibold">
-          <Link href={`/journal/authors/${author.id}`} className="hover:underline">
+          <Link href={authorHref(author)} className="hover:underline">
             {author.name}
           </Link>
           <span className="font-normal text-muted"> · {author.role}</span>

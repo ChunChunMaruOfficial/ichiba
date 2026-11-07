@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { MDXComponents } from "mdx/types";
 import { compileMDX } from "next-mdx-remote/rsc";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
@@ -12,17 +13,41 @@ import { mdxComponents } from "@/components/journal/mdx-components";
 import { Toc, TocMobile } from "@/components/journal/toc";
 import { SellBand, TitleWithKanji } from "@/components/sections";
 import { EmptyState } from "@/components/ui";
-import { allArticles, article, articleHref, articlesIn, formatDate, relatedTo, rubricHref, type Article } from "@/lib/journal";
+import { allArticles, article, articleHref, articlesIn, coverUrl, formatDate, relatedTo, rubricHref, type Article } from "@/lib/journal";
+import { authorHref } from "@/lib/journal-authors";
 import { isRubric, rubricBySlug, RUBRICS, type Rubric } from "@/lib/journal-rubrics";
 import { og } from "@/lib/og";
 import { jsonLd, SITE_URL, truncate } from "@/lib/server";
 
 /**
- * /journal/<slug> is either a section's hub (slug in RUBRICS) or an article (a file in content/journal). Both are
- * built at deploy time from the files and refreshed every 10 minutes for the live item strips; an unknown slug is 404.
+ * /journal/<slug> is either a section's hub (slug in RUBRICS) or an article: a file in content/journal, or a reader's
+ * article from the API. The files are built at deploy time; a reader's article published later is rendered on its
+ * first visit (dynamicParams). Everything is refreshed every 10 minutes; an unknown slug is 404.
  */
 export const revalidate = 600;
-export const dynamicParams = false;
+export const dynamicParams = true;
+
+/**
+ * A reader's article is plain Markdown: no MDX components, no HTML (every «<» is shown as typed), no pictures in the
+ * text (the cover is the one picture), and links only to http(s) or the site itself, marked as user content.
+ */
+const communityComponents: MDXComponents = {
+  a: ({ href = "", children }) => {
+    if (href.startsWith("/") && !href.startsWith("//")) return <Link href={href}>{children}</Link>;
+    if (!/^https?:\/\//i.test(href)) return <>{children}</>;
+    return (
+      <a href={href} rel="ugc nofollow noopener" target="_blank">
+        {children}
+      </a>
+    );
+  },
+  img: () => null,
+};
+
+const compileBody = (a: Article) =>
+  a.community
+    ? compileMDX({ source: a.body.replace(/</g, "&lt;"), components: communityComponents, options: { mdxOptions: { format: "md", remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug] } } })
+    : compileMDX({ source: a.body, components: mdxComponents, options: { mdxOptions: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug] } } });
 
 type Params = Promise<{ slug: string }>;
 
@@ -53,7 +78,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     description: truncate(a.description, 158),
     alternates: { canonical: url },
     robots: a.draft ? { index: false, follow: false } : undefined,
-    authors: [{ name: a.author.name, url: `${SITE_URL}/journal/authors/${a.author.id}` }],
+    authors: [{ name: a.author.name, url: `${SITE_URL}${authorHref(a.author)}` }],
     openGraph: og(articleHref(a.slug), {
       type: "article",
       title: a.title,
@@ -63,7 +88,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       section: a.rubric.name,
       tags: a.tags,
       authors: [a.author.name],
-      images: a.cover ? [{ url: `${SITE_URL}${a.cover}`, alt: a.coverAlt ?? a.title }] : undefined,
+      images: a.cover ? [{ url: coverUrl(a.cover), alt: a.coverAlt ?? a.title }] : undefined,
     }),
   };
 }
@@ -146,22 +171,19 @@ async function RubricPage({ rubric }: { rubric: Rubric }) {
 }
 
 async function ArticlePage({ a }: { a: Article }) {
-  const [{ content }, related] = await Promise.all([
-    compileMDX({ source: a.body, components: mdxComponents, options: { mdxOptions: { remarkPlugins: [remarkGfm], rehypePlugins: [rehypeSlug] } } }),
-    relatedTo(a),
-  ]);
+  const [{ content }, related] = await Promise.all([compileBody(a), relatedTo(a)]);
   const url = `${SITE_URL}${articleHref(a.slug)}`;
   const authorLd =
     a.author.kind === "person"
-      ? { "@type": "Person", name: a.author.name, jobTitle: a.author.role, url: `${SITE_URL}/journal/authors/${a.author.id}` }
-      : { "@type": "Organization", name: a.author.name, url: `${SITE_URL}/journal/authors/${a.author.id}` };
+      ? { "@type": "Person", name: a.author.name, jobTitle: a.author.role, url: `${SITE_URL}${authorHref(a.author)}` }
+      : { "@type": "Organization", name: a.author.name, url: `${SITE_URL}${authorHref(a.author)}` };
   const ld: unknown[] = [
     {
       "@context": "https://schema.org",
       "@type": "Article",
       headline: a.title,
       description: a.description,
-      image: a.cover ? [`${SITE_URL}${a.cover}`] : undefined,
+      image: a.cover ? [coverUrl(a.cover)] : undefined,
       datePublished: a.publishedAt,
       dateModified: a.updatedAt,
       author: authorLd,
@@ -194,6 +216,14 @@ async function ArticlePage({ a }: { a: Article }) {
           </nav>
           <header>
             {a.draft && <p className="mb-3 inline-flex rounded-full bg-warn-soft px-3 py-1 text-xs font-medium text-warn">Черновик — виден только в разработке</p>}
+            {a.community && (
+              <p className="mb-3 inline-flex rounded-full bg-kraft/70 px-3 py-1 text-xs font-medium text-kraft-ink">
+                Колонка читателя ·{" "}
+                <Link href="/journal/write" className="ml-1 underline underline-offset-2">
+                  написать свою
+                </Link>
+              </p>
+            )}
             <h1 className="text-3xl font-semibold leading-[1.1] tracking-tight [text-wrap:balance] md:text-[2.75rem]">{a.title}</h1>
             <p className="mt-4 text-lg leading-relaxed text-ink-2 md:text-[19px]">{a.description}</p>
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

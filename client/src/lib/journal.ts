@@ -5,11 +5,16 @@ import matter from "gray-matter";
 import GithubSlugger from "github-slugger";
 import { authorById, type Author } from "./journal-authors";
 import { rubricBySlug, type Rubric } from "./journal-rubrics";
+import { serverFetch, SITE_URL } from "./server";
 
 /**
  * The journal's articles: MDX files in content/journal, one per article, the file name being the URL slug
  * (/journal/<slug>). The front matter below is the whole contract between an author and the site; the body is MDX
  * with the components of components/journal/mdx-components.tsx. Drafts (`draft: true`) render in development only.
+ *
+ * Readers' articles come from the API (/journal/articles): written in /journal/write, their topic checked by AI and
+ * the text read by an admin before they are published. Their body is plain Markdown (`community` is set): the page
+ * renders it without MDX components or HTML, and their links carry rel="ugc".
  */
 
 export interface Faq {
@@ -40,6 +45,8 @@ export interface ArticleMeta {
   /** Minutes at a reading pace of 180 words a minute. */
   minutes: number;
   words: number;
+  /** A reader's article (Markdown from the API) rather than an editorial MDX file. */
+  community: boolean;
 }
 
 export interface Heading {
@@ -122,15 +129,69 @@ function parse(slug: string, raw: string): Article {
     draft: data.draft === true,
     minutes: Math.max(1, Math.round(words / 180)),
     words,
+    community: false,
     body: content,
     headings: headingsOf(content),
   };
 }
 
+/** A published reader's article as /journal/articles gives it. */
+interface CommunityRow {
+  slug: string;
+  rubric: string;
+  title: string;
+  description: string;
+  body: string;
+  cover: { urls: { s: string; m: string; l: string } } | null;
+  publishedAt: string;
+  updatedAt: string;
+  author: { username: string; brand: string | null; bio: string | null; avatar: string | null };
+}
+
+function fromCommunity(r: CommunityRow): Article | null {
+  const rubric = rubricBySlug(r.rubric);
+  if (!rubric) return null;
+  const words = countWords(r.body);
+  const publishedAt = r.publishedAt.slice(0, 10);
+  const updatedAt = r.updatedAt.slice(0, 10);
+  const author: Author = {
+    id: `u-${r.author.username}`,
+    name: r.author.brand ?? `@${r.author.username}`,
+    role: r.author.brand ? "бренд на ichiba" : "автор ichiba",
+    bio: r.author.bio?.trim() || "Пишет для журнала ichiba и продаёт вещи из своего гардероба.",
+    kind: "person",
+    photo: r.author.avatar ?? undefined,
+    href: `/u/${encodeURIComponent(r.author.username)}`,
+    links: [{ href: `/u/${encodeURIComponent(r.author.username)}`, label: r.author.brand ? "Вещи бренда" : "Гардероб автора" }],
+  };
+  return {
+    slug: r.slug,
+    title: r.title,
+    description: r.description,
+    rubric,
+    author,
+    publishedAt,
+    updatedAt: updatedAt < publishedAt ? publishedAt : updatedAt,
+    cover: r.cover?.urls.l ?? null,
+    coverAlt: null,
+    tags: [],
+    catalog: [],
+    summary: [],
+    faq: [],
+    related: [],
+    draft: false,
+    minutes: Math.max(1, Math.round(words / 180)),
+    words,
+    community: true,
+    body: r.body,
+    headings: headingsOf(r.body),
+  };
+}
+
 let cache: Promise<Article[]> | null = null;
 
-/** Every article, newest first; drafts only outside production. Read once per server process. */
-export function allArticles(): Promise<Article[]> {
+/** The editorial MDX files, newest first; drafts only outside production. Read once per server process. */
+function editorialArticles(): Promise<Article[]> {
   if (cache && !SHOW_DRAFTS) return cache;
   cache = (async () => {
     let files: string[] = [];
@@ -140,9 +201,22 @@ export function allArticles(): Promise<Article[]> {
       return [];
     }
     const all = await Promise.all(files.map(async (f) => parse(f.replace(/\.mdx$/, ""), await readFile(join(DIR, f), "utf8"))));
-    return all.filter((a) => SHOW_DRAFTS || !a.draft).sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
+    return all.filter((a) => SHOW_DRAFTS || !a.draft);
   })();
   return cache;
+}
+
+/** Readers' published articles, refreshed every five minutes; none when the API can't answer (the page still builds). */
+async function communityArticles(): Promise<Article[]> {
+  const data = await serverFetch<{ items: CommunityRow[] }>("/journal/articles", 300);
+  return (data?.items ?? []).map(fromCommunity).filter((a): a is Article => !!a);
+}
+
+/** Every article, editorial and readers', newest first. */
+export async function allArticles(): Promise<Article[]> {
+  const [editorial, community] = await Promise.all([editorialArticles(), communityArticles()]);
+  const taken = new Set(editorial.map((a) => a.slug));
+  return [...editorial, ...community.filter((a) => !taken.has(a.slug))].sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
 }
 
 export async function article(slug: string): Promise<Article | null> {
@@ -173,6 +247,8 @@ export async function relatedTo(a: Article, limit = 3): Promise<Article[]> {
 }
 
 export const articleHref = (slug: string) => `/journal/${slug}`;
+/** A cover as a full URL: editorial ones are under public/, readers' ones already on the photo host. */
+export const coverUrl = (cover: string) => (cover.startsWith("http") ? cover : `${SITE_URL}${cover}`);
 export const rubricHref = (slug: string) => `/journal/${slug}`;
 
 export const formatDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });

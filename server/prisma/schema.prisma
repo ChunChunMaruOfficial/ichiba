@@ -157,6 +157,7 @@ model User {
   listings        Listing[]
   photos          Photo[]        @relation("PhotoOwner")
   looks           Look[]
+  journalArticles JournalArticle[] @relation("JournalAuthor")
   favorites       Favorite[]
   following       Follow[]       @relation("follower")
   followers       Follow[]       @relation("seller")
@@ -352,6 +353,8 @@ model Photo {
   owner     User          @relation("PhotoOwner", fields: [ownerId], references: [id])
   /// Set when this photo is someone's profile photo (kept by the orphan cleanup).
   avatarOf  User?         @relation("UserAvatar")
+  /// Set when this photo is the cover of a reader's journal article (kept by the orphan cleanup).
+  articleCoverOf JournalArticle? @relation("JournalCover")
   listingId String?
   listing   Listing?      @relation(fields: [listingId], references: [id], onDelete: SetNull)
   provider  PhotoProvider @default(LOCAL)
@@ -1090,4 +1093,48 @@ model Complaint {
   createdAt  DateTime  @default(now())
 
   @@index([status, createdAt])
+}
+
+/// Where a reader's article is on its way to the journal: DRAFT (the author writes) → the AI checks the topic only
+/// → PENDING (an admin reads it) → PUBLISHED. AI_REJECTED and REJECTED go back to the author with a reason; an
+/// edit sends the article through both checks again.
+enum JournalArticleStatus {
+  DRAFT
+  AI_REJECTED
+  PENDING
+  REJECTED
+  PUBLISHED
+}
+
+/// A journal article written by a signed-in user (the editorial ones are MDX files in client/content/journal).
+model JournalArticle {
+  id            String               @id @default(uuid())
+  authorId      String
+  author        User                 @relation("JournalAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  /// /journal/<slug>: the title transliterated plus a short id, so it never meets an editorial file or a rubric.
+  slug          String               @unique
+  /// One of the journal's rubrics (client/src/lib/journal-rubrics.ts).
+  rubric        String
+  title         String
+  /// The lead under the title and the page's meta description.
+  description   String
+  /// Markdown without HTML: headings, emphasis, lists, quotes and links.
+  body          String
+  coverId       String?              @unique
+  cover         Photo?               @relation("JournalCover", fields: [coverId], references: [id], onDelete: SetNull)
+  status        JournalArticleStatus @default(DRAFT)
+  /// What the AI topic check said: { fits, topic, reason, votes, providers } (null until submitted; checked=false when no model answered).
+  aiVerdict     Json?
+  /// The reason the author sees on AI_REJECTED or REJECTED.
+  rejectReason  String?
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  publishedAt   DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([authorId, updatedAt])
+  @@index([status, submittedAt])
+  @@index([status, publishedAt])
 }
