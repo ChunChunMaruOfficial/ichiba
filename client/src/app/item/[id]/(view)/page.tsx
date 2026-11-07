@@ -10,6 +10,16 @@ import { ItemView } from "./item-view";
 
 type Props = { params: Promise<{ id: string }> };
 
+/**
+ * Cached and rebuilt in the background at most every five minutes (ISR): the page reads no cookie or header (the
+ * viewer's likes, cart and offers come from the client), so one copy serves everyone, Cloudflare keeps it at the edge
+ * and the back button restores it from bfcache. A price or status a few minutes old is safe: buying sends the price
+ * seen (expectedTotal) and the API answers 409 when it changed. The empty generateStaticParams lets Next cache paths
+ * it meets at runtime; the 308 to the current slug and the 404 live in the layouts above and are not cached as pages.
+ */
+export const revalidate = 300;
+export const generateStaticParams = () => [];
+
 /** A sold item's page stays in search this long, then leaves it (server: seo.service SOLD_INDEXED_DAYS). */
 const SOLD_INDEXED_DAYS = 60;
 
