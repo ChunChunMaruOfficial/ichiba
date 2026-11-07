@@ -6,10 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { reopenConsent } from "@/lib/analytics";
 import { glideToTop } from "@/lib/glide";
 import { LEGAL } from "@/lib/legal";
+import { PRIVATE_SECTIONS } from "@/lib/private-routes";
 import { Wordmark } from "./logo";
 import { focusedFlow } from "./header";
 import { Kamon } from "./shop/kamon";
 import { LiveCount } from "./live-count";
+
+/** A link into one visitor's own section (noindex, disallowed in robots.txt): crawlers needn't follow it. */
+const isPrivate = (href: string) => (PRIVATE_SECTIONS as readonly string[]).includes(href.split(/[/?#]/)[1] ?? "");
 
 /** Not a page: the link brings the cookie notice back to change the choice. */
 const COOKIE_SETTINGS = "#cookie-settings";
@@ -124,7 +128,7 @@ export function Footer() {
             </p>
             {/* On «Вторичка» the call to sell one's own things; everywhere else how many things the whole site has on sale. */}
             {pathname.startsWith("/resale") ? (
-              <Link href="/sell" onClick={onClick} className="btn-wa btn-wa-shu mt-6 inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-semibold">
+              <Link href="/sell" onClick={onClick} rel="nofollow" className="btn-wa btn-wa-shu mt-6 inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-semibold">
                 Продать вещь
               </Link>
             ) : (
@@ -142,7 +146,7 @@ export function Footer() {
                         {label}
                       </button>
                     ) : (
-                      <Link href={href} onClick={onClick} className="text-[15px] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
+                      <Link href={href} onClick={onClick} rel={isPrivate(href) ? "nofollow" : undefined} className="text-[15px] text-ink-2 underline-offset-4 hover:text-ink hover:underline">
                         {label}
                       </Link>
                     )}

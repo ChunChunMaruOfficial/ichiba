@@ -465,6 +465,7 @@ export function Header() {
           {resaleZone && (
           <Link
             href="/sell"
+            rel="nofollow"
             aria-label="Продать вещь"
             className="btn-wa btn-wa-shu mr-1 hidden h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-[15px] font-semibold md:inline-flex lg:px-5"
           >
@@ -475,7 +476,7 @@ export function Header() {
             <span className="h-11 w-24" />
           ) : me ? (
             <>
-              <Link href="/favorites" aria-label="Избранное" className="hidden size-11 place-items-center rounded-full hover:bg-ink/5 md:grid">
+              <Link href="/favorites" rel="nofollow" aria-label="Избранное" className="hidden size-11 place-items-center rounded-full hover:bg-ink/5 md:grid">
                 <IconHeart />
               </Link>
               <Link href="/messages" aria-label={me.unreadMessages ? `Сообщения, непрочитанных: ${me.unreadMessages}` : "Сообщения"} className="relative grid size-11 place-items-center rounded-full hover:bg-ink/5">
@@ -595,7 +596,7 @@ export function BottomNav() {
       {item("/", "Главная", IconHome)}
       {/* The second-hand market has its own page; the home page is the brands' showcase. */}
       {item("/resale", "Вторичка", IconTag)}
-      <Link href="/sell" aria-label="Продать вещь" className="flex min-w-0 flex-1 basis-0 items-center justify-center py-1.5 text-ink">
+      <Link href="/sell" rel="nofollow" aria-label="Продать вещь" className="flex min-w-0 flex-1 basis-0 items-center justify-center py-1.5 text-ink">
         <span className="grid h-11 w-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_4px_12px_-4px_rgb(28_26_23/0.5)] transition-transform active:scale-95">
           <IconPlus className="size-6" />
         </span>
