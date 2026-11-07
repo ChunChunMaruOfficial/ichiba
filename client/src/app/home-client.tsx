@@ -9,8 +9,8 @@ import { CategoryTiles, SectionHeader, WardrobeCards } from "@/components/sectio
 import { useSession } from "@/components/session";
 import { Noren } from "@/components/shop/noren";
 import { DragRow } from "@/components/drag-row";
-import { SwipeDeck } from "@/components/swipe-deck";
-import { PhotoResults, SearchChips, SearchResults, SearchSort, useSearching } from "@/components/search-view";
+import { PhotoResults, SearchResults, SwipeDeck } from "@/components/search-results-lazy";
+import { SearchChips, SearchSort, useSearching } from "@/components/search-view";
 import { ButtonLink, Chip, EmptyState, ErrorState, Spinner } from "@/components/ui";
 import { useInfiniteCards, useSentinel } from "@/lib/hooks";
 import { HOME_REFRESH } from "@/lib/glide";
