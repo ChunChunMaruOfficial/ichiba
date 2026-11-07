@@ -119,6 +119,21 @@ function productLd(l: ListingDetail, pages: ItemLandings) {
                 ? { "@type": "Organization", name: l.seller.brand, url: sellerUrl }
                 : { "@type": "Person", name: l.seller.username, url: sellerUrl },
               ...(l.city ? { availableAtOrFrom: { "@type": "Place", address: { "@type": "PostalAddress", addressLocality: l.city, addressCountry: "BY" } } } : {}),
+              // The return policy as the rules state it (/rules, /terms раздел 9): a private seller's item is sold as described,
+              // and a return of one that matches its description is only by agreement — not a right. A brand or shop sells
+              // under consumer law, whose window the rules don't put a number on, so no policy is claimed for them: Google
+              // requires merchantReturnDays with a finite window, and a made-up figure would be a false promise.
+              // shippingDetails is left out for the same reason: Google requires a rate and delivery days, and the buyer
+              // pays the carrier's own tariff, which the page doesn't quote.
+              ...(l.seller.brand
+                ? {}
+                : {
+                    hasMerchantReturnPolicy: {
+                      "@type": "MerchantReturnPolicy",
+                      applicableCountry: "BY",
+                      returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+                    },
+                  }),
             }
           : undefined,
     },
