@@ -37,20 +37,13 @@ const SHOPS: Array<{ seal: string; title: string; who: string; gets: string[]; c
   },
 ];
 
-/** What every shop gets: only what the site does today (brand-acquisition/ICHIBA_FACTS.md keeps the same list). */
-const TOOLS: Array<[string, string]> = [
-  ["Покупатель видит, подойдёт ли размер", "По его замерам и замерам вещи: «скорее всего подойдёт» или «будет мала» — меньше вопросов в чате."],
-  ["Вещь находят по фото", "Поиск по фотографии сравнивает снимок со всеми фото на сайте — даже скриншот из соцсетей."],
-  ["Статистика по каждой вещи", "Просмотры, сохранения, корзины, чаты, предложения и продажи по дням, с воронкой и советами."],
-  ["Заказы приходят в Telegram", "Новый запрос, предложение цены или сообщение — сразу в Telegram-бот и на почту."],
-  ["Подписчики видят новинки", "На лавку подписываются: её новые вещи попадают в ленту подписок."],
-  ["Вещи ищутся в Google и Яндексе", "У каждой вещи своя страница с описанием и разметкой товара — поисковики показывают её отдельно."],
-];
+/** What every shop gets, in a word each: only what the site does today (brand-acquisition/ICHIBA_FACTS.md has the long list). */
+const TOOLS = ["Подбор по размеру", "Поиск по фото", "Статистика по вещам", "Заказы в Telegram", "Подписчики видят новинки", "Вещи в Google и Яндексе"];
 
 const STEPS: Array<[string, string, string]> = [
-  ["一", "Войдите", "По телефону, почте, Google или Telegram — минута."],
-  ["二", "Расскажите о лавке", "Бренду и магазину — короткая заявка в настройках, её проверяет модератор. Своему гардеробу заявка не нужна."],
-  ["三", "Выставьте вещи", "Сами за пару минут на вещь — или мы перенесём ассортимент за вас."],
+  ["一", "Войдите", "за минуту"],
+  ["二", "Расскажите о лавке", "если вы бренд или магазин"],
+  ["三", "Выставьте вещи", "сами или перенесём за вас"],
 ];
 
 const link = "font-semibold text-ink underline underline-offset-4";
@@ -132,16 +125,15 @@ export default function SellersPage() {
 
       <section className="mt-14 md:mt-20" aria-labelledby="tools">
         <h2 id="tools" className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Что есть у каждой лавки
+          У каждой лавки
         </h2>
-        <dl className="mt-6 grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-          {TOOLS.map(([title, text]) => (
-            <div key={title} className="border-t border-line pt-4">
-              <dt className="text-lg font-semibold">{title}</dt>
-              <dd className="mt-1 text-[15px] leading-relaxed text-ink-2">{text}</dd>
-            </div>
+        <ul className="mt-5 flex flex-wrap gap-2">
+          {TOOLS.map((t) => (
+            <li key={t} className="rounded-full bg-surface px-4 py-2 text-[15px] font-medium shadow-[var(--shadow-paper)]">
+              {t}
+            </li>
           ))}
-        </dl>
+        </ul>
       </section>
 
       <section className="mt-14 grid grid-cols-1 gap-10 md:mt-20 md:grid-cols-2" aria-labelledby="start">
@@ -149,16 +141,15 @@ export default function SellersPage() {
           <h2 id="start" className="text-2xl font-semibold tracking-tight md:text-3xl">
             Как начать
           </h2>
-          <ol className="mt-6 flex flex-col gap-6">
+          <ol className="mt-6 flex flex-col gap-4">
             {STEPS.map(([n, title, text]) => (
-              <li key={n} className="flex items-start gap-5">
-                <span aria-hidden className="w-9 shrink-0 text-center font-brush text-4xl leading-none text-shu">
+              <li key={n} className="flex items-baseline gap-4">
+                <span aria-hidden className="w-8 shrink-0 text-center font-brush text-3xl leading-none text-shu">
                   {n}
                 </span>
-                <div className="border-b border-line pb-5">
-                  <p className="text-xl font-bold">{title}</p>
-                  <p className="mt-1 text-[15px] text-ink-2">{text}</p>
-                </div>
+                <p>
+                  <b className="text-lg font-bold">{title}</b> <span className="text-[15px] text-ink-2">— {text}</span>
+                </p>
               </li>
             ))}
           </ol>
@@ -167,23 +158,18 @@ export default function SellersPage() {
           <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Условия</h2>
           <div className="mt-6 flex flex-col gap-3 text-[15px] leading-relaxed text-ink-2">
             <p>
-              <b className="font-semibold text-ink">Сейчас размещение и продажи бесплатны.</b> Покупатель платит при получении — лично или при доставке,
-              которую вы отправляете сами.
+              <b className="font-semibold text-ink">Сейчас всё бесплатно.</b> Покупатель платит вам при получении.
             </p>
             <p>
-              Вместе с онлайн-оплатой появится комиссия — <b className="font-semibold text-ink">5% с цены проданной вещи</b>. Только с завершённых сделок;
-              размещение, поднятие в ленте и статистика останутся бесплатными. Дату начала объявим не меньше чем за 15 дней, как требуют{" "}
+              С онлайн-оплатой появится комиссия <b className="font-semibold text-ink">5%</b> с проданной вещи — объявим за 15 дней (
               <Link href="/rules" className={link}>
-                правила площадки
+                правила
               </Link>
-              .
-            </p>
-            <p>
-              Как проходит заказ — шаг за шагом на странице{" "}
+              ,{" "}
               <Link href="/how-it-works" className={link}>
-                «Как работает сделка»
+                как проходит сделка
               </Link>
-              .
+              ).
             </p>
           </div>
         </div>
