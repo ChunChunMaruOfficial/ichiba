@@ -1,0 +1,14 @@
+url: ${BASE_URL}
+name: 03-search
+---
+# A search in «Вторичка» for a word from a seeded title shows that item; a nonsense query shows the empty state.
+- launchApp
+- openLink: ${BASE_URL}/resale?q=${SEARCH_WORD}
+- extendedWaitUntil:
+    visible: ${ITEM_TITLE}
+    timeout: 30000
+- takeScreenshot: search-results
+- openLink: ${BASE_URL}/resale?q=zzqxvwy
+- extendedWaitUntil:
+    visible: ".*ничего не нашли.*"
+    timeout: 30000

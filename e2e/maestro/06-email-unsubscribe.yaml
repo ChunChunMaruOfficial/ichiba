@@ -1,0 +1,22 @@
+url: ${API_URL}
+name: 06-email-unsubscribe
+---
+# The link from a letter only asks: nothing changes until the button is pressed (mail scanners open every link).
+# A broken token gets the error page; a real one unbinds the address.
+- launchApp
+- openLink: ${API_URL}/email/unsubscribe?token=broken
+- extendedWaitUntil:
+    visible: "Отписаться от писем?"
+    timeout: 20000
+- tapOn: "Отписаться"
+- extendedWaitUntil:
+    visible: "Ссылка недействительна"
+    timeout: 20000
+- openLink: ${API_URL}/email/unsubscribe?token=${UNSUB_TOKEN}
+- extendedWaitUntil:
+    visible: "Отписаться от писем?"
+    timeout: 20000
+- tapOn: "Отписаться"
+- extendedWaitUntil:
+    visible: "Вы отписались"
+    timeout: 20000

@@ -1,0 +1,51 @@
+url: ${BASE_URL}
+name: 05-signup-and-cart
+---
+# Sign-up by e-mail with the dev code (AUTH_DEV_ANY_CODE), the consent line on the nickname step, then an item goes
+# into the cart and the cart page lists it.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Войти"
+    timeout: 30000
+- tapOn: "Войти"
+- extendedWaitUntil:
+    visible: "Получить код"
+    timeout: 20000
+- tapOn:
+    id: "auth-login"
+- inputRandomEmail
+- tapOn: "Получить код"
+- extendedWaitUntil:
+    visible: "Код из 6 цифр"
+    timeout: 20000
+- tapOn:
+    id: "auth-code"
+# Six digits submit the code by themselves: the nickname step comes next.
+- inputText: "000000"
+- extendedWaitUntil:
+    visible: "Создать аккаунт"
+    timeout: 20000
+- assertVisible: ".*Политику конфиденциальности.*"
+- tapOn: "Создать аккаунт"
+- extendedWaitUntil:
+    notVisible: "Создать аккаунт"
+    timeout: 20000
+- openLink: ${BASE_URL}/item/${ITEM_ID}
+- extendedWaitUntil:
+    visible: ${ITEM_TITLE}
+    timeout: 30000
+# A signed-in buyer sees the size hint and the description first: the buy box is below them.
+- scrollUntilVisible:
+    element: "В корзину"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "В корзину"
+- extendedWaitUntil:
+    visible: "В корзине"
+    timeout: 20000
+- openLink: ${BASE_URL}/cart
+- extendedWaitUntil:
+    visible: ${ITEM_TITLE}
+    timeout: 30000
+- takeScreenshot: cart

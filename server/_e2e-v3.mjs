@@ -1,7 +1,8 @@
 // E2E for reviews, auction auto-bids + buy-now, bundle discount, fit hints, bump + stats, SEO sitemap and email.
 // Needs the API started with SMTP_HOST=127.0.0.1 SMTP_PORT=2525 and `node _smtp-capture.mjs` running.
 import { readFileSync } from 'fs';
-const API = 'http://127.0.0.1:4000';
+import pg from 'pg';
+const API = process.env.E2E_API ?? 'http://127.0.0.1:4000';
 const only = process.argv[2];
 let failures = 0;
 const ok = (c, m) => (console.log(`${c ? 'PASS' : 'FAIL'} ${m}`), c || failures++);
@@ -50,10 +51,11 @@ if (!only || only === 'email') {
 let dealId;
 if (!only || only === 'deal') {
   // A seller with at least three items that share "в руки" (the combined request needs a common method).
-  const home = (await guest('/home')).data;
+  // Sellers come from /wardrobes (the home answer no longer lists them).
+  const wardrobes = (await guest('/wardrobes?limit=24')).data.items;
   let sellerName = null;
   let items = [];
-  for (const w0 of home.wardrobes) {
+  for (const w0 of wardrobes) {
     const w = (await guest(`/wardrobes/${w0.username}`)).data;
     const all = w.groups.flatMap((g) => g.items).filter((i) => i.status === 'PUBLISHED' && i.saleType !== 'AUCTION');
     const details = await Promise.all(all.map((i) => guest(`/listings/${i.id}`).then((r) => r.data)));
@@ -71,6 +73,14 @@ if (!only || only === 'deal') {
   ok((await alex('/users/me', { method: 'PATCH', body: { bundleDiscounts: [{ minItems: 3, percent: 10 }, { minItems: 2, percent: 15 }] } })).status === 400, 'invalid tier order rejected');
   await alex('/users/me', { method: 'PATCH', body: { emailPrefs: { deals: true } } });
   await sveta('/users/me', { method: 'PATCH', body: { emailPrefs: { deals: true } } });
+  // Deal letters go to the address bound for notifications (since e845aca the sign-in address only gets codes); binding
+  // one in settings takes an emailed code, so the test binds the account address straight in its database.
+  if (process.env.DATABASE_URL) {
+    const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+    await db.connect();
+    await db.query(`UPDATE "User" SET "notifyEmail" = email WHERE username = ANY($1)`, [[sellerName, 'sveta']]);
+    await db.end();
+  }
 
   for (const c of (await sveta('/cart')).data.groups.flatMap((g) => g.items)) await sveta(`/cart/${c.id}`, { method: 'DELETE' });
   for (const i of items) await sveta(`/cart/${i.id}`, { method: 'POST' });
@@ -88,8 +98,8 @@ if (!only || only === 'deal') {
   ok(req.status === 201 && req.data.discountPercent === 15 && req.data.priceTotal === Math.floor(sum * 0.85) && req.data.items.reduce((s, i) => s + i.dealPrice, 0) === req.data.priceTotal, 'request keeps the discount; item prices add up to the total');
   dealId = req.data.id;
 
-  const m1 = await waitMail((x) => x.to?.includes(`${sellerName}@ichiba.test`) && x.subject.startsWith('Новый запрос'));
-  ok(!!m1 && m1.html.includes(`/deals/${dealId}`) && !!m1.listUnsubscribe && m1.listUnsubscribePost === 'List-Unsubscribe=One-Click', 'seller gets "Новый запрос" email with deal link + one-click unsubscribe headers');
+  const m1 = await waitMail((x) => x.to?.includes(`${sellerName}@ichiba.test`) && x.subject.startsWith('Хотят купить'));
+  ok(!!m1 && m1.html.includes(`/deals/${dealId}`) && !!m1.listUnsubscribe && m1.listUnsubscribePost === 'List-Unsubscribe=One-Click', 'seller gets the «Хотят купить» email with deal link + one-click unsubscribe headers');
 
   await alex(`/requests/${dealId}/accept`, { method: 'POST' });
   ok(!!(await waitMail((x) => x.to?.includes('sveta@ichiba.test') && x.subject.startsWith('Продавец подтвердил'))), 'buyer gets "Продавец подтвердил" email');
@@ -124,10 +134,19 @@ if (!only || only === 'deal') {
 
   // Unsubscribe from the link in the email.
   const unsub = m1.listUnsubscribe.match(/<([^>]+)>/)[1].replace(/^https?:\/\/[^/]+\/api/, API);
+  // The link only asks (mail scanners open every link); the mail client's one-click POST unsubscribes, and an
+  // unsubscribe unbinds the notification address.
   const page = await fetch(unsub);
-  ok(page.status === 200 && (await page.text()).includes('Вы отписались'), 'unsubscribe link works');
-  ok((await alex('/auth/me')).data.user.emailPrefs.deals === false, 'deal emails switched off for the seller');
-  await alex('/users/me', { method: 'PATCH', body: { emailPrefs: { deals: true } } });
+  ok(page.status === 200 && (await page.text()).includes('Отписаться от писем?'), 'the unsubscribe link asks first');
+  const oneClick = await fetch(unsub, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: m1.listUnsubscribePost });
+  ok(oneClick.status === 200 && (await oneClick.json()).ok === true, 'one-click unsubscribe from the mail client works');
+  if (process.env.DATABASE_URL) {
+    const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+    await db.connect();
+    const { rows } = await db.query(`SELECT "notifyEmail" FROM "User" WHERE username = $1`, [sellerName]);
+    ok(rows[0].notifyEmail === null, 'the seller no longer gets letters: the notification address is unbound');
+    await db.end();
+  }
 }
 
 // ---------- auction: auto-bids and buy-now ----------

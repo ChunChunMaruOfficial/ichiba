@@ -1,7 +1,7 @@
 // AI features e2e against the live ensemble. Run from server (needs sharp): node _e2e-ai.mjs [section]
 import sharp from 'sharp';
 import { readdirSync } from 'fs';
-const API = 'http://127.0.0.1:4000';
+const API = process.env.E2E_API ?? 'http://127.0.0.1:4000';
 const only = process.argv[2];
 let failures = 0;
 const ok = (c, m) => (console.log(`${c ? 'PASS' : 'FAIL'} ${m}`), c || failures++);

@@ -1,0 +1,30 @@
+url: ${BASE_URL}
+name: 04-legal-pages
+---
+# Every legal page answers and carries its heading: policy, terms, platform rules, contacts, complaint form.
+- launchApp
+- openLink: ${BASE_URL}/privacy
+- extendedWaitUntil:
+    visible: "Политика.*конфиденциальности.*"
+    timeout: 20000
+- openLink: ${BASE_URL}/terms
+- extendedWaitUntil:
+    visible: ".*[Сс]оглашение.*"
+    timeout: 20000
+- openLink: ${BASE_URL}/rules
+- extendedWaitUntil:
+    visible: "Правила площадки.*"
+    timeout: 20000
+- openLink: ${BASE_URL}/contacts
+- extendedWaitUntil:
+    visible: "Контакты"
+    timeout: 20000
+# The operator's requisites sit below the first screen.
+- scrollUntilVisible:
+    element: ".*Диоксоид Диджитал.*"
+    direction: DOWN
+    timeout: 20000
+- openLink: ${BASE_URL}/complaint
+- extendedWaitUntil:
+    visible: ".*[Жж]алоб.*"
+    timeout: 20000

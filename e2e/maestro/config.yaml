@@ -1,0 +1,12 @@
+# Maestro web flows for ichiba: run against the e2e stand (README.md next to this file).
+flows:
+  - "*.yaml"
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - 01-cookie-notice
+    - 02-home-and-item
+    - 03-search
+    - 04-legal-pages
+    - 05-signup-and-cart
+    - 06-email-unsubscribe

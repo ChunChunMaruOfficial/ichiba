@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import pg from 'pg';
 import WebSocket from 'ws';
 
-const API = 'http://127.0.0.1:4000';
+const API = process.env.E2E_API ?? 'http://127.0.0.1:4000';
 let failures = 0;
 const ok = (c, m) => (console.log(`${c ? 'PASS' : 'FAIL'} ${m}`), c || failures++);
 
@@ -28,7 +28,7 @@ async function session(login) {
 /** A live socket that records events; `next(type, pred)` waits for a matching one. */
 async function live(call) {
   const { token } = (await call('/realtime/token')).data;
-  const ws = new WebSocket(`ws://127.0.0.1:4000/ws?token=${encodeURIComponent(token)}`);
+  const ws = new WebSocket(`${API.replace(/^http/, "ws")}/ws?token=${encodeURIComponent(token)}`);
   const seen = [];
   const waiters = [];
   ws.on('message', (raw) => {

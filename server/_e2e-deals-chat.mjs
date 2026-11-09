@@ -5,7 +5,7 @@ import 'dotenv/config';
 import pg from 'pg';
 import WebSocket from 'ws';
 
-const API = 'http://127.0.0.1:4000';
+const API = process.env.E2E_API ?? 'http://127.0.0.1:4000';
 let failures = 0;
 const ok = (c, m) => (console.log(`${c ? 'PASS' : 'FAIL'} ${m}`), c || failures++);
 
@@ -26,7 +26,7 @@ await db.connect();
 
 // The seller's socket: the comment must reach them live as a chat message.
 const { token } = (await seller('/realtime/token')).data;
-const ws = new WebSocket(`ws://127.0.0.1:4000/ws?token=${encodeURIComponent(token)}`);
+const ws = new WebSocket(`${API.replace(/^http/, "ws")}/ws?token=${encodeURIComponent(token)}`);
 const events = [];
 ws.on('message', (raw) => String(raw) !== 'pong' && events.push(JSON.parse(String(raw))));
 await new Promise((resolve) => ws.once('open', resolve));

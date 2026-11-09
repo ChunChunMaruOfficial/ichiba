@@ -4,7 +4,7 @@ import 'dotenv/config';
 import pg from 'pg';
 import sharp from 'sharp';
 
-const API = 'http://127.0.0.1:4000';
+const API = process.env.E2E_API ?? 'http://127.0.0.1:4000';
 let failures = 0;
 const ok = (c, m) => (console.log(`${c ? 'PASS' : 'FAIL'} ${m}`), c || failures++);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -47,7 +47,7 @@ const alex = await session('alex@ichiba.test');
 const wardrobe = (await alex('/wardrobes/kate')).data.groups.flatMap((g) => g.items);
 const sources = [];
 for (const c of wardrobe.filter((c) => c.category === 'outerwear').slice(0, 6)) sources.push((await alex(`/listings/${c.id}`)).data);
-const fileOf = (l) => `storage/media/${l.photos[0].urls.l.split('/media/')[1]}`;
+const fileOf = (l) => `${process.env.MEDIA_DIR ?? "storage/media"}/${l.photos[0].urls.l.split("/media/")[1]}`;
 const jpeg = (i) => sharp(fileOf(sources[i % sources.length])).jpeg({ quality: 85 }).toBuffer();
 const igor = await session('igor@ichiba.test');
 const nastya = await session('nastya@ichiba.test');

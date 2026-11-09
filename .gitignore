@@ -48,3 +48,6 @@ tg-accounts.local.json
 **/.impeccable/live/deferred-svelte-component-accepts.json
 **/.impeccable/live/*.png
 # impeccable-ignore-end
+
+# E2E stand (e2e/README.md): Maestro reports and screenshots.
+e2e/maestro/out/

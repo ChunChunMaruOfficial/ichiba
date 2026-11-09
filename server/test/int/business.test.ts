@@ -30,7 +30,7 @@ const notifications: Any = {
   notify: async (to: string, type: string, payload: unknown) => void sent.push({ to, type, payload }),
   notifyMany: async (to: string[], type: string, payload: unknown) => void sent.push({ to, type, payload }),
 };
-const recs: Any = { record: async () => {}, hasProfile: async () => false, rankForUser: async () => [], rankPopular: async (p: { id: string }[]) => p.map((x) => x.id) };
+const recs: Any = { record: async () => {}, hasProfile: async () => false, rankForUser: async () => [], rankPopular: async (p: { id: string }[]) => p.map((x) => x.id), lookVectors: async () => new Map<string, Float32Array>() };
 const stats: Any = { track: () => {} };
 const moderator: Any = { check: async () => ({ decision: 'pass', status: 'passed', reasons: [], fields: {} }), record: async () => {} };
 const media: Any = { dhash: async (p: { dhash?: string | null }) => p.dhash ?? null };

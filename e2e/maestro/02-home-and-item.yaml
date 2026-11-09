@@ -1,0 +1,20 @@
+url: ${BASE_URL}
+name: 02-home-and-item
+---
+# The guest feed («Вторичка»: the demo items are private sellers') renders server-side; an item opens with its price
+# and buy button; back returns to the feed.
+- launchApp
+- openLink: ${BASE_URL}/resale
+- extendedWaitUntil:
+    visible: ${ITEM_TITLE}
+    timeout: 30000
+- tapOn: ${ITEM_TITLE}
+- extendedWaitUntil:
+    visible: "В корзину"
+    timeout: 30000
+- assertVisible: ${ITEM_PRICE}
+- takeScreenshot: item-page
+- back
+- extendedWaitUntil:
+    visible: ${ITEM_TITLE}
+    timeout: 20000

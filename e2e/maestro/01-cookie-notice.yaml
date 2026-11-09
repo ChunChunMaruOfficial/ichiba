@@ -1,0 +1,16 @@
+url: ${BASE_URL}
+name: 01-cookie-notice
+---
+# A fresh browser sees the cookie notice; the choice hides it and survives a reload.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Мы используем файлы cookie.*"
+    timeout: 20000
+- tapOn: "Понятно"
+- assertNotVisible: "Мы используем файлы cookie.*"
+- openLink: ${BASE_URL}/
+- extendedWaitUntil:
+    visible: "Войти"
+    timeout: 20000
+- assertNotVisible: "Мы используем файлы cookie.*"
