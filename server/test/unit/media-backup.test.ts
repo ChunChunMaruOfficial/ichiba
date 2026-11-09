@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { type BackupBucket, syncMedia } from '../../src/backup/media-backup.js';
+import { baseKeyOf, type BackupBucket, ERASE_AFTER_DAYS, planErasures, syncMedia } from '../../src/backup/media-backup.js';
 import { restoreMedia } from '../../src/backup/media-restore.js';
 
 /** A bucket in memory; an upload of a key in `failOn` throws. */
@@ -18,6 +18,7 @@ function memoryBucket(failOn = new Set<string>()) {
       objects.set(key, body);
     },
     get: async (key) => objects.get(key)!,
+    delete: async (key) => void objects.delete(key),
   };
   return { bucket, objects, puts };
 }
@@ -67,7 +68,7 @@ test('a failed upload is reported and retried next time; the others go on', asyn
 
 test('a missing media folder is an empty one', async () => {
   const { bucket } = memoryBucket();
-  assert.deepEqual(await syncMedia(bucket, join(tmpdir(), 'no-such-media-dir-ichiba')), { files: 0, uploaded: 0, bytes: 0, failed: [] });
+  assert.deepEqual(await syncMedia(bucket, join(tmpdir(), 'no-such-media-dir-ichiba')), { files: 0, uploaded: 0, bytes: 0, failed: [], stored: new Map(), present: new Set() });
 });
 
 test('restore puts back what the volume lost and leaves the rest', async () => {
@@ -84,7 +85,56 @@ test('restore puts back what the volume lost and leaves the rest', async () => {
 
 test('restore refuses a key that would write outside the media folder', async () => {
   const dst = await mediaDir({});
-  const bucket: BackupBucket = { list: async () => new Map([['media/../../evil.txt', 4]]), put: async () => {}, get: async () => Buffer.from('evil') };
+  const bucket: BackupBucket = { list: async () => new Map([['media/../../evil.txt', 4]]), put: async () => {}, get: async () => Buffer.from('evil'), delete: async () => {} };
   await assert.rejects(restoreMedia(bucket, dst), /outside the media folder/);
   await rm(dst, { recursive: true });
+});
+
+// ---------- erasing deleted files from the backup ----------
+
+const DAY = 24 * 3600_000;
+const stored = (...files: string[]) => new Map(files.map((f) => [`media/${f}`, 1]));
+const plan = (o: { stored: Map<string, number>; present?: string[]; referenced?: string[]; missing?: Record<string, number>; now?: number }) => {
+  const now = o.now ?? Date.now();
+  return planErasures({
+    stored: o.stored,
+    present: new Set(o.present ?? []),
+    referenced: new Set(o.referenced ?? []),
+    missing: new Map(Object.entries(o.missing ?? {}).map(([k, daysAgo]) => [k, new Date(now - daysAgo * DAY)])),
+    now: new Date(now),
+  });
+};
+
+test('a file knows the photo or video it belongs to', () => {
+  assert.equal(baseKeyOf('u1/p1_320.webp'), 'u1/p1');
+  assert.equal(baseKeyOf('u1/p1_1280.webp'), 'u1/p1');
+  assert.equal(baseKeyOf('u1/v1.mp4'), 'u1/v1');
+  assert.equal(baseKeyOf('u1/v1_640.webp'), 'u1/v1');
+});
+
+test('a file gone from the volume and from the database starts its grace period, then leaves the backup', () => {
+  const s = stored('u1/p1_320.webp', 'u1/p2_320.webp', 'u1/p3_320.webp');
+  const present = ['u1/p2_320.webp', 'u1/p3_320.webp'];
+  const referenced = ['u1/p2', 'u1/p3'];
+  assert.deepEqual(plan({ stored: s, present, referenced }), { erase: [], start: ['u1/p1_320.webp'], forget: [] });
+  assert.deepEqual(plan({ stored: s, present, referenced, missing: { 'u1/p1_320.webp': ERASE_AFTER_DAYS - 1 } }).erase, []);
+  assert.deepEqual(plan({ stored: s, present, referenced, missing: { 'u1/p1_320.webp': ERASE_AFTER_DAYS } }).erase, ['media/u1/p1_320.webp']);
+});
+
+test('a file still named by a row, or still on the volume, is never erased; one that came back drops its period', () => {
+  const s = stored('u1/p1_320.webp', 'u1/p2_320.webp', 'u1/x_320.webp', 'u1/y_320.webp', 'u1/z_320.webp');
+  // p1: the volume lost it but its row is there (a lost volume) — kept. p2: on the volume, no row (a database
+  // restored from an older dump) — kept and its old period forgotten.
+  const r = plan({ stored: s, present: ['u1/p2_320.webp', 'u1/x_320.webp', 'u1/y_320.webp', 'u1/z_320.webp'], referenced: ['u1/p1', 'u1/x', 'u1/y', 'u1/z'], missing: { 'u1/p2_320.webp': 30 } });
+  assert.deepEqual(r, { erase: [], start: [], forget: ['u1/p2_320.webp'] });
+});
+
+test('an empty media folder or a mass disappearance erases nothing', () => {
+  const s = stored(...Array.from({ length: 300 }, (_, i) => `u/p${i}_320.webp`));
+  const empty = plan({ stored: s, present: [], missing: { 'u/p1_320.webp': 40 } });
+  assert.equal(empty.erase.length, 0);
+  assert.match(empty.skipped!, /empty/);
+  const half = plan({ stored: s, present: Array.from({ length: 150 }, (_, i) => `u/p${i}_320.webp`), referenced: [] });
+  assert.equal(half.erase.length + half.start.length, 0);
+  assert.match(half.skipped!, /150 of 300/);
 });

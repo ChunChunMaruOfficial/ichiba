@@ -276,6 +276,8 @@ export class MediaService implements OnModuleInit {
         if (!shared) {
           if (p.provider === 'CLOUDINARY') await destroyCloudinary(p.key);
           else await Promise.all(VARIANTS.map((w) => this.storage.delete(`${p.key}_${w}.webp`)));
+          // The photo's search vectors are keyed by its file, not its row: they go with the file.
+          await this.prisma.photoVector.deleteMany({ where: { key: p.key } });
         }
         await this.prisma.photo.delete({ where: { id: p.id } });
         removed++;
@@ -299,6 +301,12 @@ export class MediaService implements OnModuleInit {
         this.logger.warn(`orphan video ${v.key} not removed: ${(e as Error).message}`);
       }
     }
+    // Vectors of files deleted before they went together (or by another path): any vector whose photo is gone.
+    const vectors = await this.prisma.$executeRaw`
+      DELETE FROM "PhotoVector" WHERE key IN (
+        SELECT v.key FROM "PhotoVector" v WHERE NOT EXISTS (SELECT 1 FROM "Photo" p WHERE p.key = v.key) LIMIT 5000
+      )`;
+    if (vectors) this.logger.log(`search vectors of deleted photos removed: ${vectors}`);
     if (photos.length || videos.length) this.logger.log(`orphan media removed: ${removed}, failed: ${failed} (photos ${photos.length}, videos ${videos.length})`);
     return { removed, failed };
   }

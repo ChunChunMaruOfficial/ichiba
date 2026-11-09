@@ -16,7 +16,10 @@ const DAY = 24 * 3600 * 1000;
 /**
  * Personal data lifecycle (privacy policy, sections "Сроки хранения" and "Ваши права").
  * - Account deletion by the owner: personal data is wiped; deals, messages and reviews stay for the other
- *   party but no longer point to a person (nickname replaced, contacts removed).
+ *   party but no longer point to a person (nickname replaced, contacts removed). Every photo and video the person
+ *   uploaded (listings sold ones included, chat, avatar, journal covers) is detached here, and the nightly media
+ *   cleanup deletes the files and their search vectors; the backup copies follow within 15 days
+ *   (backup/media-backup.ts, scripts/backup/db-backup.sh).
  * - Retention: technical records are deleted automatically once they are no longer needed.
  */
 @Injectable()
@@ -59,9 +62,18 @@ export class PrivacyService {
       this.prisma.feedImpression.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
       this.prisma.emailOutbox.deleteMany({ where: { userId } }),
-      // Photos and videos outside listings (drafts, chat) are detached; the nightly media cleanup deletes the files.
+      // Every photo and video of the person goes: first the listings' own (sold ones too: the buyer's history keeps the
+      // title and price, not the pictures, which may show the person), then drafts and chat. Detached rows are what
+      // the nightly media cleanup deletes, files and search vectors with them.
+      this.prisma.photo.updateMany({ where: { listing: { sellerId: userId } }, data: { listingId: null } }),
+      this.prisma.video.updateMany({ where: { listing: { sellerId: userId } }, data: { listingId: null } }),
       this.prisma.photo.updateMany({ where: { ownerId: userId, listingId: null }, data: { messageId: null } }),
       this.prisma.video.updateMany({ where: { ownerId: userId, listingId: null }, data: { messageId: null } }),
+      // The person's own texts and sets: journal articles (their covers become orphans and go with the photos), looks,
+      // and brand or shop applications with their contact name, phone, e-mail and УНП.
+      this.prisma.journalArticle.deleteMany({ where: { authorId: userId } }),
+      this.prisma.look.deleteMany({ where: { userId } }),
+      this.prisma.brandApplication.deleteMany({ where: { userId } }),
       this.prisma.verificationCode.deleteMany({ where: { target: { in: [user.email, user.phone, user.notifyEmail].filter((x): x is string => !!x) } } }),
       // A shared location is personal data: the message stays for the other side, the point does not.
       this.prisma.message.updateMany({ where: { senderId: userId, kind: 'LOCATION' }, data: { lat: null, lng: null, accuracy: null } }),

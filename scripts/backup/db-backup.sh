@@ -4,8 +4,9 @@
 # Cloudflare R2 (any S3-compatible storage). Runs as the Railway cron service «db-backup» (Dockerfile next to it), which
 # reaches Postgres over the private network; docs/BACKUPS.md has the setup and the restore.
 #
-# Keeps every daily dump for DAILY_DAYS (30) and the first dump of each month for MONTHLY_DAYS (400) — by the date in
-# the file name, so nothing depends on bucket lifecycle rules.
+# Keeps every daily dump for DAILY_DAYS (14) — by the date in the file name, so nothing depends on bucket lifecycle
+# rules. 14 days and no monthly copies: a deleted account's data must leave every copy within the 15 days the privacy
+# policy promises (Закон № 99-З). MONTHLY_DAYS > 0 brings back a first-of-month copy kept that long (it was 400).
 #
 # Env (Railway shared variables, the same bucket the server copies photos to): DATABASE_URL, BACKUP_S3_ENDPOINT,
 # BACKUP_S3_BUCKET, BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY. Optional: BACKUP_PASSPHRASE (without it the
@@ -27,8 +28,8 @@ PING_URL=${BACKUP_DB_PING_URL:-}
 export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-auto}"
 # R2 refuses the extra checksums newer AWS CLIs add to every upload by default.
 export AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
-DAILY_DAYS="${DAILY_DAYS:-30}"
-MONTHLY_DAYS="${MONTHLY_DAYS:-400}"
+DAILY_DAYS="${DAILY_DAYS:-14}"
+MONTHLY_DAYS="${MONTHLY_DAYS:-0}"
 PG="${PG_BIN:+$PG_BIN/}"
 
 ping() { if [ -n "${PING_URL:-}" ]; then curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "${2:-}" "$PING_URL$1" || true; fi; }
@@ -64,7 +65,7 @@ size=$(wc -c <"$work/$name")
 
 s3 s3 cp --only-show-errors "$work/$name" "s3://$S3_BUCKET/db/daily/$name"
 month=${stamp:0:7}
-if ! s3 s3 ls "s3://$S3_BUCKET/db/monthly/ichiba-$month" >/dev/null 2>&1; then
+if (( MONTHLY_DAYS > 0 )) && ! s3 s3 ls "s3://$S3_BUCKET/db/monthly/ichiba-$month" >/dev/null 2>&1; then
   s3 s3 cp --only-show-errors "$work/$name" "s3://$S3_BUCKET/db/monthly/$name"
 fi
 
@@ -83,6 +84,7 @@ prune() {
   done
 }
 prune db/daily/ "$DAILY_DAYS"
+# With MONTHLY_DAYS=0 this clears the monthly copies left from the old 400-day setting.
 prune db/monthly/ "$MONTHLY_DAYS"
 
 summary="$name: $tables tables, $((size / 1024)) KB"
