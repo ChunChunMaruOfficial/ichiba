@@ -204,7 +204,7 @@ function HomeFeed() {
             <div className={isDefaultChip && home.data && !smallCatalog ? "pt-16 md:pt-24" : "pt-4"}>
               {/* The heading sits right on its grid; the gap above separates it from the sections. */}
               {isDefaultChip && home.data && !smallCatalog && <SectionHeader kanji="品々" title="Ещё вещи" />}
-              <Masonry items={rest} source="feed" />
+              <Masonry items={rest} source="feed" eager={false} />
             </div>
           )}
           <div ref={sentinel} className="flex h-24 items-center justify-center">

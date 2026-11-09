@@ -530,7 +530,7 @@ html[data-immersive] [data-chrome="main"] {
   border-radius: 3px;
   color: #b5121b;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   transform: rotate(-6deg);
 }
@@ -600,7 +600,7 @@ html[data-immersive] [data-chrome="main"] {
 }
 .seal-ru {
   font-family: var(--font-sans);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -713,6 +713,22 @@ html[data-immersive] [data-chrome="main"] {
 .hanko-round {
   border-radius: 999px;
   padding: 7px;
+}
+
+/*
+ * Masonry (components/masonry.tsx): one multi-column box, cards column after column, a forced break before the first
+ * card of each column. The -webkit- form is the one Safari honours in columns. The server deals two columns (the default
+ * grid's first breakpoint, 700px there): those breaks hold only while the list is narrower than that.
+ */
+.masonry-break {
+  -webkit-column-break-before: always;
+  break-before: column;
+}
+@container (width < 700px) {
+  .masonry-break-narrow {
+    -webkit-column-break-before: always;
+    break-before: column;
+  }
 }
 
 /*

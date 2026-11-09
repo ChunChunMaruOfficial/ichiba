@@ -504,7 +504,10 @@ export function Header() {
       </div>
       {showMobileSearch && (
         <div data-chrome="mobile-search" className="px-4 pb-3 md:hidden">
-          <Suspense>
+          {/* The box arrives in a later piece of the streamed page: until then a shell of the same size holds its row.
+              Without it the header grew by the box's height when it came — content pushed down, and the header,
+              the largest thing on a phone's first screen, painted again larger: the page's largest paint moved there. */}
+          <Suspense fallback={<div aria-hidden className="h-11 rounded-full border border-line-control bg-surface" />}>
             <SearchBox />
           </Suspense>
         </div>
