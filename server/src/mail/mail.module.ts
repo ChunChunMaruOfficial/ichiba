@@ -1,4 +1,4 @@
-import { Controller, Get, Global, HttpCode, Injectable, Logger, Module, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Global, HttpCode, Injectable, Logger, Module, Post, Query, Res } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { Response } from 'express';
@@ -50,7 +50,9 @@ export class EmailOutbox {
     const m = await this.prisma.emailOutbox.findUniqueOrThrow({ where: { id } });
     try {
       const headers: Record<string, string> = {};
-      if (m.userId) {
+      // Letters to the account's notification address carry the one-click unsubscribe; a direct answer to another
+      // address (a brand application's contact e-mail, kind «…_direct») doesn't: it would unbind a different address.
+      if (m.userId && !m.kind.endsWith('_direct')) {
         // RFC 8058 one-click unsubscribe (Gmail / Яндекс show an «Отписаться» button).
         headers['List-Unsubscribe'] = `<${unsubscribeUrl(this.jwt, m.userId)}>`;
         headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
@@ -132,10 +134,10 @@ export class CodeMailer {
   }
 }
 
-const page = (title: string, text: string) => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title></head>
+const page = (title: string, text: string, action = '') => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title></head>
 <body style="margin:0;background:#f4efe6;font-family:Georgia,'Noto Serif',serif;color:#1c1a17">
 <div style="max-width:480px;margin:12vh auto;padding:28px;background:#fbf8f2;border:1px solid #e2d9c9;border-radius:22px">
-<p style="margin:0 0 12px;font-weight:700">ichiba</p><h1 style="margin:0 0 12px;font-size:22px">${esc(title)}</h1><p style="margin:0 0 20px;line-height:1.5">${esc(text)}</p>
+<p style="margin:0 0 12px;font-weight:700">ichiba</p><h1 style="margin:0 0 12px;font-size:22px">${esc(title)}</h1><p style="margin:0 0 20px;line-height:1.5">${esc(text)}</p>${action}
 <a href="${esc(appUrl())}/settings#notify" style="color:#1c1a17">Настройки уведомлений</a></div></body></html>`;
 
 @Controller('email')
@@ -157,23 +159,31 @@ class EmailController {
     }
   }
 
-  /** Link from the email footer. */
+  /**
+   * Link from the email footer: a page with the button, not the unsubscribe itself. Mail scanners (Outlook Safe Links,
+   * antivirus gateways) open every link in a letter, and a GET that unsubscribed would unbind people's mail unasked.
+   */
   @Public()
   @Get('unsubscribe')
-  async unsubscribePage(@Query('token') token: string, @Res() res: Response) {
+  unsubscribePage(@Query('token') token: string, @Res() res: Response) {
+    const form = `<form method="post" action="unsubscribe?token=${esc(encodeURIComponent(token ?? ''))}" style="margin:0 0 20px"><input type="hidden" name="confirm" value="1"><button type="submit" style="font:inherit;font-weight:700;padding:12px 22px;border:0;border-radius:999px;background:#1c1a17;color:#fbf8f2;cursor:pointer">Отписаться</button></form>`;
+    res.status(200).type('html').send(page('Отписаться от писем?', 'Письма с уведомлениями перестанут приходить: почта отвяжется от аккаунта. Уведомления на сайте останутся.', form));
+  }
+
+  /**
+   * The unsubscribe: the button on the page above (form field confirm=1, answered with a page) or the mail client's
+   * one-click button (RFC 8058, body «List-Unsubscribe=One-Click», answered with JSON).
+   */
+  @Public()
+  @Post('unsubscribe')
+  @HttpCode(200)
+  async unsubscribeOneClick(@Query('token') token: string, @Body() body: Record<string, unknown> | undefined, @Res() res: Response) {
     const ok = await this.unsubscribe(token);
+    if (body?.confirm !== '1') return void res.json({ ok });
     res
       .status(ok ? 200 : 400)
       .type('html')
       .send(ok ? page('Вы отписались', 'Письма больше не придут: почта отвязана от аккаунта. Уведомления на сайте остаются. Привязать почту снова можно в настройках.') : page('Ссылка недействительна', 'Не получилось отписаться по этой ссылке. Отключите письма в настройках профиля.'));
-  }
-
-  /** One-click unsubscribe from the mail client (RFC 8058). */
-  @Public()
-  @Post('unsubscribe')
-  @HttpCode(200)
-  async unsubscribeOneClick(@Query('token') token: string) {
-    return { ok: await this.unsubscribe(token) };
   }
 }
 

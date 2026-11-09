@@ -50,6 +50,9 @@ class S3Storage implements Storage {
     region: process.env.S3_REGION ?? 'us-east-1',
     forcePathStyle: true,
     credentials: { accessKeyId: process.env.S3_ACCESS_KEY ?? '', secretAccessKey: process.env.S3_SECRET_KEY ?? '' },
+    // A storage that stops answering fails the upload in a minute instead of holding the request (and a connection)
+    // forever: the SDK sets no timeout of its own.
+    requestHandler: { connectionTimeout: 5_000, requestTimeout: 60_000 },
   });
 
   /** Creates a public-read bucket if missing (dev convenience; prod puts a CDN in front). */

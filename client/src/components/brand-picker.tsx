@@ -2,18 +2,11 @@
 
 import clsx from "clsx";
 import { useEffect, useId, useRef, useState } from "react";
+import { useDebounced } from "@/lib/hooks";
 import useSWR from "swr";
 import { usePresence } from "@/lib/presence";
 import { inputClass } from "./ui";
 
-function useDebounced<T>(value: T, ms: number) {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
-}
 
 /** Suggestions from the ~5 000-brand catalogue (GET /brands): typo- and Cyrillic-tolerant, "найк" finds Nike. */
 export function useBrandSuggestions(query: string, enabled: boolean, limit = 8) {

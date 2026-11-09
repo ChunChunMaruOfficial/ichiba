@@ -52,7 +52,8 @@ const nextConfig: NextConfig = {
       // Personal pages: not kept by the browser, the edge or any proxy, and not indexed (robots.txt is only a hint).
       ...[`/:section(${PRIVATE_SECTIONS.join("|")})/:rest*`, "/item/:id/edit"].map((source) => ({ source, headers: privateHeaders })),
       // Textures, patterns and cloth (public/brand) change rarely: kept for a week instead of rechecked on every page.
-      { source: "/brand/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] },
+      // The deck's slides (public/presentation, 1.2 MB of WebP) the same way.
+      ...["/brand/:path*", "/presentation/:file([\\w-]+\\.webp)"].map((source) => ({ source, headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] })),
     ];
   },
   // One address for the site: www.ichiba.by and Railway's own address of the web service (else a second copy of the

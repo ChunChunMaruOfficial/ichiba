@@ -3,7 +3,8 @@
 import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useDeferredValue, useState } from "react";
+import { Suspense, useState } from "react";
+import { useDebounced } from "@/lib/hooks";
 import useSWR from "swr";
 import { useToast } from "@/components/toast";
 import { Button, EmptyState, ErrorState, Field, Input, Modal, Skeleton, Spinner, Textarea } from "@/components/ui";
@@ -61,7 +62,7 @@ function DbBrowser() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" } | null>(null);
   const [editing, setEditing] = useState<Row | null>(null);
-  const query = useDeferredValue(q);
+  const query = useDebounced(q);
 
   const tables = useSWR<{ tables: Array<{ name: string }> }>("/admin/db");
   const key = `/admin/db/${encodeURIComponent(table)}${qs({ q: query, page, sort: sort?.col, dir: sort?.dir, filter })}`;

@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { background } from '../common/background.js';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CATEGORIES,
@@ -802,24 +803,23 @@ export class ListingsService {
     }
 
     if (!isOwner && opts.trackView !== false) {
+      // The response doesn't wait for the view to be written: the counter and the taste signal go in the background.
       if (this.firstViewToday(id, viewerId ?? opts.viewer)) {
         // Raw UPDATE: a view must not touch `updatedAt`, which the sitemap gives crawlers as the page's lastmod.
-        await this.prisma.$executeRaw`UPDATE "Listing" SET "viewsCount" = "viewsCount" + 1 WHERE id = ${id}`;
+        background(this.prisma.$executeRaw`UPDATE "Listing" SET "viewsCount" = "viewsCount" + 1 WHERE id = ${id}`, 'item view');
         this.stats.track(id, 'views');
       }
-      if (viewerId) await this.recs.record(viewerId, 'view', id);
+      if (viewerId) background(this.recs.record(viewerId, 'view', id), 'view signal');
     }
 
-    const auctionRow = listing.saleType === 'AUCTION' || (await this.prisma.auction.count({ where: { listingId: id } })) > 0
-      ? await this.prisma.auction.findFirst({ where: { listingId: id }, orderBy: { createdAt: 'desc' }, include: auctionInclude })
-      : null;
-    const [inCart, pendingOffers, appealOpen] = await Promise.all([
+    // Everything below depends only on the listing: one round of parallel reads instead of five in a row.
+    const [auctionRow, inCart, pendingOffers, appealOpen, viewer, seller, isFavorite, myRequest, ownerStats, siblings] = await Promise.all([
+      // Its latest auction, if it ever had one (an auction may outlive a switch back to a fixed price).
+      this.prisma.auction.findFirst({ where: { listingId: id }, orderBy: { createdAt: 'desc' }, include: auctionInclude }),
       viewerId && !isOwner ? this.prisma.cartItem.findUnique({ where: { userId_listingId: { userId: viewerId, listingId: id } } }).then(Boolean) : false,
       isOwner ? this.prisma.offer.count({ where: { listingId: id, status: 'PENDING', from: 'BUYER', expiresAt: { gt: new Date() } } }) : 0,
       isOwner && listing.status === 'BLOCKED' ? this.prisma.report.count({ where: { targetType: 'APPEAL', targetId: id, status: 'OPEN' } }).then(Boolean) : false,
-    ]);
-    const viewer = viewerId && !isOwner ? await this.prisma.user.findUnique({ where: { id: viewerId }, select: { sizes: true, bodyMeasurements: true } }) : null;
-    const [seller, isFavorite, myRequest, ownerStats] = await Promise.all([
+      viewerId && !isOwner ? this.prisma.user.findUnique({ where: { id: viewerId }, select: { sizes: true, bodyMeasurements: true } }) : null,
       this.sellerSummary(listing.sellerId, viewerId),
       viewerId ? this.prisma.favorite.findUnique({ where: { userId_listingId: { userId: viewerId, listingId: id } } }).then(Boolean) : false,
       viewerId && !isOwner
@@ -832,15 +832,14 @@ export class ListingsService {
       isOwner
         ? this.prisma.buyRequest.count({ where: { items: { some: { listingId: id } }, status: 'PENDING_SELLER' } })
         : null,
+      // Other sizes of the same item (multi-size listing).
+      listing.groupId
+        ? this.prisma.listing.findMany({
+            where: { groupId: listing.groupId, OR: [{ status: { in: VISIBLE_IN_FEED } }, { id }] },
+            select: { id: true, sizeValue: true, status: true },
+          })
+        : [],
     ]);
-
-    // Other sizes of the same item (multi-size listing).
-    const siblings = listing.groupId
-      ? await this.prisma.listing.findMany({
-          where: { groupId: listing.groupId, OR: [{ status: { in: VISIBLE_IN_FEED } }, { id }] },
-          select: { id: true, sizeValue: true, status: true },
-        })
-      : [];
     const sizeOrder = (s: string | null) => (s && /^\d+$/.test(s.replace(/^W/, '')) ? Number(s.replace(/^W/, '')) : ['XS', 'S', 'M', 'L', 'XL', 'XXL'].indexOf(s ?? ''));
     const ai = (listing.aiAttributes ?? {}) as Record<string, { accepted_by_user?: boolean; edited_by_user?: boolean }>;
     const category = categoryBySlug(listing.category);

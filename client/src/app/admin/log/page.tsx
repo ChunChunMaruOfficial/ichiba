@@ -2,7 +2,8 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { Fragment, useDeferredValue, useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
+import { useDebounced } from "@/lib/hooks";
 import useSWR from "swr";
 import { Select } from "@/components/select";
 import { Badge, Button, EmptyState, ErrorState, Input, Skeleton } from "@/components/ui";
@@ -110,7 +111,7 @@ export default function AdminLogPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [action, setAction] = useState("");
   const [page, setPage] = useState(1);
-  const query = useDeferredValue(q);
+  const query = useDebounced(q);
   const live = page === 1;
   // Rows newer than the newest one seen on the previous refresh flash once.
   const seenTop = useRef<string | null>(null);

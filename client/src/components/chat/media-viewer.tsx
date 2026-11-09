@@ -67,7 +67,7 @@ export function MediaViewer({ media, start, title, onClose }: { media: ChatMedia
       <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-[env(safe-area-inset-bottom)]" onClick={(e) => e.target === e.currentTarget && onClose()}>
         {item.type === "photo" ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={item.id} src={item.urls.l} alt="" width={item.width} height={item.height} className="fade-in max-h-full max-w-full select-none object-contain" draggable={false} />
+          <img key={item.id} src={item.urls.l} alt={media.length > 1 ? `${title} — фото ${at + 1} из ${media.length}` : title} width={item.width} height={item.height} className="fade-in max-h-full max-w-full select-none object-contain" draggable={false} />
         ) : (
           <video key={item.id} src={item.url} poster={item.poster || undefined} controls autoPlay playsInline className="fade-in max-h-full max-w-full" />
         )}

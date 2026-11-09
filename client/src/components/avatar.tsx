@@ -7,8 +7,9 @@ import type { PhotoUrls } from "@/lib/api";
  */
 export function Avatar({ username, avatar, className, ring }: { username: string; avatar?: PhotoUrls | null; className?: string; ring?: boolean }) {
   const face = avatar ? (
+    // Avatars are drawn at most 96 px wide: the 320w variant covers that up to a 3x screen, the 640w only beyond.
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatar.m} alt="" className="size-full rounded-full object-cover" />
+    <img src={avatar.s} srcSet={`${avatar.s} 320w, ${avatar.m} 640w`} sizes="96px" alt="" className="size-full rounded-full object-cover" />
   ) : (
     <span className="grid size-full place-items-center rounded-full bg-shu font-bold uppercase text-on-shu" style={{ fontSize: "42cqw" }}>
       {username.slice(0, 1)}

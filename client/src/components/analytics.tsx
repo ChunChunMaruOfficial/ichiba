@@ -2,15 +2,18 @@
 
 import Script from "next/script";
 import { usePathname } from "next/navigation";
+import { useReportWebVitals } from "next/web-vitals";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { GA_ID, pageView, readConsent, subscribeConsent, YM_ID } from "@/lib/analytics";
+import { GA_ID, pageView, readConsent, subscribeConsent, webVital, YM_ID } from "@/lib/analytics";
 
 /**
  * Yandex Metrica and Google Analytics, only once the visitor allowed analytics (lib/analytics.ts). Metrica runs with
  * Webvisor and click maps; page views are sent by hand on every navigation, since the app changes pages without
- * reloading.
+ * reloading. Core Web Vitals of real visits go to both (webVital), also only with consent.
  */
 export function Analytics() {
+  // Real visitors' Core Web Vitals; webVital is a stable module function, so no reading is reported twice.
+  useReportWebVitals(webVital);
   const allowed = useSyncExternalStore(subscribeConsent, () => readConsent() === "all", () => false);
   const pathname = usePathname();
   const first = useRef(true);

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { Button, Field, Input, Modal } from "./ui";
 
 /**
@@ -71,11 +71,13 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     setOpen(false);
   };
 
+  // One value for the whole app: a new object on every keystroke in a prompt would re-render every page that asks.
+  const api = useMemo(() => ({ confirm, prompt }), [confirm, prompt]);
   const d = shown;
   const blocked = d?.kind === "prompt" && (d.opts.mustEqual ? value.trim() !== d.opts.mustEqual : false);
 
   return (
-    <DialogContext.Provider value={{ confirm, prompt }}>
+    <DialogContext.Provider value={api}>
       {children}
       {d && (
         <Modal open={open} onClose={() => finish(false)} title={d.opts.title} width="max-w-[420px]">

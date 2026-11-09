@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, NotFoundE
 import { z } from 'zod';
 import { AuthUser, CurrentUser, Public } from '../auth/auth.guard.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { background } from '../common/background.js';
 import { ZodPipe } from '../common/zod.js';
 import { applyDiscount, BundleTier, discountFor, nextTier, tiersOf } from '../listings/bundle.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
@@ -11,7 +12,11 @@ import { RecommendationsService } from '../recommendations/recommendations.servi
 
 const DELIVERY_ORDER = ['IN_PERSON', 'DELIVERY'] as const;
 /** «Несколько размеров»: the size goes into the cart with the item. */
-const AddDto = z.object({ size: z.string().trim().min(1).max(20).optional() });
+/** A cart holds at most this many items: the list is one page and adding can't grow a row set without end. */
+const CART_MAX = 100;
+
+// No body at all is the same as {}: «Добавить образ в корзину» (looks/[id]) posts without one, and was refused with 400.
+const AddDto = z.object({ size: z.string().trim().min(1).max(20).optional() }).default({});
 const PreviewDto = z.object({ items: z.array(z.object({ listingId: z.uuid(), size: z.string().trim().max(20).nullish() })).max(50) });
 const CART_INCLUDE = { ...cardInclude, seller: { select: { id: true, username: true, city: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true } } } satisfies Prisma.ListingInclude;
 
@@ -29,7 +34,7 @@ export class CartController {
 
   @Get()
   async list(@CurrentUser() user: AuthUser) {
-    const rows = await this.prisma.cartItem.findMany({ where: { userId: user.id }, include: { listing: { include: CART_INCLUDE } }, orderBy: { addedAt: 'desc' } });
+    const rows = await this.prisma.cartItem.findMany({ where: { userId: user.id }, include: { listing: { include: CART_INCLUDE } }, orderBy: { addedAt: 'desc' }, take: CART_MAX });
     return this.groups(rows, user.id);
   }
 
@@ -95,10 +100,15 @@ export class CartController {
     const multi = listing.sizes.length > 1;
     if (multi && (!dto.size || !listing.sizes.includes(dto.size))) throw new BadRequestException({ message: 'Выберите размер', code: 'SIZE' });
     const size = multi ? dto.size : null;
+    const [held, already] = await Promise.all([
+      this.prisma.cartItem.count({ where: { userId: user.id } }),
+      this.prisma.cartItem.findUnique({ where: { userId_listingId: { userId: user.id, listingId } }, select: { listingId: true } }),
+    ]);
+    if (!already && held >= CART_MAX) throw new BadRequestException({ message: `В корзине уже ${CART_MAX} вещей — оформите или уберите часть`, code: 'CART_FULL' });
     await this.prisma.cartItem.upsert({ where: { userId_listingId: { userId: user.id, listingId } }, create: { userId: user.id, listingId, size }, update: { size } });
-    await this.recs.record(user.id, 'cart', listingId);
+    background(this.recs.record(user.id, 'cart', listingId), 'cart signal');
     this.stats.track(listingId, 'carts');
-    return { inCart: true, count: await this.prisma.cartItem.count({ where: { userId: user.id } }) };
+    return { inCart: true, count: already ? held : held + 1 };
   }
 
   @Delete(':listingId')

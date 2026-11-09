@@ -3,7 +3,8 @@
 import { useDialog } from "@/components/dialog";
 import clsx from "clsx";
 import Link from "next/link";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
+import { useDebounced } from "@/lib/hooks";
 import useSWR from "swr";
 import { useToast } from "@/components/toast";
 import { Badge, Button, EmptyState, ErrorState, Field, Input, Modal, Skeleton, Textarea } from "@/components/ui";
@@ -48,7 +49,7 @@ export default function AdminUsersPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>("all");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<string | null>(null);
-  const query = useDeferredValue(q);
+  const query = useDebounced(q);
   const { data, error, mutate } = useSWR<{ total: number; pageSize: number; items: Row[] }>(`/admin/users${qs({ q: query, filter, page })}`, { keepPreviousData: true });
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 

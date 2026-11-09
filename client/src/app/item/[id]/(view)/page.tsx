@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { preconnect, preload } from "react-dom";
 import { conditionLabel } from "@/lib/labels";
 import { itemIdFrom, itemSegment } from "@/lib/item-path";
 import { itemLandings, landingHref, type ItemLandings, type LandingEntry } from "@/lib/landing";
@@ -152,6 +153,13 @@ export default async function ItemPage({ params }: Props) {
   // Unknown id → a real 404 status for crawlers; API trouble → the client shell retries on its own.
   if (l === null) notFound();
   const pages = itemLandings(landings, isDetail(l) ? l : { category: null, brand: null });
+  // The first photo is the page's largest paint and lives on another origin (the API's media host): the connection and
+  // the file start from <head>. The gallery shows the same file (urls.l), so the browser reuses the preloaded copy.
+  const cover = isDetail(l) ? l.photos[0] : undefined;
+  if (cover) {
+    preconnect(new URL(cover.urls.l).origin);
+    preload(cover.urls.l, { as: "image", fetchPriority: "high" });
+  }
   return (
     <>
       {isDetail(l) && <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(productLd(l, pages))} />}

@@ -15,7 +15,7 @@ import "./globals.css";
 // OFL font): from Google Fonts it came as ~120 unicode-range chunks whose @font-face rules alone were 95 KB of the
 // render-blocking CSS on every page. A new kanji in the code needs the subset rebuilt — `npm run check:brush-font`
 // names any that are missing (they would fall back to a plain serif, nothing breaks).
-const spectral = Spectral({ variable: "--font-spectral", subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700", "800"], display: "swap" });
+const spectral = Spectral({ variable: "--font-spectral", subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700"], display: "swap" });
 const yuji = localFont({ src: "./fonts/yuji-syuku-ichiba.woff2", variable: "--font-yuji", weight: "400", display: "swap", preload: false });
 
 

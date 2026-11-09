@@ -224,7 +224,11 @@ export function ItemCard({ card, source = "search", eager, uniform }: { card: Ca
         </Link>
         {/* Desktop hover / keyboard focus panel; on tablets (no hover) it is always shown, else Buy and ♡ are out of reach. */}
         <div className="panel pointer-events-none absolute inset-x-2 bottom-2 hidden translate-y-1 rounded-[20px] p-3 opacity-0 transition-[opacity,transform] duration-200 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:block [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100">
-          <p className="truncate text-sm font-medium">{card.title}</p>
+          {/* The title opens the item too: the panel covers the photo's lower part, and a click on the name did nothing.
+              Out of the tab order: the photo link above already is this card's link for keyboards and screen readers. */}
+          <Link href={itemHref(card)} tabIndex={-1} className="block truncate text-sm font-medium hover:underline hover:underline-offset-4">
+            {card.title}
+          </Link>
           {negotiable ? (
             <p className="mt-0.5 text-sm font-medium text-ink-2">{price}</p>
           ) : (

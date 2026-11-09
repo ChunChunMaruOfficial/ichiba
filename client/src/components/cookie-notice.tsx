@@ -36,7 +36,9 @@ export function CookieNotice() {
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
         <p className="text-sm leading-relaxed text-ink-2">
-          Мы используем файлы cookie, чтобы сайт был удобным.{" "}
+          {ANALYTICS
+            ? "Мы используем необходимые cookie, а с вашего разрешения — Яндекс Метрику (с записью визитов Вебвизором) и Google Analytics, чтобы понимать, что на сайте удобно, а что нет. "
+            : "Мы используем файлы cookie, чтобы сайт был удобным. "}
           <Link href="/privacy#cookies" className="font-medium text-ink underline underline-offset-4">
             Подробнее
           </Link>

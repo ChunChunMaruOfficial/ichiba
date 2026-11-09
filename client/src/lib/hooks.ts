@@ -8,6 +8,19 @@ import { useToast } from "@/components/toast";
 import { api } from "./api";
 import type { Card } from "./types";
 
+/**
+ * A value that settles `ms` after its last change. Search boxes key their requests on it, so typing «куртка» sends one
+ * request, not six (useDeferredValue only defers rendering: every keystroke still became an SWR key and a request).
+ */
+export function useDebounced<T>(value: T, ms = 300): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return settled;
+}
+
 /** ♡ toggle with optimistic UI, undo toast and auth gate (frames 06/08/11). */
 export function useFavorite(card: Pick<Card, "id" | "title" | "isFavorite">, source: "feed" | "product" | "search" | "wardrobe" | "swipe" = "feed") {
   const { requireAuth } = useSession();

@@ -45,6 +45,22 @@ async function bootstrap() {
     if (!req.path.startsWith('/media/')) res.setHeader('Cache-Control', 'no-store');
     next();
   });
+  // Slow requests in the log (Railway keeps it): the route pattern, status and time of every answer slower than
+  // SLOW_REQUEST_MS (1 s by default), so a slow page is found by its route before anyone complains. No query string:
+  // searches stay out of the logs. Photos are left out, they are the static handler's.
+  const slowMs = Number(process.env.SLOW_REQUEST_MS ?? 1000);
+  const http = new Logger('Http');
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/media/')) return next();
+    const start = process.hrtime.bigint();
+    res.on('finish', () => {
+      const ms = Number(process.hrtime.bigint() - start) / 1e6;
+      if (ms < slowMs) return;
+      const route = (req.route as { path?: string } | undefined)?.path;
+      http.warn(`slow ${req.method} ${route ? req.baseUrl + route : req.path} ${res.statusCode} ${Math.round(ms)} ms`);
+    });
+    next();
+  });
   app.use(cookieParser());
   app.useGlobalFilters(new UploadTooLargeFilter());
   const origins = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',').map((o) => o.trim());

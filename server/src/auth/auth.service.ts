@@ -57,6 +57,7 @@ function normalizeLogin(raw: string): { kind: 'email' | 'phone'; value: string }
 type SignupClaims =
   | { purpose: 'signup'; kind: 'email' | 'phone'; value: string }
   | { purpose: 'signup'; kind: 'google'; sub: string; email?: string; nameHint?: string }
+  | { purpose: 'signup'; kind: 'apple'; sub: string; email?: string; nameHint?: string }
   | { purpose: 'signup'; kind: 'telegram'; sub: string; nameHint?: string };
 
 /** Fields the Telegram Login Widget hands to the page (https://core.telegram.org/widgets/login). */
@@ -239,14 +240,15 @@ export class AuthService {
     const name = username.toLowerCase();
     const consent = { privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION };
 
-    if (claims.kind === 'google') {
+    if (claims.kind === 'google' || claims.kind === 'apple') {
+      const field = claims.kind === 'google' ? 'googleSub' : 'appleSub';
       // The account may have appeared meanwhile (second tab): then just sign in.
-      const existing = await this.prisma.user.findUnique({ where: { googleSub: claims.sub } });
+      const existing = await this.prisma.user.findUnique({ where: { [field]: claims.sub } as { googleSub: string } });
       if (existing) return { user: existing, isNew: false };
       await this.assertUsername(name);
       const byEmail = claims.email ? await this.prisma.user.findUnique({ where: { email: claims.email } }) : null;
-      if (byEmail) return { user: await this.prisma.user.update({ where: { id: byEmail.id }, data: { ...this.adoptUnverified(byEmail, 'email'), googleSub: claims.sub, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() } }), isNew: false };
-      const user = await this.prisma.user.create({ data: { username: name, googleSub: claims.sub, email: claims.email ?? null, emailVerifiedAt: claims.email ? new Date() : null, ...consent } });
+      if (byEmail) return { user: await this.prisma.user.update({ where: { id: byEmail.id }, data: { ...this.adoptUnverified(byEmail, 'email'), [field]: claims.sub, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() } }), isNew: false };
+      const user = await this.prisma.user.create({ data: { username: name, [field]: claims.sub, email: claims.email ?? null, emailVerifiedAt: claims.email ? new Date() : null, ...consent } });
       return { user, isNew: true };
     }
 
@@ -476,8 +478,21 @@ export class AuthService {
     }).catch(() => {
       throw new UnauthorizedException({ message: 'Не удалось войти через Apple' });
     });
-    const email = typeof payload.email === 'string' ? payload.email : undefined;
-    return this.upsertOAuth('appleSub', String(payload.sub), email, email?.split('@')[0]);
+    const sub = String(payload.sub);
+    const email = typeof payload.email === 'string' && payload.email_verified !== false && payload.email_verified !== 'false' ? payload.email.toLowerCase() : undefined;
+    const bySub = await this.prisma.user.findUnique({ where: { appleSub: sub } });
+    const byEmail = !bySub && email ? await this.prisma.user.findUnique({ where: { email } }) : null;
+    if (bySub || byEmail) return { session: await this.upsertOAuth('appleSub', sub, email) };
+    // New person: a nickname and consent to personal data processing first, as with Google and Telegram (before,
+    // Apple created the account at once, with no consent on record).
+    const hint = email?.split('@')[0] ?? 'user';
+    return {
+      signup: {
+        token: await this.jwt.signAsync({ purpose: 'signup', kind: 'apple', sub, email, nameHint: hint } satisfies SignupClaims, { expiresIn: SIGNUP_TOKEN_TTL }),
+        contact: email ?? 'Apple',
+        suggestion: await this.freeUsername(hint),
+      },
+    };
   }
 
   private async upsertOAuth(field: 'googleSub' | 'appleSub', sub: string, email?: string, nameHint?: string) {

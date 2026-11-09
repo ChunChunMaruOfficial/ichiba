@@ -135,7 +135,8 @@ export class AuthController {
   @Post('apple')
   @HttpCode(200)
   async apple(@Body(new ZodPipe(TokenDto)) dto: { idToken: string }, @Res({ passthrough: true }) res: Response) {
-    return this.startSession(res, await this.auth.apple(dto.idToken));
+    const r = await this.auth.apple(dto.idToken);
+    return r.session ? this.startSession(res, r.session) : { signup: r.signup };
   }
 
   // ---------- device keys: «Войти как @nick» after a sign-out on this browser ----------

@@ -21,7 +21,8 @@ const SURFACE = '#fbf8f2';
 const SUNK = '#ece5d8';
 const LINE = '#e2d9c9';
 const SHU = '#c8102e';
-const MUTED = '#8a8276';
+// The site's own --muted: 5.1:1 on the paper (the old #8a8276 was 3.3:1, under WCAG AA for 12 px footer text).
+const MUTED = '#6b6459';
 const SERIF = "Georgia,'Noto Serif','Times New Roman',serif";
 
 export interface EmailContent {

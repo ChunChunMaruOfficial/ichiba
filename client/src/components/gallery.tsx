@@ -85,7 +85,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom 
             <StripSlide key={p.id} frame={frame} onOpen={() => setFullscreen(true)} onZoom={onZoom} label={`Фото ${i + 1} из ${count}, открыть во весь экран`}>
               <BlurBackdrop src={p.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.urls.l} alt={photoAlt(title, i)} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} {...(i === 0 && flyProps(p))} />
+              <img src={p.urls.l} alt={photoAlt(title, i)} className="relative size-full object-contain" loading={i === 0 ? "eager" : "lazy"} fetchPriority={i === 0 ? "high" : undefined} {...(i === 0 && flyProps(p))} />
             </StripSlide>
           ))}
           {video && (
@@ -114,7 +114,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom 
             <button className="absolute inset-0 block cursor-zoom-in" onClick={() => setFullscreen(true)} aria-label="Открыть во весь экран">
               <BlurBackdrop key={`b-${current.id}`} src={current.urls.s} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img key={current.id} src={current.urls.l} alt={photoAlt(title, index)} className="fade-in relative size-full object-contain" {...(index === 0 && flyProps(current))} />
+              <img key={current.id} src={current.urls.l} alt={photoAlt(title, index)} className="fade-in relative size-full object-contain" fetchPriority={index === 0 ? "high" : undefined} {...(index === 0 && flyProps(current))} />
             </button>
           )}
           {overlay}
@@ -167,7 +167,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom 
         )}
       </div>
 
-      {viewer.mounted && <Fullscreen photos={photos} index={Math.min(index, photos.length - 1)} onIndex={(i) => onIndex((i + photos.length) % photos.length)} onClose={() => setFullscreen(false)} closing={viewer.closing} />}
+      {viewer.mounted && <Fullscreen photos={photos} title={title} index={Math.min(index, photos.length - 1)} onIndex={(i) => onIndex((i + photos.length) % photos.length)} onClose={() => setFullscreen(false)} closing={viewer.closing} />}
     </div>
   );
 }
@@ -176,7 +176,7 @@ export function Gallery({ photos, video, title, index, onIndex, overlay, onZoom 
  * Photo on its own over the blurred page. Phones: swipe sideways for the next photo, pull down to close (the photo
  * follows the finger and the page shows through more as it goes). Tap or wheel zooms.
  */
-function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Photo[]; index: number; onIndex: (i: number) => void; onClose: () => void; closing: boolean }) {
+function Fullscreen({ photos, title, index, onIndex, onClose, closing }: { photos: Photo[]; title: string; index: number; onIndex: (i: number) => void; onClose: () => void; closing: boolean }) {
   const [zoom, setZoom] = useState(1);
   const [zoomFor, setZoomFor] = useState(index);
   // Offset of a zoomed photo, so the parts outside the screen can be reached (dragged with a finger or the mouse).
@@ -266,7 +266,7 @@ function Fullscreen({ photos, index, onIndex, onClose, closing }: { photos: Phot
       <img
         ref={img}
         src={p.urls.l}
-        alt=""
+        alt={photoAlt(title, index)}
         draggable={false}
         onPointerDown={(e) => {
           if (zoom <= 1 || !e.isPrimary) return;

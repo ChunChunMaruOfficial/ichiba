@@ -95,7 +95,7 @@ function CountSeal({ kanji, n, ink }: { kanji: string; n: number; ink?: boolean 
     >
       <span className={`grid size-[62px] place-content-center rounded-full border ${ink ? "border-ink/40" : "border-shu/40"} text-center`}>
         <span className="font-brush text-[13px] leading-none tracking-[0.1em]">{kanji}</span>
-        <span className="tabular font-display text-[26px] font-extrabold leading-none">{n > 99 ? "99+" : n}</span>
+        <span className="tabular font-display text-[26px] font-bold leading-none">{n > 99 ? "99+" : n}</span>
       </span>
     </span>
   );

@@ -4,7 +4,8 @@ import clsx from "clsx";
 import Link from "next/link";
 import { DragRow } from "./drag-row";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
+import { useDebounced } from "@/lib/hooks";
 import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice, listingPrice } from "@/lib/labels";
@@ -64,7 +65,7 @@ export function LookEditor({ username, open, onClose, look, initial, onSaved }: 
   const [picked, setPicked] = useState<Card[]>(look?.items ?? initial ?? []);
   const [source, setSource] = useState<"favorites" | "mine" | "search">("favorites");
   const [q, setQ] = useState("");
-  const query = useDeferredValue(q.trim());
+  const query = useDebounced(q.trim());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const key = !open

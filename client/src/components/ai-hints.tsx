@@ -1,21 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useDebounced } from "@/lib/hooks";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import type { ListingValues, PhotoDraft } from "@/lib/listing-form";
 import type { NegotiationAdvice, Offer, OpeningSuggestion, PriceSuggestion } from "@/lib/types";
 import { Button, IconSparkle } from "./ui";
 
-/** Value that settles `ms` after the last change (keeps typing from firing AI requests). */
-function useDebounced<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return settled;
-}
 
 const post = <T,>([url, body]: readonly [string, string]) => api<T>(url, { body: JSON.parse(body) });
 const swrOpts = { revalidateOnFocus: false, dedupingInterval: 5 * 60_000, keepPreviousData: false } as const;

@@ -246,7 +246,7 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
           </div>
           {providers.apple && (
             <div className="mt-3">
-              <AppleButton clientId={providers.apple} onToken={(idToken) => run(async () => finish(await api<SessionResult>("/auth/apple", { body: { idToken } })))} />
+              <AppleButton clientId={providers.apple} onToken={(idToken) => run(async () => handle(await api<SessionResult | { signup: Signup }>("/auth/apple", { body: { idToken } })))} />
             </div>
           )}
           <div className="my-5 flex items-center gap-3 text-xs text-muted">
