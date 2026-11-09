@@ -105,7 +105,9 @@ export function Masonry({
   return (
     <div ref={ref} className="@container">
       <div className={responsive ? CSS_COLUMNS : undefined} style={{ columnGap: gap, columnCount: responsive ? undefined : count }}>
-        {columns.map((column, c) =>
+        {/* One flat list: keys only hold inside their own array, so a card moving to another column's array would be
+            created anew (photo downloaded and painted again) when the column count changes after hydration. */}
+        {columns.flatMap((column, c) =>
           column.map((item, j) => (
             <div
               key={item.id}

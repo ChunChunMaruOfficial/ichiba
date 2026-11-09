@@ -2,7 +2,7 @@
 
 import { guestCart } from "@/lib/guest-cart";
 import { useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { forgetAccount, rememberAccount, type RememberedAccount } from "@/lib/accounts";
 import { api, ApiError } from "@/lib/api";
@@ -26,12 +26,46 @@ interface SessionValue {
   realtime: RealtimeStatus;
 }
 
-const SessionContext = createContext<SessionValue | null>(null);
+/**
+ * The session reaches components through a store, not as a context value. A context value that changes (the
+ * /auth/me answer arriving: loading true → false) is pushed into every part of the page React hasn't hydrated yet,
+ * and a part whose server HTML is still streaming in is then thrown away and rendered again on the client: on the
+ * home page and /resale that was the whole feed, its photos created and painted a second time (half of the loads on
+ * a phone, the largest paint ~2 s later). With a store only the components already on screen re-render; the rest
+ * hydrate from the server HTML with the first value (the one the server rendered) and catch up right after.
+ */
+interface SessionStore {
+  get: () => SessionValue;
+  /** The value of the first render: what the server rendered, so what a hydrating component starts from. */
+  first: () => SessionValue;
+  subscribe: (onChange: () => void) => () => void;
+  set: (value: SessionValue) => void;
+}
+
+function createSessionStore(initial: SessionValue): SessionStore {
+  let current = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    first: () => initial,
+    subscribe: (onChange) => {
+      listeners.add(onChange);
+      return () => listeners.delete(onChange);
+    },
+    set: (value) => {
+      if (value === current) return;
+      current = value;
+      listeners.forEach((l) => l());
+    },
+  };
+}
+
+const SessionContext = createContext<SessionStore | null>(null);
 
 export function useSession() {
-  const v = useContext(SessionContext);
-  if (!v) throw new Error("useSession outside SessionProvider");
-  return v;
+  const store = useContext(SessionContext);
+  if (!store) throw new Error("useSession outside SessionProvider");
+  return useSyncExternalStore(store.subscribe, store.get, store.first);
 }
 
 export interface LiveMessage {
@@ -239,9 +273,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     () => ({ me: user, loading: isLoading, refresh, logout, switchAccount, requireAuth, openAuth, realtime }),
     [user, isLoading, refresh, logout, switchAccount, requireAuth, openAuth, realtime],
   );
+  // eslint-disable-next-line react-hooks/refs -- the store only keeps the object; `pending` is read in callbacks, not here
+  const [store] = useState(() => createSessionStore(value));
+  useLayoutEffect(() => store.set(value), [store, value]);
 
   return (
-    <SessionContext.Provider value={value}>
+    <SessionContext.Provider value={store}>
       {children}
       <AuthModal
         open={authOpen}
