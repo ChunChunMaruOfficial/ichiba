@@ -72,7 +72,7 @@ export const CSS_ITEMS = `
 
 /** Helpers both widgets share: escaping, money, buttons, icons, the request round-trip. */
 const COMMON_JS = `
-var W = TelegramWidget, S = {}, T = '', N = 0;
+var W = TelegramWidget, S = {}, T = '', N = 0, TO;
 var P = {
   back: 'M15 5l-7 7 7 7',
   check: 'M5 12.5l4.5 4.5L19 7',
@@ -83,7 +83,9 @@ function e(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (
 function byn(n) { return n == null ? 'договорная' : Number(n).toLocaleString('ru-RU') + ' BYN'; }
 function b(t, c, k) { return '<button class="' + (k || '') + '" onclick="' + c + '">' + t + '</button>'; }
 function hap(k) { try { k ? W.HapticFeedback.impactOccurred('light') : W.HapticFeedback.selectionChanged(); } catch (x) {} }
+/** One request at a time (Telegram rejects a second one with BUSY): a tap while one waits says so and does nothing. */
 function q(d) {
+  if (N) { T = 'Секунду…'; r(); clearTimeout(TO); TO = setTimeout(function () { T = ''; r(); }, 1200); return 1; }
   hap(1); N++;
   W.request(d).then(function (a) { N--; a && a.result ? set(a.result) : (T = '', r()); }, function (x) {
     N--; set(W.chatData);
@@ -125,7 +127,7 @@ function done(h) { document.getElementById('a').innerHTML = h + (T ? '<div class
  *   ['p', text]             a muted line
  */
 const MAIN_BASE = `
-var L = {}, TO, LK = [];
+var L = {}, LK = [];
 Object.assign(P, {
   box: 'M3 7.5 12 3l9 4.5v9L12 21l-9-4.5zM3 7.5l9 4.5 9-4.5M12 12v9',
   bag: 'M5 8h14l-1.2 12H6.2zM9 8V7a3 3 0 0 1 6 0v1',
@@ -153,7 +155,7 @@ function loc(k, v) { hap(); L[k] = v; r(); }
 /** A command for a handler: only the app's own shapes, never anything else. */
 function cm(c) { return /^[\\w:]+$/.test(c || '') ? "q('" + c + "')" : ''; }
 function go(i) { W.openLink(LK[i]); }
-function flip(i) { var x = S.B[i]; L[i] = !(L[i] != null ? L[i] : x[2]); r(); q(x[3]); }
+function flip(i) { if (N) return q(); var x = S.B[i]; L[i] = !(L[i] != null ? L[i] : x[2]); r(); q(x[3]); }
 function tile(t) {
   return b((typeof t[0] == 'number' ? '<span class="n">' + t[0] + '</span><span class="mu">' + e(t[1]) + '</span>' : ic(t[0]) + e(t[1])) + (t[3] ? '<span class="bd">' + t[3] + '</span>' : ''), /^https:/.test(t[2]) ? 'go(' + (LK.push(t[2]) - 1) + ')' : cm(t[2]), 'tl');
 }

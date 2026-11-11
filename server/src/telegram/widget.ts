@@ -160,6 +160,7 @@ export class TelegramWidgetService {
   // ---------- a tap ----------
 
   async query(q: WidgetQuery) {
+    const started = Date.now();
     const answer = (state: WidgetState) => tg('answerWidgetQuery', { widget_query_id: q.id, data: packState(toView(state)) }).catch(() => undefined);
     const chatId = q.chat?.id;
     const messageId = q.message_id;
@@ -200,8 +201,12 @@ export class TelegramWidgetService {
     }
     await this.save(chatId, messageId, ctx);
     const packed = packState(toView(state));
-    await tg('editMessageWidgetData', { chat_id: chatId, message_id: messageId, chat_data: packed }).catch(() => undefined);
+    // The answer first: the widget waits for it before it may send the next tap (one request at a time), and it
+    // draws the new screen from it. Then the message keeps that screen (it arrives as chatDataChanged, same data).
     await tg('answerWidgetQuery', { widget_query_id: q.id, data: packed }).catch(() => undefined);
+    await tg('editMessageWidgetData', { chat_id: chatId, message_id: messageId, chat_data: packed }).catch(() => undefined);
+    const ms = Date.now() - started;
+    if (ms > 1500) this.logger.warn(`widget ${q.data}: answered in ${ms} ms`);
   }
 
   private username(accounts: Account[], ctx: WCtx) {

@@ -192,6 +192,8 @@ test('a menu sent before this version is replaced by a new one on its first tap,
   await tap('u3', 'l:s:0');
   assert.ok(!calls.some((c) => c.method === 'sendWidget' || c.method === 'deleteMessage'), '«Вещи» and the rest switch in place');
   assert.equal(calls.filter((c) => c.method === 'editMessageWidgetData').length, 2);
+  const m = calls.map((c) => c.method);
+  assert.ok(m.indexOf('answerWidgetQuery') < m.indexOf('editMessageWidgetData'), 'the widget gets its answer before the edit, so the next tap is free sooner');
 });
 
 test('nothing happens from a group, from someone else, or from an unlinked Telegram', async () => {
