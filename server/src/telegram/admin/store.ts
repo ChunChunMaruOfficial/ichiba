@@ -53,6 +53,11 @@ export class AdminStore {
     }
   }
 
+  /** Forgets a counter or a flag (a right password clears the wrong-password counter). */
+  reset(key: string) {
+    return this.set(key, null, 1);
+  }
+
   /** True the first time a key is seen within `ttlS` (replayed updates). */
   async once(key: string, ttlS: number) {
     const k = `ichiba:tgadm:${key}`;

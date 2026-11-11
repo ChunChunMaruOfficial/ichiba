@@ -14,12 +14,14 @@ const H = 3600_000;
 
 test('a bot session holds only until it expires or the account’s sessions are reset', () => {
   const now = Date.now();
-  const s = { session: { until: new Date(now + H).toISOString(), sv: 3 } };
-  assert.equal(unlocked(s, 3, now), true);
-  assert.equal(unlocked(s, 4, now), false, 'a password reset / block bumps sessionVersion and closes the bot');
-  assert.equal(unlocked(s, 3, now + 2 * H), false);
-  assert.equal(unlocked({}, 0, now), false);
-  assert.equal(unlocked({ session: null }, 0, now), false);
+  const s = { session: { until: new Date(now + H).toISOString(), sv: 3, chat: '42' } };
+  assert.equal(unlocked(s, 3, '42', now), true);
+  assert.equal(unlocked(s, 4, '42', now), false, 'a password reset / block bumps sessionVersion and closes the bot');
+  assert.equal(unlocked(s, 3, '42', now + 2 * H), false);
+  assert.equal(unlocked(s, 3, '43', now), false, 'a re-link to another Telegram does not carry the unlock');
+  assert.equal(unlocked({ session: { until: new Date(now + H).toISOString(), sv: 3 } }, 3, '42', now), false, 'an unlock from before the chat binding is void');
+  assert.equal(unlocked({}, 0, '42', now), false);
+  assert.equal(unlocked({ session: null }, 0, '42', now), false);
 });
 
 test('wrong passwords lock the bot for a while', () => {

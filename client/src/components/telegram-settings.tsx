@@ -41,7 +41,7 @@ function Preview() {
         <span className="grid size-6 place-items-center rounded-full bg-[#2aabee] text-white">
           <TelegramIcon className="size-3.5" />
         </span>
-        ichiba · бот магазина
+        Ichiba
         <span className="ml-auto font-normal text-muted">сейчас</span>
       </div>
       <div className="relative mt-3 max-w-[330px] rounded-2xl rounded-tl-md bg-surface p-3.5 text-[14px] leading-snug text-ink shadow-[0_1px_0_var(--line-strong)]">

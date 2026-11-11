@@ -9,7 +9,8 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { RedisService } from '../../redis/redis.js';
 import { botToken, tgAs, type TgMessage, type TgUpdate } from '../bot-api.js';
 import { verified } from '../callbacks.js';
-import { allowlisted, LOCKOUT_MS, lockedOutFor, MAX_FAILS, sessionMs, stateOf, unlocked, type TgAdminState } from './access.js';
+import { ADMIN_COMMANDS, adminChatCommands } from '../profile.js';
+import { allowlisted, ownerUsername, LOCKOUT_MS, lockedOutFor, MAX_FAILS, sessionMs, stateOf, unlocked, type TgAdminState } from './access.js';
 import { AdminApi, AdminApiError, type Admin } from './api.js';
 import type { Ctx, Routes } from './ctx.js';
 import { Panel } from './panel.js';
@@ -81,10 +82,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
   }
 
   private async connect() {
-    const commands = [
-      { command: 'admin', description: 'Админка' },
-      { command: 'lock', description: 'Закрыть админку' },
-    ];
+    const commands = ADMIN_COMMANDS;
     if (dedicated()) {
       await this.call('setMyCommands', { commands });
       const url = webhookUrl();
@@ -99,11 +97,13 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
       return;
     }
     // Inside the notification bot: /admin shows up only in admins' chats, everybody else keeps the usual menu.
-    const admins = await this.prisma.user.findMany({ where: { role: 'ADMIN', tgChatId: { not: null }, blockedAt: null, deletedAt: null }, select: { tgChatId: true } });
-    for (const a of admins) {
+    const admins = await this.prisma.user.findMany({ where: { role: 'ADMIN', tgChatId: { not: null }, blockedAt: null, deletedAt: null }, select: { tgChatId: true, tgUsername: true } });
+    // /admin is listed only where it opens: the owner's Telegram (access.ts ownerUsername).
+    for (const a of admins.filter((x) => ownerUsername(x.tgUsername ?? undefined))) {
       await this.call('setMyCommands', {
         scope: { type: 'chat', chat_id: a.tgChatId },
-        commands: [...commands, { command: 'status', description: 'Какой аккаунт подключён' }, { command: 'stop', description: 'Отключить уведомления' }],
+        // This list replaces the default one in an admin's chat, so the shop commands stay in it (profile.ts).
+        commands: adminChatCommands(),
       }).catch(() => undefined);
     }
   }
@@ -139,7 +139,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     if (!m?.text || m.chat.type !== 'private') return false;
     const text = m.text.trim();
     // Of commands, only its own: /start <token> (linking), /menu and the rest stay with the shop bot.
-    if (text.startsWith('/')) return /^\/(admin|lock)(@\w+)?$/.test(text) && !!(await this.account(m.from?.id));
+    if (text.startsWith('/')) return /^\/(admin|lock)(@\w+)?$/.test(text) && !!(await this.account(m.from));
     return !!(await this.store.state(String(m.chat.id))).ask;
   }
 
@@ -149,8 +149,9 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     if (s.ask) await this.store.saveState(String(chatId), { ...s, ask: undefined });
   }
 
-  private async account(tgUserId: number | undefined): Promise<Account | null> {
-    if (!tgUserId || !allowlisted(tgUserId)) return null;
+  private async account(from: { id: number; username?: string } | undefined): Promise<Account | null> {
+    const tgUserId = from?.id;
+    if (!tgUserId || !allowlisted(tgUserId) || !ownerUsername(from.username)) return null;
     const u = await this.prisma.user.findFirst({
       where: { tgChatId: String(tgUserId), role: 'ADMIN', blockedAt: null, deletedAt: null },
       select: { id: true, username: true, sessionVersion: true, tgSessionVersion: true, passwordHash: true, tgAdmin: true },
@@ -193,7 +194,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
         return;
       }
       const chatId = String(chat.id);
-      const account = await this.account(from.id);
+      const account = await this.account(from);
       if (!account) {
         await this.store.saveState(chatId, {});
         if (cq) await this.call('answerCallbackQuery', { callback_query_id: cq.id, text: 'Нет доступа', show_alert: true });
@@ -226,7 +227,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
 
     if (/^\/lock(@\w+)?$/.test(text)) return this.lock(account, chatId, state, true);
     if (pending?.then.r === 'unlock' && !text.startsWith('/')) return this.unlock(account, chatId, text, state);
-    if (!unlocked(s, account.sessionVersion)) return this.present(account, chatId, this.lockAsk(), { ...state, ask: undefined }, { fresh: !pending });
+    if (!unlocked(s, account.sessionVersion, chatId)) return this.present(account, chatId, this.lockAsk(), { ...state, ask: undefined }, { fresh: !pending });
     if (pending && !text.startsWith('/')) {
       if (!text) return this.present(account, chatId, { kind: 'ask', ...pending }, state, { note: '⚠️ Нужен текст.\n\n' });
       const then: Go = { r: pending.then.r, p: { ...pending.then.p, input: text.slice(0, 6000) } };
@@ -240,7 +241,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     const answer = (text = '', alert = false) => this.call('answerCallbackQuery', { callback_query_id: cq.id, text: text.slice(0, 190), show_alert: alert }).catch(() => undefined);
     const panelState: ChatState = { ...state, panel: cq.message?.message_id ?? state.panel, ask: undefined };
     const s = stateOf(account.tgAdmin);
-    if (!unlocked(s, account.sessionVersion)) {
+    if (!unlocked(s, account.sessionVersion, chatId)) {
       await answer('Админка закрыта — введите пароль');
       return this.present(account, chatId, this.lockAsk(), panelState);
     }
@@ -268,9 +269,13 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     const wait = lockedOutFor(s);
     if (wait) return this.present(account, chatId, lock, state, { note: `⛔️ Слишком много неверных паролей. Попробуйте через ${Math.ceil(wait / 60_000)} мин.\n\n` });
     if (!account.passwordHash) return this.present(account, chatId, lock, state, { note: '⚠️ У аккаунта нет пароля. Задайте его на сайте: вход в админку → «Забыли пароль?».\n\n' });
+    // Counted before the check and atomically (Redis INCR): guesses sent in parallel each get their own number, so
+    // the sixth one is refused unseen however many arrive at once. Reset only by a right password.
+    const attempt = await this.store.count(`pwfail:${account.id}`, LOCKOUT_MS / 1000);
+    if (attempt > MAX_FAILS) return this.present(account, chatId, lock, state, { note: '⛔️ Слишком много неверных паролей. Попробуйте через 15 мин.\n\n' });
     const ok = password.length > 0 && password.length <= 200 && (await bcrypt.compare(password, account.passwordHash));
     if (!ok) {
-      const n = (s.failed?.n ?? 0) + 1;
+      const n = attempt;
       const locked = n >= MAX_FAILS;
       await this.saveTg(account.id, { ...s, failed: locked ? { n: 0, until: new Date(Date.now() + LOCKOUT_MS).toISOString() } : { n, until: null } });
       await this.audit(account.id, 'tg_admin_unlock_failed', locked ? 'пять попыток подряд — пауза 15 минут' : `попытка ${n}`);
@@ -279,7 +284,8 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
       return this.present(account, chatId, lock, state, { note });
     }
     const until = new Date(Date.now() + sessionMs());
-    await this.saveTg(account.id, { ...s, session: { until: until.toISOString(), sv: account.sessionVersion }, failed: null });
+    await this.store.reset(`pwfail:${account.id}`);
+    await this.saveTg(account.id, { ...s, session: { until: until.toISOString(), sv: account.sessionVersion, chat: chatId }, failed: null });
     await this.audit(account.id, 'tg_admin_unlock');
     const note = `🔓 Админка открыта до ${until.toLocaleTimeString('ru-RU', { timeZone: 'Europe/Minsk', hour: '2-digit', minute: '2-digit' })}.\n\n`;
     return this.present(account, chatId, await this.run(account, go('home')), { ...state, ask: undefined }, { note });

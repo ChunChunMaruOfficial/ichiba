@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { withJobLock } from '../../common/job-lock.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RedisService } from '../../redis/redis.js';
-import { allowlisted, logPrefsOf, stateOf } from './access.js';
+import { allowlisted, logPrefsOf, ownerUsername, stateOf } from './access.js';
 import { actionEmoji, actionLabel, groupOf, logLine, type LogRow } from './activity-labels.js';
 import { AdminBotService } from './admin-bot.js';
 import { btn, h, num } from './ui.js';
@@ -60,9 +60,11 @@ export class AdminLogNotifier {
     if (!since) return this.setCursor(until);
     const admins = await this.prisma.user.findMany({
       where: { role: 'ADMIN', tgChatId: { not: null }, blockedAt: null, deletedAt: null },
-      select: { id: true, tgChatId: true, tgAdmin: true },
+      select: { id: true, tgChatId: true, tgAdmin: true, tgUsername: true, sessionVersion: true, tgSessionVersion: true },
     });
-    const targets = admins.filter((a) => allowlisted(a.tgChatId!)).map((a) => ({ ...a, prefs: logPrefsOf(stateOf(a.tgAdmin)) }));
+    // Same gates as the panel: a link older than the last password reset / block is void, and only the owner's Telegram.
+    const targets = admins
+      .filter((a) => a.tgSessionVersion === a.sessionVersion && allowlisted(a.tgChatId!) && ownerUsername(a.tgUsername ?? undefined)).map((a) => ({ ...a, prefs: logPrefsOf(stateOf(a.tgAdmin)) }));
 
     let next = until;
     if (since < until && targets.some((t) => t.prefs.mode === 'instant')) {

@@ -274,7 +274,9 @@ export class TelegramShopService {
       take: PAGE,
       select: { id: true, title: true, price: true, status: true },
     });
-    const heading = query ? `🔎 «${h(short(query, 40))}»` : FILTERS[f].title;
+    // The typed query is never echoed back: whatever was typed by mistake (a password meant for /admin) stays out of
+    // the bot's own messages.
+    const heading = query ? '🔎 Поиск по названию' : FILTERS[f].title;
     const summary = total
       ? query
         ? `Нашлось: ${total}${total > PAGE ? ` (показаны первые ${PAGE})` : ''}`

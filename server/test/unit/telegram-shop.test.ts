@@ -265,3 +265,51 @@ test('a link made before the password was reset is void', async () => {
   assert.deepEqual(accounts.map((a) => a.id), [A]);
   assert.deepEqual((unlinked[0] as { where: { id: { in: string[] } } }).where.id.in, [B]);
 });
+
+// ---------- the owner gate on /admin, the shared command lists ----------
+
+test('/admin opens only for the owner’s Telegram username, and only narrows access', async () => {
+  const { ownerUsername } = await import('../../src/telegram/admin/access.js');
+  delete process.env.TELEGRAM_ADMIN_USERNAMES;
+  assert.equal(ownerUsername('ChunChunMaruOn'), true);
+  assert.equal(ownerUsername('chunchunmaruon'), true, 'Telegram usernames are case-insensitive');
+  assert.equal(ownerUsername('ChunChunMaruOff'), false);
+  assert.equal(ownerUsername(undefined), false, 'no username: refused');
+  assert.equal(ownerUsername(''), false);
+  process.env.TELEGRAM_ADMIN_USERNAMES = '@someone, other';
+  assert.equal(ownerUsername('someone'), true);
+  assert.equal(ownerUsername('ChunChunMaruOn'), false, 'the env list replaces the default');
+  delete process.env.TELEGRAM_ADMIN_USERNAMES;
+});
+
+test('an admin chat keeps every shop command next to /admin', async () => {
+  const { adminChatCommands, SHOP_COMMANDS, BOT_DESCRIPTION, BOT_SHORT_DESCRIPTION } = await import('../../src/telegram/profile.js');
+  const names = adminChatCommands().map((c) => c.command);
+  for (const c of SHOP_COMMANDS) assert.ok(names.includes(c.command), c.command);
+  assert.equal(names[0], 'admin');
+  assert.equal(new Set(names).size, names.length, 'no duplicates');
+  for (const c of adminChatCommands()) assert.match(c.command, /^[a-z0-9_]{1,32}$/);
+  assert.ok(BOT_DESCRIPTION.length <= 512 && BOT_SHORT_DESCRIPTION.length <= 120, 'Telegram limits');
+});
+
+test('a link made before a password reset is refused, even within its 15 minutes', async () => {
+  const writes: unknown[] = [];
+  const prisma = {
+    user: {
+      findFirst: async () => ({ id: A, username: 'shop', sessionVersion: 3, tgChatId: null }),
+      findMany: async () => [],
+      updateMany: async (q: unknown) => (writes.push(q), { count: 1 }),
+    },
+  };
+  const notifications = { notify: async () => undefined };
+  const events = { emit: async () => undefined };
+  const bot = new TelegramBotService(prisma as never, { send: async () => null } as never, events as never, {} as never, {} as never, {} as never, { client: null } as never, notifications as never);
+  const start = (update_id: number, token: string) => bot.handle({ update_id, message: { message_id: update_id, chat: { id: CHAT, type: 'private' }, from: { id: CHAT }, text: `/start ${token}` } });
+  await start(1, `2_${'x'.repeat(24)}`);
+  assert.equal(writes.length, 0, 'issued under sessionVersion 2, the account is at 3 now');
+  assert.match(sentText(), /устарела/);
+  await start(2, 'x'.repeat(24));
+  assert.equal(writes.length, 0, 'a token without the version (old format) is refused');
+  await start(3, `3_${'x'.repeat(24)}`);
+  assert.equal(writes.length, 1, 'the current version links');
+});

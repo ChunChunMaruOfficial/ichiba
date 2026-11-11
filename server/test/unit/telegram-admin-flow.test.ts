@@ -17,6 +17,9 @@ process.env.JWT_SECRET = 'test-secret-for-admin-bot';
 process.env.TELEGRAM_BOT_TOKEN = 'T';
 delete process.env.TELEGRAM_ADMIN_BOT_TOKEN;
 delete process.env.TELEGRAM_ADMIN_IDS;
+delete process.env.TELEGRAM_ADMIN_USERNAMES;
+/** The admin panel opens only for the owner's Telegram username (access.ts ownerUsername). */
+let OWNER = 'ChunChunMaruOn';
 process.env.APP_URL = 'http://localhost:3000';
 
 const CHAT = 777;
@@ -84,8 +87,8 @@ beforeEach(() => {
   audit.length = 0;
 });
 
-const say = (text: string, chat = CHAT, from = CHAT): TgUpdate => ({ update_id: upd++, message: { message_id: ++msgId, chat: { id: chat, type: chat === from ? 'private' : 'group' }, from: { id: from }, text } });
-const tap = (data: string, from = CHAT): TgUpdate => ({ update_id: upd++, callback_query: { id: `q${upd}`, from: { id: from }, data, message: { message_id: msgId, chat: { id: from, type: 'private' } } } });
+const say = (text: string, chat = CHAT, from = CHAT): TgUpdate => ({ update_id: upd++, message: { message_id: ++msgId, chat: { id: chat, type: chat === from ? 'private' : 'group' }, from: { id: from, username: OWNER }, text } });
+const tap = (data: string, from = CHAT): TgUpdate => ({ update_id: upd++, callback_query: { id: `q${upd}`, from: { id: from, username: OWNER }, data, message: { message_id: msgId, chat: { id: from, type: 'private' } } } });
 const lastText = () => [...tgCalls].reverse().find((c) => c.method === 'sendMessage' || c.method === 'editMessageText')?.body.text as string;
 const buttons = () => {
   const c = [...tgCalls].reverse().find((x) => x.method === 'sendMessage' || x.method === 'editMessageText');
@@ -106,6 +109,20 @@ test('a linked admin is asked for the password first, and the password leaves th
   assert.match(lastText(), /Админка открыта/);
   assert.match(lastText(), /Админка ichiba/);
   assert.deepEqual(audit, ['tg_admin_unlock']);
+});
+
+test('the same linked ADMIN account from a Telegram with another username gets nothing', async () => {
+  OWNER = 'not_the_owner';
+  try {
+    assert.equal(await bot.wants(say('/admin')), false, 'falls through to the shop menu');
+    await bot.handle(say('/admin'));
+    await bot.handle(say(PASSWORD));
+    assert.ok(!tgCalls.some((c) => /Введите пароль|Админка открыта/.test(String(c.body.text ?? ''))));
+    assert.equal(apiCalls.length, 0);
+    assert.deepEqual(audit, []);
+  } finally {
+    OWNER = 'ChunChunMaruOn';
+  }
 });
 
 test('API calls carry the account’s own short-lived session and admin tokens', async () => {
@@ -130,6 +147,14 @@ test('wrong passwords are counted, logged and end in a lockout', async () => {
   await bot.handle(say(PASSWORD));
   assert.match(lastText(), /Слишком много неверных паролей/, 'even the right password waits out the lockout');
   assert.equal(audit.filter((a) => a === 'tg_admin_unlock_failed').length, 5);
+});
+
+test('guesses sent all at once still stop at five', async () => {
+  await bot.handle(say('/admin'));
+  await Promise.all(Array.from({ length: 12 }, (_, i) => bot.handle(say(`guess${i}`))));
+  assert.ok(audit.filter((a) => a === 'tg_admin_unlock_failed').length <= 5, 'at most five passwords are ever checked');
+  await bot.handle(say(PASSWORD));
+  assert.ok(!audit.includes('tg_admin_unlock'), 'the right password waits out the lockout too');
 });
 
 test('buttons are signed for this chat; forged or foreign ones do nothing', async () => {

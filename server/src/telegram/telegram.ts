@@ -16,6 +16,7 @@ import { botEnabled, botUsername, type Keyboard, tg, type TgMessage, type TgUpda
 import { signed, verified } from './callbacks.js';
 import { AdminBotService } from './admin/admin-bot.js';
 import { linkButton, linkedAccounts, notificationKeyboard, TelegramNotifier, UNLINK } from './notifier.js';
+import { applyProfile } from './profile.js';
 import { type Ctx, TelegramShopService } from './shop.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
 
@@ -51,6 +52,22 @@ const WELCOME = [
   '<i>Что присылать — /settings здесь или в настройках на сайте. Отключить: /stop</i>',
 ].join('\n');
 
+const HELP = [
+  '🏮 <b>Что умеет Ichiba</b>',
+  '',
+  '/menu — магазин: вещи по статусам, поиск, карточка вещи',
+  '/items — вещи в продаже',
+  '/deals — запросы и предложения, которые ждут ответа',
+  '/stats — просмотры, ♡ и запросы за неделю',
+  '/settings — какие уведомления присылать',
+  '/status — какие аккаунты подключены',
+  '/stop — отключить бота от всех аккаунтов',
+  '',
+  'В карточке вещи: цена, снять с продажи или вернуть, «продано», поднять в ленте, торг, проданный размер. Необратимое бот спрашивает дважды.',
+  '',
+  '<i>Удалить вещь, поменять фото или описание — на сайте, кнопка «Редактировать» в карточке. Бот не присылает ссылок на чужие сайты и никогда не просит данные карты.</i>',
+].join('\n');
+
 /** The notification bot: links a chat to an account, answers buttons under notifications, and keeps the webhook set. */
 @Injectable()
 export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -81,18 +98,8 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   private async connect() {
-    await tg('setMyCommands', {
-      commands: [
-        { command: 'menu', description: 'Мой магазин' },
-        { command: 'items', description: 'Вещи в продаже' },
-        { command: 'deals', description: 'Ждут ответа' },
-        { command: 'stats', description: 'Статистика за неделю' },
-        { command: 'settings', description: 'Какие уведомления присылать' },
-        { command: 'cancel', description: 'Отменить ввод' },
-        { command: 'status', description: 'Какой аккаунт подключён' },
-        { command: 'stop', description: 'Отключить бота от всех аккаунтов' },
-      ],
-    });
+    // Name «Ichiba», descriptions and the «/» menu (profile.ts); never fails the setup.
+    await applyProfile();
     const url = webhookUrl();
     if (url) {
       await tg('setWebhook', { url, secret_token: webhookSecret(), allowed_updates: ['message', 'callback_query', 'my_chat_member'] });
@@ -132,7 +139,10 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
   /** A one-time deep link: t.me/<bot>?start=<token>. Only a hash of the token is stored. */
   async link(userId: string) {
     if (!botEnabled()) throw new ServiceUnavailableException({ message: 'Telegram-бот ещё не настроен' });
-    const token = randomBytes(18).toString('base64url');
+    // The token carries the account's sessionVersion (inside what is hashed, so it can't be edited): a password reset
+    // or «выйти везде» after the link was made voids it, even within its 15 minutes.
+    const { sessionVersion } = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { sessionVersion: true } });
+    const token = `${sessionVersion}_${randomBytes(18).toString('base64url')}`;
     await this.prisma.user.update({ where: { id: userId }, data: { tgLinkTokenHash: hashToken(token), tgLinkTokenExpiresAt: new Date(Date.now() + LINK_TTL_MS) } });
     return { url: `https://t.me/${botUsername()}?start=${token}`, expiresAt: new Date(Date.now() + LINK_TTL_MS) };
   }
@@ -207,6 +217,10 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
       if (u.message?.text) await this.onText(u.message);
       else if (u.callback_query) await this.onButton(u.callback_query);
       else if (u.my_chat_member && u.my_chat_member.new_chat_member.status === 'kicked') await this.notifier.unlinkChat(String(u.my_chat_member.chat.id));
+      // Added to a group or a channel: nothing of a shop belongs there, so the bot leaves at once.
+      else if (u.my_chat_member && u.my_chat_member.chat.type !== 'private' && ['member', 'administrator'].includes(u.my_chat_member.new_chat_member.status)) {
+        await tg('leaveChat', { chat_id: u.my_chat_member.chat.id }).catch(() => undefined);
+      }
     } catch (e) {
       this.logger.warn(`update ${u.update_id}: ${(e as Error).message}`);
     }
@@ -238,10 +252,13 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
       return this.reply(m.chat.id, count ? '🔕 Бот отключён от всех аккаунтов: уведомлений не будет, управлять вещами отсюда нельзя. Подключить снова можно в настройках на сайте.' : 'Этот чат не подключён ни к одному аккаунту ichiba.', this.settingsButton());
     }
     const accounts = await linkedAccounts(this.prisma, chatId);
+    if (command === '/help') {
+      return this.reply(m.chat.id, HELP, accounts.length ? [[{ text: '☰ Мой магазин', callback_data: signed(m.chat.id, 'm') }]] : this.settingsButton());
+    }
     if (!accounts.length) {
       return this.reply(
         m.chat.id,
-        '🏮 <b>Бот магазинов ichiba</b>\n\nПрисылает запросы на покупку, предложения цены, ставки и сообщения из чата, а ещё даёт управлять вещами: менять цену, снимать с продажи, отмечать проданными.\n\nЧтобы подключить: <b>Настройки → Telegram → «Подключить Telegram»</b> на сайте.',
+        '🏮 <b>Ichiba</b>\n\nПрисылает запросы на покупку, предложения цены, ставки и сообщения из чата, а ещё даёт управлять вещами: менять цену, снимать с продажи, отмечать проданными.\n\nЧтобы подключить: <b>Настройки → Telegram → «Подключить Telegram»</b> на сайте.',
         this.settingsButton(),
       );
     }
@@ -272,7 +289,9 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
       where: { tgLinkTokenHash: hashToken(token), tgLinkTokenExpiresAt: { gt: new Date() }, deletedAt: null, blockedAt: null },
       select: { id: true, username: true, sessionVersion: true, tgChatId: true },
     });
-    if (!user) return this.reply(m.chat.id, '⌛ Ссылка устарела или уже использована. Нажмите «Подключить Telegram» в настройках ещё раз.', this.settingsButton());
+    // Made before the account's sessions were reset: void (see link()).
+    const sv = /^(\d{1,9})_/.exec(token);
+    if (!user || !sv || Number(sv[1]) !== user.sessionVersion) return this.reply(m.chat.id, '⌛ Ссылка устарела или уже использована. Нажмите «Подключить Telegram» в настройках ещё раз.', this.settingsButton());
     // One use: the token is cleared in the same conditional write, so two taps (or two people) can't both claim it.
     const { count } = await this.prisma.user.updateMany({
       where: { id: user.id, tgLinkTokenHash: hashToken(token) },
