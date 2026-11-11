@@ -4117,7 +4117,7 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
     // looks like the main channel (name, avatar, bio), the items come from the stock channels of its sellers —
     // t.me/avalaibles (@gv8kos, files a…) and t.me/avbnotgrave (@Ehwjfp, files b…). Every post still in those channels
     // on 2026-11-11; a repost kept once (the latest, with its price). ₽ at 29 per BYN rounded to 5, the owner's own BYN
-    // price where given. The third stock channel (@cellardr) is private and not here yet.
+    // price where given. The third, @cellardr (private), is at the end (files c…).
     username: 'consultantdaemoni',
     folder: 'consultantdaemoni',
     account: { bio: 'consultant — архив и винтаж: кожа, деним, обувь, верхняя одежда. Без возврата, отправка в любую точку мира.', brandName: 'consultant', logo: 'logo.jpg', catalog: true },
@@ -4852,6 +4852,1062 @@ export const BATCHES: Array<{ username: string; folder: string; account?: { bio:
           title: 'Ботинки FLY London из кожи и замши',
           category: 'shoes', subcategory: 'ankle-boots', sizeSystem: 'SHOE_EU', sizeValue: '41', price: 190, condition: 'GOOD', defectsPresent: false, brand: 'FLY London', color: 'brown', gender: null, material: 'Кожа', styleTags: ['Vintage'],
           description: 'Размер: 41 (стелька 26 см).\nМодель выполнена из комбинации натуральной кожи и замши: гладкая кожа на передней части и боковых панелях, фактурная замша в области голенища и пятки.\nБоковая металлическая пряжка с фирменной гравировкой FLY London.\nБоковая молния YKK для удобства надевания.\nОкруглый мыс с выразительным силуэтом.\nУстойчивый невысокий каблук с массивной формой.\nКонтрастное сочетание гладкой кожи и замши.\nУникальная патина и складки.',
+        },
+      },
+      // @cellardr (third consultant seller): its private stock channel «актуальное наличие», 2026-11-11 — prices from
+      // that channel (the public reposts carry old sale prices), photos/texts from the consultant reposts; multi-item posts
+      // split, items marked ❌ left out.
+      {
+        photos: ['c8-0.jpg', 'c8-1.jpg'],
+        input: {
+          title: 'Футболка Affliction с крыльями',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'Affliction', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: по бирке 3XL, по факту XL–2XL.\nКлассический черный affliction, большой и интересный логотип на груди.',
+        },
+      },
+      {
+        photos: ['c33-0.jpg', 'c33-1.jpg'],
+        input: {
+          title: 'Лёгкая куртка y2k с завязками на рукавах',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'green', gender: 'FEMALE', styleTags: ['Y2K'],
+          description: 'Размер: S.\nОчень легкая курточка на весну, интересные завязки на рукавах, отличный фит.',
+        },
+      },
+      {
+        photos: ['c35-0.jpg', 'c35-1.jpg'],
+        input: {
+          title: 'Чёрные спортивные штаны с красной строчкой',
+          category: 'trousers', subcategory: 'sweatpants', sizeSystem: 'OTHER', sizeValue: 'Уточняйте', price: 115, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Черные спортивные штаны с красной строчкой.\nТалия на шнурке.\nЗамеры: длина 107 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['c67-0.jpg', 'c67-1.jpg'],
+        input: {
+          title: 'Чёрные джинсы-слим со сборками (новые)',
+          category: 'jeans', subcategory: 'slim', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 95, condition: 'NEW_WITH_TAGS', hasTags: true, defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Базовые черные слимы с драпировкой, новые с навесными бирками.\nЗамеры: полуобхват талии 37 см, длина 100 см.',
+        },
+      },
+      {
+        photos: ['c69-0.jpg'],
+        input: {
+          title: 'Тёмные джинсы-клёш',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W30', price: 95, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Y2K'],
+          description: 'Замеры: полуобхват талии 38 см, длина 107 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['c79-0.jpg', 'c79-1.jpg'],
+        input: {
+          title: 'Вельветовые брюки-клёш',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'JEANS_W', sizeValue: 'W33', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'brown', gender: null, styleTags: ['Y2K'],
+          description: 'Отличный фит, приятный цвет.\nЗамеры: полуобхват талии 42 см, длина 113 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['c93-0.jpg', 'c93-1.jpg', 'c93-2.jpg'],
+        input: {
+          title: 'Гусарская джинсовая куртка',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 145, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер: M–L.\nМножество крупных металлических пуговиц, на плечах — декоративные погоны. Идеальный вариант гусарской джинсовки.',
+        },
+      },
+      {
+        photos: ['c178-0.jpg', 'c178-1.jpg', 'c178-2.jpg', 'c178-3.jpg'],
+        input: {
+          title: 'Чёрные брюки MaxMara (Италия)',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 135, condition: 'GOOD', defectsPresent: false, brand: 'MaxMara', color: 'black', gender: 'FEMALE', styleTags: ['Classic'],
+          description: 'Отличные черные брюки от всеми известного бренда, фурнитура Lampo, ничего лишнего, сделаны в Италии.\nЗамеры: полуобхват талии 39 см, длина 105 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['c225-0.jpg', 'c225-1.jpg'],
+        input: {
+          title: 'Вязаный свитер с капюшоном на крючках',
+          category: 'knitwear', subcategory: 'cardigan', sizeSystem: 'ALPHA', sizeValue: 'S', price: 95, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Трикотаж', styleTags: ['Vintage'],
+          description: 'Размер: S.',
+        },
+      },
+      {
+        photos: ['c251-0.jpg', 'c251-1.jpg', 'c251-2.jpg', 'c251-3.jpg', 'c251-4.jpg'],
+        input: {
+          title: 'Джинсовка Dolce&Gabbana с мехом кролика',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 480, condition: 'GOOD', defectsPresent: false, brand: 'Dolce & Gabbana', color: 'black', gender: 'FEMALE', material: 'Деним', styleTags: ['Vintage'],
+          description: 'Размер: S.\nИнтересная винтажная вещь от D&G, за основу взята оригинальная винтажная джинсовка, кастомизированная натуральным мехом кролика черного цвета.',
+        },
+      },
+      {
+        photos: ['c267-0.jpg', 'c267-1.jpg', 'c267-2.jpg', 'c267-3.jpg', 'c267-4.jpg'],
+        input: {
+          title: 'Розовое худи Adidas с плюшевым трилистником',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'S', price: 135, condition: 'GOOD', defectsPresent: false, brand: 'Adidas', color: 'pink', gender: 'FEMALE', material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПриятный нежно-розовый цвет, плюшевый трехлистник на груди, ничего лишнего.',
+        },
+      },
+      {
+        photos: ['c272-0.jpg', 'c272-1.jpg', 'c272-2.jpg', 'c272-3.jpg'],
+        input: {
+          title: 'Футболка Dolce&Gabbana x DC Comics Superman',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'M', price: 270, condition: 'GOOD', defectsPresent: false, brand: 'Dolce & Gabbana', color: 'white', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: M.\nЛимитированная серия D&G x DC Comics, выпущенная в середине 2000-х, сегодня считается редким артефактом эпохи Y2K.\nНюансов нет, все дырки заводские и являются элементами дизайна.',
+        },
+      },
+      {
+        photos: ['c282-0.jpg', 'c282-1.jpg'],
+        input: {
+          title: 'Чёрные джинсы-буткат',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 135, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Идеальный черный буткат на каждый день, в наличии много пар, база которая должна быть у каждого.\nЗамеры: полуобхват талии 40 см, длина 105 см, выход 25 см.',
+        },
+      },
+      {
+        photos: ['c330-0.jpg', 'c330-1.jpg', 'c330-2.jpg', 'c330-3.jpg', 'c330-4.jpg'],
+        input: {
+          title: 'Футболка Spiral с фул-принтом',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'M', price: 115, condition: 'GOOD', defectsPresent: false, brand: 'Spiral', color: 'blue', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nОчень красивая и плотная футболка от spiral, фул принт, отличная посадка на теле.',
+        },
+      },
+      {
+        photos: ['c367-0.jpg', 'c367-1.jpg', 'c367-2.jpg', 'c367-3.jpg', 'c367-4.jpg'],
+        input: {
+          title: 'Чёрный готический свитер с двойным горлом',
+          category: 'knitwear', subcategory: 'sweater', sizeSystem: 'ALPHA', sizeValue: 'M', price: 120, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Трикотаж', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nИнтересный черный свитер слим кроя, двойное горло на молнии и ремешках, при желании утягивается.',
+        },
+      },
+      {
+        cover: 'c414-1.jpg',
+        photos: ['c414-0.jpg', 'c414-1.jpg', 'c414-2.jpg', 'c414-3.jpg'],
+        input: {
+          title: 'Чёрная асимметричная кофта на молнии',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 135, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, styleTags: ['Minimal'],
+          description: 'Размер: M–L.\nАсимметричный верх черного цвета, ничего лишнего, отличный фит.',
+        },
+      },
+      {
+        photos: ['c418-0.jpg', 'c418-1.jpg'],
+        input: {
+          title: 'Чёрное худи Eminem',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'L', price: 115, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: L.\nЧерное худи с логотипом Eminem, ничего лишнего.',
+        },
+      },
+      {
+        photos: ['c448-0.jpg', 'c448-1.jpg', 'c448-2.jpg', 'c448-3.jpg', 'c448-4.jpg', 'c448-5.jpg', 'c448-6.jpg'],
+        input: {
+          title: 'Винтажные джинсы-буткат Guess',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 115, condition: 'GOOD', defectsPresent: false, brand: 'Guess', color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Винтажный деним от guess, низкая посадка, плавный буткат, отличный фит.\nЗамеры: полуобхват талии 37 см, длина 106 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['c455-0.jpg', 'c455-1.jpg', 'c455-2.jpg', 'c455-3.jpg', 'c455-4.jpg', 'c455-5.jpg', 'c455-6.jpg'],
+        input: {
+          title: 'Красная кожаная куртка с асимметричной молнией',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 190, condition: 'GOOD', defectsPresent: false, brand: null, color: 'red', gender: 'FEMALE', material: 'Кожа', styleTags: ['Y2K'],
+          description: 'Размер: M (женский).\nОчень приятная мягкая кожа, высокое горло, интересная асимметричная молния и другие детали.',
+        },
+      },
+      {
+        photos: ['c462-0.jpg', 'c462-1.jpg'],
+        input: {
+          title: 'Бежевая куртка в стиле «Наполеон»',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 85, condition: 'GOOD', defectsPresent: false, brand: null, color: 'beige', gender: 'FEMALE', styleTags: ['Vintage'],
+          description: 'Размер: S–M.\nЛегкая авангардная курточка бежевого цвета, отличная посадка на теле.',
+        },
+      },
+      {
+        photos: ['c469-0.jpg', 'c469-1.jpg', 'c469-2.jpg', 'c469-3.jpg', 'c469-4.jpg', 'c469-5.jpg', 'c469-6.jpg'],
+        input: {
+          title: 'Графитовые джинсы-клёш из плотного денима',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W28', price: 75, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним, очень красивая посадка на теле, множество карманов и деталей.\nЗамеры: полуобхват талии 36 см, длина 105 см, выход 23 см.',
+        },
+      },
+      {
+        cover: 'c476-1.jpg',
+        photos: ['c476-0.jpg', 'c476-1.jpg', 'c476-2.jpg', 'c476-3.jpg', 'c476-4.jpg'],
+        input: {
+          title: 'Тёмно-синий жакет y2k со стальными пуговицами',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 85, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: 'FEMALE', styleTags: ['Y2K'],
+          description: 'Размер: M–L.\nИнтересный тёмно синий верх на каждый день, стальные пуговицы и множество деталей.',
+        },
+      },
+      {
+        photos: ['c483-0.jpg', 'c483-1.jpg', 'c483-2.jpg', 'c483-3.jpg', 'c483-4.jpg'],
+        input: {
+          title: 'Винтажные реворк-джинсы double knee',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 50, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Очень красивые и детализированные джинсы, отличная посадка на теле.\nЗамеры: полуобхват талии 37 см, длина 100 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['c488-0.jpg', 'c488-1.jpg', 'c488-2.jpg', 'c488-3.jpg', 'c488-4.jpg'],
+        input: {
+          title: 'Коричневая куртка y2k с четырьмя карманами',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'brown', gender: 'FEMALE', styleTags: ['Y2K'],
+          description: 'Размер: S.\nКрасивая и легкая y2k курточка на весну/осень, 4 функциональных кармана, необработанные швы, очень приятный коричневый цвет.',
+        },
+      },
+      {
+        photos: ['c493-0.jpg', 'c493-1.jpg', 'c493-2.jpg', 'c493-3.jpg', 'c493-4.jpg'],
+        input: {
+          title: 'Джинсовка y2k с асимметричной молнией',
+          category: 'outerwear', subcategory: 'denim-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 165, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Размер: S.\nОчень детализированная и интересная джинсовка, декоративная асимметричная молния, молнии на рукавах и стальная фурнитура YKK.',
+        },
+      },
+      {
+        photos: ['c498-0.jpg', 'c498-1.jpg'],
+        input: {
+          title: 'Лонгслив с молнией на спине',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'ALPHA', sizeValue: 'S', price: 80, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Трикотаж', styleTags: ['Streetwear'],
+          description: 'Размер: S.\nПриятная базовая вещь, молния на спине.',
+        },
+      },
+      {
+        photos: ['c535-0.jpg', 'c535-1.jpg'],
+        input: {
+          title: 'Полосатые шорты-карго',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'JEANS_W', sizeValue: 'W35', price: 75, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, styleTags: ['Streetwear'],
+          description: 'Полосатые карго шорты, отличный фит, ничего лишнего.\nЗамеры: полуобхват талии 45 см, длина 67 см, выход 30 см.',
+        },
+      },
+      {
+        photos: ['c567-0.jpg'],
+        input: {
+          title: 'Чёрные вельветовые брюки-клёш',
+          category: 'trousers', subcategory: 'trousers', sizeSystem: 'JEANS_W', sizeValue: 'W30', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, styleTags: ['Casual'],
+          description: 'База, классика, ничего лишнего, клеш от колена, отличная пара на каждый день.\nЗамеры: полуобхват талии 38 см, длина 110 см, выход 25 см.',
+        },
+      },
+      {
+        photos: ['c595-0.jpg', 'c595-1.jpg', 'c595-2.jpg', 'c595-3.jpg', 'c595-4.jpg'],
+        input: {
+          title: 'Винтажные джинсовые шорты Ecko Unltd',
+          category: 'shorts', subcategory: 'denim-shorts', sizeSystem: 'JEANS_W', sizeValue: 'W37', price: 190, condition: 'GOOD', defectsPresent: false, brand: 'Ecko Unltd', color: 'blue', gender: 'MALE', material: 'Деним', styleTags: ['Vintage'],
+          description: 'Винтажные шорты от легендарного бренда, очень красивый фэйд и дистресс, отличный фит.\nЗамеры: полуобхват талии 47 см, длина 77 см, выход 36 см.',
+        },
+      },
+      {
+        photos: ['c616-0.jpg', 'c616-1.jpg'],
+        input: {
+          title: 'Винтажная футболка с принтом в стиле JPG',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'S', price: 50, condition: 'GOOD', defectsPresent: false, brand: null, color: 'multi', gender: null, styleTags: ['Vintage'],
+          description: 'Размер: S.\nВинтажная вещь в стиле jpg, интересный принт и очень приятный телу материал.',
+        },
+      },
+      {
+        photos: ['c618-0.jpg', 'c618-1.jpg', 'c618-2.jpg', 'c618-3.jpg', 'c618-4.jpg'],
+        input: {
+          title: 'Чёрные шорты из брючной ткани (новые)',
+          category: 'shorts', subcategory: 'shorts', sizeSystem: 'JEANS_W', sizeValue: 'W32', price: 145, condition: 'NEW_WITH_TAGS', hasTags: true, defectsPresent: false, brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Полностью новые, плотный брючный материал, насыщенный черный цвет, эффект помятости, отличная посадка на теле.\nЗамеры: полуобхват талии 41 см, длина 74 см, выход 36 см.',
+        },
+      },
+      {
+        photos: ['c650-0.jpg', 'c650-1.jpg', 'c650-2.jpg', 'c650-3.jpg', 'c650-4.jpg'],
+        input: {
+          title: 'Винтажные джинсовые шорты с множеством карманов',
+          category: 'shorts', subcategory: 'denim-shorts', sizeSystem: 'JEANS_W', sizeValue: 'W38', price: 115, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: 'MALE', material: 'Деним', styleTags: ['Vintage'],
+          description: 'Винтажные шорты с множеством карманов, фэйдом и деталями. Отличная посадка на теле.\nЗамеры: полуобхват талии 48 см, длина 63 см, выход 31 см.',
+        },
+      },
+      {
+        photos: ['c692-0.jpg', 'c692-1.jpg', 'c692-2.jpg', 'c692-3.jpg', 'c692-4.jpg'],
+        input: {
+          title: 'Зип-худи со скелетом и вырезами под пальцы',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'S', price: 85, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: S.\nИнтересный принт, красивый слим фит, при желании застегивается вместе с капюшоном, вырезы под большие пальцы.',
+        },
+      },
+      {
+        photos: ['c697-0.jpg', 'c697-1.jpg'],
+        input: {
+          title: 'Футболка «He’s not the Messiah» (репринт 1979)',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'XL–XXL', price: 65, condition: 'GOOD', defectsPresent: false, brand: 'Gildan', color: 'yellow', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: XL–XXL.\nРепринт футболки 1979 года, качественный хлопковый бланк gildan.',
+        },
+      },
+      {
+        photos: ['c723-0.jpg', 'c723-1.jpg', 'c723-2.jpg', 'c723-3.jpg', 'c723-4.jpg'],
+        input: {
+          title: 'Винтажная футболка 90-х Screen Stars',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'L', price: 75, condition: 'GOOD', defectsPresent: false, brand: 'Screen Stars', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: L.\nВинтажная футболка 90-х годов прошитая одним швом, легендарный бланк screen stars, интересный принт.',
+        },
+      },
+      {
+        photos: ['c731-0.jpg'],
+        input: {
+          title: 'Винтажная футболка с американским флагом',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'M', price: 65, condition: 'GOOD', defectsPresent: false, brand: null, color: 'white', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: M.\nКрасивая винтажная футболка с американским флагом, отличный вариант на лето.',
+        },
+      },
+      {
+        cover: 'c772-1.jpg',
+        photos: ['c772-0.jpg', 'c772-1.jpg', 'c772-2.jpg', 'c772-3.jpg', 'c772-4.jpg', 'c772-5.jpg', 'c772-6.jpg'],
+        input: {
+          title: 'Джинсы G-Star из плотного денима',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W36', price: 170, condition: 'GOOD', defectsPresent: false, brand: 'G-Star', color: 'blue', gender: 'MALE', material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Отличная пара от всеми известного бренда, плотный зернистый деним, идеальная посадка на теле.\nЗамеры: полуобхват талии 46 см, длина 115 см, выход 24 см.',
+        },
+      },
+      {
+        cover: 'c788-1.jpg',
+        photos: ['c788-0.jpg', 'c788-1.jpg'],
+        input: {
+          title: 'Кожаные кеды Converse All Star',
+          category: 'shoes', subcategory: 'keds', sizeSystem: 'SHOE_EU', sizeValue: '35', price: 115, condition: 'GOOD', defectsPresent: false, brand: 'Converse', color: 'black', gender: null, material: 'Кожа', styleTags: ['Casual'],
+          description: 'Размер: 35 EU.\nНатуральная кожа, классика на каждый день, ничего лишнего.',
+        },
+      },
+      {
+        photos: ['c837-0.jpg'],
+        input: {
+          title: 'Футболка Ramones',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'S', price: 50, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: S.\nКрасивый принт, отличный вариант на лето.',
+        },
+      },
+      {
+        photos: ['c893-0.jpg', 'c893-1.jpg'],
+        input: {
+          title: 'Тёмно-синие джинсы-клёш с низкой посадкой',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W28', price: 85, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Тёмно-синий зернистый деним, низкая посадка, ничего лишнего.\nЗамеры: полуобхват талии 36 см, длина 104 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['c973-0.jpg', 'c973-1.jpg', 'c973-2.jpg', 'c973-3.jpg', 'c973-4.jpg', 'c973-5.jpg', 'c973-6.jpg'],
+        input: {
+          title: 'Джинсы G-Star с фейдом',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W36', price: 165, condition: 'GOOD', defectsPresent: false, brand: 'G-Star', color: 'blue', gender: 'MALE', material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Очень красивая пара джинс от всеми известного бренда, приятный фэйд по всей плоскости джинс, отличная посадка.\nЗамеры: полуобхват талии 46 см, длина 106 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['c1017-0.jpg', 'c1017-1.jpg', 'c1017-2.jpg', 'c1017-3.jpg', 'c1017-4.jpg'],
+        input: {
+          title: 'Чёрные широкие джинсы',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Базовые черные джинсы, широкий фит, ничего лишнего. Отличный вариант джинс на каждый день.\nЗамеры: полуобхват талии 37 см, длина 106 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['c1091-0.jpg', 'c1091-1.jpg'],
+        input: {
+          title: 'Винтажная футболка «T-Shirt Sprüche sind Scheisse»',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'M', price: 60, condition: 'GOOD', defectsPresent: false, brand: 'Fruit of the Loom', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: M.\nВинтажная футболка на бланке Fruit of the loom super premium.Надпись на футболке на немецком языке: «T-SHIRT SPRÜCHE SIND SCHEISSE !!!»\nВ переводе на русский это означает:\n«Надписи на футболках — дерьмо!!!»',
+        },
+      },
+      {
+        photos: ['c1093-0.jpg', 'c1093-1.jpg'],
+        input: {
+          title: 'Чёрная футболка G-Star с пуговицами',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'L–XL', price: 60, condition: 'GOOD', defectsPresent: false, brand: 'G-Star', color: 'black', gender: 'MALE', material: 'Хлопок', styleTags: ['Minimal'],
+          description: 'Размер: L–XL.\nБазовая черная футболка от G-star с горлом на пуговицах, небольшой логотип на груди, ничего лишнего.',
+        },
+      },
+      {
+        cover: 'c1095-1.jpg',
+        photos: ['c1095-0.jpg', 'c1095-1.jpg', 'c1095-2.jpg', 'c1095-3.jpg', 'c1095-4.jpg', 'c1095-5.jpg', 'c1095-6.jpg'],
+        input: {
+          title: 'Чёрные широкие джинсы с контрастной строчкой',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'JEANS_W', sizeValue: 'W30', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Базовый широкий деним на каждый день, черный цвет, отличная посадка на теле, ничего лишнего.\nЗамеры: полуобхват талии 38 см, длина 108 см, выход 29 см.',
+        },
+      },
+      {
+        photos: ['c1115-0.jpg', 'c1115-1.jpg', 'c1115-2.jpg', 'c1115-3.jpg', 'c1115-4.jpg'],
+        input: {
+          title: 'Чёрная футболка Levi’s с логотипом',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'OTHER', sizeValue: 'XL–XXL', price: 65, condition: 'GOOD', defectsPresent: false, brand: 'Levi\'s', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Casual'],
+          description: 'Размер: XL–XXL.\nКрасивая черная футболка от Levi’s, красивый логотип на груди, отличный фит.',
+        },
+      },
+      {
+        photos: ['c1122-0.jpg', 'c1122-1.jpg'],
+        input: {
+          title: 'Винтажная футболка Weiberkessl',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'L', price: 60, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: L.\nАвстрийский мерч с классическим юмористическим принтом.',
+        },
+      },
+      {
+        photos: ['c1164-0.jpg'],
+        input: {
+          title: 'Футболка Iron Maiden',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: 'L', price: 60, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: L.\nПриятный цвет, красивый принт, ничего лишнего.',
+        },
+      },
+      {
+        photos: ['c1168-0.jpg', 'c1168-1.jpg', 'c1168-2.jpg', 'c1168-3.jpg', 'c1168-4.jpg', 'c1168-5.jpg', 'c1168-6.jpg'],
+        input: {
+          title: 'Винтажные джинсы Von Dutch',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 135, condition: 'GOOD', defectsPresent: false, brand: 'Von Dutch', color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K'],
+          description: 'Редкий тёмный деним от VonDutch, асимметричное расположение задних карманов, вышитые логотипы на них. Отличная посадка, брендированная фурнитура.\nЗамеры: полуобхват талии 40 см, длина 108 см, выход 21 см.',
+        },
+      },
+      {
+        photos: ['c1205-0.jpg', 'c1205-1.jpg', 'c1205-2.jpg', 'c1205-3.jpg', 'c1205-4.jpg', 'c1205-5.jpg', 'c1205-6.jpg', 'c1205-7.jpg'],
+        input: {
+          title: 'Винтажное худи Iron Maiden «Seventh Son» 2003',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 270, condition: 'GOOD', defectsPresent: false, brand: 'Fruit of the Loom', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: XL.\nРедкий архивный мерч на плотном бланке Fruit of the Loom Heavy Cotton. Копирайт 2003 года. Насыщенный черный цвет, массивный логотип спереди, принт на рукаве и легендарный огромный арт на спине. Отличный плотный худи с идеальной посадкой.',
+        },
+      },
+      {
+        photos: ['c1227-0.jpg', 'c1227-1.jpg', 'c1227-2.jpg', 'c1227-3.jpg', 'c1227-4.jpg', 'c1227-5.jpg', 'c1227-6.jpg', 'c1227-7.jpg'],
+        input: {
+          title: 'Джинсы-буткат G-Star Raw 3301',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'G-Star', color: 'blue', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Глубокий окрас с очень красивым контрастным фэйдом на коленях и бедрах. Плотный качественный деним, классический кожаный патч на поясе, брендированные латунные болты и надежная молния YKK. Идеальная базовая пара с отличной посадкой на каждый день.\nЗамеры: полуобхват талии 40 см, длина 103 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['c1256-0.jpg', 'c1256-1.jpg', 'c1256-2.jpg', 'c1256-3.jpg', 'c1256-4.jpg', 'c1256-5.jpg', 'c1256-6.jpg'],
+        input: {
+          title: 'Графитовый лонгслив с вырезами под пальцы',
+          category: 'tshirts', subcategory: 'longsleeve', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 110, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Трикотаж', styleTags: ['Streetwear'],
+          description: 'Размер: M–L.\nЛегкий и очень приятный к телу трикотаж в графитовом оттенке. Анатомический крой, плоские контрастные швы и функциональные удлиненные манжеты с вырезами под пальцы. Отличный базовый лонгслив на каждый день.',
+        },
+      },
+      {
+        photos: ['c1273-0.jpg', 'c1273-1.jpg'],
+        input: {
+          title: 'Футболка Affliction «Zealous Souls»',
+          category: 'tshirts', subcategory: 'tshirt', sizeSystem: 'ALPHA', sizeValue: '3XL', price: 85, condition: 'GOOD', defectsPresent: false, brand: 'Affliction', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: 3XL.\nПлотный хлопок в черном цвете. Массивный детализированный арт с черепом, фирменный фабричный дистресс (потертости) по краям горловины и рукавов.',
+        },
+      },
+      {
+        photos: ['c1376-0.jpg', 'c1376-1.jpg', 'c1376-2.jpg', 'c1376-3.jpg', 'c1376-4.jpg'],
+        input: {
+          title: 'Камуфляжные брюки-карго Inscene',
+          category: 'trousers', subcategory: 'cargo', sizeSystem: 'JEANS_W', sizeValue: 'W32', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'Inscene', color: 'green', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Плотный хлопковый материал в классической камуфляжной расцветке с лёгким винтажным фейдом. Свободный прямой силуэт, множество вместительных утилитарных карманов с клапанами на металлических кнопках и фактурная посадка.\nЗамеры: полуобхват талии 41 см, длина 111 см, выход 26 см.',
+        },
+      },
+      {
+        photos: ['c1386-0.jpg', 'c1386-1.jpg', 'c1386-2.jpg', 'c1386-3.jpg', 'c1386-4.jpg'],
+        input: {
+          title: 'Винтажное худи Abercrombie & Fitch ягодного цвета',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'Abercrombie & Fitch', color: 'pink', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: M.\nПлотный мягкий хлопок в насыщенном ягодно-розовом (berry pink) окрасе с легким винтажным фейдингом. Свободный силуэт, акцентная объёмная аппликация и вышивка Abercrombie 1892 New York на груди, глубокий капюшон с фактурным серым вафельным подкладом и плотными шнурами-утяжками, брендированные металлические люверсы и вместительный карман-кенгуру.',
+        },
+      },
+      {
+        photos: ['c1391-0.jpg', 'c1391-1.jpg', 'c1391-2.jpg', 'c1391-3.jpg', 'c1391-4.jpg', 'c1391-5.jpg', 'c1391-6.jpg'],
+        input: {
+          title: 'Джинсы Bright с кожаными вставками',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 95, condition: 'GOOD', defectsPresent: false, brand: 'Bright', color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним с интересным фэйдом и множеством деталей. Прямой силуэт с классической посадкой, акцентные задние карманы с кожаными вставками, контрастная золотистая отстрочка, брендированная фурнитура и крупный кожаный патч Bright на поясе.\nЗамеры: полуобхват талии 40 см, длина 102 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['c1398-0.jpg', 'c1398-1.jpg', 'c1398-2.jpg', 'c1398-3.jpg', 'c1398-4.jpg'],
+        input: {
+          title: 'Винтажные джинсы-буткат A.T.N.',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 95, condition: 'GOOD', defectsPresent: false, brand: 'A.T.N.', color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Винтажный деним тёмно-синего цвета с приятным фэйдом. Буткат силуэт, классическая посадка, акцентная жёлтая отстрочка, фирменная фурнитура A.T.N. Jeans и задние карманы с графичной V-образной вышивкой.\nЗамеры: полуобхват талии 37 см, длина 103 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['c1403-0.jpg', 'c1403-1.jpg', 'c1403-2.jpg', 'c1403-3.jpg'],
+        input: {
+          title: 'Кремовое худи Hilfiger Denim «Love from NYC»',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'Tommy Hilfiger', color: 'white', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: M.\nПриятное хлопковое худи кремового цвета, компактный силуэт с плотными манжетами и поясом, глубокий капюшон с вафельной подкладкой, карман-кенгуру и акцентный винтажный принт Love From NYC с сердцем и надписью Hilfiger Denim.',
+        },
+      },
+      {
+        photos: ['c1407-0.jpg'],
+        input: {
+          title: 'Оливковый свитшот Adidas',
+          category: 'knitwear', subcategory: 'sweatshirt', sizeSystem: 'OTHER', sizeValue: 'M–L', price: 80, condition: 'GOOD', defectsPresent: false, brand: 'Adidas', color: 'green', gender: null, material: 'Хлопок', styleTags: ['Sport'],
+          description: 'Размер: M–L.\nБазовый оливковый свитшот от Adidas. Свободный силуэт с удлинённой линией низа, классический круглый ворот, плотные манжеты и контрастный белый логотип adidas Trefoil на груди.',
+        },
+      },
+      {
+        photos: ['c1408-0.jpg', 'c1408-1.jpg', 'c1408-2.jpg', 'c1408-3.jpg', 'c1408-4.jpg'],
+        input: {
+          title: 'Тёмно-синее худи Abercrombie & Fitch с красной вышивкой',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'Abercrombie & Fitch', color: 'blue', gender: null, material: 'Хлопок', styleTags: ['Casual'],
+          description: 'Размер: M.\nПлотный мягкий хлопок, классический силуэт, акцентная объёмная вышивка Fitch NEW YORK насыщенным красным оттенком на груди, удобный карман-кенгуру и капюшон на утяжках с брендированными металлическими эглетами.',
+        },
+      },
+      {
+        photos: ['c1413-0.jpg', 'c1413-1.jpg', 'c1413-2.jpg', 'c1413-3.jpg', 'c1413-4.jpg', 'c1413-5.jpg', 'c1413-6.jpg'],
+        input: {
+          title: 'Джинсы Diesel Larkee',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W38', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'Diesel', color: 'blue', gender: 'MALE', material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Плотный деним в классическом окрасе с мягким естественным фэйдом. Прямой силуэт с комфортной посадкой, винтажный кожаный патч Diesel Industry на поясе сзади, брендированная металлическая фурнитура и узнаваемая отстрочка на задних карманах.\nЗамеры: полуобхват талии 48 см, длина 111 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['c1427-0.jpg'],
+        input: {
+          title: 'Красное винтажное худи GAP',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'L', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'GAP', color: 'red', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: L.\nРасслабленный объёмный силуэт, крупная объёмная аппликация и вышивка GAP на груди, вместительный карман-кенгуру, капюшон на утяжках и акцентный винтажный патч на рукаве.',
+        },
+      },
+      {
+        photos: ['c1428-0.jpg'],
+        input: {
+          title: 'Серо-синее худи Abercrombie & Fitch NY',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'Abercrombie & Fitch', color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: M.\nПлотный мягкий хлопок в выстиранном серо-синем окрасе с естественным винтажным фэйдом. Классический силуэт, объёмная фактурная аппликация ABERCROMBIE NY/NY на груди, вместительный карман-кенгуру с оригинальной отстрочкой и глубокий удобный капюшон.',
+        },
+      },
+      {
+        photos: ['c1429-0.jpg', 'c1429-1.jpg', 'c1429-2.jpg', 'c1429-3.jpg', 'c1429-4.jpg', 'c1429-5.jpg', 'c1429-6.jpg'],
+        input: {
+          title: 'Худи Spiral Direct со стимпанк-черепом',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'L', price: 150, condition: 'GOOD', defectsPresent: false, brand: 'Spiral', color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: L.\nПлотный хлопковый материал в глубоком чёрном окрасе. Свободный силуэт, детальный двусторонний стимпанк-принт с изображением жнеца, черепов и часовых механизмов, дополнительные арт-принты на рукавах, вместительный карман-кенгуру, капюшон на утяжках.',
+        },
+      },
+      {
+        photos: ['c1443-0.jpg', 'c1443-1.jpg', 'c1443-2.jpg', 'c1443-3.jpg', 'c1443-4.jpg', 'c1443-5.jpg', 'c1443-6.jpg'],
+        input: {
+          title: 'Джинсы-клёш Diesel Industry',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 135, condition: 'GOOD', defectsPresent: false, brand: 'Diesel', color: 'lightblue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Приятный деним в светло-синем окрасе с минимальным фэйдом и выраженной вертикальной фактурой. Силуэт с аккуратным клёшем от колена, застёжка на брендированных металлических болтах Diesel, культовый тканевый патч Diesel Industry на монетном кармане и детализированная фурнитура с фирменными заклёпками.\nЗамеры: полуобхват талии 37 см, длина 106 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['c1450-0.jpg', 'c1450-1.jpg', 'c1450-2.jpg', 'c1450-3.jpg', 'c1450-4.jpg', 'c1450-5.jpg', 'c1450-6.jpg'],
+        input: {
+          title: 'Серые джинсы-клёш Just Cavalli с рваным поясом (Италия)',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W28', price: 235, condition: 'GOOD', defectsPresent: false, brand: 'Just Cavalli', color: 'gray', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним в выстиранном сером окрасе с эффектным деконструированным дизайном. Силуэт с аккуратным клёшем от колена, акцентный верхний блок с выраженными необработанными рваными краями (raw-edge), передние карманы на состаренных металлических молниях с брендированными пуллерами, замшевый патч на поясе и оригинальное итальянское производство ITTIERRE.\nЗамеры: полуобхват талии 36 см, длина 104 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['c1464-0.jpg', 'c1464-1.jpg', 'c1464-2.jpg', 'c1464-3.jpg', 'c1464-4.jpg'],
+        input: {
+          title: 'Велюровое зип-худи Cool Breeze с пуллером-долларом',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'S', price: 115, condition: 'GOOD', defectsPresent: false, brand: 'Cool Breeze', color: 'black', gender: null, material: 'Трикотаж', styleTags: ['Y2K'],
+          description: 'Размер: S.\nМягкий плотный велюр в глубоком чёрном окрасе. Силуэт с акцентным высоким трикотажным воротником-стойкой в рубчик, серебристый граффити-принт COOL Breeze на груди, кастомный металлический пуллер молнии в форме знака доллара ($) и широкие эластичные манжеты на поясе и рукавах в эстетике Y2K.',
+        },
+      },
+      {
+        photos: ['c1469-0.jpg'],
+        input: {
+          title: 'Варёное худи «Ahead of the Game Grunge»',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: M.\nМягкий хлопок в вареном черном оттенке с эффектом состаривания. Массивный графический принт «AHEAD OF THE GAME GRUNGE» спереди, регулируемый капюшон и карман-кенгуру. Уютный худи в винтажной grunge эстетике.',
+        },
+      },
+      {
+        photos: ['c1470-0.jpg', 'c1470-1.jpg', 'c1470-2.jpg', 'c1470-3.jpg', 'c1470-4.jpg', 'c1470-5.jpg', 'c1470-6.jpg'],
+        input: {
+          title: 'Чёрная кожаная куртка с панелями',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 155, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер: S.\nМягкая плотная натуральная кожа глубокого черного цвета. Приталенный панельный крой, диагональные карманы на молниях и надежная металлическая фурнитура SBS. Отличная кожаная куртка на предстоящий сезон.',
+        },
+      },
+      {
+        photos: ['c1482-0.jpg'],
+        input: {
+          title: 'Белое худи Ecko Unltd. 72',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'XL', price: 135, condition: 'GOOD', defectsPresent: false, brand: 'Ecko Unltd', color: 'white', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: XL.\nПлотный хлопок в белом цвете с контрастным синим подкладом в капюшоне. Крупная вышивка «Eckō Unltd. 72» спереди, фирменный патч на кармане-кенгуру и свободная посадка.',
+        },
+      },
+      {
+        photos: ['c1483-0.jpg', 'c1483-1.jpg', 'c1483-2.jpg', 'c1483-3.jpg', 'c1483-4.jpg', 'c1483-5.jpg', 'c1483-6.jpg'],
+        input: {
+          title: 'Чёрная куртка Crafted с двойными молниями',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'Crafted', color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер: M.\nОтличная куртка в глубоком черном цвете. Функциональный утилитарный крой с системой двойных молний, нагрудными карманами, высоким воротником и плотными манжетами с вырезами под пальцы. Лаконичная вышивка на плече.',
+        },
+      },
+      {
+        cover: 'c1490-5.jpg',
+        photos: ['c1490-0.jpg', 'c1490-1.jpg', 'c1490-2.jpg', 'c1490-3.jpg', 'c1490-4.jpg', 'c1490-5.jpg', 'c1490-6.jpg'],
+        input: {
+          title: 'Кожаные ботинки Officine Creative с молнией сзади (Италия)',
+          category: 'shoes', subcategory: 'ankle-boots', sizeSystem: 'SHOE_EU', sizeValue: '37', price: 295, condition: 'GOOD', defectsPresent: false, brand: 'Officine Creative', color: 'black', gender: 'FEMALE', material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер: 37 EU.\nПремиальная натуральная кожа со спец-обработкой в черном цвете. Массивная молния сзади с премиальной фурнитурой Excella, устойчивый наборный каблук и кожаная подошва. Культовая пара в авангардной / guidi / artisan эстетике. Сделано в Италии.',
+        },
+      },
+      {
+        photos: ['c1497-0.jpg', 'c1497-1.jpg', 'c1497-2.jpg', 'c1497-3.jpg'],
+        input: {
+          title: 'Мужская кожаная куртка в гусарском стиле',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'L', price: 360, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: 'MALE', material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер: L.\nОчень плотная кожа, горло-стойка, множество карманов, отличная посадка на теле.',
+        },
+      },
+      {
+        cover: 'c1504-1.jpg',
+        photos: ['c1504-0.jpg', 'c1504-1.jpg', 'c1504-2.jpg', 'c1504-3.jpg', 'c1504-4.jpg', 'c1504-5.jpg', 'c1504-6.jpg'],
+        input: {
+          title: 'Чёрная мотокуртка с молниями и готическим принтом',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'XL–XXL', price: 190, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер: XL–XXL.\nПриятный материал с матовой фактурой в черном цвете. Утилитарный крой с капюшоном который приятная воротник, множеством молний и акцентным готическим принтом на подкладке.',
+        },
+      },
+      {
+        photos: ['c1511-0.jpg', 'c1511-1.jpg', 'c1511-2.jpg', 'c1511-3.jpg', 'c1511-4.jpg', 'c1511-5.jpg', 'c1511-6.jpg'],
+        input: {
+          title: 'Оливковый бомбер St George by Duffer',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'M', price: 165, condition: 'GOOD', defectsPresent: false, brand: 'St George by Duffer', color: 'green', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nПлотный вареный хлопок в глубоком оливковом оттенке. Силуэт куртки-бомбера с трикотажными манжетами, утилитарным карманом на рукаве и брендированной металлической фурнитурой.',
+        },
+      },
+      {
+        photos: ['c1518-0.jpg', 'c1518-1.jpg', 'c1518-2.jpg', 'c1518-3.jpg', 'c1518-4.jpg'],
+        input: {
+          title: 'Шерстяная куртка G72 в стиле милитари',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 145, condition: 'GOOD', defectsPresent: false, brand: 'G72', color: 'black', gender: null, material: 'Шерсть', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nПлотный шерстяной материал в глубоком черном цвете. Милитари-крой с высоким воротником-стойкой, погонами на плечах, объемными накладными карманами, врезным карманом на молнии и брендированной металлической фурнитурой G72.',
+        },
+      },
+      {
+        cover: 'c1523-2.jpg',
+        photos: ['c1523-0.jpg', 'c1523-1.jpg', 'c1523-2.jpg', 'c1523-3.jpg', 'c1523-4.jpg', 'c1523-5.jpg', 'c1523-6.jpg'],
+        input: {
+          title: 'Вощёный бомбер DSTR «Newpark Station»',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'L', price: 170, condition: 'GOOD', defectsPresent: false, brand: 'DSTR', color: 'black', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер: L.\nУтилитарный крой с объемными накладными карманами, трикотажным воротником и манжетами, погонами на плечах, акцентным принтом на груди и брендированной металлической фурнитурой DSTR.',
+        },
+      },
+      {
+        photos: ['c1530-0.jpg', 'c1530-1.jpg', 'c1530-2.jpg', 'c1530-3.jpg', 'c1530-4.jpg'],
+        input: {
+          title: 'Асимметричное худи с синим подкладом',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 100, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: S–M.\nПлотный хлопковый трикотаж в черном цвете с контрастным синим подкладом. Уникальный асимметричный крой с воротником-стойкой на кнопках, диагональной молнией и акцентными хлястиками.',
+        },
+      },
+      {
+        photos: ['c1535-0.jpg', 'c1535-1.jpg', 'c1535-2.jpg', 'c1535-3.jpg', 'c1535-4.jpg', 'c1535-5.jpg', 'c1535-6.jpg'],
+        input: {
+          title: 'Куртка In The Attic с замками turn-lock',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'L', price: 340, condition: 'GOOD', defectsPresent: false, brand: 'In The Attic', color: 'green', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: L.\nПлотный хлопковый канвас в глубоком оливковом оттенке со стеганой подкладкой. Культовый японский архивный дизайн: массивные поворотные металлические замки (turn-lock) поверх молнии, двойной трикотажный воротник, карманы с кожаными деталями и брендированные кнопки In The Attic.',
+        },
+      },
+      {
+        photos: ['c1542-0.jpg', 'c1542-1.jpg', 'c1542-2.jpg', 'c1542-3.jpg', 'c1542-4.jpg', 'c1542-5.jpg', 'c1542-6.jpg'],
+        input: {
+          title: 'Кожаная куртка Latoria с замками turn-lock',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 205, condition: 'GOOD', defectsPresent: false, brand: 'Latoria', color: 'black', gender: null, material: 'Кожа', styleTags: ['Streetwear'],
+          description: 'Размер: S.\nМягкая фактурная кожа глубокого черного цвета с благородным блеском. Сложный архивный крой с поворотными металлическими замками (turn-lock) поверх надежной двойной молнии YKK, четырьмя накладными карманами, воротником-стойкой и погонами на плечах.',
+        },
+      },
+      {
+        photos: ['c1549-0.jpg', 'c1549-1.jpg', 'c1549-2.jpg', 'c1549-3.jpg', 'c1549-4.jpg'],
+        input: {
+          title: 'Байкерская куртка Boss Orange',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'Hugo Boss', color: 'gray', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер: S–M.\nПриятный материал в темно-сером меланжевом оттенке. Красивый крой с воротником-стойкой, стегаными плечевыми панелями, карманами на молниях и фирменной металлической фурнитурой Boss Orange.',
+        },
+      },
+      {
+        photos: ['c1554-0.jpg'],
+        input: {
+          title: 'Куртка JT из искусственной замши с шерпой',
+          category: 'outerwear', subcategory: 'sheepskin', sizeSystem: 'ALPHA', sizeValue: 'S', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'JT', color: 'brown', gender: 'FEMALE', material: 'Замша', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПлотная искусственная замша в глубоком шоколадном оттенке с мягким подкладом из овчины (шерпа).Асиметричная молния, массивный отложной воротник, карманы на молниях и акцентные открытые меховые швы по всему силуэту.',
+        },
+      },
+      {
+        photos: ['c1555-0.jpg', 'c1555-1.jpg', 'c1555-2.jpg', 'c1555-3.jpg', 'c1555-4.jpg'],
+        input: {
+          title: 'Утеплённая куртка O’Neill с вышивкой',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'O\'Neill', color: 'black', gender: null, styleTags: ['Y2K'],
+          description: 'Размер: S–M.\nПлотная утепленная куртка в черном цвете с объемной вышивкой в виде тропических листьев по всей поверхности. Высокий воротник, трикотажные манжеты и пояс, накладные карманы с люверсами и фирменная фурнитура O’Neill.',
+        },
+      },
+      {
+        photos: ['c1560-0.jpg'],
+        input: {
+          title: 'Удлинённое худи acid wash с контрастными швами',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 120, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Трикотаж', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nЛегкий хлопковый трикотаж в вареном графитовом (acid wash) оттенке с эффектом состаривания. Контрастные открытые швы, удлиненные белые завязки, карман-кенгуру, рукава-реглан и необработанный фигурный низ.',
+        },
+      },
+      {
+        photos: ['c1561-0.jpg', 'c1561-1.jpg', 'c1561-2.jpg', 'c1561-3.jpg', 'c1561-4.jpg'],
+        input: {
+          title: 'Изумрудное зип-худи True Religion с Буддой',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 135, condition: 'GOOD', defectsPresent: false, brand: 'True Religion', color: 'green', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: M.\nПлотный хлопковый трикотаж с мягким начесом в насыщенном изумрудно-зеленом цвете. Фирменный логотип-подкова на груди и культовый крупный принт с Буддой на спине. Надежная металлическая молния и классический карман-кенгуру.\nМенялась фурнитура.',
+        },
+      },
+      {
+        photos: ['c1566-0.jpg', 'c1566-1.jpg'],
+        input: {
+          title: 'Укороченный бомбер с вязаными рукавами',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'S', price: 155, condition: 'GOOD', defectsPresent: false, brand: null, color: 'green', gender: 'FEMALE', material: 'Нейлон', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПлотный матовый нейлон в глубоком оливковом оттенке в сочетании с фактурной вязкой «косичка» вдоль рукавов. Укороченный приталенный крой, высокий вязаный воротник, планка на крупных пуговицах поверх молнии и карманы на замках.',
+        },
+      },
+      {
+        photos: ['c1568-0.jpg'],
+        input: {
+          title: 'Чёрный пуховик-косуха с косой молнией',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'ALPHA', sizeValue: 'S', price: 120, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: 'FEMALE', material: 'Нейлон', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПлотный матовый нейлон в глубоком черном цвете с легким наполнителем. Красивый силуэт с косой молнией, объемным дутым воротником-стойкой на металлических кнопках и акцентной металлической плашкой на рукаве.',
+        },
+      },
+      {
+        cover: 'c1576-1.jpg',
+        photos: ['c1576-0.jpg', 'c1576-1.jpg', 'c1576-2.jpg', 'c1576-3.jpg', 'c1576-4.jpg', 'c1576-5.jpg', 'c1576-6.jpg'],
+        input: {
+          title: 'Графитовая асимметричная куртка со скрытым капюшоном',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 170, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nПлотный матовый хлопок в графитовом оттенке. Архивный асимметричный силуэт с высоким воротником-стойкой со скрытым капюшоном на молнии, вельветовой планкой внутри, подкладкой с принтом старинной карты и деталями на карманах и пуллерах.',
+        },
+      },
+      {
+        photos: ['c1583-0.jpg'],
+        input: {
+          title: 'Худи G-Star Raw с панелями',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 130, condition: 'GOOD', defectsPresent: false, brand: 'G-Star', color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nПлотный хлопковый трикотаж в вареном милитари оттенке с эффектом состаривания. Сложный анатомический крой с текстильными вставками на рукавах, эластичными ребристыми панелями по бокам, классической V-образной деталью на горловине и патчем на манжете.',
+        },
+      },
+      {
+        photos: ['c1589-0.jpg', 'c1589-1.jpg', 'c1589-2.jpg', 'c1589-3.jpg', 'c1589-4.jpg', 'c1589-5.jpg', 'c1589-6.jpg'],
+        input: {
+          title: 'Белая куртка Hooch с меховой стойкой и пряжками',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'Hooch', color: 'white', gender: 'FEMALE', styleTags: ['Y2K'],
+          description: 'Размер: S–M.\nПлотный матовый материал в белоснежном оттенке с легким утеплителем. Высокий воротник-стойка с меховой отделкой и двумя массивными металлическими ремешками-пряжками, молнии на рукавах, крупная вышивка Hooch на спине и надежная фурнитура YKK.',
+        },
+      },
+      {
+        photos: ['c1596-0.jpg'],
+        input: {
+          title: 'Стёганый бомбер с капюшоном',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'M', price: 135, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: 'FEMALE', material: 'Нейлон', styleTags: ['Y2K'],
+          description: 'Размер: M.\nГлянцевый нейлон в глубоком черном цвете с легким утеплителем. Укороченный силуэт бомбера с комбинированной ромбовидной и горизонтальной стежкой, глубокий капюшон с высоким трикотажным воротом, широкие эластичные резинки на манжетах и поясе, ветрозащитная планка на кнопках и карманы на молниях.',
+        },
+      },
+      {
+        cover: 'c1603-1.jpg',
+        photos: ['c1603-0.jpg', 'c1603-1.jpg', 'c1603-2.jpg', 'c1603-3.jpg', 'c1603-4.jpg', 'c1603-5.jpg', 'c1603-6.jpg'],
+        input: {
+          title: 'Кожаная байкерская куртка Rino & Pelle песочного цвета',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 170, condition: 'GOOD', defectsPresent: false, brand: 'Rino & Pelle', color: 'beige', gender: 'FEMALE', material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер: S–M.\nМягкая натуральная кожа в красивом песочно-бежевом оттенке с естественной фактурой. Приталенный байкерский крой с воротником-стойкой, погонами на плечах, карманами на молниях и двойными регулируемыми ремешками с металлическими пряжками по бокам.',
+        },
+      },
+      {
+        photos: ['c1617-0.jpg', 'c1617-1.jpg', 'c1617-2.jpg', 'c1617-3.jpg', 'c1617-4.jpg', 'c1617-5.jpg', 'c1617-6.jpg'],
+        input: {
+          title: 'Куртка Arc’teryx Atom LT Hoody',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 295, condition: 'GOOD', defectsPresent: false, brand: 'Arc\'teryx', color: 'purple', gender: 'FEMALE', material: 'Полиэстер', styleTags: ['Outdoor'],
+          description: 'Размер: M (женский).\nЛегкая и технологичная куртка с синтетическим утеплителем Coreloft. Глубокий темно-фиолетовый оттенок с контрастной оранжевой окантовкой капюшона StormHood. Вышитый логотип на груди, эластичные дышащие боковые панели, регулировка капюшона сзади и молнии YKK Vislon. Культовая базовая вещь в gorpcore / outdoor эстетике.',
+        },
+      },
+      {
+        photos: ['c1631-0.jpg', 'c1631-1.jpg', 'c1631-2.jpg', 'c1631-3.jpg', 'c1631-4.jpg', 'c1631-5.jpg', 'c1631-6.jpg'],
+        input: {
+          title: 'Широкие джинсы Levi’s',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'JEANS_W', sizeValue: 'W28', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'Levi\'s', color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Плотный фактурный деним в классическом синем вареном оттенке. Свободный прямой крой с широким выходом (wide leg), кожаный патч на поясе, фирменный red tab и брендированная латунная молния Levi’s. Отличная базовая пара с идеальной свободной посадкой.\nЗамеры: полуобхват талии 36 см, длина 109 см, выход 25 см.',
+        },
+      },
+      {
+        photos: ['c1643-0.jpg'],
+        input: {
+          title: 'Бежевое вязаное зип-худи y2k с рукавами-клёш',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'S', price: 95, condition: 'GOOD', defectsPresent: false, brand: null, color: 'beige', gender: 'FEMALE', material: 'Трикотаж', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПлотный фактурный трикотаж в приятном песочно-бежевом оттенке. Слим крой, объемный капюшон, акцентные удлиненные рукава-клеш и металлическая двухсторонняя молния с кольцами-пуллерами.',
+        },
+      },
+      {
+        photos: ['c1644-0.jpg', 'c1644-1.jpg', 'c1644-2.jpg', 'c1644-3.jpg', 'c1644-4.jpg', 'c1644-5.jpg', 'c1644-6.jpg'],
+        input: {
+          title: 'Пуховик Madonna с меховым капюшоном',
+          category: 'outerwear', subcategory: 'puffer', sizeSystem: 'ALPHA', sizeValue: 'S', price: 165, condition: 'GOOD', defectsPresent: false, brand: 'Madonna', color: 'beige', gender: 'FEMALE', material: 'Нейлон', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПлотный матовый нейлон в песочно-бежевом оттенке с легким утеплителем. Укороченный крой бомбера с акцентными тракторными молниями, подвеской-звездой на главном замке, пушистой меховой опушкой на капюшоне, карманом на рукаве и плотными эластичными манжетами.',
+        },
+      },
+      {
+        photos: ['c1651-0.jpg'],
+        input: {
+          title: 'Полосатый вязаный джемпер в стиле гранж',
+          category: 'knitwear', subcategory: 'sweater', sizeSystem: 'ALPHA', sizeValue: 'M', price: 75, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: null, material: 'Трикотаж', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nПлотный вязаный трикотаж в контрастную черно-белую полоску. Свободный крой с приспущенной линией плеч, круглый вырез горловины и мягкая фактура.',
+        },
+      },
+      {
+        photos: ['c1652-0.jpg'],
+        input: {
+          title: 'Серый бомбер с капюшоном и накладными карманами',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'S', price: 155, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, styleTags: ['Streetwear'],
+          description: 'Размер: S.\nПлотный фактурный материал в сером меланжевом оттенке с легким утеплителем. Утилитарный крой бомбера с глубоким капюшоном, акцентными влагозащитными молниями на груди, объемными накладными карманами с клапанами и плотными контрастными черными резинками на поясе и манжетах.',
+        },
+      },
+      {
+        photos: ['c1653-0.jpg', 'c1653-1.jpg', 'c1653-2.jpg', 'c1653-3.jpg', 'c1653-4.jpg'],
+        input: {
+          title: 'Олимпийка Adidas Originals «Original Sport» 2006',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'Adidas', color: 'pink', gender: 'FEMALE', material: 'Полиэстер', styleTags: ['Sport', 'Y2K'],
+          description: 'Размер: S.\nПлотный эластичный трикотаж в нежном кораллово-розовом оттенке с контрастными белыми деталями. Приталенный крой с высоким воротником-стойкой, тремя классическими полосками на рукавах, вышитым логотипом «Original Sport» на груди, карманами на молниях и акцентным круглым бегунком с трилистником.',
+        },
+      },
+      {
+        photos: ['c1658-0.jpg', 'c1658-1.jpg', 'c1658-2.jpg', 'c1658-3.jpg', 'c1658-4.jpg', 'c1658-5.jpg', 'c1658-6.jpg'],
+        input: {
+          title: 'Джинсы Enzo с накладными карманами и хлястиком',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W35', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'Enzo', color: 'blue', gender: 'MALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним в глубоком синем цвете с выраженной зернистой фактурой. Сложный утилитарный крой с объемными накладными карманами, регулируемым хлястиком (cinch-back) на поясе, анатомическими швами на коленях и массивной брендированной фурнитурой. Детализированная вышивка и патчи в архивном стиле.\nЗамеры: полуобхват талии 44 см, длина 101 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['c1670-0.jpg', 'c1670-1.jpg', 'c1670-2.jpg', 'c1670-3.jpg', 'c1670-4.jpg'],
+        input: {
+          title: 'Голубое зип-худи FCUK Jeans',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'S', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'French Connection', color: 'lightblue', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПлотный хлопковый трикотаж в светло-голубом оттенке. Крупная фактурная аппликация «FCUK» на груди, надежная металлическая молния YKK и классические ребристые манжеты.',
+        },
+      },
+      {
+        photos: ['c1675-0.jpg', 'c1675-1.jpg', 'c1675-2.jpg', 'c1675-3.jpg', 'c1675-4.jpg', 'c1675-5.jpg', 'c1675-6.jpg'],
+        input: {
+          title: 'Розовая ветровка Superdry с тремя молниями',
+          category: 'outerwear', subcategory: 'windbreaker', sizeSystem: 'OTHER', sizeValue: 'XS–S', price: 190, condition: 'GOOD', defectsPresent: false, brand: 'Superdry', color: 'pink', gender: 'FEMALE', material: 'Нейлон', styleTags: ['Y2K'],
+          description: 'Размер: XS–S.\nПлотный ветрозащитный рипстоп в насыщенном розовом оттенке. Фирменная система тройной молнии, высокий внутренний воротник в рубчик, глубокий капюшон, манжеты с вырезами под пальцы и брендированная фурнитура. Контрастная черная вышивка с логотипом бренда на плече. Отличная функциональная куртка на каждый день.',
+        },
+      },
+      {
+        cover: 'c1700-1.jpg',
+        photos: ['c1700-0.jpg', 'c1700-1.jpg', 'c1700-2.jpg', 'c1700-3.jpg', 'c1700-4.jpg', 'c1700-5.jpg', 'c1700-6.jpg'],
+        input: {
+          title: 'Кожаный бомбер N2B с меховым капюшоном',
+          category: 'outerwear', subcategory: 'leather-jacket', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 550, condition: 'GOOD', defectsPresent: false, brand: null, color: 'black', gender: 'FEMALE', material: 'Кожа', styleTags: ['Y2K'],
+          description: 'Размер: S–M.\nМягкая натуральная кожа глубокого черного цвета с утеплителем. Укороченный силуэт бомбера со стегаными ромбовидными рукавами и боковыми панелями, плотными трикотажными манжетами и поясом. Главный акцент — глубокий капюшон с пышной меховой опушкой, расстегивающийся пополам на молнии (split hood). Металлическая фурнитура и карманы на заклепках.',
+        },
+      },
+      {
+        photos: ['c1714-0.jpg', 'c1714-1.jpg', 'c1714-2.jpg', 'c1714-3.jpg', 'c1714-4.jpg', 'c1714-5.jpg', 'c1714-6.jpg'],
+        input: {
+          title: 'Бомбер Byblos с перфорированными рукавами',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'S', price: 345, condition: 'GOOD', defectsPresent: false, brand: 'Byblos', color: 'black', gender: 'FEMALE', material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: S–M (женский).\nПлотный хлопковый верх глубокого черного цвета в комбинации с перфорированными дышащими рукавами и массивными трикотажными резинками в рубчик на поясе и высоком вороте. Укороченный приталенный крой, объемные накладные карманы спереди и на спине, карманы на молниях, необработанные фактурные срезы на плечах и премиальная латунная фурнитура Lampo Italy с двойным бегунком Byblos. Сделано в Италии. Уникальная архивная вещь от итальянского дома моды с историей.',
+        },
+      },
+      {
+        photos: ['c1775-0.jpg', 'c1775-1.jpg', 'c1775-2.jpg', 'c1775-3.jpg', 'c1775-4.jpg', 'c1775-5.jpg', 'c1775-6.jpg'],
+        input: {
+          title: 'Винтажные прямые джинсы Westland',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'Westland', color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Плотный деним в насыщенном синем оттенке с естественными потертостями и мягкими заломами. Прямой крой, фактурная двойная отстрочка, кожаный патч Westland 1930 на поясе, брендированная металлическая фурнитура и аккуратный легкий дистресс по краям карманов.\nЗамеры: полуобхват талии 39 см, длина 111 см, выход 23 см.',
+        },
+      },
+      {
+        photos: ['c1816-0.jpg', 'c1816-1.jpg', 'c1816-2.jpg', 'c1816-3.jpg', 'c1816-4.jpg'],
+        input: {
+          title: 'Серое худи с косой молнией',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 120, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Размер: S–M.\nХлопковый трикотаж в сером меланжевом оттенке. Авангардный крой с косой диагональной молнией, высоким объемным воротником-капюшоном, утилитарным карманом на рукаве, акцентными металлическими кнопками на карманах и регулируемых манжетах.',
+        },
+      },
+      {
+        photos: ['c1821-0.jpg'],
+        input: {
+          title: 'Оливковый бомбер с малиновым подкладом в капюшоне',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 155, condition: 'GOOD', defectsPresent: false, brand: null, color: 'green', gender: null, material: 'Нейлон', styleTags: ['Streetwear'],
+          description: 'Размер: S–M.\nПлотный матовый нейлон в глубоком оливковом оттенке с контрастным ярко-малиновым подкладом в капюшоне. Утилитарный крой бомбера с объёмным капюшоном, классическим карманом MA-1 на рукаве, массивной металлической молнией и плотными эластичными манжетами.',
+        },
+      },
+      {
+        photos: ['c1822-0.jpg', 'c1822-1.jpg', 'c1822-2.jpg', 'c1822-3.jpg', 'c1822-4.jpg'],
+        input: {
+          title: 'Оливковое худи Superdry с вышивкой',
+          category: 'knitwear', subcategory: 'hoodie', sizeSystem: 'ALPHA', sizeValue: 'M', price: 110, condition: 'GOOD', defectsPresent: false, brand: 'Superdry', color: 'green', gender: null, material: 'Хлопок', styleTags: ['Casual'],
+          description: 'Размер: M.\nПлотный хлопковый трикотаж в вареном оливковом оттенке с винтажным эффектом состаривания. Лаконичная тональная вышивка с логотипом Superdry на груди, классический карман-кенгуру и плотные широкие манжеты в рубчик.',
+        },
+      },
+      {
+        photos: ['c1853-0.jpg', 'c1853-1.jpg', 'c1853-2.jpg', 'c1853-3.jpg', 'c1853-4.jpg', 'c1853-5.jpg', 'c1853-6.jpg'],
+        input: {
+          title: 'Тренч AllSaints с леопардовым воротником',
+          category: 'outerwear', subcategory: 'trench', sizeSystem: 'ALPHA', sizeValue: 'S', price: 270, condition: 'GOOD', defectsPresent: false, brand: 'AllSaints', color: 'green', gender: 'FEMALE', styleTags: ['Vintage'],
+          description: 'Размер: S.\nЛегкая струящаяся ткань в оливково-хаки оттенке. Классический силуэт с поясом, широкими лацканами, погонами и акцентной леопардовой отделкой на воротнике. Элегантная архивная вещь с узнаваемой посадкой.',
+        },
+      },
+      {
+        photos: ['c1950-0.jpg', 'c1950-1.jpg', 'c1950-2.jpg', 'c1950-3.jpg', 'c1950-4.jpg'],
+        input: {
+          title: 'Шерстяная куртка со стёгаными рукавами',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'M', price: 180, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Шерсть', styleTags: ['Streetwear'],
+          description: 'Размер: M.\nПлотная шерсть в глубоком графитово-сером цвете в комбинации со стегаными рукавами из матового нейлона. Утилитарный приталенный крой: множество накладных карманов на кнопках, акцентные тракторные молнии Dulon, высокий воротник-стойка, накладки на локтях и контрастный фиолетовый подклад.',
+        },
+      },
+      {
+        photos: ['c1955-0.jpg', 'c1955-1.jpg', 'c1955-2.jpg', 'c1955-3.jpg', 'c1955-4.jpg'],
+        input: {
+          title: 'Вельветовая куртка с двойным воротником',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'S', price: 145, condition: 'GOOD', defectsPresent: false, brand: null, color: 'green', gender: 'FEMALE', styleTags: ['Y2K'],
+          description: 'Размер: S.\nПлотный микро-вельвет в насыщенном горчично-оливковом оттенке. Сложный дизайн с двойным воротником: высоким трикотажным горлом в рубчик и внешним воротником-стойкой на кнопке. Укороченный приталенный крой, акцентный нагрудный карман с клапаном и плотные вязаные манжеты.',
+        },
+      },
+      {
+        photos: ['c1965-0.jpg', 'c1965-1.jpg', 'c1965-2.jpg', 'c1965-3.jpg', 'c1965-4.jpg'],
+        input: {
+          title: 'Двубортное шерстяное пальто в клетку',
+          category: 'outerwear', subcategory: 'coat', sizeSystem: 'OTHER', sizeValue: 'S–M', price: 130, condition: 'GOOD', defectsPresent: false, brand: null, color: 'brown', gender: 'FEMALE', material: 'Шерсть', styleTags: ['Vintage'],
+          description: 'Размер: S–M (женский).\nПлотная шерсть в глубоком графитово-коричневом оттенке с контрастной желтой и белой клеткой. Уникальный приталенный крой с высоким двойным воротником-стойкой на пуговицах, двубортной застежкой, погонами на плечах и регулируемым хлястиком на спинке.',
+        },
+      },
+      {
+        cover: 'c1970-1.jpg',
+        photos: ['c1970-0.jpg', 'c1970-1.jpg', 'c1970-2.jpg', 'c1970-3.jpg', 'c1970-4.jpg', 'c1970-5.jpg', 'c1970-6.jpg'],
+        input: {
+          title: 'Винтажная утилитарная куртка с множеством карманов',
+          category: 'outerwear', subcategory: 'jacket', sizeSystem: 'ALPHA', sizeValue: 'L', price: 190, condition: 'GOOD', defectsPresent: false, brand: null, color: 'brown', gender: null, material: 'Хлопок', styleTags: ['Vintage'],
+          description: 'Размер: L.\nПлотный хлопковый материал в оливково-коричневом оттенке с выразительной винтажной фактурой. Утилитарный крой с множеством карманов, металлическими люверсами и заклепками, вертикальным карманом на молнии и брендированными пуллерами. Высокий воротник-стойка и регулируемые манжеты.',
+        },
+      },
+      {
+        photos: ['c1977-0.jpg', 'c1977-1.jpg', 'c1977-2.jpg', 'c1977-3.jpg', 'c1977-4.jpg', 'c1977-5.jpg', 'c1977-6.jpg'],
+        input: {
+          title: 'Прямые джинсы Acne Studios',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'Acne Studios', color: 'blue', gender: null, material: 'Деним', styleTags: ['Minimal'],
+          description: 'Плотный японский деним в глубоком темно-синем оттенке. Прямой крой, крупные задние карманы с геометричным нижним краем, кожаный патч Acne на поясе, фирменная металлическая фурнитура и кнопка с логотипом бренда.\nЗамеры: полуобхват талии 40 см, длина 103 см, выход 19–20 см.',
+        },
+      },
+      {
+        photos: ['c1991-0.jpg', 'c1991-1.jpg', 'c1991-2.jpg', 'c1991-3.jpg', 'c1991-4.jpg', 'c1991-5.jpg', 'c1991-6.jpg'],
+        input: {
+          title: 'Брюки-карго Timezone',
+          category: 'trousers', subcategory: 'cargo', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'Timezone', color: 'brown', gender: null, material: 'Хлопок', styleTags: ['Streetwear'],
+          description: 'Плотный хлопковый материал в коричнево-оливковом оттенке. Утилитарный крой с объемными карманами на бедрах и голенях, множеством молний, брендированными кнопками и фирменными металлическими пуллерами с текстильными кисточками. Регулируемый пояс, декоративные вертикальные швы и необработанный низ штанин.\nЗамеры: полуобхват талии 40 см, длина 105 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['c1998-0.jpg', 'c1998-1.jpg', 'c1998-2.jpg', 'c1998-3.jpg', 'c1998-4.jpg', 'c1998-5.jpg', 'c1998-6.jpg'],
+        input: {
+          title: 'Джинсы-карго с множеством карманов',
+          category: 'jeans', subcategory: 'wide', sizeSystem: 'JEANS_W', sizeValue: 'W35', price: 155, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Плотный деним в насыщенном синем оттенке с выраженными высветлениями и заломами. Сложный утилитарный крой с множеством карманов спереди и сзади, объемными клапанами, декоративными ремешками и анатомическими швами. Фирменная фурнитура с логотипом и широкая свободная посадка.\nЗамеры: полуобхват талии 45 см, длина 105 см, выход 24–25 см.',
+        },
+      },
+      {
+        photos: ['c2005-0.jpg', 'c2005-1.jpg', 'c2005-2.jpg', 'c2005-3.jpg', 'c2005-4.jpg'],
+        input: {
+          title: 'Прямые джинсы Zara с карманами на молниях',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'Zara', color: 'gray', gender: null, material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним в графитовом оттенке с выраженными высветлениями и мягкими заломами. Прямой крой, диагональные карманы на молниях спереди, фирменная фигурная отстрочка на задних карманах и кожаный патч Zara Jeans на поясе.\nЗамеры: полуобхват талии 37–38 см, длина 101 см, выход 20 см.',
+        },
+      },
+      {
+        photos: ['c2010-0.jpg', 'c2010-1.jpg', 'c2010-2.jpg', 'c2010-3.jpg', 'c2010-4.jpg', 'c2010-5.jpg', 'c2010-6.jpg'],
+        input: {
+          title: 'Джинсы-буткат Miss Sixty',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W30', price: 100, condition: 'GOOD', defectsPresent: false, brand: 'Miss Sixty', color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним в насыщенном темно-синем цвете с выразительными высветлениями и заломами. Прямой крой, фирменная контрастная вышивка на задних карманах, металлический логотип Miss Sixty, брендированные болты и фурнитура YKK.\nЗамеры: полуобхват талии 38 см, длина 98 см, выход 20–21 см.',
+        },
+      },
+      {
+        photos: ['c2029-0.jpg', 'c2029-1.jpg', 'c2029-2.jpg', 'c2029-3.jpg', 'c2029-4.jpg'],
+        input: {
+          title: 'Тёмные джинсы-клёш с защипами на коленях',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W29', price: 110, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним в глубоком темно-синем цвете с мягкими высветлениями и заломами. Уникальный силуэт с широким клешем от колена, двойной застежкой на болты и конструктивными защипами на коленях. Акцентные карманы с контрастной отстрочкой.\nЗамеры: полуобхват талии 37–38 см, длина 101 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['c2034-0.jpg', 'c2034-1.jpg', 'c2034-2.jpg', 'c2034-3.jpg', 'c2034-4.jpg', 'c2034-5.jpg', 'c2034-6.jpg'],
+        input: {
+          title: 'Джинсы G-Star Raw с ремешками',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W34', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'G-Star', color: 'blue', gender: null, material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Плотный деним в насыщенном синем цвете с выразительными высветлениями и заломами. Утилитарный крой с декоративными ремешками и акцентными защипами на коленях. Кожаный патч G-Star Raw, фирменная фурнитура и молния YKK.\nЗамеры: полуобхват талии 43 см, длина 107 см, выход 21 см.',
+        },
+      },
+      {
+        photos: ['c2041-0.jpg', 'c2041-1.jpg', 'c2041-2.jpg', 'c2041-3.jpg', 'c2041-4.jpg'],
+        input: {
+          title: 'Винтажные джинсы-буткат John Rocha',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W35', price: 155, condition: 'GOOD', defectsPresent: false, brand: 'John Rocha', color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Плотный винтажный деним, ширинка на болтах, кожаный патч на поясе и фирменная фурнитура, отличная посадка на теле(минимальный буткат), ничего лишнего.\nЗамеры: полуобхват талии 44 см, длина 104 см, выход 24 см.',
+        },
+      },
+      {
+        photos: ['c2046-0.jpg'],
+        input: {
+          title: 'Укороченный бомбер в красную клетку',
+          category: 'outerwear', subcategory: 'bomber', sizeSystem: 'ALPHA', sizeValue: 'S', price: 155, condition: 'GOOD', defectsPresent: false, brand: null, color: 'red', gender: 'FEMALE', styleTags: ['Y2K'],
+          description: 'Размер: S.\nВысокий объемный воротник-стойка с легкой драпировкой, аккуратные милитари-погоны на плечах и прорезные карманы по бокам. Плотные черный манжеты, ничего лишнего.',
+        },
+      },
+      {
+        photos: ['c2047-0.jpg', 'c2047-1.jpg'],
+        input: {
+          title: 'Синие джинсы-буткат',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W35', price: 120, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Casual'],
+          description: 'Базовая пара, ничего лишнего, актуальный буткат силуэт, приятный синий деним.\nЗамеры: полуобхват талии 44 см, длина 103 см, выход 27 см.',
+        },
+      },
+      {
+        cover: 'c2074-1.jpg',
+        photos: ['c2074-0.jpg', 'c2074-1.jpg', 'c2074-2.jpg', 'c2074-3.jpg', 'c2074-4.jpg'],
+        input: {
+          title: 'Серое зип-худи Aeropostale',
+          category: 'knitwear', subcategory: 'zip-hoodie', sizeSystem: 'ALPHA', sizeValue: 'L', price: 135, condition: 'GOOD', defectsPresent: false, brand: 'Aeropostale', color: 'gray', gender: null, material: 'Хлопок', styleTags: ['Y2K'],
+          description: 'Размер: L.\nПлотный хлопковый трикотаж с мягкой изнанкой в сером варёном оттенке. Крупная объёмная аппликация «AERO» и винтажный принт спереди, капюшон на белых завязках, карманы-кенгуру и металлическая молния.',
+        },
+      },
+      {
+        photos: ['c2079-0.jpg', 'c2079-1.jpg', 'c2079-2.jpg', 'c2079-3.jpg', 'c2079-4.jpg', 'c2079-5.jpg', 'c2079-6.jpg'],
+        input: {
+          title: 'Кожаные ботинки A.S.98 с пряжками (Италия)',
+          category: 'shoes', subcategory: 'boots', sizeSystem: 'SHOE_EU', sizeValue: '38', price: 410, condition: 'GOOD', defectsPresent: false, brand: 'A.S.98', color: 'black', gender: 'FEMALE', material: 'Кожа', styleTags: ['Vintage'],
+          description: 'Размер: 38.\nНатуральная кожа в глубоком чёрном цвете с выразительной винтажной фактурой и потёртостями. Акцентные кожаные клапаны на кнопках, ремешки с пряжками и массивная латунная фурнитура Opti. Устойчивый каблук и прочная подошва с фирменным тиснением A.S.98. Сделано в Италии.',
+        },
+      },
+      {
+        photos: ['c2086-0.jpg', 'c2086-1.jpg', 'c2086-2.jpg', 'c2086-3.jpg', 'c2086-4.jpg'],
+        input: {
+          title: 'Графитовый вязаный свитер с молнией на плече',
+          category: 'knitwear', subcategory: 'sweater', sizeSystem: 'ALPHA', sizeValue: 'S', price: 120, condition: 'GOOD', defectsPresent: false, brand: null, color: 'gray', gender: null, material: 'Трикотаж', styleTags: ['Streetwear'],
+          description: 'Размер: S.\nПлотная фактурная вязка в графитово-сером оттенке. Высокий воротник-стойка, накладка на плече с молнией и пуговицами, удлинённые манжеты в рубчик. Акцентная архивная вещь с отличной посадкой.',
+        },
+      },
+      {
+        photos: ['c2098-0.jpg', 'c2098-1.jpg', 'c2098-2.jpg', 'c2098-3.jpg', 'c2098-4.jpg'],
+        input: {
+          title: 'Свитер Abercrombie & Fitch с косами',
+          category: 'knitwear', subcategory: 'sweater', sizeSystem: 'ALPHA', sizeValue: 'S', price: 110, condition: 'GOOD', defectsPresent: false, brand: 'Abercrombie & Fitch', color: 'gray', gender: null, material: 'Трикотаж', styleTags: ['Casual'],
+          description: 'Размер: S.\nПлотный фактурный трикотаж в сером меланжевом оттенке. Объёмная вязка «косичка», фирменный мини-логотип на груди, высокий круглый вырез.',
+        },
+      },
+      {
+        photos: ['c2110-0.jpg', 'c2110-1.jpg', 'c2110-2.jpg', 'c2110-3.jpg', 'c2110-4.jpg', 'c2110-5.jpg', 'c2110-6.jpg'],
+        input: {
+          title: 'Прямые джинсы DSTR Cult',
+          category: 'jeans', subcategory: 'straight', sizeSystem: 'JEANS_W', sizeValue: 'W35', price: 120, condition: 'GOOD', defectsPresent: false, brand: 'DSTR', color: 'blue', gender: 'MALE', material: 'Деним', styleTags: ['Streetwear'],
+          description: 'Плотный деним в серо-синем варёном оттенке с выраженной вертикальной фактурой и мягким высветлением. Прямой крой, акцентная контрастная белая отстрочка на задних карманах с вышивкой Urban District, кожаный патч DSTR Cult на поясе и брендированные металлические болты.\nЗамеры: полуобхват талии 45 см, длина 105 см, выход 22 см.',
+        },
+      },
+      {
+        photos: ['c2117-0.jpg', 'c2117-1.jpg', 'c2117-2.jpg', 'c2117-3.jpg', 'c2117-4.jpg', 'c2117-5.jpg', 'c2117-6.jpg'],
+        input: {
+          title: 'Джинсы-клёш Just F с карманом на молнии',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W31', price: 120, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: 'FEMALE', material: 'Деним', styleTags: ['Y2K'],
+          description: 'Плотный деним в глубоком темно-синем цвете с выраженной зернистой фактурой. Уникальный дизайн с широким клешем от колена , акцентной металлической молнией на переднем кармане и задними карманами с клапанами на кнопках. Декоративная перекрестная отстрочка, фирменный болт с кристаллами и двойные шлевки.\nЗамеры: полуобхват талии 40 см, длина 106 см, выход 27 см.',
+        },
+      },
+      {
+        photos: ['c93b-0.jpg', 'c93b-1.jpg', 'c93b-2.jpg', 'c93b-3.jpg'],
+        input: {
+          title: 'Винтажные джинсы-клёш от колена',
+          category: 'jeans', subcategory: 'flare', sizeSystem: 'JEANS_W', sizeValue: 'W32', price: 110, condition: 'GOOD', defectsPresent: false, brand: null, color: 'blue', gender: null, material: 'Деним', styleTags: ['Vintage'],
+          description: 'Винтажный деним расклешенный от колена, отличная посадка на теле и интересные передние карманы.\nЗамеры: полуобхват талии 41 см, длина 109 см, выход 30 см.',
         },
       },
     ],
