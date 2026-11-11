@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 import zlib from 'node:zlib';
-import { signed } from '../../src/telegram/callbacks.js';
+import { signed, verified } from '../../src/telegram/callbacks.js';
 import { htmlToCard } from '../../src/telegram/cards.js';
 import { TelegramNotifier } from '../../src/telegram/notifier.js';
 import { TelegramBotService } from '../../src/telegram/telegram.js';
-import { CARD_HTML, NOTICE_HTML, WIDGET_HTML } from '../../src/telegram/widget-html.js';
+import { CARD_HTML, ITEMS_HTML, NOTICE_HTML, WIDGET_HTML } from '../../src/telegram/widget-html.js';
 import { noticeFor } from '../../src/telegram/widget-notice.js';
 import { saveWidgetCtx } from '../../src/telegram/widget-store.js';
 import { packState, parseCommand, TelegramWidgetService } from '../../src/telegram/widget.js';
@@ -37,7 +37,8 @@ function render(state: Record<string, unknown> | null) {
     HapticFeedback: { impactOccurred: () => undefined, selectionChanged: () => undefined },
   };
   const document = { getElementById: () => out };
-  const js = WIDGET_HTML.split('<script>')[1].split('</script>')[0];
+  const html = state && (state.s === 'l' || state.s === 'i') ? ITEMS_HTML : WIDGET_HTML;
+  const js = html.split('<script>')[1].split('</script>')[0];
   new Function('TelegramWidget', 'document', js)(W, document);
   return out.innerHTML;
 }
@@ -57,17 +58,17 @@ test('every screen draws from its state, and users’ text is escaped', () => {
   assert.match(item, /Сохранить · 120/);
   assert.match(item, /Поднять/);
   assert.match(item, /Продано/);
-  assert.match(item, /M ✕/);
+  assert.match(item, /M<svg/);
   assert.match(render({ s: 'i', T: 'x', c: 50, o: 80, st: 'S' }), /<s[^>]*>80/);
   assert.match(render({ s: 'd', u: 'shop', w: 1, i: [['r', evil, 'Плащ', 90]] }), /Принять[\s\S]*Отклонить/);
   assert.match(render({ s: 't', u: 'shop', d: [1, 2, 3, 4, 5, 6, 7], v: 28, f: 3, c: 1, m: 0, o: 0, r: 1 }), /class="bars"/);
-  assert.match(render({ s: 'n', u: 'shop', q: [1, 0, 1, 1, 1, 1, 1, 1] }), /⬜️ Предложения цены/);
+  assert.match(render({ s: 'n', u: 'shop', q: [1, 0, 1, 1, 1, 1, 1, 1] }), /Предложения цены<span class="sw"><\/span>/, 'a switch that is off');
   assert.match(render({ s: 'x', a: ['one', 'two'] }), /@two/);
 });
 
 test('handlers carry only the app’s own commands, never users’ text', () => {
   const html = render({ s: 'l', u: 'shop', f: 'a', p: 0, P: 1, i: [["');alert(1);('", 1, 'P']] });
-  for (const h of html.match(/onclick="[^"]*"/g) ?? []) assert.match(h, /^onclick="(q\('[\w:]*'\)|loc\('\w',-?\d+\)|)"$/, h);
+  for (const h of html.match(/onclick="[^"]*"/g) ?? []) assert.match(h, /^onclick="(q\('[\w:]*'\)|loc\('\w',-?\d+\)|site\(('[\w/-]*')?\)|)"$/, h);
 });
 
 // ---------- commands and state ----------
@@ -110,7 +111,7 @@ function serviceWith(linked: string[] = [A]) {
     [L2, { id: L2, sellerId: B, title: 'Чужая куртка', status: 'PUBLISHED', price: 200, priceNegotiable: false, sizes: [], acceptsOffers: true }],
   ]);
   const prisma = {
-    user: { findMany: async () => linked.map((id) => ({ id, username: `u_${id.slice(0, 2)}`, tgPrefs: null, sessionVersion: 1, tgSessionVersion: 1 })), updateMany: async () => ({ count: 0 }) },
+    user: { findMany: async () => linked.map((id) => ({ id, username: `u_${id.slice(0, 2)}`, tgPrefs: null, sessionVersion: 1, tgSessionVersion: 1 })), updateMany: async () => ({ count: 0 }), findUnique: async () => ({ role: 'USER', tgUsername: null }) },
     listing: {
       findUnique: async ({ where }: { where: { id: string } }) => listings.get(where.id) ?? null,
       findMany: async ({ where }: { where: { sellerId: string } }) => [...listings.values()].filter((l) => l.sellerId === where.sellerId),
@@ -134,19 +135,19 @@ function serviceWith(linked: string[] = [A]) {
   const tap = (data: string, chat: { id: number; type: string } = { id: CHAT, type: 'private' }, from = CHAT) =>
     svc.query({ id: `w${++n}`, from: { id: from }, chat, message_id: 50, data });
   const lastState = () => {
-    const a = [...calls].reverse().find((c) => c.method === 'answerWidgetQuery');
-    return a ? JSON.parse(String(a.body.data)) : null;
+    const a = [...calls].reverse().find((c) => (c.method === 'answerWidgetQuery' && c.body.data) || c.method === 'sendWidget');
+    return a ? JSON.parse(String(a.method === 'sendWidget' ? a.body.chat_data : a.body.data)) : null;
   };
   return { svc, done, tap, lastState };
 }
 
-test('/menu sends the widget with queries allowed, protected, with a caption for older apps', async () => {
+test('/menu sends the widget with queries allowed, protected, and no caption repeating it', async () => {
   const { svc } = serviceWith();
   assert.equal(await svc.open(CHAT, [{ id: A, username: 'shop', tgPrefs: null, sessionVersion: 1, tgSessionVersion: 1 }]), true);
   const send = calls.find((c) => c.method === 'sendWidget')!;
   assert.equal(send.body.allow_queries, true);
   assert.equal(send.body.protect_content, true);
-  assert.match(String(send.body.caption), /\/list/);
+  assert.equal(send.body.caption, undefined);
   assert.equal(JSON.parse(String(send.body.chat_data)).s, 'h');
 });
 
@@ -207,7 +208,7 @@ test('«Покупки» lists counter-offers to answer and purchases on their w
   assert.match(html, /&#60;b&#62;Плащ/);
   assert.match(html, /q\('ba:0'\)/);
   assert.match(html, /В пути/);
-  assert.equal((html.match(/✅ Принять/g) ?? []).length, 1, 'only the counter-offer has buttons');
+  assert.equal((html.match(/Принять<\/button>/g) ?? []).length, 1, 'only the counter-offer has buttons');
 });
 
 test('the deal card fits, draws its state escaped, and its handlers are fixed', () => {
@@ -325,6 +326,7 @@ test('sign-up from the bot: creates the account once, links the chat, opens the 
       findUniqueOrThrow: async ({ where }: { where: { id: string } }) => users.find((u) => u.id === where.id)!,
       update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => Object.assign(users.find((u) => u.id === where.id)!, data),
       updateMany: async () => ({ count: 0 }),
+      findUnique: async () => ({ role: 'USER', tgUsername: null }),
     },
     listing: { groupBy: async () => [] },
     buyRequest: { count: async () => 0, findMany: async () => [] },
@@ -359,10 +361,10 @@ test('/start from a Telegram not linked yet answers with a card that offers to s
   const bot = new TelegramBotService(prisma as never, notifier as never, {} as never, {} as never, {} as never, { clearSlot: async () => undefined } as never, { client: null } as never, {} as never);
   process.env.APP_URL = 'https://ichiba.by';
   await bot.handle({ update_id: 99_001, message: { message_id: 1, chat: { id: CHAT, type: 'private' }, from: { id: CHAT }, text: '/start' } });
-  const card = calls.find((c) => c.method === 'sendWidget' && c.body.chat_id === CHAT && String(c.body.caption).startsWith('🏮 Ichiba'));
+  const card = calls.find((c) => c.method === 'sendWidget' && c.body.chat_id === CHAT && String(c.body.chat_data).includes('"RC"'));
   assert.ok(card, 'a card, not a text message');
   const state = JSON.parse(String(card!.body.chat_data));
-  assert.deepEqual(state.c, [['✨ Принимаю и создаю аккаунт', 'RC']]);
+  assert.deepEqual(state.c, [['Принимаю и создаю аккаунт', 'RC']], 'no emoji: the card draws its own icons');
   assert.ok(state.l.some((l: string[]) => l[1] === 'https://ichiba.by/?auth=1'), 'and the site’s sign-up');
   assert.ok(state.l.some((l: string[]) => l[1] === 'https://ichiba.by/privacy'), 'with the policy');
 });
@@ -399,4 +401,50 @@ test('the bot’s picture is uploaded once per file, as a JPG over multipart', a
   assert.equal(sent[0].method, 'setMyProfilePhoto');
   assert.deepEqual(JSON.parse(sent[0].photo!), { type: 'static', photo: 'attach://avatar' });
   assert.ok(sent[0].file);
+});
+
+test('the shipped widgets are built from widget-src.ts and each fits 4 KB compressed', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { widgetHtmlModule, buildWidgets } = await import('../../scripts/build-widgets.js');
+  const committed = readFileSync(new URL('../../src/telegram/widget-html.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.equal(committed, widgetHtmlModule(), 'widget-html.ts is stale: run npm run build:widgets');
+  for (const [name, html] of Object.entries(buildWidgets())) {
+    assert.ok(zlib.deflateSync(Buffer.from(html), { level: 9 }).length <= 4096, `${name} over 4 KB compressed`);
+    assert.ok(!/\p{Extended_Pictographic}/u.test(html.replace('市', '')), `${name}: no emoji, line icons instead`);
+  }
+});
+
+test('«Подбор»: one photo message flipped in place; ♡ and «не моё» go to the site’s swipe', async () => {
+  const { TelegramSwipeService } = await import('../../src/telegram/swipe.js');
+  process.env.MEDIA_PUBLIC_URL = 'https://media.ichiba.by/media';
+  process.env.APP_URL = 'https://ichiba.by';
+  process.env.JWT_SECRET = 'test-secret-for-swipe';
+  const L3 = '33333333-2222-4333-8444-555555555555';
+  const listing = (id: string, title: string) => ({ id, status: 'PUBLISHED', title, price: 80, priceNegotiable: false, sizeValue: 'M', sellerId: B, seller: { username: 'shop', brandVerifiedAt: null, brandName: null }, photos: [{ key: `${id}.webp`, provider: 'LOCAL' }] });
+  const rows: Record<string, unknown> = { [L1]: listing(L1, 'Плащ <b>'), [L3]: listing(L3, 'Кеды') };
+  const prisma = { listing: { findUnique: async ({ where }: { where: { id: string } }) => rows[where.id] ?? null } };
+  const svc = new TelegramSwipeService(prisma as never, { client: null } as never, {} as never, {} as never);
+  const swiped: string[] = [];
+  (svc as unknown as { swipe: unknown }).swipe = {
+    deck: async () => ({ items: [L1, L3].map((id) => ({ id, cover: { urls: { m: `https://media.ichiba.by/media/${id}.webp` } } })) }),
+    swipe: async (_u: unknown, dto: { listingId: string; direction: string }) => void swiped.push(`${dto.direction} ${dto.listingId}`),
+    undo: async () => ({ listingId: null }),
+  };
+  await svc.open(CHAT, A);
+  const first = calls.find((c) => c.method === 'sendPhoto')!;
+  assert.ok(first, 'a photo message');
+  assert.match(String(first.body.caption), /Плащ &lt;b&gt;/, 'titles escaped');
+  const kb = (first.body.reply_markup as { inline_keyboard: Array<Array<{ text: string; style?: string; callback_data?: string }>> }).inline_keyboard;
+  assert.deepEqual(kb[0].map((b) => b.style), ['danger', 'success']);
+  assert.equal(verified(CHAT, kb[0][1].callback_data), `sw:r:${L1}`);
+  const answers: string[] = [];
+  await svc.button(CHAT, [A], `sw:r:${L1}`, async (t) => void answers.push(String(t)));
+  assert.deepEqual(swiped, [`right ${L1}`]);
+  assert.match(answers[0], /избранное/);
+  const edit = calls.find((c) => c.method === 'editMessageMedia');
+  assert.ok(edit, 'the next card replaces the photo in the same message');
+  assert.match(String((edit!.body.media as { caption: string }).caption), /Кеды/);
+  assert.equal(calls.filter((c) => c.method === 'sendPhoto').length, 1, 'no second message');
+  await svc.button(CHAT, [B], `sw:l:${L3}`, async (t) => void answers.push(String(t)));
+  assert.equal(swiped.length, 1, 'a chat not linked to the deck’s account swipes nothing');
 });

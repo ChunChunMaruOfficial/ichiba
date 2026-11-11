@@ -20,6 +20,7 @@ import { type CardState, sendCard, siteUrl } from './cards.js';
 import { ownerUsername } from './admin/access.js';
 import { adminChatCommands, applyAvatar, applyProfile } from './profile.js';
 import { type Ctx, TelegramShopService } from './shop.js';
+import { TelegramSwipeService } from './swipe.js';
 import { TelegramWidgetService } from './widget.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
 
@@ -78,6 +79,7 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     private readonly notifications: NotificationsService,
     @Optional() private readonly admin?: AdminBotService,
     @Optional() private readonly widgets?: TelegramWidgetService,
+    @Optional() private readonly swipe?: TelegramSwipeService,
   ) {
     // One typed input per chat: whichever side asked last gets the next message (a password never reaches the shop).
     if (admin) {
@@ -214,6 +216,12 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
       // too: wants() takes a widget_query only for a message the panel itself sent (never judged by the query's data).
       if (this.admin && (await this.admin.wants(u))) return await this.admin.handle(u);
       // Every other widget tap is the shop widget's.
+      // «Админка» on the shop menu's home (shown to the owner's admin account): the panel opens as if /admin was sent —
+      // the panel itself checks the account, the owner's Telegram and asks for the password.
+      if (u.widget_query?.data === 'A' && this.admin && u.widget_query.chat?.id === u.widget_query.from.id) {
+        await tg('answerWidgetQuery', { widget_query_id: u.widget_query.id }).catch(() => undefined);
+        return void (await this.admin.handle({ update_id: u.update_id, message: { message_id: 0, chat: u.widget_query.chat, from: u.widget_query.from, text: '/admin' } }));
+      }
       if (u.widget_query) return void (await this.widgets?.query(u.widget_query));
       // Other buttons and commands drop the panel's pending question, except the password prompt: a password typed
       // after a tap on a shop button still goes to the panel (and out of the chat), never to the shop. /cancel drops all.
@@ -235,6 +243,15 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
   /** Every reply is a card (cards.ts via notifier.send); plain text only where Telegram takes no widget. */
   private reply(chatId: number, html: string, keyboard: Keyboard = []) {
     return this.notifier.send(String(chatId), html, keyboard);
+  }
+
+  /** A short-lived answer (help, status, «отключено»): it replaces the chat's previous one instead of piling up. */
+  private async notice(chatId: number, html: string, keyboard: Keyboard = []) {
+    const key = `ichiba:tg:sys:${chatId}`;
+    const prev = await this.redis.client?.get(key).catch(() => null);
+    const msg = (await this.reply(chatId, html, keyboard)) as { message_id?: number } | null;
+    if (prev) await tg('deleteMessage', { chat_id: chatId, message_id: Number(prev) }).catch(() => undefined);
+    if (msg?.message_id) await this.redis.client?.set(key, String(msg.message_id), 'EX', 7 * 24 * 3600).catch(() => undefined);
   }
 
   /**
@@ -282,6 +299,12 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   private async onText(m: TgMessage) {
+    await this.onTextInner(m);
+    // A tidy chat: the person's commands go once answered (a /start token with them); plain text stays.
+    if (m.chat.type === 'private' && m.message_id && (m.text ?? '').trim().startsWith('/')) await tg('deleteMessage', { chat_id: m.chat.id, message_id: m.message_id }).catch(() => undefined);
+  }
+
+  private async onTextInner(m: TgMessage) {
     const chatId = String(m.chat.id);
     const text = (m.text ?? '').trim();
     const [rawCommand, arg] = text.split(/\s+/, 2);
@@ -295,21 +318,21 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     if (command === '/stop') {
       await this.shop.clearSlot(m.chat.id);
       const { count } = await this.notifier.unlinkChat(chatId);
-      return this.reply(m.chat.id, count ? '🔕 Бот отключён от всех аккаунтов: уведомлений не будет, управлять вещами отсюда нельзя. Подключить снова можно в настройках на сайте.' : 'Этот чат не подключён ни к одному аккаунту ichiba.', this.settingsButton());
+      return this.notice(m.chat.id, count ? '🔕 Бот отключён от всех аккаунтов: уведомлений не будет, управлять вещами отсюда нельзя. Подключить снова можно в настройках на сайте.' : 'Этот чат не подключён ни к одному аккаунту ichiba.', this.settingsButton());
     }
     const accounts = await linkedAccounts(this.prisma, chatId);
     if (command === '/help') {
-      return this.reply(m.chat.id, HELP, accounts.length ? [[{ text: '✨ Мой магазин', style: 'primary', callback_data: signed(m.chat.id, 'W') }]] : this.settingsButton());
+      return this.notice(m.chat.id, HELP, accounts.length ? [[{ text: '✨ Мой магазин', style: 'primary', callback_data: signed(m.chat.id, 'W') }]] : this.settingsButton());
     }
     if (!accounts.length) return this.welcomeGuest(m);
     const ctx: Ctx = { chatId: m.chat.id, accounts };
     if (command === '/cancel') {
       await this.shop.clearSlot(m.chat.id);
-      return this.reply(m.chat.id, 'Отменено.', [[{ text: '✨ Мой магазин', style: 'primary', callback_data: signed(m.chat.id, 'W') }]]);
+      return this.notice(m.chat.id, 'Отменено.', [[{ text: '✨ Мой магазин', style: 'primary', callback_data: signed(m.chat.id, 'W') }]]);
     }
     if (command) await this.shop.clearSlot(m.chat.id);
     if (command === '/status') {
-      return this.reply(m.chat.id, `🏮 <b>Подключено:</b> ${accounts.map((a) => `@${a.username}`).join(', ')}\n\n${WELCOME}`, this.settingsButton());
+      return this.notice(m.chat.id, `🏮 <b>Подключено:</b> ${accounts.map((a) => `@${a.username}`).join(', ')}\n\n${WELCOME}`, this.settingsButton());
     }
     // The shop as an interactive widget message; the classic buttons stay under /list (and for apps without widgets).
     if ((command === '/menu' || command === '/start' || command === '/app') && this.widgets && (await this.widgets.open(m.chat.id, accounts))) return;
@@ -373,6 +396,8 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     try {
       const deal = LEGACY.exec(data);
       const card = /^W(?::([0-9a-f-]{36}))?$/.exec(data);
+      // «Подбор»: the buttons under the swipe photo.
+      if (data.startsWith('sw:') && this.swipe) return void (await this.swipe.button(chatId, accounts.map((a) => a.id), data, (t) => answer(t)));
       if (deal) await this.onDeal(q, ctx, deal[1] as 'rq' | 'of', deal[2], deal[3], answer);
       // «✨ Мой магазин» anywhere: the interactive card (at an item for «Открыть вещь»), else the classic menu.
       else if (card) {

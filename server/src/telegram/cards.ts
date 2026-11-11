@@ -56,10 +56,10 @@ export function htmlToCard(chatId: string | number, html: string, keyboard: Keyb
   return { state, item };
 }
 
-/** The caption apps without widgets show instead: the card as plain text. */
-export const captionOf = (s: CardState) => [s.h, ...(s.x ?? [])].filter(Boolean).join('\n\n').slice(0, 1000);
-
-/** Sends a card and remembers what its buttons may do. Throws what Telegram answered when it refuses. */
+/**
+ * Sends a card and remembers what its buttons may do. Throws what Telegram answered when it refuses. No caption:
+ * the apps draw it under the widget, so it would only repeat the card.
+ */
 export async function sendCard(redis: RedisService, chatId: string | number, state: CardState, ctx: WCtx = {}) {
   const msg = await tg<{ message_id: number }>('sendWidget', {
     chat_id: chatId,
@@ -67,7 +67,6 @@ export async function sendCard(redis: RedisService, chatId: string | number, sta
     chat_data: packState(state),
     allow_queries: true,
     protect_content: true,
-    caption: captionOf(state),
   });
   await saveWidgetCtx(redis, chatId, msg.message_id, { ...ctx, card: { ...(ctx.card ?? {}), ns: state } });
   return msg;

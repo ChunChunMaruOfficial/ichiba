@@ -12,6 +12,7 @@
  */
 import { HttpException, Injectable, Logger, Optional } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service.js';
+import { TelegramSwipeService } from './swipe.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { OffersService } from '../offers/offers.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -22,9 +23,11 @@ import { tg } from './bot-api.js';
 import { linkedAccounts } from './notifier.js';
 import { refusal, TelegramShopService } from './shop.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
-import { WIDGET_HTML } from './widget-html.js';
+import { ITEMS_HTML, MENU_HTML } from './widget-html.js';
+import { ownerUsername } from './admin/access.js';
+import { UNLINK } from './notifier.js';
 import { siteLink } from './widget-notice.js';
-import { loadWidgetCtx, packState, saveWidgetCtx, type WCtx } from './widget-store.js';
+import { chatMenu, loadWidgetCtx, packState, saveWidgetCtx, setChatMenu, type WCtx } from './widget-store.js';
 
 type Account = Awaited<ReturnType<typeof linkedAccounts>>[number];
 export type WidgetState = Record<string, unknown> & { s?: string };
@@ -62,7 +65,7 @@ export interface Command {
 export function parseCommand(data: string | undefined): Command | null {
   const d = data ?? '';
   let m: RegExpExecArray | null;
-  if (/^([hdtnxbEHUSBO]|na|nx)$/.test(d)) return { op: d, f: '', n: 0 };
+  if (/^([hdtnxbEHUSBOKAV]|na|nx)$/.test(d)) return { op: d, f: '', n: 0 };
   if ((m = /^l:([ahds]):(\d{1,4})$/.exec(d))) return { op: 'l', f: m[1], n: Number(m[2]) };
   if ((m = /^(o|Z|da|dx|nt|xa|ba|bx):(\d{1,2})$/.exec(d))) return { op: m[1], f: '', n: Number(m[2]) };
   if ((m = /^P:(\d{1,6})$/.exec(d))) return { op: 'P', f: '', n: Number(m[1]) };
@@ -81,6 +84,7 @@ export class TelegramWidgetService {
     private readonly offers: OffersService,
     private readonly shop: TelegramShopService,
     @Optional() private readonly auth?: AuthService,
+    @Optional() private readonly swipe?: TelegramSwipeService,
   ) {}
 
   // ---------- per-message memory (widget-store.ts) ----------
@@ -110,22 +114,38 @@ export class TelegramWidgetService {
         : opts.screen
           ? await screens[opts.screen]()
           : await this.home(accounts, ctx);
-    const name = ctx.acc ? this.username(accounts, ctx) : null;
     try {
-      const msg = await tg<{ message_id: number }>('sendWidget', {
-        chat_id: chatId,
-        html: WIDGET_HTML,
-        chat_data: packState(state),
-        allow_queries: true,
-        protect_content: true,
-        caption: `🏮 Магазин${name ? ` @${name}` : ''} на ichiba\n\nНе видно карточку? Обновите Telegram — или откройте /list`,
-      });
-      await this.save(chatId, msg.message_id, ctx);
+      await this.place(chatId, state, ctx);
       return true;
     } catch (e) {
       this.logger.warn(`sendWidget: ${(e as Error).message}`);
       return false;
     }
+  }
+
+  /** The list and an item live in their own widget (ITEMS_HTML); everything else in the menu (MENU_HTML). */
+  private tplOf(state: WidgetState): 'menu' | 'items' {
+    return state.s === 'l' || state.s === 'i' ? 'items' : 'menu';
+  }
+
+  /**
+   * Sends the menu as a new message with the template its screen needs and takes the place of the chat's previous
+   * menu, which is deleted: the chat keeps one menu, at the bottom. No caption — apps draw it under the widget.
+   */
+  private async place(chatId: number, state: WidgetState, ctx: WCtx) {
+    const tpl = this.tplOf(state);
+    const msg = await tg<{ message_id: number }>('sendWidget', {
+      chat_id: chatId,
+      html: tpl === 'items' ? ITEMS_HTML : MENU_HTML,
+      chat_data: packState(state),
+      allow_queries: true,
+      protect_content: true,
+    });
+    await this.save(chatId, msg.message_id, { ...ctx, tpl });
+    const prev = await chatMenu(this.redis, chatId);
+    await setChatMenu(this.redis, chatId, msg.message_id);
+    if (prev && prev !== msg.message_id) await tg('deleteMessage', { chat_id: chatId, message_id: prev }).catch(() => undefined);
+    return msg.message_id;
   }
 
   // ---------- a tap ----------
@@ -160,6 +180,17 @@ export class TelegramWidgetService {
     }
     await this.save(chatId, messageId, ctx);
     const packed = packState(state);
+    // Into the other template (menu ↔ items): the message is replaced, in place in the chat's flow.
+    if (this.tplOf(state) !== (ctx.tpl ?? 'menu')) {
+      try {
+        await this.place(chatId, state, ctx);
+        await tg('deleteMessage', { chat_id: chatId, message_id: messageId }).catch(() => undefined);
+        await tg('answerWidgetQuery', { widget_query_id: q.id }).catch(() => undefined);
+        return;
+      } catch (e) {
+        this.logger.warn(`widget swap: ${(e as Error).message}`);
+      }
+    }
     await tg('editMessageWidgetData', { chat_id: chatId, message_id: messageId, chat_data: packed }).catch(() => undefined);
     await tg('answerWidgetQuery', { widget_query_id: q.id, data: packed }).catch(() => undefined);
   }
@@ -179,6 +210,19 @@ export class TelegramWidgetService {
     }
     if (!ctx.acc) return this.pick(accounts);
     const acc = ctx.acc;
+    if (c.op === 'V') {
+      // «Подбор вещей»: the site's swipe as one photo message below the menu.
+      await this.swipe?.open(chatId, acc);
+      return { ...(await this.home(accounts, ctx)), t: 'Подбор открыт ниже' };
+    }
+    if (c.op === 'K') {
+      // «Отключить Telegram от магазина» (confirmed in the widget): this chat only.
+      await this.prisma.user.updateMany({ where: { id: acc, tgChatId: String(chatId) }, data: UNLINK });
+      this.logger.log(`chat ${chatId} account ${acc}: unlinked (widget)`);
+      const rest = accounts.filter((a) => a.id !== acc);
+      Object.assign(ctx, { acc: rest.length === 1 ? rest[0].id : undefined, item: undefined });
+      return rest.length ? { ...(ctx.acc ? await this.home(rest, ctx) : this.pick(rest)), t: 'Магазин отключён от этого Telegram' } : { e: 'Telegram отключён. Подключить снова — нажмите «Открыть» или /start' };
+    }
     const audit = (what: string, id?: string) => this.logger.log(`chat ${chatId} account ${acc}: ${what}${id ? ` ${id}` : ''} (widget)`);
 
     switch (c.op) {
@@ -304,9 +348,10 @@ export class TelegramWidgetService {
       this.prisma.offer.count({ where: { sellerId: acc, status: 'PENDING', from: 'BUYER' } }),
     ]);
     const n = (...st: string[]) => counts.filter((x) => st.includes(x.status)).reduce((a, x) => a + x._count, 0);
-    // A buyer without a single item of their own: «Покупки» is their home.
-    if (!counts.length && !requests && !offers) return this.buys(accounts, ctx);
-    return { s: 'h', u: this.username(accounts, ctx), n: [n('PUBLISHED', 'RESERVED'), n('HIDDEN'), n('DRAFT'), n('SOLD')], w: requests + offers, k: accounts.length > 1 ? 1 : 0 };
+    // The owner's admin account sees «Админка» on home (it opens the same panel as /admin, password and all).
+    const me = await this.prisma.user.findUnique({ where: { id: acc }, select: { role: true, tgUsername: true } }).catch(() => null);
+    const ad = me?.role === 'ADMIN' && ownerUsername(me.tgUsername ?? undefined) ? 1 : 0;
+    return { s: 'h', u: this.username(accounts, ctx), n: [n('PUBLISHED', 'RESERVED'), n('HIDDEN'), n('DRAFT'), n('SOLD')], w: requests + offers, k: accounts.length > 1 ? 1 : 0, ad };
   }
 
   private async list(accounts: Account[], ctx: WCtx, f: string, page: number): Promise<WidgetState> {
@@ -437,14 +482,25 @@ export class TelegramWidgetService {
     const accounts = await linkedAccounts(this.prisma, String(chatId));
     if (cmd === 'W' || cmd === 'Wv') {
       if (accounts.length) await this.open(chatId, accounts, cmd === 'Wv' && card.item ? { item: card.item } : {});
-      else shown.d = 'Сначала подключите аккаунт ichiba';
+      else {
+        // Not linked (any more): the same card offers to get in right here.
+        shown.x = ['Этот Telegram не подключён к ichiba. Войдите через Telegram — аккаунт найдётся или создастся (вы принимаете Политику обработки данных).'];
+        shown.c = [['Войти через Telegram', 'RC']];
+        ctx.card = { ...card, ns: shown };
+        await this.save(chatId, messageId, ctx);
+      }
     } else if ((cmd === 'RL' || cmd === 'RC') && !shown.d) {
       shown.d = accounts.length ? '✅ Этот Telegram уже подключён' : await this.signUp(chatId, q.from, cmd === 'RC');
       shown.c = [];
       ctx.card = { ...card, ns: shown };
       await this.save(chatId, messageId, ctx);
       const linked = await linkedAccounts(this.prisma, String(chatId));
-      if (linked.length) await this.open(chatId, linked);
+      if (linked.length && (await this.open(chatId, linked))) {
+        // In: the sign-up card has done its job and leaves, the menu is below.
+        await tg('answerWidgetQuery', { widget_query_id: q.id }).catch(() => undefined);
+        await tg('deleteMessage', { chat_id: chatId, message_id: messageId }).catch(() => undefined);
+        return;
+      }
     }
     const packed = packState(shown);
     await tg('editMessageWidgetData', { chat_id: chatId, message_id: messageId, chat_data: packed }).catch(() => undefined);

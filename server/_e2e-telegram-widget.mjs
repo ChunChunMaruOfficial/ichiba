@@ -23,9 +23,10 @@ const fake = createServer((req, res) => {
   req.on('data', (c) => (body += c));
   req.on('end', () => {
     const method = req.url.split('/').pop();
-    calls.push({ method, body: body ? JSON.parse(body) : {} });
+    const id = ++mid;
+    calls.push({ method, body: body ? JSON.parse(body) : {}, id });
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ ok: true, result: { message_id: ++mid } }));
+    res.end(JSON.stringify({ ok: true, result: { message_id: id } }));
   });
 });
 await new Promise((r) => fake.listen(Number(process.env.FAKE_TG_PORT ?? 4299), '127.0.0.1', r));
@@ -47,10 +48,20 @@ const post = (u) => fetch(`${API}/telegram/webhook`, { method: 'POST', headers: 
 const say = (text) => post({ update_id: ++upd, message: { message_id: ++mid, chat: { id: CHAT, type: 'private' }, from: { id: CHAT }, text } });
 let qn = 0;
 async function tap(data, messageId, chat = { id: CHAT, type: 'private' }, from = CHAT) {
+  const start = calls.length;
   const id = `wq${++qn}`;
-  await post({ update_id: ++upd, widget_query: { id, from: { id: from }, chat, message_id: messageId, chat_instance: '1', type: { type: 'data' }, data } });
+  await post({ update_id: ++upd, widget_query: { id, from: { id: from }, chat, message_id: typeof messageId === 'function' ? messageId() : messageId, chat_instance: '1', type: { type: 'data' }, data } });
+  const before = calls.length;
   const a = await waitFor((c) => c.method === 'answerWidgetQuery' && c.body.widget_query_id === id, `answer to ${data}`);
-  return a ? JSON.parse(a.body.data) : null;
+  if (a?.body.data) return JSON.parse(a.body.data);
+  // Moved into the other menu widget (menu ↔ items): a new message replaced this one.
+  void before;
+  const moved = calls.slice(start).reverse().find((c) => c.method === 'sendWidget' && c.body.chat_id === (chat?.id ?? CHAT));
+  if (moved) {
+    widgetMsg = moved.id;
+    return JSON.parse(moved.body.chat_data);
+  }
+  return null;
 }
 
 // ---------- a shop with one item, linked to the chat ----------
@@ -70,7 +81,7 @@ const login = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'con
 const cookie = login.headers.get('set-cookie')?.split(';')[0];
 const link = await (await fetch(`${API}/telegram/link`, { method: 'POST', headers: { cookie } })).json();
 await say(`/start ${link.url.split('start=')[1]}`);
-await waitFor((c) => /подключён/.test(String(c.body.text ?? c.body.caption ?? '')), 'linked (a card)');
+await waitFor((c) => /подключён/.test(String(c.body.text ?? c.body.chat_data ?? '')), 'linked (a card)');
 
 // ---------- /menu sends the widget ----------
 await say('/menu');
@@ -79,29 +90,29 @@ ok(sent && sent.body.allow_queries === true && sent.body.protect_content === tru
 ok(sent && zlib.deflateSync(Buffer.from(sent.body.html), { level: 9 }).length <= 4096, 'its HTML fits 4 KB compressed');
 const home = sent && JSON.parse(sent.body.chat_data);
 ok(home?.s === 'h' && home.n[0] === 1, 'the first screen is the shop with its counts');
-const widgetMsg = mid; // the stand-in gave the widget the last message id
+let widgetMsg = sent.id; // the menu message; a move into the items widget replaces it
 
 // ---------- taps ----------
-const list = await tap('l:a:0', widgetMsg);
+const list = await tap('l:a:0', () => widgetMsg);
 ok(list?.i?.length === 1 && list.i[0][0].includes('Плащ') && !JSON.stringify(list).includes('Чужая'), 'the list holds only the shop’s own item');
-const card = await tap('o:0', widgetMsg);
+const card = await tap('o:0', () => widgetMsg);
 ok(card?.s === 'i' && card.c === 100, 'an item opens by its position');
-const priced = await tap('P:85', widgetMsg);
+const priced = await tap('P:85', () => widgetMsg);
 const price = (await db.query(`SELECT price FROM "Listing" WHERE id=$1`, [item])).rows[0].price;
 ok(price === 85 && /85/.test(priced?.t ?? ''), 'the price is changed from the widget');
 ok(calls.some((c) => c.method === 'editMessageWidgetData' && c.body.message_id === widgetMsg), 'the message keeps the new state');
-await tap('H', widgetMsg);
+await tap('H', () => widgetMsg);
 ok((await db.query(`SELECT status FROM "Listing" WHERE id=$1`, [item])).rows[0].status === 'HIDDEN', 'hidden from the widget');
 
 // ---------- what must not work ----------
 const from = await tap('S', widgetMsg, { id: CHAT, type: 'private' }, CHAT + 1);
 ok(/личном чате/.test(from?.e ?? ''), 'a query from someone else is refused');
-const bogus = await tap(`o:${foreign}`, widgetMsg);
+const bogus = await tap(`o:${foreign}`, () => widgetMsg);
 ok(bogus?.s === 'h', 'an id in the data is not a command');
 ok((await db.query(`SELECT status FROM "Listing" WHERE id=$1`, [foreign])).rows[0].status === 'PUBLISHED', 'the foreign item is untouched');
 
 await db.query(`UPDATE "User" SET "sessionVersion" = "sessionVersion" + 1 WHERE id=$1`, [sellerId]);
-const stale = await tap('U', widgetMsg);
+const stale = await tap('U', () => widgetMsg);
 ok(/не подключён/.test(stale?.e ?? ''), 'after a password reset the widget stops acting');
 ok((await db.query(`SELECT status FROM "Listing" WHERE id=$1`, [item])).rows[0].status === 'HIDDEN', 'nothing was changed');
 
@@ -113,7 +124,7 @@ const guestCard = await waitFor((c) => calls.indexOf(c) >= before && c.method ==
 const gstate = guestCard && JSON.parse(guestCard.body.chat_data);
 ok(gstate?.c?.[0]?.[1] === 'RC' && gstate.l.some((l) => l[1].endsWith('/?auth=1')), 'a guest gets a card: create an account here, or sign in on the site');
 ok(!calls.slice(before).some((c) => c.method === 'sendMessage'), 'no plain text messages');
-const guestMsg = mid;
+const guestMsg = guestCard.id;
 await tap('RC', guestMsg, { id: GUEST, type: 'private' }, GUEST);
 const made = (await db.query('SELECT id, username, "tgChatId", "privacyAcceptedAt" FROM "User" WHERE "telegramId" = $1', [String(GUEST)])).rows;
 ok(made.length === 1 && made[0].tgChatId === String(GUEST) && made[0].privacyAcceptedAt, 'the account is created with consent and linked');

@@ -35,17 +35,7 @@ export interface BotCommand {
 }
 
 /** Everyone's menu (the «/» list). */
-export const SHOP_COMMANDS: BotCommand[] = [
-  { command: 'menu', description: 'Мой магазин и покупки' },
-  { command: 'items', description: 'Вещи в продаже' },
-  { command: 'deals', description: 'Ждут ответа' },
-  { command: 'purchases', description: 'Мои покупки' },
-  { command: 'stats', description: 'Статистика за неделю' },
-  { command: 'settings', description: 'Какие уведомления присылать' },
-  { command: 'status', description: 'Какой аккаунт подключён' },
-  { command: 'help', description: 'Что умеет бот' },
-  { command: 'stop', description: 'Отключить бота от всех аккаунтов' },
-];
+export const SHOP_COMMANDS: BotCommand[] = [{ command: 'menu', description: 'Открыть Ichiba' }];
 
 /** Admins' extra commands, first in their list. */
 export const ADMIN_COMMANDS: BotCommand[] = [

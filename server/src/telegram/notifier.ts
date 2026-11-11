@@ -109,11 +109,10 @@ export class TelegramNotifier {
       const msg = await tg<{ message_id: number }>('sendWidget', {
         chat_id: chatId,
         html: NOTICE_HTML,
-        chat_data: packState(n.state),
         allow_queries: true,
         protect_content: true,
-        // Plain text (no parse_mode): it carries users' words; apps without widgets show only this.
-        caption: `${n.caption}${footer.replace(/<[^>]+>/g, '')}`.slice(0, 1000),
+        // No caption (it would repeat the card under it); which shop it is about goes into the card.
+        chat_data: packState(footer ? { ...n.state, x: [footer.replace(/<[^>]+>/g, '').trim()] } : n.state),
       });
       await saveWidgetCtx(this.redis, chatId, msg.message_id, { notice: { ...n.ctx, ns: n.state } });
       return true;
