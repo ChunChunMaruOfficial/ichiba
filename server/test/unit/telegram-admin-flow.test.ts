@@ -21,6 +21,8 @@ delete process.env.TELEGRAM_ADMIN_USERNAMES;
 /** The admin panel opens only for the owner's Telegram username (access.ts ownerUsername). */
 let OWNER = 'ChunChunMaruOn';
 process.env.APP_URL = 'http://localhost:3000';
+// The text panel by default here; the widget tests switch it on.
+process.env.TELEGRAM_ADMIN_WIDGETS = 'false';
 
 const CHAT = 777;
 const jwt = new JwtService({ secret: process.env.JWT_SECRET });
@@ -41,7 +43,7 @@ before(async () => {
     const method = req.url!.split('/').pop()!;
     tgCalls.push({ method, body: JSON.parse((await body(req)) || '{}') });
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ ok: true, result: method === 'sendMessage' ? { message_id: ++msgId } : true }));
+    res.end(JSON.stringify({ ok: true, result: method === 'sendMessage' || method === 'sendWidget' ? { message_id: ++msgId } : true }));
   }).listen(0);
   apiServer = createServer(async (req, res) => {
     apiCalls.push({ path: req.url!, cookie: req.headers.cookie ?? '' });
@@ -252,4 +254,52 @@ test('a one-time screen is hidden by the sweep, not by a timer in the process', 
   await bot.store.addExpiry(String(CHAT), panel, Date.now() + 60_000);
   await bot.handle(say('/admin'));
   assert.equal(await bot.store.takeExpiry(String(CHAT)), null);
+});
+
+test('the interactive panel: a widget after the password, taps redraw it, foreign or stale taps do nothing', async () => {
+  process.env.TELEGRAM_ADMIN_WIDGETS = 'true';
+  try {
+    await unlock();
+    const sent = [...tgCalls].reverse().find((c) => c.method === 'sendWidget')!;
+    assert.ok(sent, 'the panel is a widget');
+    assert.equal(sent.body.allow_queries, true);
+    assert.equal(sent.body.protect_content, true);
+    const model = (c: Record<string, unknown>) => {
+      const a = String(c.chat_data);
+      const b = String(c.public_data);
+      return JSON.parse(a.slice(a.indexOf('|') + 1) + b.slice(b.indexOf('|') + 1)) as { r: number; h: string; a: Array<Array<[string, number]>> };
+    };
+    const home = model(sent.body);
+    assert.match(home.h, /Админка ichiba/);
+    const state = await bot.store.state(String(CHAT));
+    const mid = state.widget!.mid;
+    const n = home.a.flat().find(([l]) => l.startsWith('🛡'))![1];
+    const q = (data: string, extra: Partial<{ message_id: number; from: number }> = {}) =>
+      bot.handle({ update_id: upd++, widget_query: { id: `w${upd}`, from: { id: extra.from ?? CHAT, username: OWNER }, chat: { id: extra.from ?? CHAT, type: 'private' }, message_id: extra.message_id ?? mid, data } } as never);
+
+    await q(`b${home.r}.${n}`);
+    const edit = [...tgCalls].reverse().find((c) => c.method === 'editMessageWidgetData')!;
+    assert.equal(edit.body.message_id, mid);
+    assert.match(model(edit.body).h, /Модерация/);
+    assert.ok(apiCalls.some((c) => c.path === '/admin/reports?status=OPEN'));
+    const answers = tgCalls.filter((c) => c.method === 'answerWidgetQuery');
+    assert.deepEqual(JSON.parse(String(answers.at(-1)!.body.data)), { o: 1 });
+
+    // A tap on an older revision, on another message, or from another Telegram: refused, nothing read.
+    const before = apiCalls.length;
+    await q(`b${home.r}.${n}`);
+    assert.match(String(tgCalls.at(-1)!.body.data), /обновился/);
+    await q(`b${home.r + 1}.0`, { message_id: mid + 1000 });
+    assert.match(String(tgCalls.at(-1)!.body.data), /устарела/);
+    await q(`b${home.r + 1}.0`, { from: 999 });
+    await q('<script>');
+    assert.equal(apiCalls.length, before);
+
+    // Locked from elsewhere: the widget says so and the password prompt is a message under it.
+    await bot.handle(say('/lock'));
+    await q(`r${(await bot.store.state(String(CHAT))).widget!.rev}`);
+    assert.match(String(tgCalls.filter((c) => c.method === 'answerWidgetQuery').at(-1)!.body.data), /пароль/);
+  } finally {
+    process.env.TELEGRAM_ADMIN_WIDGETS = 'false';
+  }
 });

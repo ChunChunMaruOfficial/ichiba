@@ -15,7 +15,8 @@ export class Panel {
     private readonly store: AdminStore,
   ) {}
 
-  private async keyboard(chatId: string, rows: Btn[][]) {
+  /** Inline keyboard for any message of the panel (the widget's «Текстовая версия» too). */
+  async keyboard(chatId: string, rows: Btn[][]) {
     const routes: NonNullable<Btn['go']>[] = [];
     for (const row of rows) for (const b of row) if (b.go) routes.push(b.go);
     const id = routes.length ? await this.store.saveScreen(chatId, routes) : '';

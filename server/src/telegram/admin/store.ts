@@ -5,7 +5,12 @@ import type { Go } from './ui.js';
 /** What a chat is in the middle of: the panel message to edit, and the question waiting for a typed answer. */
 export interface ChatState {
   panel?: number;
-  ask?: { then: Go; back: Go; secret?: boolean; text: string; skip?: string };
+  /** `mode: 'widget'`: the answer goes back into the widget, and the question is a message of its own (`prompt`). */
+  ask?: { then: Go; back: Go; secret?: boolean; text: string; skip?: string; mode?: 'widget' };
+  /** The interactive panel (an HTML widget message): its message, the drawn revision, its buttons, its route. */
+  widget?: { mid: number; rev: number; scr: string; last?: Go };
+  /** A widget-mode question waiting in the chat. */
+  prompt?: number;
 }
 
 const STATE_TTL_S = 24 * 3600;

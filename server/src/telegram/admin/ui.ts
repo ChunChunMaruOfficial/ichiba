@@ -13,6 +13,9 @@ export interface Btn {
   text: string;
   go?: Go;
   url?: string;
+  /** How the widget draws it: a tab (`on` = the open one) or a pager arrow; plain buttons otherwise. */
+  kind?: 'tab' | 'page';
+  on?: boolean;
 }
 export interface Screen {
   kind?: 'screen';
@@ -77,7 +80,7 @@ export const time = (d: unknown) => new Date(String(d)).toLocaleTimeString('ru-R
 
 /** Tabs as one row of buttons; the active one is marked. */
 export function tabs<T extends string>(items: ReadonlyArray<readonly [T, string]>, active: string, route: string, p: Record<string, unknown> = {}): Btn[][] {
-  const row = items.map(([id, label]) => btn(id === active ? `• ${label} •` : label, route, { ...p, tab: id, i: 0, page: 0 }));
+  const row = items.map(([id, label]): Btn => ({ ...btn(id === active ? `• ${label} •` : label, route, { ...p, tab: id, i: 0, page: 0 }), kind: 'tab', on: id === active }));
   const out: Btn[][] = [];
   for (let i = 0; i < row.length; i += 3) out.push(row.slice(i, i + 3));
   return out;
@@ -90,7 +93,7 @@ export function pager(route: string, p: Record<string, unknown>, key: 'i' | 'pag
     btn(at > 0 ? '◀️' : '·', route, { ...p, [key]: Math.max(0, at - 1) }),
     btn(`${at + 1} / ${count}`, route, { ...p, [key]: at }),
     btn(at < count - 1 ? '▶️' : '·', route, { ...p, [key]: Math.min(count - 1, at + 1) }),
-  ];
+  ].map((b) => ({ ...b, kind: 'page' as const }));
 }
 
 export const back = (r = 'home', p?: Record<string, unknown>, text = '← Назад'): Btn => btn(text, r, p);

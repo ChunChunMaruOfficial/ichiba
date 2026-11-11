@@ -135,3 +135,61 @@ test('ADMIN_BOT_API_URL may only point at this machine', async () => {
   }
   delete process.env.ADMIN_BOT_API_URL;
 });
+
+test('the panel widget fits Telegram’s size limits and its script parses', async () => {
+  const { deflateSync } = await import('node:zlib');
+  const { ADMIN_WIDGET_HTML: html } = await import('../../src/telegram/admin/widget-html.js');
+  assert.ok(Buffer.byteLength(html) <= 32768);
+  assert.ok(deflateSync(Buffer.from(html), { level: 9 }).length <= 4096, 'zlib level 9 ≤ 4096 bytes');
+  assert.ok(!html.includes('\u0000'));
+  assert.doesNotThrow(() => new Function(html.split('<script>')[1].split('</script>')[0]));
+  assert.doesNotMatch(html, /innerHTML|insertAdjacentHTML|eval\(/, 'data never becomes markup');
+});
+
+test('a screen becomes a widget model within chat_data + public_data', async () => {
+  const { toModel, split } = await import('../../src/telegram/admin/widget-model.js');
+  const { btn, tabs, pager } = await import('../../src/telegram/admin/ui.js');
+  const text = [
+    '📊 <b>Обзор</b>',
+    '',
+    '👥 Пользователи: <b>1 204</b> (+31 за неделю)',
+    '🛡 Открытые жалобы: <b>3</b> ⚠️',
+    '',
+    '<b>Вещи по статусам</b>',
+    '<code>▰▰▰▰▰▰▰▰</code> 812 · В продаже',
+    '<code>▰▰▱▱▱▱▱▱</code> 120 · Продана',
+    '',
+    `«${'очень длинная строка <script>alert(1)</script> '.repeat(60)}»`,
+    '<a href="https://ichiba.by/u/x">@x</a> пароль <tg-spoiler>secret</tg-spoiler>',
+  ].join('\n');
+  const rows = [...tabs([['OPEN', 'Открытые'], ['DONE', 'Решённые']] as const, 'OPEN', 'reports'), [btn('✅ Разблокировать', 'a'), btn('🚫 Заблокировать', 'b')], pager('reports', {}, 'i', 1, 3), [{ text: 'Сайт', url: 'https://ichiba.by/admin' }], [btn('🔄', 'reports'), btn('🏠 Меню', 'home')]];
+  const { model, routes } = toModel({ text, rows }, 7, '⚠️ Не получилось');
+  assert.equal(model.h, '📊 Обзор');
+  assert.equal(model.ne, 1);
+  assert.deepEqual(model.t, [['Открытые', 0, 1], ['Решённые', 1, 0]]);
+  const tiles = model.b.find((b) => b[0] === 'k')![1] as unknown[][];
+  assert.deepEqual(tiles[0].slice(0, 3), ['Пользователи', '1 204', '(+31 за неделю)']);
+  assert.equal(tiles[1][3], 1, 'a warning tile');
+  assert.deepEqual(model.b.find((b) => b[0] === 'r')![1], [['В продаже', 812], ['Продана', 120]]);
+  assert.deepEqual(model.p!.map((x) => x[1] === null), [false, true, false]);
+  assert.ok(model.a.some((row) => row.some(([, t]) => t === 'https://ichiba.by/admin')));
+  assert.ok(!model.a.flat().some(([l]) => l === '🔄'), 'the footer has ↻');
+  assert.equal(model.a[0][0][2], 'ok');
+  assert.equal(model.a[0][1][2], 'd');
+  assert.equal(model.u, 1, 'the long text was cut: «Целиком» is offered');
+  assert.ok(routes.length >= 6);
+  const json = JSON.stringify(model);
+  assert.doesNotMatch(json, /<script>|<a /, 'only the widget’s own tags survive');
+  const [c, p] = split(model);
+  assert.ok(Buffer.byteLength(c) <= 1024 && Buffer.byteLength(p) <= 1024);
+  assert.ok(c.startsWith('7|') && p.startsWith('7|'));
+  assert.deepEqual(JSON.parse(c.slice(2) + p.slice(2)), model);
+});
+
+test('every panel screen fits the widget whatever its text', async () => {
+  const { toModel, split } = await import('../../src/telegram/admin/widget-model.js');
+  const { btn } = await import('../../src/telegram/admin/ui.js');
+  const rows = Array.from({ length: 12 }, (_, i) => [btn(`Очень длинная кнопка номер ${i} с названием вещи и ником продавца`, 'x', { i })]);
+  const { model } = toModel({ text: `Заголовок\n${'Ж'.repeat(4000)}\n${'<b>Ключ</b>: значение\n'.repeat(80)}`, rows }, 123456789);
+  assert.doesNotThrow(() => split(model));
+});
