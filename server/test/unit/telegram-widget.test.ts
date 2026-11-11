@@ -380,3 +380,23 @@ test('every notification the bot sends fits a card whole (1 KB of state, Cyrilli
     assert.ok(!json.includes('Слишком много данных'), `${type} fits`);
   }
 });
+
+test('the bot’s picture is uploaded once per file, as a JPG over multipart', async () => {
+  const { applyAvatar, AVATAR_PATH } = await import('../../src/telegram/profile.js');
+  const { readFileSync } = await import('node:fs');
+  const jpg = readFileSync(AVATAR_PATH);
+  assert.deepEqual([...jpg.subarray(0, 3)], [0xff, 0xd8, 0xff], 'a JPG, as setMyProfilePhoto wants');
+  const sent: Array<{ method: string; photo: string | null; file: boolean }> = [];
+  globalThis.fetch = (async (url: string, init: { body: FormData }) => {
+    sent.push({ method: String(url).split('/').pop()!, photo: init.body.get('photo') as string | null, file: init.body.get('avatar') instanceof Blob });
+    return new Response(JSON.stringify({ ok: true, result: true }), { headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const marks = new Map<string, string>();
+  const redis = { client: { get: async (k: string) => marks.get(k) ?? null, set: async (k: string, v: string) => void marks.set(k, v) } };
+  await applyAvatar(redis as never);
+  await applyAvatar(redis as never);
+  assert.equal(sent.length, 1, 'the second boot skips it');
+  assert.equal(sent[0].method, 'setMyProfilePhoto');
+  assert.deepEqual(JSON.parse(sent[0].photo!), { type: 'static', photo: 'attach://avatar' });
+  assert.ok(sent[0].file);
+});

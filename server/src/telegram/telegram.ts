@@ -18,7 +18,7 @@ import { AdminBotService } from './admin/admin-bot.js';
 import { linkButton, linkedAccounts, notificationKeyboard, TelegramNotifier, UNLINK } from './notifier.js';
 import { type CardState, sendCard, siteUrl } from './cards.js';
 import { ownerUsername } from './admin/access.js';
-import { adminChatCommands, applyProfile } from './profile.js';
+import { adminChatCommands, applyAvatar, applyProfile } from './profile.js';
 import { type Ctx, TelegramShopService } from './shop.js';
 import { TelegramWidgetService } from './widget.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
@@ -98,6 +98,7 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
   private async connect() {
     // Name «Ichiba», descriptions and the «/» menu (profile.ts); never fails the setup.
     await applyProfile();
+    await applyAvatar(this.redis);
     const url = webhookUrl();
     if (url) {
       await tg('setWebhook', { url, secret_token: webhookSecret(), allowed_updates: ['message', 'callback_query', 'my_chat_member', 'widget_query'] });

@@ -77,3 +77,17 @@ export async function tgAs<T = unknown>(token: string | null, method: string, pa
 /** The chat is gone for good: the user blocked the bot, deleted their account, or the chat no longer exists. */
 export const chatGone = (e: unknown) =>
   e instanceof TelegramError && (e.code === 403 || (e.code === 400 && /chat not found|user is deactivated|bot was blocked/i.test(e.description)));
+
+/** A Bot API call with files (multipart/form-data): `fields` as text (objects as JSON), `files` attached by name. */
+export async function tgUpload<T = unknown>(method: string, fields: Record<string, string>, files: Record<string, { data: Buffer; name: string; type: string }>, timeoutMs = 30_000): Promise<T> {
+  const token = botToken();
+  if (!token) throw new TelegramError(0, 'TELEGRAM_BOT_TOKEN is not set');
+  const base = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/$/, '');
+  const form = new FormData();
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  for (const [k, f] of Object.entries(files)) form.append(k, new Blob([new Uint8Array(f.data)], { type: f.type }), f.name);
+  const res = await fetch(`${base}/bot${token}/${method}`, { method: 'POST', body: form, signal: AbortSignal.timeout(timeoutMs) });
+  const body = (await res.json().catch(() => null)) as { ok: boolean; result?: T; error_code?: number; description?: string } | null;
+  if (!body?.ok) throw new TelegramError(body?.error_code ?? res.status, body?.description ?? res.statusText);
+  return body.result as T;
+}

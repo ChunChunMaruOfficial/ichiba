@@ -7,8 +7,12 @@
  * restarts and the overlap of two containers during a deploy cost nothing. The @username is not here: Telegram
  * changes it only through @BotFather, and the site's sign-in widget and links need TELEGRAM_BOT_USERNAME updated.
  */
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { Logger } from '@nestjs/common';
-import { tg } from './bot-api.js';
+import type { RedisService } from '../redis/redis.js';
+import { tg, tgUpload } from './bot-api.js';
 
 export const BOT_NAME = 'Ichiba';
 
@@ -76,4 +80,34 @@ export async function applyProfile() {
   );
   const want = JSON.stringify(SHOP_COMMANDS);
   await step('commands', () => tg<BotCommand[]>('getMyCommands').then((r) => JSON.stringify(r.map(({ command, description }) => ({ command, description })))), () => tg('setMyCommands', { commands: SHOP_COMMANDS }), want);
+}
+
+/** The bot's picture: the ichiba seal (design/brand/export/ichiba-logo-1024.png cropped to the circle), a JPG. */
+export const AVATAR_PATH = join(process.cwd(), 'assets', 'bot-avatar.jpg');
+
+/**
+ * Sets the bot's profile photo (Bot API setMyProfilePhoto) once per picture: the file's fingerprint is kept in
+ * Redis, so restarts don't upload it again; a new picture (another file) is uploaded on the next boot. Without Redis
+ * it is uploaded on every boot, which is harmless. Never fails the setup.
+ */
+export async function applyAvatar(redis: RedisService) {
+  let data: Buffer;
+  try {
+    data = await readFile(AVATAR_PATH);
+  } catch {
+    return;
+  }
+  const key = `ichiba:tg:avatar:${createHash('sha256').update(data).digest('hex').slice(0, 16)}`;
+  try {
+    if (redis.client && (await redis.client.get(key))) return;
+  } catch {
+    // Redis down: upload anyway.
+  }
+  try {
+    await tgUpload('setMyProfilePhoto', { photo: JSON.stringify({ type: 'static', photo: 'attach://avatar' }) }, { avatar: { data, name: 'avatar.jpg', type: 'image/jpeg' } });
+    await redis.client?.set(key, '1').catch(() => undefined);
+    logger.log('profile photo updated');
+  } catch (e) {
+    logger.warn(`profile photo: ${(e as Error).message}`);
+  }
 }
