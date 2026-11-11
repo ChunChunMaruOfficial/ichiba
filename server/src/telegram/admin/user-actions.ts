@@ -74,7 +74,7 @@ export const userActionRoutes: Routes = {
     // Shown once, under a spoiler; any next tap replaces this message, so the password doesn't stay in the chat.
     return {
       ...screen(
-        `🔑 <b>Новый пароль</b>\n\nЛогин: <code>${h(r.login)}</code>\nПароль: <tg-spoiler><code>${h(r.password)}</code></tg-spoiler>\n\n<i>Передайте владельцу и нажмите «Готово» — сообщение заменится и пароль из чата исчезнет (само — через 2 минуты).</i>`,
+        `🔑 <b>Новый пароль</b>\n\nЛогин: <code>${h(r.login)}</code>\nПароль: <tg-spoiler><code>${h(r.password)}</code></tg-spoiler>\n\n<i>Передайте владельцу и нажмите «Готово» — сообщение заменится и пароль из чата исчезнет (само — через пару минут).</i>`,
         [[btn('✅ Готово', 'user', p)]],
       ),
       expireMs: 120_000,

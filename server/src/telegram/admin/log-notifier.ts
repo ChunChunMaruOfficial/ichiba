@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { withJobLock } from '../../common/job-lock.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RedisService } from '../../redis/redis.js';
-import { allowlisted, logPrefsOf, ownerUsername, stateOf } from './access.js';
+import { allowlisted, patchTgAdmin, logPrefsOf, ownerUsername, stateOf } from './access.js';
 import { actionEmoji, actionLabel, groupOf, logLine, type LogRow } from './activity-labels.js';
 import { AdminBotService } from './admin-bot.js';
 import { btn, h, num } from './ui.js';
@@ -34,7 +34,10 @@ export class AdminLogNotifier {
   @Cron(CronExpression.EVERY_MINUTE)
   async tick() {
     if (!this.bot.enabled) return;
-    await withJobLock(this.redis, 'tgadmin.log', 5 * 60_000, () => this.run());
+    await withJobLock(this.redis, 'tgadmin.log', 5 * 60_000, async () => {
+      await this.bot.sweepExpired();
+      await this.run();
+    });
   }
 
   private async cursor(): Promise<Date | null> {
@@ -85,8 +88,7 @@ export class AdminLogNotifier {
         const mine = (await this.rows(from, until, 2000)).filter((r) => !t.prefs.off.includes(groupOf(r.action)));
         if (mine.length) await this.send(t.tgChatId!, this.digest(mine, from));
       }
-      const s = stateOf(t.tgAdmin);
-      await this.prisma.user.update({ where: { id: t.id }, data: { tgAdmin: { ...s, log: { ...logPrefsOf(s), digestAt: until.toISOString() } } as object } });
+      await patchTgAdmin(this.prisma, t.id, 'log', { digestAt: until.toISOString() }, true);
     }
   }
 

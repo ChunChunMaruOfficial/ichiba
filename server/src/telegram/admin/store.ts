@@ -90,6 +90,60 @@ export class AdminStore {
     return n;
   }
 
+  // ---------- screens that must not stay in the chat (a new password) ----------
+
+  private readonly expiring = new Map<string, number>();
+
+  /** Remembers that this message is to be hidden at `until`: in Redis, so a restart or another instance still does it. */
+  async addExpiry(chatId: string, messageId: number, until: number) {
+    const member = `${chatId}:${messageId}`;
+    await this.set(`exp:${chatId}`, member, 24 * 3600);
+    if (this.redis.client) {
+      try {
+        await this.redis.client.zadd('ichiba:tgadm:expiring', until, member);
+        return;
+      } catch {
+        // Redis down: memory.
+      }
+    }
+    this.expiring.set(member, until);
+  }
+
+  /** The chat's pending one-time message, taken off the schedule (its screen is being replaced now). */
+  async takeExpiry(chatId: string): Promise<number | null> {
+    const member = await this.get(`exp:${chatId}`);
+    if (!member) return null;
+    await this.set(`exp:${chatId}`, null, 1);
+    this.expiring.delete(member);
+    await this.redis.client?.zrem('ichiba:tgadm:expiring', member).catch(() => undefined);
+    return Number(member.split(':')[1]) || null;
+  }
+
+  /** Messages whose time is up, each claimed once (ZREM decides between instances). */
+  async dueExpiries(now = Date.now()): Promise<Array<{ chatId: string; messageId: number }>> {
+    const members: string[] = [];
+    if (this.redis.client) {
+      try {
+        for (const m of await this.redis.client.zrangebyscore('ichiba:tgadm:expiring', 0, now)) {
+          if ((await this.redis.client.zrem('ichiba:tgadm:expiring', m)) === 1) members.push(m);
+        }
+      } catch {
+        // Redis down: memory only.
+      }
+    }
+    for (const [m, until] of this.expiring) {
+      if (until > now) continue;
+      this.expiring.delete(m);
+      members.push(m);
+    }
+    const out: Array<{ chatId: string; messageId: number }> = [];
+    for (const m of members) {
+      const [chatId, mid] = m.split(':');
+      if (chatId && Number(mid)) out.push({ chatId, messageId: Number(mid) });
+    }
+    return out;
+  }
+
   async state(chatId: string): Promise<ChatState> {
     const raw = await this.get(`st:${chatId}`);
     try {

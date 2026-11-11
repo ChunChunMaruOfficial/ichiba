@@ -69,12 +69,23 @@ const prisma = {
     findFirst: async ({ where }: { where: { tgChatId: string; role: string } }) =>
       where.tgChatId === account.tgChatId && account.role === where.role ? { ...account } : null,
     findMany: async () => [],
+    findUniqueOrThrow: async () => ({ tgAdmin: account.tgAdmin }),
     update: async ({ data }: { data: { tgAdmin: unknown } }) => {
       account.tgAdmin = data.tgAdmin;
       return account;
     },
   },
   moderationAction: { create: async ({ data }: { data: { action: string } }) => audit.push(data.action) },
+  /** patchTgAdmin's in-place jsonb_set: values are [key, json, id] or, merging, [key, key, json, id]. */
+  $executeRaw: async (_: TemplateStringsArray, ...v: unknown[]) => {
+    const merge = v.length === 4;
+    const key = v[0] as string;
+    const value = JSON.parse((merge ? v[2] : v[1]) as string) as unknown;
+    const s = { ...((account.tgAdmin as Record<string, unknown> | null) ?? {}) };
+    s[key] = merge ? { ...((s[key] as object | undefined) ?? {}), ...(value as object) } : value;
+    account.tgAdmin = s;
+    return 1;
+  },
 } as unknown as PrismaService;
 
 let bot: AdminBotService;
@@ -199,4 +210,46 @@ test('/lock closes the session', async () => {
   assert.equal(moderation.length, 0, 'the password prompt has no buttons');
   await bot.handle(say('/admin'));
   assert.match(lastText(), /Введите пароль/);
+});
+
+test('/lock wins over a concurrent write of the 🔔 settings (keys are written in place)', async () => {
+  await unlock();
+  const notify = buttons().find((b) => b.text.startsWith('🔔'))!;
+  await bot.handle(tap(notify.callback_data!));
+  const hourly = buttons().find((b) => b.text.includes('Раз в час'))!;
+  await bot.handle(say('/lock'));
+  // The tap was on screen before /lock; the session must stay closed after it lands.
+  await bot.handle(tap(hourly.callback_data!));
+  assert.equal((account.tgAdmin as { session: unknown }).session, null);
+});
+
+test('a password typed after a shop button still goes to the panel, never to the shop', async () => {
+  await bot.handle(say('/admin'));
+  await bot.forget(CHAT, { keepUnlock: true });
+  assert.equal(await bot.wants(say('some text')), true, 'the password prompt survives other buttons');
+  await bot.forget(CHAT);
+  assert.equal(await bot.wants(say('some text')), false, '/cancel or a new shop input drops it');
+});
+
+test('the panel asking for text drops the shop’s pending input', async () => {
+  const asked: string[] = [];
+  bot.onAsk = async (c) => asked.push(c);
+  await bot.handle(say('/admin'));
+  assert.deepEqual(asked, [String(CHAT)]);
+});
+
+test('a one-time screen is hidden by the sweep, not by a timer in the process', async () => {
+  await unlock();
+  // Stand-in for the new-password screen: put an expiry on the panel as present() does.
+  const panel = (await bot.store.state(String(CHAT))).panel!;
+  await bot.store.addExpiry(String(CHAT), panel, Date.now() - 1);
+  await bot.sweepExpired();
+  assert.ok(tgCalls.some((c) => c.method === 'editMessageText' && c.body.message_id === panel && /Скрыто/.test(String(c.body.text))));
+  const n = tgCalls.length;
+  await bot.sweepExpired();
+  assert.equal(tgCalls.length, n, 'hidden once');
+  // Replaced by the next screen before its time: nothing left to hide.
+  await bot.store.addExpiry(String(CHAT), panel, Date.now() + 60_000);
+  await bot.handle(say('/admin'));
+  assert.equal(await bot.store.takeExpiry(String(CHAT)), null);
 });

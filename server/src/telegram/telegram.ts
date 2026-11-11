@@ -86,7 +86,13 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
     @Optional() private readonly admin?: AdminBotService,
-  ) {}
+  ) {
+    // One typed input per chat: whichever side asked last gets the next message (a password never reaches the shop).
+    if (admin) {
+      shop.onSlot = (chatId) => admin.forget(chatId);
+      admin.onAsk = async (chatId) => shop.clearSlot(Number(chatId));
+    }
+  }
 
   onApplicationBootstrap() {
     if (!botEnabled()) return;
@@ -213,7 +219,11 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
       }
       // The admin panel (/admin, its buttons, answers it is waiting for) when it has no bot of its own.
       if (this.admin && (await this.admin.wants(u))) return await this.admin.handle(u);
-      if (from && this.admin?.enabled && !this.admin.dedicated && (u.callback_query || u.message?.text?.startsWith('/'))) await this.admin.forget(from);
+      // Other buttons and commands drop the panel's pending question, except the password prompt: a password typed
+      // after a tap on a shop button still goes to the panel (and out of the chat), never to the shop. /cancel drops all.
+      if (from && this.admin?.enabled && !this.admin.dedicated && (u.callback_query || u.message?.text?.startsWith('/'))) {
+        await this.admin.forget(from, { keepUnlock: !/^\/cancel(@\w+)?$/.test(u.message?.text?.trim() ?? '') });
+      }
       if (u.message?.text) await this.onText(u.message);
       else if (u.callback_query) await this.onButton(u.callback_query);
       else if (u.my_chat_member && u.my_chat_member.new_chat_member.status === 'kicked') await this.notifier.unlinkChat(String(u.my_chat_member.chat.id));

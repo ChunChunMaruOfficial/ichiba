@@ -34,6 +34,22 @@ export interface SessionClaims {
 
 type AuthedRequest = Request & { user?: AuthUser };
 
+/** The Telegram admin bot's own tokens (server/src/telegram/admin/api.ts): two minutes, loopback only, /admin only. */
+export const TG_ADMIN_TYP = 'tgadmin';
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+/**
+ * The request came from this machine itself: the TCP peer, never a header (X-Forwarded-For / X-Real-IP can be sent by
+ * anyone, and trust proxy makes req.ip follow them). On Railway the edge reaches the container over the private
+ * network, so nothing from outside is ever a loopback peer.
+ */
+export const fromLoopback = (req: Request) => LOOPBACK.has(req.socket?.remoteAddress ?? '');
+const pathOf = (req: Request) => (req.originalUrl ?? req.url ?? '').split('?')[0];
+/** Where a bot token may be used: the admin API and the AI status the panel reads, nothing else. */
+export const tgAdminRoute = (req: Request) => {
+  const p = pathOf(req);
+  return !p.includes('..') && !p.includes('%') && (p.startsWith('/admin/') || p === '/ai/status');
+};
+
 const PUBLIC_KEY = 'isPublic';
 /** Route works for guests; `@CurrentUser()` is undefined when not signed in. */
 export const Public = () => SetMetadata(PUBLIC_KEY, true);
@@ -78,7 +94,9 @@ export class AuthGuard implements CanActivate {
       try {
         const payload = await this.jwt.verifyAsync<SessionClaims>(token);
         // Only session tokens open a session: WebSocket tickets and admin/unsubscribe tokens are signed with the same key.
-        if (!payload.typ && !payload.purpose && payload.username && (await sessionOk(this.prisma, payload.sub, payload.sv ?? 0))) {
+        // The admin bot's call-scoped token counts as a session only from loopback and only on the admin API.
+        const bot = payload.typ === TG_ADMIN_TYP && !payload.purpose && fromLoopback(req) && tgAdminRoute(req);
+        if ((bot || (!payload.typ && !payload.purpose)) && payload.username && (await sessionOk(this.prisma, payload.sub, payload.sv ?? 0))) {
           req.user = { id: payload.sub, username: payload.username, role: payload.role };
         }
       } catch {

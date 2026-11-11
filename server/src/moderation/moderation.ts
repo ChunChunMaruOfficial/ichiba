@@ -19,7 +19,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import { ADMIN_COOKIE, AuthUser, CurrentUser, forgetSessionStatus } from '../auth/auth.guard.js';
+import type { Request } from 'express';
+import { ADMIN_COOKIE, AuthUser, CurrentUser, forgetSessionStatus, fromLoopback } from '../auth/auth.guard.js';
 import { ZodPipe } from '../common/zod.js';
 import type { Prisma, ReportStatus } from '../generated/prisma/client.js';
 import { cardInclude, serializeCard } from '../listings/listing.serializer.js';
@@ -101,7 +102,9 @@ export class AdminGuard implements CanActivate {
     const account = await this.prisma.user.findUnique({ where: { id: req.user.id }, select: { role: true, blockedAt: true, deletedAt: true } });
     if (account?.role !== 'ADMIN' || account.blockedAt || account.deletedAt) throw new ForbiddenException({ message: 'Только для администраторов' });
     const token = req.cookies?.[ADMIN_COOKIE];
-    const payload = token ? await this.jwt.verifyAsync<{ sub: string; purpose: string }>(token).catch(() => null) : null;
+    const payload = token ? await this.jwt.verifyAsync<{ sub: string; purpose: string; via?: string }>(token).catch(() => null) : null;
+    // An admin token minted by the Telegram bot works only for the bot's own loopback calls.
+    if (payload?.via === 'tg' && !fromLoopback(req as unknown as Request)) throw new UnauthorizedException({ message: 'Войдите в админку', code: 'ADMIN_LOGIN' });
     if (payload?.purpose !== 'admin' || payload.sub !== req.user.id) throw new UnauthorizedException({ message: 'Войдите в админку', code: 'ADMIN_LOGIN' });
     return true;
   }

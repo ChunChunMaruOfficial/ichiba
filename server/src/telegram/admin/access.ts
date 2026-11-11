@@ -60,3 +60,17 @@ export const ownerUsername = (username: string | undefined) => {
   const list = (env.length ? env : OWNER_USERNAMES).map((s) => s.toLowerCase());
   return !!username && list.includes(username.toLowerCase());
 };
+
+type Raw = { $executeRaw: (q: TemplateStringsArray, ...v: unknown[]) => Promise<number> };
+
+/**
+ * Writes one key of User.tgAdmin in place (jsonb_set in a single UPDATE), never the whole object read earlier: a
+ * /lock, a password failure, a change in 🔔 and the hourly digest can land at the same moment without one of them
+ * bringing back what another just changed (a closed session above all). `merge` adds fields into an object key.
+ */
+export function patchTgAdmin(prisma: Raw, userId: string, key: 'session' | 'failed' | 'log', value: unknown, merge = false) {
+  const json = JSON.stringify(value ?? null);
+  return merge
+    ? prisma.$executeRaw`UPDATE "User" SET "tgAdmin" = jsonb_set(COALESCE("tgAdmin", '{}'::jsonb), ARRAY[${key}]::text[], COALESCE("tgAdmin"->${key}, '{}'::jsonb) || ${json}::jsonb) WHERE id = ${userId}`
+    : prisma.$executeRaw`UPDATE "User" SET "tgAdmin" = jsonb_set(COALESCE("tgAdmin", '{}'::jsonb), ARRAY[${key}]::text[], ${json}::jsonb) WHERE id = ${userId}`;
+}

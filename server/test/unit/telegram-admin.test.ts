@@ -107,3 +107,31 @@ test('the bot’s API client reaches only the admin API', async () => {
   await assert.rejects(api.call(admin, 'GET', '/admin/db/%2e%2e'), /Недоступно/);
   await assert.rejects(api.call(admin, 'GET', '//evil.example/admin/x'), /Недоступно/);
 });
+
+test('the bot’s tokens open a session only from loopback and only on the admin API', async () => {
+  const { AuthGuard, TG_ADMIN_TYP } = await import('../../src/auth/auth.guard.js');
+  const jwt = new JwtService({ secret: 'x' });
+  const prisma = { user: { findUnique: async () => ({ deletedAt: null, blockedAt: null, sessionVersion: 0 }) } };
+  const guard = new AuthGuard(jwt, { getAllAndOverride: () => true } as never, prisma as never);
+  const token = await jwt.signAsync({ sub: 'u-tg', username: 'a', role: 'ADMIN', sv: 0, typ: TG_ADMIN_TYP });
+  const run = async (remote: string, url: string) => {
+    const req = { cookies: { ichiba_token: token }, headers: {}, socket: { remoteAddress: remote }, originalUrl: url } as Record<string, unknown>;
+    await guard.canActivate({ switchToHttp: () => ({ getRequest: () => req }), getHandler: () => null, getClass: () => null } as never);
+    return (req.user as { id: string } | undefined)?.id ?? null;
+  };
+  assert.equal(await run('127.0.0.1', '/admin/stats'), 'u-tg');
+  assert.equal(await run('::ffff:127.0.0.1', '/ai/status'), 'u-tg');
+  assert.equal(await run('10.0.0.5', '/admin/stats'), null, 'from the network: not a session');
+  assert.equal(await run('127.0.0.1', '/auth/me'), null, 'outside the admin API: not a session');
+  assert.equal(await run('127.0.0.1', '/admin/../auth/me'), null);
+});
+
+test('ADMIN_BOT_API_URL may only point at this machine', async () => {
+  const api = new AdminApi(new JwtService({ secret: 'x' }));
+  const admin = { id: 'a', username: 'a', role: 'ADMIN' as const, sessionVersion: 0 };
+  for (const bad of ['https://evil.example', 'http://10.0.0.1:4000', 'http://u:p@127.0.0.1:1']) {
+    process.env.ADMIN_BOT_API_URL = bad;
+    await assert.rejects(api.call(admin, 'GET', '/admin/stats'), /должен указывать/);
+  }
+  delete process.env.ADMIN_BOT_API_URL;
+});

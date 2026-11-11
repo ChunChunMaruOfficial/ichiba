@@ -10,7 +10,7 @@ import { RedisService } from '../../redis/redis.js';
 import { botToken, tgAs, type TgMessage, type TgUpdate } from '../bot-api.js';
 import { verified } from '../callbacks.js';
 import { ADMIN_COMMANDS, adminChatCommands } from '../profile.js';
-import { allowlisted, ownerUsername, LOCKOUT_MS, lockedOutFor, MAX_FAILS, sessionMs, stateOf, unlocked, type TgAdminState } from './access.js';
+import { allowlisted, ownerUsername, LOCKOUT_MS, lockedOutFor, MAX_FAILS, sessionMs, stateOf, unlocked, patchTgAdmin } from './access.js';
 import { AdminApi, AdminApiError, type Admin } from './api.js';
 import type { Ctx, Routes } from './ctx.js';
 import { Panel } from './panel.js';
@@ -144,10 +144,14 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
   }
 
   /** The chat went on with the shop bot: a question the admin panel was waiting on no longer catches its text. */
-  async forget(chatId: number | string) {
+  async forget(chatId: number | string, opts: { keepUnlock?: boolean } = {}) {
     const s = await this.store.state(String(chatId));
-    if (s.ask) await this.store.saveState(String(chatId), { ...s, ask: undefined });
+    if (!s.ask || (opts.keepUnlock && s.ask.then.r === 'unlock')) return;
+    await this.store.saveState(String(chatId), { ...s, ask: undefined });
   }
+
+  /** Set by the shared bot: when the panel asks for text, the shop's own pending input is dropped. */
+  onAsk?: (chatId: string) => Promise<unknown>;
 
   private async account(from: { id: number; username?: string } | undefined): Promise<Account | null> {
     const tgUserId = from?.id;
@@ -162,8 +166,8 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     return { ...rest, role: 'ADMIN' };
   }
 
-  private saveTg(userId: string, s: TgAdminState) {
-    return this.prisma.user.update({ where: { id: userId }, data: { tgAdmin: s as object } });
+  private saveTg(userId: string, key: 'session' | 'failed', value: unknown) {
+    return patchTgAdmin(this.prisma, userId, key, value);
   }
   private audit(userId: string, action: string, reason: string | null = null) {
     return this.prisma.moderationAction.create({ data: { moderatorId: userId, targetType: 'USER', targetId: userId, action, reason } }).catch(() => undefined);
@@ -277,7 +281,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     if (!ok) {
       const n = attempt;
       const locked = n >= MAX_FAILS;
-      await this.saveTg(account.id, { ...s, failed: locked ? { n: 0, until: new Date(Date.now() + LOCKOUT_MS).toISOString() } : { n, until: null } });
+      await this.saveTg(account.id, 'failed', locked ? { n: 0, until: new Date(Date.now() + LOCKOUT_MS).toISOString() } : { n, until: null });
       await this.audit(account.id, 'tg_admin_unlock_failed', locked ? 'пять попыток подряд — пауза 15 минут' : `попытка ${n}`);
       this.logger.warn(`wrong admin password in the Telegram bot for @${account.username} (${locked ? 'locked for 15 min' : `attempt ${n}`})`);
       const note = locked ? '⛔️ Пять неверных паролей подряд — админка в боте закрыта на 15 минут.\n\n' : `⚠️ Неверный пароль. Осталось попыток: ${MAX_FAILS - n}.\n\n`;
@@ -285,14 +289,15 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     }
     const until = new Date(Date.now() + sessionMs());
     await this.store.reset(`pwfail:${account.id}`);
-    await this.saveTg(account.id, { ...s, session: { until: until.toISOString(), sv: account.sessionVersion, chat: chatId }, failed: null });
+    await this.saveTg(account.id, 'failed', null);
+    await this.saveTg(account.id, 'session', { until: until.toISOString(), sv: account.sessionVersion, chat: chatId });
     await this.audit(account.id, 'tg_admin_unlock');
     const note = `🔓 Админка открыта до ${until.toLocaleTimeString('ru-RU', { timeZone: 'Europe/Minsk', hour: '2-digit', minute: '2-digit' })}.\n\n`;
     return this.present(account, chatId, await this.run(account, go('home')), { ...state, ask: undefined }, { note });
   }
 
   private async lock(account: Account, chatId: string, state: ChatState, fresh: boolean) {
-    await this.saveTg(account.id, { ...stateOf(account.tgAdmin), session: null });
+    await this.saveTg(account.id, 'session', null);
     return this.present(account, chatId, this.lockAsk(), state, { note: '🔒 Админка закрыта.\n\n', fresh });
   }
 
@@ -329,24 +334,26 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     let screenToShow;
     if (r.kind === 'ask') {
       next.ask = { then: r.then, back: r.back, secret: r.secret, text: r.text, skip: r.skip };
+      await this.onAsk?.(chatId);
       screenToShow = this.panel.askScreen(r, note);
       note = '';
     } else screenToShow = r;
+    // A one-time screen (a new password) on display goes off the schedule: it is being replaced right now. If the
+    // new screen landed in another message (the old one couldn't be edited), the old one is hidden at once.
+    const pending = await this.store.takeExpiry(chatId);
     next.panel = await this.panel.show(chatId, screenToShow, state, { note, fresh: opts.fresh });
     await this.store.saveState(chatId, next);
-    const shown = (this.shown.get(chatId) ?? 0) + 1;
-    this.shown.set(chatId, shown);
-    if (r.kind !== 'ask' && r.expireMs) this.expire(chatId, next.panel, shown, r.expireMs);
+    if (pending && pending !== next.panel) await this.hide(chatId, pending);
+    if (r.kind !== 'ask' && r.expireMs) await this.store.addExpiry(chatId, next.panel, Date.now() + r.expireMs);
   }
 
-  /** Screens drawn per chat on this instance: an expiring screen is replaced only if nothing was drawn after it. */
-  private readonly shown = new Map<string, number>();
+  private hide(chatId: string, messageId: number) {
+    return this.call('editMessageText', { chat_id: chatId, message_id: messageId, text: '🔒 Скрыто — данные показываются один раз.', reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
+  }
 
-  private expire(chatId: string, messageId: number, shown: number, ms: number) {
-    setTimeout(() => {
-      if (this.shown.get(chatId) !== shown) return;
-      void this.call('editMessageText', { chat_id: chatId, message_id: messageId, text: '🔒 Скрыто — данные показываются один раз.', reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
-    }, ms).unref();
+  /** Hides one-time screens whose time is up (called every minute by AdminLogNotifier, survives restarts). */
+  async sweepExpired(now = Date.now()) {
+    for (const e of await this.store.dueExpiries(now)) await this.hide(e.chatId, e.messageId);
   }
 }
 

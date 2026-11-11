@@ -109,6 +109,8 @@ export class TelegramShopService {
   private readonly logger = new Logger('TelegramShop');
   /** Typed-input slots when Redis is not configured (one instance). */
   private readonly slots = new Map<number, { v: Awaiting; until: number }>();
+  /** Called when this bot starts waiting for typed text: the admin panel's pending question gives way (one input per chat). */
+  onSlot?: (chatId: number) => Promise<unknown>;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -154,6 +156,7 @@ export class TelegramShopService {
   }
 
   private async setSlot(chatId: number, v: Awaiting) {
+    await this.onSlot?.(chatId);
     if (this.redis.client) {
       try {
         await this.redis.client.set(`ichiba:tg:await:${chatId}`, JSON.stringify(v), 'EX', AWAIT_TTL_S);

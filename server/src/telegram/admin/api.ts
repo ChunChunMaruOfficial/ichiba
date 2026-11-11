@@ -1,5 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
-import { ADMIN_COOKIE, AUTH_COOKIE } from '../../auth/auth.guard.js';
+import { ADMIN_COOKIE, AUTH_COOKIE, TG_ADMIN_TYP } from '../../auth/auth.guard.js';
 
 /** Who drives the bot: an ADMIN account, read from the database on every update. */
 export interface Admin {
@@ -28,8 +28,17 @@ export class AdminApiError extends Error {
 export class AdminApi {
   constructor(private readonly jwt: JwtService) {}
 
+  /**
+   * This server itself. ADMIN_BOT_API_URL may only name a loopback address (tests point it at a stand-in): the tokens
+   * are accepted from loopback alone, and must never travel over a network.
+   */
   private base() {
-    return (process.env.ADMIN_BOT_API_URL || `http://127.0.0.1:${Number(process.env.PORT ?? 4000)}`).replace(/\/$/, '');
+    const raw = (process.env.ADMIN_BOT_API_URL || `http://127.0.0.1:${Number(process.env.PORT ?? 4000)}`).replace(/\/$/, '');
+    const u = new URL(raw);
+    if (u.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname) || u.username || u.password) {
+      throw new AdminApiError('ADMIN_BOT_API_URL должен указывать на этот сервер (http://127.0.0.1:…)', 500);
+    }
+    return raw;
   }
 
   async call<T>(admin: Admin, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
@@ -38,8 +47,9 @@ export class AdminApi {
     const resolved = url.pathname;
     if (!path.startsWith('/') || path.startsWith('//') || url.origin !== new URL(this.base()).origin || /(^|\/)\.\.?(\/|$)|%2e/i.test(path) || !(resolved.startsWith('/admin/') || resolved === '/ai/status')) throw new AdminApiError('Недоступно из бота', 400);
     const [session, adminToken] = await Promise.all([
-      this.jwt.signAsync({ sub: admin.id, username: admin.username, role: admin.role, sv: admin.sessionVersion }, { expiresIn: '2m' }),
-      this.jwt.signAsync({ sub: admin.id, purpose: 'admin' }, { expiresIn: '2m' }),
+      // Own kinds of token: AuthGuard and AdminGuard take them only from loopback and only on /admin (auth.guard.ts).
+      this.jwt.signAsync({ sub: admin.id, username: admin.username, role: admin.role, sv: admin.sessionVersion, typ: TG_ADMIN_TYP }, { expiresIn: '2m' }),
+      this.jwt.signAsync({ sub: admin.id, purpose: 'admin', via: 'tg' }, { expiresIn: '2m' }),
     ]);
     let res: Response;
     try {
