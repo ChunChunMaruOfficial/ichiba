@@ -42,6 +42,14 @@ export interface WidgetQuery {
 
 
 const PAGE = 6;
+/**
+ * The menu's fixed height (Telegram allows 50–600). Every screen in its fullest state fits it: measured at 320 and
+ * 430 px wide, the tallest (home with «Админка», another shop and deals waiting) is 558 px. Nothing scrolls inside
+ * a widget, so long titles are cut to one line and lists of things to answer show three rows.
+ */
+export const WIDGET_HEIGHT = 600;
+/** Rows of «Ждут ответа» / «Покупки» that fit the widget's one height. */
+const WIDGET_ROWS = 3;
 const MAX_PRICE = 100_000;
 const FILTERS: Record<string, Array<'PUBLISHED' | 'RESERVED' | 'HIDDEN' | 'DRAFT' | 'SOLD'>> = {
   a: ['PUBLISHED', 'RESERVED'],
@@ -137,6 +145,8 @@ export class TelegramWidgetService {
     const msg = await tg<{ message_id: number }>('sendWidget', {
       chat_id: chatId,
       html: tpl === 'items' ? ITEMS_HTML : MENU_HTML,
+      // One height for every screen of the menu, so it never jumps while you move around in it.
+      height: WIDGET_HEIGHT,
       chat_data: packState(state),
       allow_queries: true,
       protect_content: true,
@@ -434,8 +444,14 @@ export class TelegramWidgetService {
       ...requests.map((r): ['r', string, string, string, number] => ['r', r.id, short(r.buyer.username, 16), short(r.items[0]?.listing.title ?? '', 26), r.priceTotal]),
       ...offers.map((o): ['o', string, string, string, number] => ['o', o.id, short(o.buyer.username, 16), short(o.listing.title, 26), o.amount]),
     ];
-    Object.assign(ctx, { deals: rows.map((r) => [r[0], r[1]]), item: undefined });
-    return { s: 'd', u: this.username(accounts, ctx), w: rows.length, i: rows.map(([k, , buyer, title, amount]) => [k, buyer, title, amount]) };
+    // One screen, one height: the three oldest; answering one brings the next.
+    const [nr, no] = await Promise.all([
+      this.prisma.buyRequest.count({ where: { sellerId: acc, status: 'PENDING_SELLER' } }),
+      this.prisma.offer.count({ where: { sellerId: acc, status: 'PENDING', from: 'BUYER' } }),
+    ]);
+    const shown = rows.slice(0, WIDGET_ROWS);
+    Object.assign(ctx, { deals: shown.map((r) => [r[0], r[1]]), item: undefined });
+    return { s: 'd', u: this.username(accounts, ctx), w: nr + no, m: Math.max(0, nr + no - shown.length), i: shown.map(([k, , buyer, title, amount]) => [k, buyer, title, amount]) };
   }
 
   private async stats(accounts: Account[], ctx: WCtx): Promise<WidgetState> {
@@ -544,15 +560,17 @@ export class TelegramWidgetService {
         select: { status: true, priceTotal: true, items: { select: { listing: { select: { title: true } } }, take: 1 } },
       }),
     ]);
+    const [nc, np] = await Promise.all([
+      this.prisma.offer.count({ where: { buyerId: acc, status: 'PENDING', from: 'SELLER' } }),
+      this.prisma.buyRequest.count({ where: { buyerId: acc, status: { in: Object.keys(BUY_STATUS) as Array<keyof typeof BUY_STATUS> } } }),
+    ]);
     Object.assign(ctx, { buys: counters.map((o) => o.id), item: undefined });
-    return {
-      s: 'b',
-      u: this.username(accounts, ctx),
-      i: [
+    const rows = [
         ...counters.map((o, k) => ['c', short(o.listing.title, 26), o.amount, 'Продавец предлагает свою цену', k]),
         ...purchases.map((r) => ['p', short(r.items[0]?.listing.title ?? '', 26), r.priceTotal, BUY_STATUS[r.status as keyof typeof BUY_STATUS] ?? '', 0]),
-      ],
-    };
+    ].slice(0, WIDGET_ROWS);
+    // Counter-offers first (they wait for an answer), three rows at most: one screen, one height.
+    return { s: 'b', u: this.username(accounts, ctx), m: Math.max(0, nc + np - rows.length), i: rows };
   }
 
   /**

@@ -148,6 +148,7 @@ test('/menu sends the widget with queries allowed, protected, and no caption rep
   assert.equal(send.body.allow_queries, true);
   assert.equal(send.body.protect_content, true);
   assert.equal(send.body.caption, undefined);
+  assert.equal(send.body.height, 600, 'one fixed height for every screen of the menu');
   assert.equal(JSON.parse(String(send.body.chat_data)).s, 'h');
 });
 
@@ -260,8 +261,8 @@ test('a counter-offer is answered only by its buyer', async () => {
   const done: string[] = [];
   const prisma = {
     user: { findMany: async () => [{ id: A, username: 'me', tgPrefs: null, sessionVersion: 1, tgSessionVersion: 1 }], updateMany: async () => ({ count: 0 }) },
-    offer: { findMany: async () => [{ id: L1, amount: 90, listing: { title: 'Плащ' } }], findUnique: async () => ({ buyerId: A }) },
-    buyRequest: { findMany: async () => [] },
+    offer: { findMany: async () => [{ id: L1, amount: 90, listing: { title: 'Плащ' } }], findUnique: async () => ({ buyerId: A }), count: async () => 1 },
+    buyRequest: { findMany: async () => [], count: async () => 0 },
   };
   const offers = { accept: async (a: string, id: string) => void done.push(`accept ${a} ${id}`), decline: async () => void done.push('decline') };
   const svc = new TelegramWidgetService(prisma as never, { client: null } as never, {} as never, {} as never, offers as never, {} as never);
