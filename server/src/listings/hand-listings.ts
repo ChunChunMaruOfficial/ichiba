@@ -177,8 +177,10 @@ export class HandListingsService implements OnApplicationBootstrap {
       }
       for (const item of batch.items) {
         const title = item.input.title!;
-        // A draft that failed to publish (deleted right away, never shown) doesn't count: the item is tried again.
-        const listed = { sellerId: seller.id, title, NOT: { status: 'DELETED' as const, publishedAt: null } };
+        // A draft that failed to publish (deleted right away, never shown) doesn't count: the item is tried again. So
+        // does a draft left behind when the server stopped between making it and publishing it (a redeploy mid-run):
+        // it is removed and the item listed anew.
+        const listed = { sellerId: seller.id, title, NOT: { status: { in: ['DELETED' as const, 'DRAFT' as const] }, publishedAt: null } };
         const live = await this.prisma.listing.findFirst({ where: listed, select: { id: true, status: true, description: true, _count: { select: { photos: true } } } });
         if (live) {
           if (item.retext && item.input.description && live.description !== item.input.description && live.status !== 'SOLD') {
@@ -203,6 +205,8 @@ export class HandListingsService implements OnApplicationBootstrap {
           }
           continue;
         }
+        const stale = await this.prisma.listing.findMany({ where: { sellerId: seller.id, title, status: 'DRAFT', publishedAt: null }, select: { id: true } });
+        for (const d of stale) await this.listings.remove(seller.id, d.id).catch(() => undefined);
         try {
           const photos: { id: string; isDefect: boolean }[] = [];
           for (const name of item.cover ? [item.cover, ...item.photos.filter((n) => n !== item.cover)] : item.photos) {
