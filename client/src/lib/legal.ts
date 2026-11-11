@@ -36,8 +36,8 @@ export const LEGAL = {
    */
   authority: { name: "отдел торговли и услуг администрации Советского района г. Минска", phones: [phone("+375 17 377-13-93"), phone("+375 17 318-13-33")] },
   /** Must match PRIVACY_VERSION in server/src/auth/auth.service.ts. */
-  version: "2026-11-05",
-  updated: "9 ноября 2026 г.",
+  version: "2026-11-11",
+  updated: "11 ноября 2026 г.",
 };
 
 export type Phone = (typeof LEGAL)["phone"];
