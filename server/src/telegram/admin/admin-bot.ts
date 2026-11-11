@@ -248,7 +248,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
     if (pending || /^\/(admin|lock|start)/.test(text)) await this.call('deleteMessage', { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
     const s = stateOf(account.tgAdmin);
     // /admin opens the interactive panel; a typed answer goes back to wherever its question came from.
-    const mode: Mode = pending ? (pending.mode ?? 'panel') : widgetsOn() ? 'widget' : 'panel';
+    const mode: Mode = pending ? (pending.mode ?? 'panel') : (await this.widgetsReady()) ? 'widget' : 'panel';
 
     if (/^\/lock(@\w+)?$/.test(text)) return this.lock(account, chatId, state, mode, true);
     if (pending?.then.r === 'unlock' && !text.startsWith('/')) return this.unlock(account, chatId, text, state, mode);
@@ -284,6 +284,7 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
       return this.lock(account, chatId, panelState, 'panel', false);
     }
     if (route.r === 'widget') {
+      if (!(await this.widgetsReady())) return answer('Интерактивная панель включится после обновления бота', true);
       await answer();
       return this.present(account, chatId, await this.run(account, go('home')), panelState, { mode: 'widget', fresh: true, route: go('home') });
     }
@@ -297,6 +298,28 @@ export class AdminBotService implements OnApplicationBootstrap, OnModuleDestroy 
   }
 
   // ---------- the widget ----------
+
+  private widgetCheck: { at: number; ok: boolean } | null = null;
+
+  /**
+   * Whether taps in a widget would reach this bot: its webhook must take `widget_query` (the shared bot's webhook is
+   * set by telegram.ts). Until then /admin opens the text panel, so the panel never looks alive and isn't. Checked
+   * with getWebhookInfo, remembered for five minutes.
+   */
+  async widgetsReady() {
+    if (!widgetsOn()) return false;
+    if (dedicated() || (!webhookUrl() && !process.env.TELEGRAM_WEBHOOK_URL)) return true;
+    if (this.widgetCheck && Date.now() - this.widgetCheck.at < 5 * 60_000) return this.widgetCheck.ok;
+    let ok: boolean;
+    try {
+      const info = (await this.call('getWebhookInfo', {})) as { url?: string; allowed_updates?: string[] };
+      ok = !info.url || (Array.isArray(info.allowed_updates) && info.allowed_updates.includes('widget_query'));
+    } catch {
+      ok = false;
+    }
+    this.widgetCheck = { at: Date.now(), ok };
+    return ok;
+  }
 
   /** Whether a widget query comes from the panel widget this bot drew in that chat (never decided by its data). */
   async ownsWidget(q: WidgetQuery) {
