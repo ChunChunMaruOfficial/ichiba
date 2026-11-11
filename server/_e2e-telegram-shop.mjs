@@ -132,7 +132,7 @@ const status = async (id) => (await db.query(`SELECT status, price FROM "Listing
 
 // ---------- the menu and an item ----------
 let from = mark();
-await say('/menu');
+await say('/list');
 await waitFor((c) => calls.indexOf(c) >= from && /Магазин @tgseller_/.test(textOf(c)), 'the shop menu');
 ok(/В продаже: <b>1<\/b>/.test(after(from).map(textOf).join('\n')), 'the menu counts the shop’s own items only');
 

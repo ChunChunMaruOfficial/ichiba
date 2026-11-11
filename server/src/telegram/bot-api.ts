@@ -24,6 +24,8 @@ export interface InlineButton {
   text: string;
   url?: string;
   callback_data?: string;
+  /** Bot API 9.4: red, green or blue; apps that don't know it draw their usual button. */
+  style?: 'danger' | 'success' | 'primary';
 }
 export type Keyboard = InlineButton[][];
 
@@ -47,6 +49,8 @@ export interface TgUpdate {
   update_id: number;
   message?: TgMessage;
   callback_query?: { id: string; from: TgUser; message?: TgMessage; data?: string };
+  /** A tap in a widget message (Bot API 10.4): TelegramWidget.request(data) in the widget. */
+  widget_query?: { id: string; from: TgUser; chat?: { id: number; type: string }; message_id?: number; data?: string; widget_id?: string };
   my_chat_member?: { chat: { id: number; type: string }; from: TgUser; new_chat_member: { status: string } };
 }
 

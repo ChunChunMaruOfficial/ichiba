@@ -32,7 +32,8 @@ export interface BotCommand {
 
 /** Everyone's menu (the «/» list). */
 export const SHOP_COMMANDS: BotCommand[] = [
-  { command: 'menu', description: 'Мой магазин' },
+  { command: 'menu', description: 'Мой магазин — интерактивная карточка' },
+  { command: 'list', description: 'Магазин кнопками' },
   { command: 'items', description: 'Вещи в продаже' },
   { command: 'deals', description: 'Ждут ответа' },
   { command: 'stats', description: 'Статистика за неделю' },

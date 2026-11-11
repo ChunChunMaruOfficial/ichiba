@@ -27,11 +27,11 @@ export function notificationKeyboard(type: string, p: Record<string, unknown>, c
   const id = (k: string) => (typeof p[k] === 'string' && UUID.test(p[k] as string) ? (p[k] as string) : null);
   const cb = (data: string) => (chatId === undefined ? data : signed(chatId, data));
   if (type === 'request_new' && id('requestId')) {
-    return [[{ text: '✅ Принять', callback_data: cb(`rq:a:${id('requestId')}`) }, { text: '✖️ Отклонить', callback_data: cb(`rq:d:${id('requestId')}`) }], ...(open.length ? [open] : [])];
+    return [[{ text: '✅ Принять', style: 'success', callback_data: cb(`rq:a:${id('requestId')}`) }, { text: '✖️ Отклонить', style: 'danger', callback_data: cb(`rq:d:${id('requestId')}`) }], ...(open.length ? [open] : [])];
   }
   if ((type === 'offer_new' || type === 'offer_countered') && id('offerId')) {
     const counter = linkButton('↔️ Предложить свою цену', id('listingId') ? `/item/${id('listingId')}` : '/sales');
-    return [[{ text: '✅ Принять', callback_data: cb(`of:a:${id('offerId')}`) }, { text: '✖️ Отклонить', callback_data: cb(`of:d:${id('offerId')}`) }], ...(counter.length ? [counter] : [])];
+    return [[{ text: '✅ Принять', style: 'success', callback_data: cb(`of:a:${id('offerId')}`) }, { text: '✖️ Отклонить', style: 'danger', callback_data: cb(`of:d:${id('offerId')}`) }], ...(counter.length ? [counter] : [])];
   }
   return open.length ? [open] : [];
 }

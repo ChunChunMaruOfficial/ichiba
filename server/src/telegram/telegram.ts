@@ -18,6 +18,7 @@ import { AdminBotService } from './admin/admin-bot.js';
 import { linkButton, linkedAccounts, notificationKeyboard, TelegramNotifier, UNLINK } from './notifier.js';
 import { applyProfile } from './profile.js';
 import { type Ctx, TelegramShopService } from './shop.js';
+import { TelegramWidgetService } from './widget.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
 
 /** A «Подключить» link works this long; the settings page asks for a fresh one after that. */
@@ -55,7 +56,8 @@ const WELCOME = [
 const HELP = [
   '🏮 <b>Что умеет Ichiba</b>',
   '',
-  '/menu — магазин: вещи по статусам, поиск, карточка вещи',
+  '/menu — магазин в интерактивной карточке: вещи, цены, сделки, статистика',
+  '/list — то же кнопками (если карточка не открывается)',
   '/items — вещи в продаже',
   '/deals — запросы и предложения, которые ждут ответа',
   '/stats — просмотры, ♡ и запросы за неделю',
@@ -86,6 +88,7 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
     @Optional() private readonly admin?: AdminBotService,
+    @Optional() private readonly widgets?: TelegramWidgetService,
   ) {
     // One typed input per chat: whichever side asked last gets the next message (a password never reaches the shop).
     if (admin) {
@@ -108,7 +111,7 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     await applyProfile();
     const url = webhookUrl();
     if (url) {
-      await tg('setWebhook', { url, secret_token: webhookSecret(), allowed_updates: ['message', 'callback_query', 'my_chat_member'] });
+      await tg('setWebhook', { url, secret_token: webhookSecret(), allowed_updates: ['message', 'callback_query', 'my_chat_member', 'widget_query'] });
       this.logger.log(`webhook: ${url}`);
     } else if (process.env.TELEGRAM_POLLING === 'true') {
       await tg('deleteWebhook');
@@ -124,7 +127,7 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     let offset = 0;
     while (this.polling) {
       try {
-        const updates = await tg<TgUpdate[]>('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query', 'my_chat_member'] }, 35_000);
+        const updates = await tg<TgUpdate[]>('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query', 'my_chat_member', 'widget_query'] }, 35_000);
         for (const u of updates) {
           offset = u.update_id + 1;
           await this.handle(u);
@@ -212,13 +215,16 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
   async handle(u: TgUpdate) {
     try {
       if (!(await this.fresh(`upd:${u.update_id}`, 24 * 3600))) return;
-      const from = u.message?.from?.id ?? u.callback_query?.from.id;
+      const from = u.message?.from?.id ?? u.callback_query?.from.id ?? u.widget_query?.from.id;
       if (from && !(await this.withinRate(from))) {
         if (u.callback_query) await tg('answerCallbackQuery', { callback_query_id: u.callback_query.id, text: 'Слишком часто — подождите минуту', show_alert: false }).catch(() => undefined);
         return;
       }
-      // The admin panel (/admin, its buttons, answers it is waiting for) when it has no bot of its own.
+      // The admin panel (/admin, its buttons, answers it is waiting for) when it has no bot of its own. Its own widgets
+      // too: wants() takes a widget_query only for a message the panel itself sent (never judged by the query's data).
       if (this.admin && (await this.admin.wants(u))) return await this.admin.handle(u);
+      // Every other widget tap is the shop widget's.
+      if (u.widget_query) return void (await this.widgets?.query(u.widget_query));
       // Other buttons and commands drop the panel's pending question, except the password prompt: a password typed
       // after a tap on a shop button still goes to the panel (and out of the chat), never to the shop. /cancel drops all.
       if (from && this.admin?.enabled && !this.admin.dedicated && (u.callback_query || u.message?.text?.startsWith('/'))) {
@@ -282,6 +288,9 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     if (command === '/status') {
       return this.reply(m.chat.id, `🏮 <b>Подключено:</b> ${accounts.map((a) => `@${a.username}`).join(', ')}\n\n${WELCOME}`, this.settingsButton());
     }
+    // The shop as an interactive widget message; the classic buttons stay under /list (and for apps without widgets).
+    if ((command === '/menu' || command === '/start' || command === '/app') && this.widgets && (await this.widgets.open(m.chat.id, accounts))) return;
+    if (command === '/list') return this.shop.accounts(ctx);
     if (command === '/items' && one) return this.shop.list(ctx, one, 'a', 0);
     if (command === '/deals' && one) return this.shop.pending(ctx, one);
     if (command === '/stats' && one) return this.shop.stats(ctx, one);
@@ -367,7 +376,7 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     const original = kind === 'rq' ? notificationKeyboard('request_new', { requestId: id }, ctx.chatId) : notificationKeyboard('offer_new', { offerId: id, listingId: target!.listingId }, ctx.chatId);
     const what = kind === 'rq' ? 'запрос' : 'предложение';
     if (step === 'd') {
-      await setKeyboard([[{ text: `Да, отклонить ${what}`, callback_data: sign(`${kind}:D:${id}`) }], [{ text: '← Назад', callback_data: sign(`${kind}:b:${id}`) }]]);
+      await setKeyboard([[{ text: `Да, отклонить ${what}`, style: 'danger', callback_data: sign(`${kind}:D:${id}`) }], [{ text: '← Назад', callback_data: sign(`${kind}:b:${id}`) }]]);
       return answer();
     }
     if (step === 'b') {

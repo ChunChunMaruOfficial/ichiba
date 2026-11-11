@@ -64,6 +64,7 @@ import { TelegramBotService, TelegramController } from './telegram/telegram.js';
 import { AdminBotController, AdminBotService } from './telegram/admin/admin-bot.js';
 import { AdminLogNotifier } from './telegram/admin/log-notifier.js';
 import { TelegramShopService } from './telegram/shop.js';
+import { TelegramWidgetService } from './telegram/widget.js';
 import { TelegramInterest } from './telegram/interest.js';
 import { SeoController, SeoService } from './seo/seo.service.js';
 import { SeoWriter } from './seo/seo-writer.js';
@@ -185,6 +186,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     AdminBotService,
     AdminLogNotifier,
     TelegramShopService,
+    TelegramWidgetService,
     TelegramInterest,
     SeoWriter,
     SeoService,

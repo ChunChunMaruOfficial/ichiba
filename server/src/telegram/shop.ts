@@ -122,8 +122,10 @@ export class TelegramShopService {
   // ---------- plumbing ----------
 
   /** A signed button for this chat. */
+  /** A signed button for this chat; what can't be undone is red, what confirms a change green (Bot API 9.4). */
   private btn(ctx: Ctx, text: string, data: string): InlineButton {
-    return { text, callback_data: signed(ctx.chatId, data) };
+    const style = /^[SKY]:/.test(data) ? 'danger' : /^[Pu]:/.test(data) ? 'success' : undefined;
+    return { text, callback_data: signed(ctx.chatId, data), ...(style ? { style } : {}) };
   }
 
   private rows(...rows: Array<InlineButton[] | false | null | undefined>): Keyboard {
