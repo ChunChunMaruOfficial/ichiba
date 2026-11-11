@@ -15,6 +15,8 @@ const GROUPS: Array<[keyof TelegramPrefs, string, string]> = [
   ["offers", "Предложения цены", "Новые и встречные — принять или отклонить прямо в Telegram"],
   ["chat", "Сообщения в чате", "Не чаще раза в пару минут на один диалог"],
   ["auctions", "Аукционы", "Ставки, победы и итоги"],
+  ["interest", "Интерес к вашим вещам", "Кто-то добавил в избранное, положил в корзину или подписался — анонимно, не чаще раза в час на вещь"],
+  ["digest", "Вечерняя сводка", "В 21:00 — просмотры, ♡ и запросы за день"],
   ["favorites", "Избранное и подписки", "Снижение цены, новые вещи продавцов"],
   ["account", "Модерация и аккаунт", "Решения модераторов, статус бренда"],
 ];
@@ -39,7 +41,7 @@ function Preview() {
         <span className="grid size-6 place-items-center rounded-full bg-[#2aabee] text-white">
           <TelegramIcon className="size-3.5" />
         </span>
-        ichiba · бот уведомлений
+        ichiba · бот магазина
         <span className="ml-auto font-normal text-muted">сейчас</span>
       </div>
       <div className="relative mt-3 max-w-[330px] rounded-2xl rounded-tl-md bg-surface p-3.5 text-[14px] leading-snug text-ink shadow-[0_1px_0_var(--line-strong)]">
@@ -171,7 +173,9 @@ function Connect() {
             </button>
           </p>
         )}
-        <p className="text-xs text-muted">Бот пишет только вам и только по делу. Отключить можно здесь или командой /stop в боте.</p>
+        <p className="text-xs text-muted">
+          Бот пишет только вам и только по делу. В нём же можно управлять магазином: менять цены, снимать вещи с продажи, отмечать проданными — команда /menu. Отключить можно здесь или командой /stop.
+        </p>
       </div>
     </div>
   );

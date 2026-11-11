@@ -61,6 +61,10 @@ import { TgImportService } from './tg/tg-import.service.js';
 import { HandListingsService } from './listings/hand-listings.js';
 import { ShopImportService } from './shops/shop-import.service.js';
 import { TelegramBotService, TelegramController } from './telegram/telegram.js';
+import { AdminBotController, AdminBotService } from './telegram/admin/admin-bot.js';
+import { AdminLogNotifier } from './telegram/admin/log-notifier.js';
+import { TelegramShopService } from './telegram/shop.js';
+import { TelegramInterest } from './telegram/interest.js';
 import { SeoController, SeoService } from './seo/seo.service.js';
 import { SeoWriter } from './seo/seo-writer.js';
 import { LandingController, LandingService } from './seo/landing.service.js';
@@ -135,6 +139,7 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     JournalController,
     AdminJournalController,
     TelegramController,
+    AdminBotController,
     SeoController,
     LandingController,
   ],
@@ -177,6 +182,10 @@ const BEHIND_EDGE = !!(process.env.TRUST_PROXY || process.env.RAILWAY_ENVIRONMEN
     RatesService,
     LooksService,
     TelegramBotService,
+    AdminBotService,
+    AdminLogNotifier,
+    TelegramShopService,
+    TelegramInterest,
     SeoWriter,
     SeoService,
     LandingService,

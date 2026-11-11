@@ -38,10 +38,24 @@ const zero = (): Totals => ({ views: 0, favorites: 0, carts: 0, chats: 0, offers
 export class StatsService {
   private readonly logger = new Logger('Stats');
 
+  /** Who else hears about a counted action (the Telegram bot pings sellers about ♡ and carts). */
+  private readonly listeners: Array<(listingId: string, field: StatField) => void> = [];
+
   constructor(private readonly prisma: PrismaService) {}
+
+  onTrack(fn: (listingId: string, field: StatField) => void) {
+    this.listeners.push(fn);
+  }
 
   /** Fire-and-forget counter increment; statistics must never break the user's action. */
   track(listingId: string, field: StatField) {
+    for (const fn of this.listeners) {
+      try {
+        fn(listingId, field);
+      } catch (e) {
+        this.logger.warn(`track listener: ${(e as Error).message}`);
+      }
+    }
     const day = minskDay();
     const run = () =>
       this.prisma.listingStat.upsert({

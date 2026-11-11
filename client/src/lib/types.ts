@@ -81,6 +81,10 @@ export interface TelegramPrefs {
   offers: boolean;
   auctions: boolean;
   chat: boolean;
+  /** Someone saved an item, put it in a cart or followed the shop (anonymous, at most hourly per item). */
+  interest: boolean;
+  /** The evening summary of the day. */
+  digest: boolean;
   favorites: boolean;
   account: boolean;
 }

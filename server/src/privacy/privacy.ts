@@ -95,6 +95,7 @@ export class PrivacyService {
           tgUsername: null,
           tgLinkedAt: null,
           tgPrefs: Prisma.DbNull,
+          tgSessionVersion: null,
           tgLinkTokenHash: null,
           tgLinkTokenExpiresAt: null,
           emailVerifiedAt: null,

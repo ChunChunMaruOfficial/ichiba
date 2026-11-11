@@ -4,7 +4,7 @@
  * stand-in server in tests.
  */
 
-const botToken = () => process.env.TELEGRAM_BOT_TOKEN || null;
+export const botToken = () => process.env.TELEGRAM_BOT_TOKEN || null;
 export const botUsername = () => process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, '') || null;
 /** Notifications need both: the token to send, the username for the «Подключить» deep link. */
 export const botEnabled = () => !!(botToken() && botUsername());
@@ -20,14 +20,14 @@ export class TelegramError extends Error {
   }
 }
 
-interface InlineButton {
+export interface InlineButton {
   text: string;
   url?: string;
   callback_data?: string;
 }
 export type Keyboard = InlineButton[][];
 
-interface TgUser {
+export interface TgUser {
   id: number;
   username?: string;
   first_name?: string;
@@ -38,7 +38,9 @@ export interface TgMessage {
   chat: { id: number; type: string };
   from?: TgUser;
   text?: string;
+  caption?: string;
   photo?: unknown[];
+  reply_to_message?: { message_id: number };
 }
 
 export interface TgUpdate {
@@ -49,8 +51,12 @@ export interface TgUpdate {
 }
 
 /** One Bot API call; throws TelegramError on a refusal. Times out so a stuck request never holds a notification. */
-export async function tg<T = unknown>(method: string, params: Record<string, unknown> = {}, timeoutMs = 10_000): Promise<T> {
-  const token = botToken();
+export function tg<T = unknown>(method: string, params: Record<string, unknown> = {}, timeoutMs = 10_000): Promise<T> {
+  return tgAs<T>(botToken(), method, params, timeoutMs);
+}
+
+/** The same call on behalf of a given bot (the admin bot may have a token of its own, TELEGRAM_ADMIN_BOT_TOKEN). */
+export async function tgAs<T = unknown>(token: string | null, method: string, params: Record<string, unknown> = {}, timeoutMs = 10_000): Promise<T> {
   if (!token) throw new TelegramError(0, 'TELEGRAM_BOT_TOKEN is not set');
   const base = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/$/, '');
   const res = await fetch(`${base}/bot${token}/${method}`, {

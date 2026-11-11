@@ -129,8 +129,13 @@ model User {
   tgChatId             String?
   tgUsername           String?
   tgLinkedAt           DateTime?
-  /// Which groups go to Telegram: { deals, offers, auctions, chat, favorites, account } — all on when absent.
+  /// sessionVersion when the chat was linked: once it moves on (password reset, block…) the link is void.
+  tgSessionVersion     Int?
+  /// Which groups go to Telegram: { deals, offers, auctions, chat, favorites, interest, digest, account } — all on when absent.
   tgPrefs              Json?
+  /// Admin bot (server/src/telegram/admin): { session: { until, sv }, failed: { n, until }, log: { mode, off, digestAt } }.
+  /// Only ADMIN accounts get one; the session opens with the account's password and dies with its sessionVersion.
+  tgAdmin              Json?
   /// SHA-256 of the one-time /start token from «Подключить Telegram», and until when it works.
   tgLinkTokenHash      String?   @unique
   tgLinkTokenExpiresAt DateTime?

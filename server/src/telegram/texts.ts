@@ -12,8 +12,12 @@ const lower = (v: unknown) => s(String(v ?? '').toLowerCase());
 const byn = (v: unknown) => `${typeof v === 'number' ? v.toLocaleString('ru-RU') : s(v)} BYN`;
 const stars = (n: unknown) => '★'.repeat(Math.min(5, Math.max(0, Number(n) || 0)));
 
-/** Groups a user can switch off one by one in settings. */
-export const TG_CATEGORIES = ['deals', 'offers', 'auctions', 'chat', 'favorites', 'account'] as const;
+/**
+ * Groups a user can switch off one by one in settings (and in the bot's «Уведомления»). `interest` = someone saved an
+ * item, put it in a cart or followed the shop (anonymous, at most one ping per item an hour); `digest` = the evening
+ * summary of the day.
+ */
+export const TG_CATEGORIES = ['deals', 'offers', 'auctions', 'chat', 'interest', 'digest', 'favorites', 'account'] as const;
 export type TgCategory = (typeof TG_CATEGORIES)[number];
 export type TgPrefs = Record<TgCategory, boolean>;
 /** Everything is on until switched off. */
@@ -40,6 +44,7 @@ const TEXT: Record<string, (p: P) => [string, string, string]> = {
   deal_handed_over: (p) => ['📦', 'Вещь передана', `Продавец отметил ${t(p)} как переданную — подтвердите получение`],
   deal_in_transit: (p) => ['🚚', 'В пути', `${t(p)} в пути${p.trackingNumber ? `, трек <code>${s(p.trackingNumber)}</code>` : ''}`],
   deal_completed: (p) => ['🎉', 'Сделка завершена', `Сделка по ${t(p)} завершена${Array.isArray(p.sizes) && p.sizes.length ? ` · продан размер ${s(p.sizes.join(', '))} — уберите его из наличия` : ''}`],
+  telegram_linked: (p) => ['🔐', 'Подключён Telegram', `К аккаунту подключён Telegram${p.tgUsername ? ` @${s(p.tgUsername)}` : ''}: теперь через бота приходят уведомления и можно менять вещи. Не вы? Отключите его в настройках и смените пароль`],
   brand_approved: (p) => ['🏮', 'Статус бренда подтверждён', `Статус бренда «${s(p.brand)}» подтверждён — печать «Бренд» уже на ваших вещах`],
   brand_rejected: (p) => ['📝', 'Заявка на бренд отклонена', `Заявка на статус бренда «${s(p.brand)}» отклонена${p.note ? `: ${s(p.note)}` : ''}`],
   journal_published: (p) => ['📰', 'Статья опубликована', `Ваша статья «${s(p.title)}» вышла в журнале ichiba`],
@@ -93,6 +98,7 @@ export function notificationPath(type: string, p: P) {
   if (type.startsWith('offer_') && listingId) return type === 'offer_new' ? '/sales' : `/item/${listingId}`;
   if (type === 'journal_published' && str('slug')) return `/journal/${str('slug')}`;
   if (type === 'journal_rejected') return '/journal/mine';
+  if (type === 'telegram_linked') return '/settings#telegram';
   if (requestId) return `/deals/${requestId}`;
   if (listingId) return `/item/${listingId}`;
   return '/notifications';

@@ -2,6 +2,8 @@ import { BadRequestException, Controller, Delete, NotFoundException, Param, Post
 import { AuthUser, CurrentUser } from '../auth/auth.guard.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
+import { background } from '../common/background.js';
+import { TelegramInterest } from '../telegram/interest.js';
 import { visibleProfile } from '../users/visibility.js';
 
 @Controller('follows')
@@ -9,6 +11,7 @@ export class FollowsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly recs: RecommendationsService,
+    private readonly interest: TelegramInterest,
   ) {}
 
   /** Following a hidden or deleted account isn't possible; unfollowing it is (the button may still be on a stale page). */
@@ -27,6 +30,7 @@ export class FollowsController {
     if (!existing) {
       await this.prisma.follow.create({ data: { followerId: user.id, sellerId: seller.id } });
       await this.recs.record(user.id, 'follow');
+      background(this.interest.follower(seller.id), 'telegram follower');
     }
     return { isFollowing: true };
   }

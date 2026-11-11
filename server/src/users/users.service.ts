@@ -49,6 +49,8 @@ export class UsersService {
           tgUsername: true,
           tgLinkedAt: true,
           tgPrefs: true,
+          tgSessionVersion: true,
+          sessionVersion: true,
           role: true,
           onboardedAt: true,
           createdAt: true,
@@ -66,7 +68,9 @@ export class UsersService {
       this.chat.unreadCount(userId),
       this.prisma.listing.count({ where: { sellerId: userId, status: { not: 'DELETED' } } }),
     ]);
-    const { emailVerifiedAt, emailPrefs, avatar, brandVerifiedAt, tgChatId, tgUsername, tgLinkedAt, tgPrefs, ...profile } = user;
+    const { emailVerifiedAt, emailPrefs, avatar, brandVerifiedAt, tgChatId, tgUsername, tgLinkedAt, tgPrefs, tgSessionVersion, sessionVersion, ...profile } = user;
+    // A link made before a password reset (or a block) is void: the bot ignores it, so the page shows it unlinked.
+    const tgLinked = !!tgChatId && tgSessionVersion === sessionVersion;
     return {
       ...profile,
       avatar: avatar ? photoUrls(avatar) : null,
@@ -83,7 +87,7 @@ export class UsersService {
       /** Brand status: the sell form offers the seals («Бренд», «Новинка»…) only then. */
       isBrand: !!brandVerifiedAt,
       /** Notifications in Telegram (settings · Telegram): whether the bot is configured and this account linked. */
-      telegram: { available: botEnabled(), linked: !!tgChatId, username: tgUsername, linkedAt: tgLinkedAt, prefs: tgPrefsOf(tgPrefs) },
+      telegram: { available: botEnabled(), linked: tgLinked, username: tgLinked ? tgUsername : null, linkedAt: tgLinked ? tgLinkedAt : null, prefs: tgPrefsOf(tgPrefs) },
     };
   }
 }

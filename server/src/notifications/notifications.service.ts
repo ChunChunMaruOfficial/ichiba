@@ -50,7 +50,8 @@ export type NotificationType =
   | 'dispute_opened'
   | 'dispute_resolved'
   | 'journal_published'
-  | 'journal_rejected';
+  | 'journal_rejected'
+  | 'telegram_linked';
 
 /**
  * In-app notifications, pushed live over SSE (frame 15). The ones that matter are also emailed to sellers and

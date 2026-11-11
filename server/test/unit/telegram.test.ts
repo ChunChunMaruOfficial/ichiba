@@ -23,7 +23,7 @@ test('groups and preferences: everything on until switched off', () => {
   assert.equal(categoryOf('auction_bid'), 'auctions');
   assert.equal(categoryOf('price_drop'), 'favorites');
   assert.equal(categoryOf('brand_approved'), 'account');
-  assert.deepEqual(tgPrefsOf(null), { deals: true, offers: true, auctions: true, chat: true, favorites: true, account: true });
+  assert.deepEqual(tgPrefsOf(null), { deals: true, offers: true, auctions: true, chat: true, interest: true, digest: true, favorites: true, account: true });
   assert.equal(tgPrefsOf({ chat: false }).chat, false);
 });
 
