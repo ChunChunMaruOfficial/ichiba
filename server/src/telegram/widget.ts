@@ -381,7 +381,7 @@ export class TelegramWidgetService {
       select: { id: true, title: true, price: true, priceNegotiable: true, status: true },
     });
     Object.assign(ctx, { f, p, ids: rows.map((r) => r.id), item: undefined });
-    return { s: 'l', u: this.username(accounts, ctx), f, p, P: pages, i: rows.map((r) => [short(r.title, 24), r.priceNegotiable ? null : r.price, ST[r.status] ?? '']) };
+    return { s: 'l', u: this.username(accounts, ctx), f, p, P: pages, i: rows.map((r) => [short(r.title, 44), r.priceNegotiable ? null : r.price, ST[r.status] ?? '']) };
   }
 
   private async item(accounts: Account[], ctx: WCtx, id: string): Promise<WidgetState> {
@@ -445,8 +445,8 @@ export class TelegramWidgetService {
       }),
     ]);
     const rows: Array<['r' | 'o', string, string, string, number]> = [
-      ...requests.map((r): ['r', string, string, string, number] => ['r', r.id, short(r.buyer.username, 16), short(r.items[0]?.listing.title ?? '', 26), r.priceTotal]),
-      ...offers.map((o): ['o', string, string, string, number] => ['o', o.id, short(o.buyer.username, 16), short(o.listing.title, 26), o.amount]),
+      ...requests.map((r): ['r', string, string, string, number] => ['r', r.id, short(r.buyer.username, 16), short(r.items[0]?.listing.title ?? '', 40), r.priceTotal]),
+      ...offers.map((o): ['o', string, string, string, number] => ['o', o.id, short(o.buyer.username, 16), short(o.listing.title, 40), o.amount]),
     ];
     // One screen, one height: the three oldest; answering one brings the next.
     const [nr, no] = await Promise.all([
@@ -570,8 +570,8 @@ export class TelegramWidgetService {
     ]);
     Object.assign(ctx, { buys: counters.map((o) => o.id), item: undefined });
     const rows = [
-        ...counters.map((o, k) => ['c', short(o.listing.title, 26), o.amount, 'Продавец предлагает свою цену', k]),
-        ...purchases.map((r) => ['p', short(r.items[0]?.listing.title ?? '', 26), r.priceTotal, BUY_STATUS[r.status as keyof typeof BUY_STATUS] ?? '', 0]),
+        ...counters.map((o, k) => ['c', short(o.listing.title, 40), o.amount, 'Продавец предлагает свою цену', k]),
+        ...purchases.map((r) => ['p', short(r.items[0]?.listing.title ?? '', 40), r.priceTotal, BUY_STATUS[r.status as keyof typeof BUY_STATUS] ?? '', 0]),
     ].slice(0, WIDGET_ROWS);
     // Counter-offers first (they wait for an answer), three rows at most: one screen, one height.
     return { s: 'b', u: this.username(accounts, ctx), m: Math.max(0, nc + np - rows.length), i: rows };

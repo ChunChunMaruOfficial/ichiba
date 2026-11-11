@@ -97,9 +97,11 @@ function fit() {
   try {
     var a = document.getElementById('a'), H = document.documentElement.clientHeight - 24, h = a.scrollHeight;
     a.style.transform = ''; a.style.width = '';
-    if (H > 0 && h > H) { var k = H / h; a.style.transformOrigin = '0 0'; a.style.transform = 'scale(' + k + ')'; a.style.width = 100 / k + '%'; }
+    // Only a little, for big system fonts: Telegram Desktop reports a tiny height before it sizes the widget.
+    if (H > 300 && h > H) { var k = Math.max(H / h, .8); a.style.transformOrigin = '0 0'; a.style.transform = 'scale(' + k + ')'; a.style.width = 100 / k + '%'; }
   } catch (x) {}
 }
+try { addEventListener('resize', function () { fit(); }); } catch (x) {}
 function done(h) { document.getElementById('a').innerHTML = h + (T ? '<div class="t">' + e(T) + '</div>' : ''); fit(); }
 `;
 
