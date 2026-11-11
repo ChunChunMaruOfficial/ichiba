@@ -70,11 +70,11 @@ const login = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'con
 const cookie = login.headers.get('set-cookie')?.split(';')[0];
 const link = await (await fetch(`${API}/telegram/link`, { method: 'POST', headers: { cookie } })).json();
 await say(`/start ${link.url.split('start=')[1]}`);
-await waitFor((c) => /подключён/.test(String(c.body.text ?? '')), 'linked');
+await waitFor((c) => /подключён/.test(String(c.body.text ?? c.body.caption ?? '')), 'linked (a card)');
 
 // ---------- /menu sends the widget ----------
 await say('/menu');
-const sent = await waitFor((c) => c.method === 'sendWidget', 'sendWidget');
+const sent = await waitFor((c) => c.method === 'sendWidget' && c.body.html.includes('l:a:0'), 'the menu widget');
 ok(sent && sent.body.allow_queries === true && sent.body.protect_content === true, 'the widget is sent with queries allowed and protected');
 ok(sent && zlib.deflateSync(Buffer.from(sent.body.html), { level: 9 }).length <= 4096, 'its HTML fits 4 KB compressed');
 const home = sent && JSON.parse(sent.body.chat_data);
@@ -104,6 +104,22 @@ await db.query(`UPDATE "User" SET "sessionVersion" = "sessionVersion" + 1 WHERE 
 const stale = await tap('U', widgetMsg);
 ok(/не подключён/.test(stale?.e ?? ''), 'after a password reset the widget stops acting');
 ok((await db.query(`SELECT status FROM "Listing" WHERE id=$1`, [item])).rows[0].status === 'HIDDEN', 'nothing was changed');
+
+// ---------- a guest signs up right in the bot ----------
+const GUEST = CHAT + 7;
+const before = calls.length;
+await post({ update_id: ++upd, message: { message_id: ++mid, chat: { id: GUEST, type: 'private' }, from: { id: GUEST, username: `guest_${tag}` }, text: '/start' } });
+const guestCard = await waitFor((c) => calls.indexOf(c) >= before && c.method === 'sendWidget' && c.body.chat_id === GUEST, 'the guest card');
+const gstate = guestCard && JSON.parse(guestCard.body.chat_data);
+ok(gstate?.c?.[0]?.[1] === 'RC' && gstate.l.some((l) => l[1].endsWith('/?auth=1')), 'a guest gets a card: create an account here, or sign in on the site');
+ok(!calls.slice(before).some((c) => c.method === 'sendMessage'), 'no plain text messages');
+const guestMsg = mid;
+await tap('RC', guestMsg, { id: GUEST, type: 'private' }, GUEST);
+const made = (await db.query('SELECT id, username, "tgChatId", "privacyAcceptedAt" FROM "User" WHERE "telegramId" = $1', [String(GUEST)])).rows;
+ok(made.length === 1 && made[0].tgChatId === String(GUEST) && made[0].privacyAcceptedAt, 'the account is created with consent and linked');
+await tap('RC', guestMsg, { id: GUEST, type: 'private' }, GUEST);
+ok((await db.query('SELECT 1 FROM "User" WHERE "telegramId" = $1', [String(GUEST)])).rows.length === 1, 'a second tap makes no second account');
+await db.query('DELETE FROM "User" WHERE "telegramId" = $1', [String(GUEST)]).catch(() => 0);
 
 // ---------- clean up ----------
 await db.query(`DELETE FROM "ListingStat" WHERE "listingId" = ANY($1)`, [[item, foreign]]).catch(() => 0);

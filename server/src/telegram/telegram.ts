@@ -16,7 +16,9 @@ import { botEnabled, botUsername, type Keyboard, tg, type TgMessage, type TgUpda
 import { signed, verified } from './callbacks.js';
 import { AdminBotService } from './admin/admin-bot.js';
 import { linkButton, linkedAccounts, notificationKeyboard, TelegramNotifier, UNLINK } from './notifier.js';
-import { applyProfile } from './profile.js';
+import { type CardState, sendCard, siteUrl } from './cards.js';
+import { ownerUsername } from './admin/access.js';
+import { adminChatCommands, applyProfile } from './profile.js';
 import { type Ctx, TelegramShopService } from './shop.js';
 import { TelegramWidgetService } from './widget.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
@@ -38,36 +40,23 @@ const webhookUrl = () =>
 /** Telegram sends this back in a header on every update, so nobody else can post fake ones. Derived, no extra secret. */
 const webhookSecret = () => createHmac('sha256', process.env.JWT_SECRET ?? '').update('telegram-webhook').digest('hex').slice(0, 48);
 
+/** Short: a card's state holds 1 KB, and Cyrillic takes two bytes a letter. */
 const WELCOME = [
-  'Здесь можно управлять магазином: /menu — вещи, цены, «снять с продажи», «продано», статистика.',
+  'Сюда придут запросы на покупку, предложения цены, ставки, сообщения, отзывы и вечерняя сводка — отвечайте прямо здесь.',
   '',
-  'Сюда будут приходить:',
-  '🛍 запросы на покупку — принимайте прямо здесь',
-  '💬 предложения цены',
-  '🔨 ставки на аукционах',
-  '✉️ новые сообщения в чате',
-  '⭐ отзывы и статусы сделок',
-  '♡ кто-то сохранил вещь или положил в корзину (анонимно)',
-  '🌙 вечерняя сводка за день',
-  '',
-  '<i>Что присылать — /settings здесь или в настройках на сайте. Отключить: /stop</i>',
+  'Магазин и покупки — /menu. Что присылать — /settings. Отключить — /stop.',
 ].join('\n');
 
 const HELP = [
   '🏮 <b>Что умеет Ichiba</b>',
   '',
-  '/menu — магазин в интерактивной карточке: вещи, цены, сделки, статистика',
-  '/list — то же кнопками (если карточка не открывается)',
-  '/items — вещи в продаже',
-  '/deals — запросы и предложения, которые ждут ответа',
-  '/stats — просмотры, ♡ и запросы за неделю',
-  '/settings — какие уведомления присылать',
-  '/status — какие аккаунты подключены',
-  '/stop — отключить бота от всех аккаунтов',
+  '/menu — магазин и покупки',
+  '/items — вещи · /deals — ждут ответа',
+  '/purchases — мои покупки',
+  '/stats — статистика · /settings — уведомления',
+  '/status — аккаунты · /stop — отключить',
   '',
-  'В карточке вещи: цена, снять с продажи или вернуть, «продано», поднять в ленте, торг, проданный размер. Необратимое бот спрашивает дважды.',
-  '',
-  '<i>Удалить вещь, поменять фото или описание — на сайте, кнопка «Редактировать» в карточке. Бот не присылает ссылок на чужие сайты и никогда не просит данные карты.</i>',
+  'Фото, описание и удаление вещи — на сайте. Бот не просит данные карты и не шлёт чужих ссылок.',
 ].join('\n');
 
 /** The notification bot: links a chat to an account, answers buttons under notifications, and keeps the webhook set. */
@@ -242,8 +231,48 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     }
   }
 
+  /** Every reply is a card (cards.ts via notifier.send); plain text only where Telegram takes no widget. */
   private reply(chatId: number, html: string, keyboard: Keyboard = []) {
-    return tg('sendMessage', { chat_id: chatId, text: html, parse_mode: 'HTML', link_preview_options: { is_disabled: true }, ...(keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {}) });
+    return this.notifier.send(String(chatId), html, keyboard);
+  }
+
+  /**
+   * /start (or anything) from a Telegram not linked yet: who Ichiba is and how to get in — sign up right here, link
+   * the account this Telegram already signs in with, or open the site.
+   */
+  private async welcomeGuest(m: TgMessage) {
+    const tgId = String(m.from?.id ?? m.chat.id);
+    const known = await this.prisma.user.findFirst({ where: { telegramId: tgId, deletedAt: null, blockedAt: null }, select: { username: true } });
+    const links: Array<[string, string]> = (
+      [
+        ['🔑 Войти или зарегистрироваться на сайте', siteUrl('/?auth=1')],
+        ['🔗 Подключить аккаунт с почтой', siteUrl('/settings#telegram')],
+        ['📄 Политика обработки данных', siteUrl('/privacy')],
+      ] as Array<[string, string | undefined]>
+    ).filter((l): l is [string, string] => !!l[1]);
+    const state: CardState = known
+      ? {
+          h: '🏮 Ichiba',
+          x: [`Этот Telegram уже входит на ichiba как @${known.username}.`, 'Подключите его — запросы, предложения и магазин будут прямо здесь.'],
+          c: [[`🔗 Подключить @${known.username}`, 'RL']],
+          l: links,
+        }
+      : {
+          h: '🏮 Ichiba',
+          x: [
+            'Одежда из открытых гардеробов Беларуси: покупайте, продавайте, торгуйтесь.',
+            'Аккаунт создаётся прямо здесь, через Telegram — без почты и пароля. На сайт входите кнопкой «Войти через Telegram».',
+            'Создавая аккаунт, вы принимаете Политику обработки данных.',
+          ],
+          c: [['✨ Принимаю и создаю аккаунт', 'RC']],
+          l: links,
+        };
+    try {
+      await sendCard(this.redis, m.chat.id, state);
+    } catch (e) {
+      this.logger.warn(`guest card: ${(e as Error).message}`);
+      await this.notifier.send(String(m.chat.id), `🏮 <b>Ichiba</b>\n\n${(state.x ?? []).join('\n\n')}`, this.settingsButton());
+    }
   }
 
   private settingsButton(): Keyboard {
@@ -269,32 +298,23 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     }
     const accounts = await linkedAccounts(this.prisma, chatId);
     if (command === '/help') {
-      return this.reply(m.chat.id, HELP, accounts.length ? [[{ text: '☰ Мой магазин', callback_data: signed(m.chat.id, 'm') }]] : this.settingsButton());
+      return this.reply(m.chat.id, HELP, accounts.length ? [[{ text: '✨ Мой магазин', style: 'primary', callback_data: signed(m.chat.id, 'W') }]] : this.settingsButton());
     }
-    if (!accounts.length) {
-      return this.reply(
-        m.chat.id,
-        '🏮 <b>Ichiba</b>\n\nПрисылает запросы на покупку, предложения цены, ставки и сообщения из чата, а ещё даёт управлять вещами: менять цену, снимать с продажи, отмечать проданными.\n\nЧтобы подключить: <b>Настройки → Telegram → «Подключить Telegram»</b> на сайте.',
-        this.settingsButton(),
-      );
-    }
+    if (!accounts.length) return this.welcomeGuest(m);
     const ctx: Ctx = { chatId: m.chat.id, accounts };
     if (command === '/cancel') {
       await this.shop.clearSlot(m.chat.id);
-      return this.reply(m.chat.id, 'Отменено.', [[{ text: '☰ Меню', callback_data: signed(m.chat.id, 'm') }]]);
+      return this.reply(m.chat.id, 'Отменено.', [[{ text: '✨ Мой магазин', style: 'primary', callback_data: signed(m.chat.id, 'W') }]]);
     }
     if (command) await this.shop.clearSlot(m.chat.id);
-    const one = accounts.length === 1 ? accounts[0].id : null;
     if (command === '/status') {
       return this.reply(m.chat.id, `🏮 <b>Подключено:</b> ${accounts.map((a) => `@${a.username}`).join(', ')}\n\n${WELCOME}`, this.settingsButton());
     }
     // The shop as an interactive widget message; the classic buttons stay under /list (and for apps without widgets).
     if ((command === '/menu' || command === '/start' || command === '/app') && this.widgets && (await this.widgets.open(m.chat.id, accounts))) return;
-    if (command === '/list') return this.shop.accounts(ctx);
-    if (command === '/items' && one) return this.shop.list(ctx, one, 'a', 0);
-    if (command === '/deals' && one) return this.shop.pending(ctx, one);
-    if (command === '/stats' && one) return this.shop.stats(ctx, one);
-    if (command === '/settings' && one) return this.shop.prefs(ctx, one);
+    // Everything else opens the card menu, at the screen a command names.
+    const screen = ({ '/items': 'l', '/deals': 'd', '/purchases': 'b', '/stats': 't', '/settings': 'n' } as const)[command as '/items'];
+    if (this.widgets && (await this.widgets.open(m.chat.id, accounts, screen ? { screen } : {}))) return;
     if (command) return this.shop.accounts(ctx);
     if (await this.shop.typed(ctx, text)) return;
     return this.shop.accounts(ctx);
@@ -326,7 +346,16 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     // The settings page is waiting for this: it refreshes the session and shows «Подключено».
     await this.events.emit(user.id, { type: 'counters', data: {} });
     this.logger.log(`account ${user.id} linked to a chat`);
-    return this.reply(m.chat.id, `🏮 <b>Готово! Аккаунт @${h(user.username)} подключён</b>\n\n${WELCOME}`, [[{ text: '☰ Открыть магазин', callback_data: signed(m.chat.id, `+m:${user.id}`) }], ...this.settingsButton()]);
+    // The owner's admin account: /admin goes into this chat's command menu at once (it is also set on every boot).
+    const role = await this.prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
+    if (role?.role === 'ADMIN' && ownerUsername(m.from?.username)) {
+      await tg('setMyCommands', { scope: { type: 'chat', chat_id: m.chat.id }, commands: adminChatCommands() }).catch(() => undefined);
+      await this.reply(m.chat.id, '🛡 <b>Вы администратор ichiba</b>\n\nАдминка — командой /admin: бот спросит пароль от аккаунта и откроет панель прямо здесь.');
+    }
+    return this.reply(m.chat.id, `🏮 <b>Готово! Аккаунт @${h(user.username)} подключён</b>\n\n${WELCOME}`, this.settingsButton()).then(async () => {
+      // …and the shop itself, as the interactive card.
+      if (!(await this.widgets?.open(m.chat.id, await linkedAccounts(this.prisma, chatId)))) await this.reply(m.chat.id, 'Ваш магазин:', [[{ text: '☰ Открыть магазин', callback_data: signed(m.chat.id, `+m:${user.id}`) }]]);
+    });
   }
 
   private async onButton(q: NonNullable<TgUpdate['callback_query']>) {
@@ -342,9 +371,18 @@ export class TelegramBotService implements OnApplicationBootstrap, OnModuleDestr
     const ctx: Ctx = { chatId, messageId: q.message.message_id, hasPhoto: !!q.message.photo?.length, accounts };
     try {
       const deal = LEGACY.exec(data);
+      const card = /^W(?::([0-9a-f-]{36}))?$/.exec(data);
       if (deal) await this.onDeal(q, ctx, deal[1] as 'rq' | 'of', deal[2], deal[3], answer);
-      else if (await this.shop.button(ctx, data)) await answer();
-      else await answer('Кнопка устарела — откройте /menu', true);
+      // «✨ Мой магазин» anywhere: the interactive card (at an item for «Открыть вещь»), else the classic menu.
+      else if (card) {
+        await answer();
+        if (!(await this.widgets?.open(chatId, accounts, { item: card[1] }))) await this.shop.button(ctx, card[1] ? `+v:${card[1]}` : 'm');
+      }
+      // A button of the retired classic menu (an old message): the card menu instead.
+      else {
+        await answer();
+        if (!(await this.widgets?.open(chatId, accounts))) await this.shop.button(ctx, data);
+      }
     } catch (e) {
       this.logger.warn(`button ${data.split(':')[0]}: ${(e as Error).message}`);
       await answer(e instanceof HttpException ? 'Не получилось — попробуйте на сайте' : 'Что-то пошло не так — попробуйте ещё раз', true);

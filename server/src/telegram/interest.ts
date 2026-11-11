@@ -76,7 +76,8 @@ export class TelegramInterest implements OnModuleInit {
   }
 
   private menuButton(chatId: string, sellerId: string, listingId?: string): Keyboard {
-    return [[{ text: listingId ? 'Открыть вещь в боте' : 'Мой магазин', callback_data: signed(chatId, listingId ? `+v:${listingId}` : `+m:${sellerId}`) }]];
+    void sellerId;
+    return [[{ text: listingId ? '✨ Открыть вещь' : '✨ Мой магазин', style: 'primary', callback_data: signed(chatId, listingId ? `W:${listingId}` : 'W') }]];
   }
 
   async item(listingId: string, kind: 'favorites' | 'carts') {

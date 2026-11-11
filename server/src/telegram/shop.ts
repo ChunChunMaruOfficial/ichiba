@@ -255,6 +255,7 @@ export class TelegramShopService {
         [this.btn(ctx, `📝 Черновики (${n('DRAFT')})`, `l:${acc.id}:d:0`), this.btn(ctx, '✅ Проданные', `l:${acc.id}:s:0`)],
         [this.btn(ctx, '🔎 Найти вещь', `f:${acc.id}`), this.btn(ctx, '📊 Статистика', `t:${acc.id}`)],
         [this.btn(ctx, '🔔 Уведомления', `n:${acc.id}`), ...(ctx.accounts.length > 1 ? [this.btn(ctx, '🔁 Другой магазин', 'm')] : [])],
+        [{ ...this.btn(ctx, '✨ Интерактивная карточка', 'W'), style: 'primary' }],
         shop,
       ),
     });

@@ -116,6 +116,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const user = data?.user ?? null;
   const userId = user?.id;
+
+  // A link with ?auth=1 (the Telegram bot's «Зарегистрироваться») opens sign-in / sign-up for a guest; the flag
+  // leaves the address either way.
+  useEffect(() => {
+    if (isLoading) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("auth") !== "1") return;
+    url.searchParams.delete("auth");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    // Opened after this render (the modal is state of this provider).
+    if (!user) setTimeout(openAuth, 0);
+  }, [isLoading, user, openAuth]);
+
   const requireAuth = useCallback<SessionValue["requireAuth"]>(
     (action) => {
       if (user) {

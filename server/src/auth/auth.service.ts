@@ -271,6 +271,27 @@ export class AuthService {
   }
 
   /**
+   * Sign-up from the Telegram bot: the person behind a private chat is proven by Telegram itself (the webhook's
+   * secret), the same identity «Войти через Telegram» checks on the site. An account with this Telegram id is
+   * returned as it is; otherwise one is created with a free nick made from the Telegram username and the consent the
+   * person gave by tapping «Принимаю и создаю аккаунт» (the bot shows the policy link right above it).
+   */
+  async signupFromTelegram(telegramId: string, hint: string) {
+    const existing = await this.prisma.user.findUnique({ where: { telegramId } });
+    if (existing) return { user: existing, isNew: false };
+    const username = await this.freeUsername(hint || `tg${telegramId.slice(-6)}`);
+    try {
+      const user = await this.prisma.user.create({ data: { username, telegramId, privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION } });
+      return { user, isNew: true };
+    } catch {
+      // Two taps at once: the other one created it.
+      const again = await this.prisma.user.findUnique({ where: { telegramId } });
+      if (again) return { user: again, isNew: false };
+      throw new ConflictException({ message: 'Не получилось создать аккаунт — попробуйте ещё раз' });
+    }
+  }
+
+  /**
    * An address proven by a code or an identity provider may find an older row that was registered with a password
    * but never verified: that password was set by whoever typed the address first, so it is dropped. The person who
    * proved the address keeps the row and sets a password through «Забыли пароль» if they want one.

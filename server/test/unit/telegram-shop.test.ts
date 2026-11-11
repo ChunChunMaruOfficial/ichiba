@@ -303,7 +303,7 @@ test('a link made before a password reset is refused, even within its 15 minutes
   };
   const notifications = { notify: async () => undefined };
   const events = { emit: async () => undefined };
-  const bot = new TelegramBotService(prisma as never, { send: async () => null } as never, events as never, {} as never, {} as never, {} as never, { client: null } as never, notifications as never);
+  const bot = new TelegramBotService(prisma as never, { send: async (_chat: string, text: string) => void calls.push({ method: 'sendMessage', body: { text } }) } as never, events as never, {} as never, {} as never, {} as never, { client: null } as never, notifications as never);
   const start = (update_id: number, token: string) => bot.handle({ update_id, message: { message_id: update_id, chat: { id: CHAT, type: 'private' }, from: { id: CHAT }, text: `/start ${token}` } });
   await start(1, `2_${'x'.repeat(24)}`);
   assert.equal(writes.length, 0, 'issued under sessionVersion 2, the account is at 3 now');

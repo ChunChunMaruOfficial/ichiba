@@ -6,6 +6,10 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.js';
 import { botEnabled, chatGone, type Keyboard, tg, TelegramError } from './bot-api.js';
 import { signed } from './callbacks.js';
+import { htmlToCard, sendCard } from './cards.js';
+import { NOTICE_HTML } from './widget-html.js';
+import { NOTICE_TYPES, noticeFor } from './widget-notice.js';
+import { packState, saveWidgetCtx } from './widget-store.js';
 import { categoryOf, chatMessage, notificationMessage, notificationPath, openLabel, type TgCategory, tgPrefsOf } from './texts.js';
 
 /** One Telegram ping per conversation in this window: a burst of messages is one nudge, not ten. */
@@ -90,7 +94,37 @@ export class TelegramNotifier {
     const p = (payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {}) as Record<string, unknown>;
     const to = await this.target(userId, categoryOf(type));
     if (!to) return;
+    if (NOTICE_TYPES.has(type) && (await this.card(to.chatId, type, p, to.footer))) return;
     await this.send(to.chatId, notificationMessage(type, p) + to.footer, notificationKeyboard(type, p, to.chatId), await this.cover(p));
+  }
+
+  /**
+   * A deal card (widget-notice.ts): the request or offer with «Принять / Отклонить» inside, answered by widget.ts.
+   * False when Telegram took no widget (an older API, a refused card): the caller sends the classic message.
+   */
+  private async card(chatId: string, type: string, p: Record<string, unknown>, footer: string) {
+    const n = noticeFor(type, p);
+    if (!n) return false;
+    try {
+      const msg = await tg<{ message_id: number }>('sendWidget', {
+        chat_id: chatId,
+        html: NOTICE_HTML,
+        chat_data: packState(n.state),
+        allow_queries: true,
+        protect_content: true,
+        // Plain text (no parse_mode): it carries users' words; apps without widgets show only this.
+        caption: `${n.caption}${footer.replace(/<[^>]+>/g, '')}`.slice(0, 1000),
+      });
+      await saveWidgetCtx(this.redis, chatId, msg.message_id, { notice: { ...n.ctx, ns: n.state } });
+      return true;
+    } catch (e) {
+      if (chatGone(e)) {
+        await this.unlinkChat(chatId);
+        return true;
+      }
+      this.logger.warn(`deal card to ${chatId}: ${(e as Error).message}`);
+      return false;
+    }
   }
 
   /** A new message in a conversation; one nudge per conversation every couple of minutes. */
@@ -147,6 +181,17 @@ export class TelegramNotifier {
    * from every account; a photo Telegram can't take falls back to text.
    */
   async send(chatId: string, html: string, keyboard: Keyboard = [], photo: string | null = null) {
+    // Every message is a card (cards.ts); the plain message below is only for when Telegram takes no widget.
+    const { state, item } = htmlToCard(chatId, html, keyboard);
+    try {
+      return await sendCard(this.redis, chatId, state, item ? { card: { item } } : {});
+    } catch (e) {
+      if (chatGone(e)) {
+        await this.unlinkChat(chatId);
+        return null;
+      }
+      this.logger.warn(`card to ${chatId}: ${(e as Error).message}`);
+    }
     const markup = keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {};
     try {
       // A caption holds 1024 characters, a message 4096.

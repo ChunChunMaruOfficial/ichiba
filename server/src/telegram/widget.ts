@@ -10,7 +10,8 @@
  * Only private chats with the sender itself are served. Users' text goes into the state as data and the widget
  * escapes it into element text.
  */
-import { HttpException, Injectable, Logger } from '@nestjs/common';
+import { HttpException, Injectable, Logger, Optional } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service.js';
 import { ListingsService } from '../listings/listings.service.js';
 import { OffersService } from '../offers/offers.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -22,6 +23,8 @@ import { linkedAccounts } from './notifier.js';
 import { refusal, TelegramShopService } from './shop.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
 import { WIDGET_HTML } from './widget-html.js';
+import { siteLink } from './widget-notice.js';
+import { loadWidgetCtx, packState, saveWidgetCtx, type WCtx } from './widget-store.js';
 
 type Account = Awaited<ReturnType<typeof linkedAccounts>>[number];
 export type WidgetState = Record<string, unknown> & { s?: string };
@@ -34,19 +37,8 @@ export interface WidgetQuery {
   data?: string;
 }
 
-/** What the bot remembers about one widget message: the shop and the lists it showed, by position. */
-interface WCtx {
-  acc?: string;
-  f?: string;
-  p?: number;
-  ids?: string[];
-  item?: string;
-  deals?: Array<['r' | 'o', string]>;
-}
 
 const PAGE = 6;
-const CTX_TTL_S = 30 * 24 * 3600;
-const MAX_STATE = 1024;
 const MAX_PRICE = 100_000;
 const FILTERS: Record<string, Array<'PUBLISHED' | 'RESERVED' | 'HIDDEN' | 'DRAFT' | 'SOLD'>> = {
   a: ['PUBLISHED', 'RESERVED'],
@@ -58,15 +50,7 @@ const ST: Record<string, string> = { PUBLISHED: 'P', RESERVED: 'R', HIDDEN: 'H',
 const filterOf = (status: string) => (status === 'HIDDEN' ? 'h' : status === 'DRAFT' ? 'd' : status === 'SOLD' ? 's' : 'a');
 const short = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s) || 'Без названия';
 
-/** The state as JSON within the 1024 bytes a widget takes: long titles are cut down until it fits. */
-export function packState(state: WidgetState): string {
-  let json = JSON.stringify(state);
-  for (let n = 22; Buffer.byteLength(json) > MAX_STATE && n >= 6; n -= 4) {
-    const cut = (v: unknown): unknown => (typeof v === 'string' && v.length > n ? `${v.slice(0, n - 1)}…` : Array.isArray(v) ? v.map(cut) : v);
-    json = JSON.stringify({ ...state, i: cut(state.i), T: cut(state.T), z: cut(state.z) });
-  }
-  return Buffer.byteLength(json) > MAX_STATE ? JSON.stringify({ s: state.s, u: state.u, t: 'Слишком много данных — откройте на сайте' }) : json;
-}
+export { packState };
 
 /** A command from the widget, matched whole (anything else is ignored). */
 export interface Command {
@@ -78,9 +62,9 @@ export interface Command {
 export function parseCommand(data: string | undefined): Command | null {
   const d = data ?? '';
   let m: RegExpExecArray | null;
-  if (/^[hdtnxEHUSBO]$/.test(d)) return { op: d, f: '', n: 0 };
+  if (/^([hdtnxbEHUSBO]|na|nx)$/.test(d)) return { op: d, f: '', n: 0 };
   if ((m = /^l:([ahds]):(\d{1,4})$/.exec(d))) return { op: 'l', f: m[1], n: Number(m[2]) };
-  if ((m = /^(o|Z|da|dx|nt|xa):(\d{1,2})$/.exec(d))) return { op: m[1], f: '', n: Number(m[2]) };
+  if ((m = /^(o|Z|da|dx|nt|xa|ba|bx):(\d{1,2})$/.exec(d))) return { op: m[1], f: '', n: Number(m[2]) };
   if ((m = /^P:(\d{1,6})$/.exec(d))) return { op: 'P', f: '', n: Number(m[1]) };
   return null;
 }
@@ -88,7 +72,6 @@ export function parseCommand(data: string | undefined): Command | null {
 @Injectable()
 export class TelegramWidgetService {
   private readonly logger = new Logger('TelegramWidget');
-  private readonly mem = new Map<string, { v: WCtx; until: number }>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -97,49 +80,37 @@ export class TelegramWidgetService {
     private readonly requests: RequestsService,
     private readonly offers: OffersService,
     private readonly shop: TelegramShopService,
+    @Optional() private readonly auth?: AuthService,
   ) {}
 
-  // ---------- per-message memory ----------
+  // ---------- per-message memory (widget-store.ts) ----------
 
-  private key(chatId: number, messageId: number) {
-    return `ichiba:tg:w:${chatId}:${messageId}`;
+  private load(chatId: number, messageId: number) {
+    return loadWidgetCtx(this.redis, chatId, messageId);
   }
 
-  private async load(chatId: number, messageId: number): Promise<WCtx> {
-    const k = this.key(chatId, messageId);
-    if (this.redis.client) {
-      try {
-        const raw = await this.redis.client.get(k);
-        return raw ? (JSON.parse(raw) as WCtx) : {};
-      } catch {
-        // Redis down: memory.
-      }
-    }
-    const hit = this.mem.get(k);
-    return hit && hit.until > Date.now() ? hit.v : {};
-  }
-
-  private async save(chatId: number, messageId: number, ctx: WCtx) {
-    const k = this.key(chatId, messageId);
-    if (this.redis.client) {
-      try {
-        await this.redis.client.set(k, JSON.stringify(ctx), 'EX', CTX_TTL_S);
-        return;
-      } catch {
-        // Redis down: memory.
-      }
-    }
-    if (this.mem.size > 5000) this.mem.clear();
-    this.mem.set(k, { v: ctx, until: Date.now() + CTX_TTL_S * 1000 });
+  private save(chatId: number, messageId: number, ctx: WCtx) {
+    return saveWidgetCtx(this.redis, chatId, messageId, ctx);
   }
 
   // ---------- sending ----------
 
-  /** /menu: a new widget message with the shop's first screen. False when Telegram refused it (old API, etc.). */
-  async open(chatId: number, accounts: Account[]): Promise<boolean> {
-    const ctx: WCtx = accounts.length === 1 ? { acc: accounts[0].id } : {};
-    const state = ctx.acc ? await this.home(accounts, ctx) : this.pick(accounts);
-    const name = ctx.acc ? accounts[0].username : null;
+  /**
+   * /menu (and every «Открыть магазин»): a new widget message with the first screen — or straight at one of the
+   * shop's items. False when Telegram refused it (old API, etc.), so the caller can fall back to the classic menu.
+   */
+  async open(chatId: number, accounts: Account[], opts: { item?: string; screen?: 'l' | 'd' | 'b' | 't' | 'n' } = {}): Promise<boolean> {
+    const owner = opts.item ? (await this.prisma.listing.findUnique({ where: { id: opts.item }, select: { sellerId: true } }))?.sellerId : null;
+    const ctx: WCtx = owner && accounts.some((a) => a.id === owner) ? { acc: owner } : accounts.length === 1 ? { acc: accounts[0].id } : {};
+    const screens = { l: () => this.list(accounts, ctx, 'a', 0), d: () => this.deals(accounts, ctx), b: () => this.buys(accounts, ctx), t: () => this.stats(accounts, ctx), n: () => this.nots(accounts, ctx) };
+    const state = !ctx.acc
+      ? this.pick(accounts)
+      : owner === ctx.acc && opts.item
+        ? await this.item(accounts, ctx, opts.item)
+        : opts.screen
+          ? await screens[opts.screen]()
+          : await this.home(accounts, ctx);
+    const name = ctx.acc ? this.username(accounts, ctx) : null;
     try {
       const msg = await tg<{ message_id: number }>('sendWidget', {
         chat_id: chatId,
@@ -164,10 +135,14 @@ export class TelegramWidgetService {
     const chatId = q.chat?.id;
     const messageId = q.message_id;
     if (!chatId || !messageId || q.chat?.type !== 'private' || chatId !== q.from.id) return answer({ e: 'Это меню работает только в личном чате с ботом' });
+    const ctx = await this.load(chatId, messageId);
+    // A card (cards.ts): its few commands work for a Telegram not linked yet too (sign-up from the bot).
+    if (ctx.card) return this.answerCard(q, ctx, chatId, messageId);
     const accounts = await linkedAccounts(this.prisma, String(chatId));
     if (!accounts.length) return answer({ e: 'Этот Telegram не подключён к магазину. Подключите его на сайте: Настройки → Telegram.' });
 
-    const ctx = await this.load(chatId, messageId);
+    // A deal card (notifier.ts) answers its own request or offer, nothing else.
+    if (ctx.notice) return this.answerNotice(q, ctx, accounts, chatId, messageId);
     if (ctx.acc && !accounts.some((a) => a.id === ctx.acc)) ctx.acc = undefined;
     if (!ctx.acc && accounts.length === 1) ctx.acc = accounts[0].id;
 
@@ -230,6 +205,19 @@ export class TelegramWidgetService {
         const next = await this.deals(accounts, ctx);
         return { ...next, t: c.op === 'da' ? '✅ Принято — договоритесь о передаче в «Сделках» на сайте' : '✖️ Отклонено' };
       }
+      case 'b':
+        return this.buys(accounts, ctx);
+      case 'ba':
+      case 'bx': {
+        // A counter-offer from a seller to this account as a buyer.
+        const id = ctx.buys?.[c.n];
+        const o = id ? await this.prisma.offer.findUnique({ where: { id }, select: { buyerId: true } }) : null;
+        if (!id || !o || o.buyerId !== acc) return this.buys(accounts, ctx);
+        if (c.op === 'ba') await this.offers.accept(acc, id);
+        else await this.offers.decline(acc, id);
+        audit(c.op === 'ba' ? 'accepted counter-offer' : 'declined counter-offer', id);
+        return { ...(await this.buys(accounts, ctx)), t: c.op === 'ba' ? '✅ Принято — сделка открыта, продавец свяжется' : '✖️ Отклонено' };
+      }
       case 't':
         return this.stats(accounts, ctx);
       case 'n':
@@ -263,8 +251,8 @@ export class TelegramWidgetService {
         break;
       }
       case 'E':
-        await this.shop.askPrice({ chatId, accounts }, id);
-        return { ...(await this.item(accounts, ctx, id)), t: '✎ Пришлите новую цену сообщением ниже' };
+        // The typed price of the old menu: the card's stepper does it now.
+        return this.item(accounts, ctx, id);
       case 'H':
         await this.listings.hide(seller, id);
         done = '🙈 Снята с продажи';
@@ -316,6 +304,8 @@ export class TelegramWidgetService {
       this.prisma.offer.count({ where: { sellerId: acc, status: 'PENDING', from: 'BUYER' } }),
     ]);
     const n = (...st: string[]) => counts.filter((x) => st.includes(x.status)).reduce((a, x) => a + x._count, 0);
+    // A buyer without a single item of their own: «Покупки» is their home.
+    if (!counts.length && !requests && !offers) return this.buys(accounts, ctx);
     return { s: 'h', u: this.username(accounts, ctx), n: [n('PUBLISHED', 'RESERVED'), n('HIDDEN'), n('DRAFT'), n('SOLD')], w: requests + offers, k: accounts.length > 1 ? 1 : 0 };
   }
 
@@ -434,7 +424,135 @@ export class TelegramWidgetService {
     ctx.item = undefined;
     return { s: 'n', u: this.username(accounts, ctx), q: TG_CATEGORIES.map((c) => (prefs[c] ? 1 : 0)) };
   }
+
+  /**
+   * A tap in a card: «✨ Мой магазин» (W) and «Открыть вещь» (Wv) send the shop menu as a new message; «Подключить»
+   * (RL) and «Создать аккаунт» (RC) sign the person up or link the account they already have — both only for the
+   * Telegram account that tapped, which Telegram itself vouches for. A done card stops asking.
+   */
+  private async answerCard(q: WidgetQuery, ctx: WCtx, chatId: number, messageId: number) {
+    const card = ctx.card!;
+    const shown: Record<string, unknown> = { ...(card.ns ?? {}) };
+    const cmd = q.data ?? '';
+    const accounts = await linkedAccounts(this.prisma, String(chatId));
+    if (cmd === 'W' || cmd === 'Wv') {
+      if (accounts.length) await this.open(chatId, accounts, cmd === 'Wv' && card.item ? { item: card.item } : {});
+      else shown.d = 'Сначала подключите аккаунт ichiba';
+    } else if ((cmd === 'RL' || cmd === 'RC') && !shown.d) {
+      shown.d = accounts.length ? '✅ Этот Telegram уже подключён' : await this.signUp(chatId, q.from, cmd === 'RC');
+      shown.c = [];
+      ctx.card = { ...card, ns: shown };
+      await this.save(chatId, messageId, ctx);
+      const linked = await linkedAccounts(this.prisma, String(chatId));
+      if (linked.length) await this.open(chatId, linked);
+    }
+    const packed = packState(shown);
+    await tg('editMessageWidgetData', { chat_id: chatId, message_id: messageId, chat_data: packed }).catch(() => undefined);
+    await tg('answerWidgetQuery', { widget_query_id: q.id, data: packed }).catch(() => undefined);
+  }
+
+  /** Links the account with this Telegram id (signed up through Telegram before), or creates one when asked to. */
+  private async signUp(chatId: number, from: WidgetQuery['from'], create: boolean): Promise<string> {
+    let user = await this.prisma.user.findFirst({ where: { telegramId: String(from.id), deletedAt: null }, select: { id: true, username: true, blockedAt: true } });
+    if (user?.blockedAt) return '⚠️ Аккаунт заблокирован — напишите в поддержку';
+    let isNew = false;
+    if (!user) {
+      if (!create || !this.auth) return '⚠️ Аккаунт не найден — создайте новый';
+      const made = await this.auth.signupFromTelegram(String(from.id), from.username ?? '');
+      user = { id: made.user.id, username: made.user.username, blockedAt: made.user.blockedAt };
+      isNew = made.isNew;
+    }
+    const { sessionVersion } = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { sessionVersion: true } });
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { tgChatId: String(chatId), tgUsername: from.username ?? null, tgLinkedAt: new Date(), tgSessionVersion: sessionVersion },
+    });
+    this.logger.log(`account ${user.id} ${isNew ? 'signed up and linked' : 'linked'} from the bot`);
+    return isNew ? `🎉 Аккаунт @${user.username} создан и подключён` : `✅ Аккаунт @${user.username} подключён`;
+  }
+
+  /** «Покупки»: counter-offers from sellers to answer first, then purchases on their way. */
+  private async buys(accounts: Account[], ctx: WCtx): Promise<WidgetState> {
+    const acc = ctx.acc!;
+    const [counters, purchases] = await Promise.all([
+      this.prisma.offer.findMany({
+        where: { buyerId: acc, status: 'PENDING', from: 'SELLER' },
+        orderBy: { createdAt: 'asc' },
+        take: 3,
+        select: { id: true, amount: true, listing: { select: { title: true } } },
+      }),
+      this.prisma.buyRequest.findMany({
+        where: { buyerId: acc, status: { in: Object.keys(BUY_STATUS) as Array<keyof typeof BUY_STATUS> } },
+        orderBy: { updatedAt: 'desc' },
+        take: 4,
+        select: { status: true, priceTotal: true, items: { select: { listing: { select: { title: true } } }, take: 1 } },
+      }),
+    ]);
+    Object.assign(ctx, { buys: counters.map((o) => o.id), item: undefined });
+    return {
+      s: 'b',
+      u: this.username(accounts, ctx),
+      i: [
+        ...counters.map((o, k) => ['c', short(o.listing.title, 26), o.amount, 'Продавец предлагает свою цену', k]),
+        ...purchases.map((r) => ['p', short(r.items[0]?.listing.title ?? '', 26), r.priceTotal, BUY_STATUS[r.status as keyof typeof BUY_STATUS] ?? '', 0]),
+      ],
+    };
+  }
+
+  /**
+   * A tap in a deal card: «na» accepts, «nx» declines the one request or offer the card was sent about, as the
+   * account of this chat that is a party to it; the services decide whether it is still that side's turn.
+   */
+  private async answerNotice(q: WidgetQuery, ctx: WCtx, accounts: Account[], chatId: number, messageId: number) {
+    const notice = ctx.notice!;
+    const shown = { ...(notice.ns ?? {}) };
+    const c = parseCommand(q.data);
+    if (!shown.d && c && (c.op === 'na' || c.op === 'nx')) {
+      const parties =
+        notice.k === 'r'
+          ? await this.prisma.buyRequest.findUnique({ where: { id: notice.id }, select: { sellerId: true } }).then((r) => (r ? [r.sellerId] : []))
+          : await this.prisma.offer.findUnique({ where: { id: notice.id }, select: { sellerId: true, buyerId: true } }).then((o) => (o ? [o.sellerId, o.buyerId] : []));
+      const actor = accounts.find((a) => parties.includes(a.id));
+      if (!actor) shown.d = '⚠️ Этот Telegram не подключён к аккаунту, которому адресовано предложение';
+      else {
+        try {
+          if (c.op === 'na') {
+            const requestId = notice.k === 'r' ? (await this.requests.accept(actor.id, notice.id), notice.id) : (await this.offers.accept(actor.id, notice.id)).requestId;
+            shown.d = notice.k === 'r' ? '✅ Принято — договоритесь с покупателем о передаче' : '✅ Принято — сделка открыта';
+            if (requestId) shown.u = siteLink(`/deals/${requestId}`) ?? shown.u;
+          } else {
+            if (notice.k === 'r') await this.requests.decline(actor.id, notice.id, null);
+            else await this.offers.decline(actor.id, notice.id);
+            shown.d = '✖️ Отклонено';
+          }
+          this.logger.log(`chat ${chatId} account ${actor.id}: ${c.op === 'na' ? 'accepted' : 'declined'} ${notice.k} ${notice.id} (card)`);
+        } catch (e) {
+          const why = refusal(e);
+          if (why == null) throw e;
+          // Already answered on the site, expired, not this side's turn: the card says so and stops asking.
+          shown.d = `⚠️ ${why}`;
+        }
+      }
+      shown.a = 0;
+      ctx.notice = { ...notice, ns: shown };
+      await this.save(chatId, messageId, ctx);
+    }
+    const packed = packState(shown);
+    await tg('editMessageWidgetData', { chat_id: chatId, message_id: messageId, chat_data: packed }).catch(() => undefined);
+    await tg('answerWidgetQuery', { widget_query_id: q.id, data: packed }).catch(() => undefined);
+  }
 }
+
+/** What a buyer reads about a purchase on its way. */
+const BUY_STATUS = {
+  PENDING_SELLER: 'Ждём ответа продавца',
+  ACCEPTED: 'Продавец подтвердил',
+  WAITING_PAYMENT: 'Ожидает оплаты',
+  WAITING_HANDOVER: 'Договоритесь о передаче',
+  HANDED_OVER: 'Передано — подтвердите получение',
+  IN_TRANSIT: 'В пути',
+  DISPUTED: 'Открыт спор',
+} as const;
 
 /** True when a refusal is the services' own (a message for the seller), not a crash. */
 export const isRefusal = (e: unknown) => e instanceof HttpException;

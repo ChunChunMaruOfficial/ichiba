@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
 import { AuthModal } from "@/components/auth-modal";
@@ -90,6 +90,7 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { me, loading, refresh } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const admin = me?.role === "ADMIN";
   const session = useSWR<{ ok: boolean }>(admin ? "/admin/session" : null, { shouldRetryOnError: false, revalidateOnFocus: false });
 
@@ -112,7 +113,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-10">
-      <nav aria-label="Админка" className="mb-8 flex items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-line">
+      {/* Sections wrap onto a second line on narrow screens: the menu never scrolls sideways. */}
+      <nav aria-label="Админка" className="mb-8 flex flex-wrap items-center gap-x-1 border-b border-line">
         {NAV.map(([href, label]) => (
           <Link key={href} href={href} className={clsx("-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium", pathname === href ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")}>
             {label}
@@ -123,7 +125,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           className="ml-auto shrink-0 whitespace-nowrap px-2 py-2.5 text-sm text-muted hover:text-ink"
           onClick={async () => {
             await api("/auth/admin-logout", { method: "POST" }).catch(() => {});
-            await session.mutate(undefined, { revalidate: true });
+            // Out of the admin panel and back to the site itself.
+            router.push("/");
+            await session.mutate(undefined, { revalidate: false });
           }}
         >
           Выйти из админки
