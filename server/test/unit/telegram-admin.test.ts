@@ -1,0 +1,107 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { JwtService } from '@nestjs/jwt';
+import { allowlisted, lockedOutFor, logPrefsOf, sessionMs, unlocked } from '../../src/telegram/admin/access.js';
+import { groupOf, logLine } from '../../src/telegram/admin/activity-labels.js';
+import { AdminApi } from '../../src/telegram/admin/api.js';
+import { parseValue } from '../../src/telegram/admin/db.js';
+import { ROUTES } from '../../src/telegram/admin/routes.js';
+import { AdminStore } from '../../src/telegram/admin/store.js';
+import { fit, pager } from '../../src/telegram/admin/ui.js';
+import type { RedisService } from '../../src/redis/redis.js';
+
+const H = 3600_000;
+
+test('a bot session holds only until it expires or the account’s sessions are reset', () => {
+  const now = Date.now();
+  const s = { session: { until: new Date(now + H).toISOString(), sv: 3 } };
+  assert.equal(unlocked(s, 3, now), true);
+  assert.equal(unlocked(s, 4, now), false, 'a password reset / block bumps sessionVersion and closes the bot');
+  assert.equal(unlocked(s, 3, now + 2 * H), false);
+  assert.equal(unlocked({}, 0, now), false);
+  assert.equal(unlocked({ session: null }, 0, now), false);
+});
+
+test('wrong passwords lock the bot for a while', () => {
+  const now = Date.now();
+  assert.equal(lockedOutFor({ failed: { n: 4, until: null } }, now), 0);
+  assert.ok(lockedOutFor({ failed: { n: 0, until: new Date(now + 60_000).toISOString() } }, now) > 0);
+  assert.equal(lockedOutFor({ failed: { n: 0, until: new Date(now - 1).toISOString() } }, now), 0);
+});
+
+test('session length is bounded and the Telegram allowlist is a second gate', () => {
+  process.env.TELEGRAM_ADMIN_SESSION_HOURS = '1000';
+  assert.equal(sessionMs(), 72 * H);
+  process.env.TELEGRAM_ADMIN_SESSION_HOURS = '';
+  assert.equal(sessionMs(), 12 * H);
+  process.env.TELEGRAM_ADMIN_IDS = '';
+  assert.equal(allowlisted(5), true);
+  process.env.TELEGRAM_ADMIN_IDS = '111, 222';
+  assert.equal(allowlisted(222), true);
+  assert.equal(allowlisted(5), false);
+  process.env.TELEGRAM_ADMIN_IDS = '';
+});
+
+test('journal notifications: on for everything until changed', () => {
+  assert.deepEqual(logPrefsOf({}), { mode: 'instant', off: [], digestAt: null });
+  assert.equal(logPrefsOf({ log: { mode: 'bogus' as 'off', off: [] } }).mode, 'instant');
+  assert.equal(groupOf('listing_published'), 'listings');
+  assert.equal(groupOf('deal_completed'), 'sales');
+  assert.equal(groupOf('listing_sold'), 'sales');
+  assert.equal(groupOf('price_changed'), 'prices');
+  assert.equal(groupOf('offer_accepted'), 'offers');
+  assert.equal(groupOf('profile_edited'), 'account');
+});
+
+test('a journal line escapes what sellers typed', () => {
+  const line = logLine({ at: new Date(), action: 'listing_published', detail: '<script>', market: 'resale', seller: { username: 'a<b', brand: null }, listing: { id: 'x', title: 'Куртка <b>' } });
+  assert.doesNotMatch(line, /<script>|<b>'|a<b/);
+  assert.match(line, /&lt;script&gt;/);
+  assert.match(line, /Выставил/);
+});
+
+test('DB values are parsed by the column type', () => {
+  const col = (type: string, extra: object = {}) => ({ name: 'c', type, nullable: true, enumValues: null, pk: false, secret: false, ...extra });
+  assert.deepEqual(parseValue(col('text'), 'NULL'), { ok: true, value: null });
+  assert.equal(parseValue(col('text', { nullable: false }), 'null').ok, false);
+  assert.deepEqual(parseValue(col('text[]'), '["a","b"]'), { ok: true, value: ['a', 'b'] });
+  assert.equal(parseValue(col('text[]'), 'a,b').ok, false);
+  assert.deepEqual(parseValue(col('boolean'), 'да'), { ok: true, value: 'true' });
+  assert.equal(parseValue(col('jsonb'), '{oops').ok, false);
+  assert.equal(parseValue(col('"Role"', { enumValues: ['USER', 'ADMIN'] }), 'ROOT').ok, false);
+  assert.deepEqual(parseValue(col('text'), ' hi '), { ok: true, value: ' hi ' });
+});
+
+test('screens stay within Telegram’s limits', () => {
+  const long = `<b>${'я'.repeat(5000)}</b> &amp;`;
+  const out = fit(long);
+  assert.ok(out.length <= 4096);
+  assert.doesNotMatch(out, /<b>|<\/b>/, 'a cut never leaves a tag open');
+  assert.deepEqual(pager('x', {}, 'i', 0, 1), []);
+  assert.equal(pager('x', {}, 'i', 1, 3)[1].text, '2 / 3');
+});
+
+test('every button leads to a route that exists', () => {
+  for (const r of ['home', 'overview', 'reports', 'disputes', 'complaints', 'listings', 'users', 'user', 'brands', 'articles', 'log', 'imports', 'db', 'db.table', 'db.row']) assert.ok(ROUTES[r], r);
+});
+
+test('button routes are per chat and refuse anything malformed', async () => {
+  const store = new AdminStore({ client: null } as unknown as RedisService);
+  const id = await store.saveScreen('1', [{ r: 'home' }, { r: 'users', p: { q: 'x' } }]);
+  assert.deepEqual(await store.route('1', `ad:${id}:1`), { r: 'users', p: { q: 'x' } });
+  assert.equal(await store.route('2', `ad:${id}:1`), null, 'another chat finds nothing');
+  assert.equal(await store.route('1', `ad:${id}:9`), null);
+  assert.equal(await store.route('1', `ad:../x:1`), null);
+  assert.equal(await store.once('k', 60), true);
+  assert.equal(await store.once('k', 60), false);
+});
+
+test('the bot’s API client reaches only the admin API', async () => {
+  const api = new AdminApi(new JwtService({ secret: 'x' }));
+  const admin = { id: 'a', username: 'a', role: 'ADMIN' as const, sessionVersion: 0 };
+  await assert.rejects(api.call(admin, 'GET', '/auth/me'), /Недоступно/);
+  await assert.rejects(api.call(admin, 'POST', '/listings'), /Недоступно/);
+  await assert.rejects(api.call(admin, 'GET', '/admin/../auth/me'), /Недоступно/);
+  await assert.rejects(api.call(admin, 'GET', '/admin/db/%2e%2e'), /Недоступно/);
+  await assert.rejects(api.call(admin, 'GET', '//evil.example/admin/x'), /Недоступно/);
+});
