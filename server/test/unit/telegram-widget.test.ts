@@ -9,6 +9,7 @@ import { CARD_HTML, ITEMS_HTML, NOTICE_HTML, WIDGET_HTML } from '../../src/teleg
 import { noticeFor } from '../../src/telegram/widget-notice.js';
 import { saveWidgetCtx } from '../../src/telegram/widget-store.js';
 import { packState, parseCommand, TelegramWidgetService } from '../../src/telegram/widget.js';
+import { toView } from '../../src/telegram/widget-view.js';
 
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -30,7 +31,7 @@ function render(state: Record<string, unknown> | null) {
   const out = { innerHTML: '' };
   const handlers: Record<string, () => void> = {};
   const W = {
-    chatData: state ? JSON.stringify(state) : null,
+    chatData: state ? JSON.stringify(toView(state)) : null,
     onEvent: (t: string, fn: () => void) => (handlers[t] = fn),
     request: () => new Promise(() => undefined),
     ready: () => undefined,
@@ -44,10 +45,17 @@ function render(state: Record<string, unknown> | null) {
 }
 
 test('every screen draws from its state, and users’ text is escaped', () => {
+  process.env.APP_URL = 'https://ichiba.by';
   const evil = '<img src=x onerror=alert(1)>"\'';
-  assert.match(render(null), /Магазин ichiba/);
+  assert.match(render(null), /Ichiba/);
   assert.match(render({ e: 'Не подключён' }), /Не подключён/);
-  assert.match(render({ s: 'h', u: 'shop', n: [3, 1, 0, 7], w: 2, k: 1 }), /Ждут вашего ответа: 2[\s\S]*Другой магазин/);
+  const home = render({ s: 'h', u: 'shop', n: [3, 1, 0, 7], w: 2, k: 1 });
+  assert.match(home, /Сделки<span class="bd">2<\/span>/, 'what waits is the red count on «Сделки»');
+  assert.match(home, /Другой магазин/);
+  assert.ok(!render({ s: 'h', u: 'buyer', n: [0, 0, 0, 0] }).includes('В продаже'), 'no zero counters for a buyer');
+  assert.match(render({ s: 'l', u: 'shop', f: 'd', p: 0, P: 1, i: [] }), /Черновиков нет[\s\S]*Выставить вещь/, 'an empty list says what to do');
+  assert.match(render({ s: 'd', u: 'shop', i: [] }), /Ничего не ждёт ответа/);
+  assert.match(render({ s: 'b', u: 'shop', i: [] }), /Активных покупок нет[\s\S]*Подбор вещей/);
   const list = render({ s: 'l', u: 'shop', f: 'a', p: 0, P: 3, i: [[evil, 120, 'P'], ['Плащ', null, 'R']] });
   assert.ok(!list.includes('<img'), 'a title is text, never markup');
   assert.match(list, /&#60;img/);
@@ -58,17 +66,19 @@ test('every screen draws from its state, and users’ text is escaped', () => {
   assert.match(item, /Сохранить · 120/);
   assert.match(item, /Поднять/);
   assert.match(item, /Продано/);
-  assert.match(item, /M<svg/);
-  assert.match(render({ s: 'i', T: 'x', c: 50, o: 80, st: 'S' }), /<s[^>]*>80/);
-  assert.match(render({ s: 'd', u: 'shop', w: 1, i: [['r', evil, 'Плащ', 90]] }), /Принять[\s\S]*Отклонить/);
+  assert.match(item, />M<svg/, 'a size in stock, with its ✕');
+  assert.match(render({ s: 'i', T: 'x', c: 50, o: 80, st: 'S' }), /<s[^>]*>80 BYN/);
+  const deal = render({ s: 'd', u: 'shop', w: 1, i: [['r', evil, 'Плащ', 90]] });
+  assert.match(deal, /<div class="row ar">[\s\S]*90 BYN · @&#60;img[\s\S]*q\('da:0'\)[\s\S]*loc\('0',1\)"[\s\S]*<\/div>$/, 'one row: what, who, ✓ at once, ✕ after a confirm');
   assert.match(render({ s: 't', u: 'shop', d: [1, 2, 3, 4, 5, 6, 7], v: 28, f: 3, c: 1, m: 0, o: 0, r: 1 }), /class="bars"/);
   assert.match(render({ s: 'n', u: 'shop', q: [1, 0, 1, 1, 1, 1, 1, 1] }), /Предложения цены<span class="sw"><\/span>/, 'a switch that is off');
   assert.match(render({ s: 'x', a: ['one', 'two'] }), /@two/);
+  assert.match(render({ s: 't', u: 'shop', d: [0, 0, 0, 0, 0, 0, 0], v: 3, f: 0, c: 0, m: 0, o: 0, r: 0 }), /<span class="n">3<\/span><span class="mu">Просмотры/, 'a number beside its label');
 });
 
 test('handlers carry only the app’s own commands, never users’ text', () => {
   const html = render({ s: 'l', u: 'shop', f: 'a', p: 0, P: 1, i: [["');alert(1);('", 1, 'P']] });
-  for (const h of html.match(/onclick="[^"]*"/g) ?? []) assert.match(h, /^onclick="(q\('[\w:]*'\)|loc\('\w',-?\d+\)|site\(('[\w/-]*')?\)|)"$/, h);
+  for (const h of html.match(/onclick="[^"]*"/g) ?? []) assert.match(h, /^onclick="(q\('[\w:]*'\)|loc\('[\w.]+',-?\d+\)|go\(\d+\)|flip\(\d+\)|)"$/, h);
 });
 
 // ---------- commands and state ----------
@@ -148,17 +158,18 @@ test('/menu sends the widget with queries allowed, protected, and no caption rep
   assert.equal(send.body.allow_queries, true);
   assert.equal(send.body.protect_content, true);
   assert.equal(send.body.caption, undefined);
-  assert.equal(send.body.height, 600, 'one fixed height for every screen of the menu');
+  assert.equal(send.body.height, 510, 'one fixed height for every screen of the menu');
   assert.equal(JSON.parse(String(send.body.chat_data)).s, 'h');
 });
 
 test('a tap opens only the shop’s own items, by position in the list the bot showed', async () => {
   const { tap, lastState, done } = serviceWith();
   await tap('l:a:0');
-  const list = lastState();
-  assert.deepEqual(list.i.map((x: unknown[]) => x[0]), ['Плащ'], 'a foreign item is never listed');
+  const list = JSON.stringify(lastState());
+  assert.ok(list.includes('Плащ') && !list.includes('Чужая куртка'), 'a foreign item is never listed');
   await tap('o:0');
-  assert.equal(lastState().T, 'Плащ');
+  assert.equal(lastState().s, 'i');
+  assert.ok(JSON.stringify(lastState()).includes('Плащ'));
   await tap('o:7');
   assert.equal(lastState().s, 'l', 'a position the bot never showed reopens the list');
   await tap('l:a:0');
@@ -169,15 +180,29 @@ test('a tap opens only the shop’s own items, by position in the list the bot s
   assert.ok(calls.some((c) => c.method === 'editMessageWidgetData'), 'the message keeps the new state');
 });
 
+test('a menu sent before this version is replaced by a new one on its first tap, then edited in place', async () => {
+  const { svc } = serviceWith();
+  const tap = (id: string, data: string) => svc.query({ id, from: { id: CHAT }, chat: { id: CHAT, type: 'private' }, message_id: 77, data });
+  await tap('u1', 'l:a:0');
+  assert.ok(calls.some((c) => c.method === 'sendWidget'), 'an old menu is sent anew');
+  assert.ok(calls.some((c) => c.method === 'deleteMessage' && c.body.message_id === 77), 'and the old one goes');
+  calls = [];
+  await saveWidgetCtx({ client: null } as never, CHAT, 77, { v: 2 });
+  await tap('u2', 'l:a:0');
+  await tap('u3', 'l:s:0');
+  assert.ok(!calls.some((c) => c.method === 'sendWidget' || c.method === 'deleteMessage'), '«Вещи» and the rest switch in place');
+  assert.equal(calls.filter((c) => c.method === 'editMessageWidgetData').length, 2);
+});
+
 test('nothing happens from a group, from someone else, or from an unlinked Telegram', async () => {
   const s1 = serviceWith();
   await s1.tap('H', { id: -5, type: 'group' });
   await s1.tap('H', { id: CHAT, type: 'private' }, CHAT + 1);
   assert.deepEqual(s1.done, []);
-  assert.match(s1.lastState().e, /личном чате/);
+  assert.match(JSON.stringify(s1.lastState()), /личном чате/);
   const s2 = serviceWith([]);
   await s2.tap('l:a:0');
-  assert.match(s2.lastState().e, /не подключён/);
+  assert.match(JSON.stringify(s2.lastState()), /не подключён/);
 });
 
 test('a deal of another shop is never answered', async () => {
@@ -209,7 +234,7 @@ test('«Покупки» lists counter-offers to answer and purchases on their w
   assert.match(html, /&#60;b&#62;Плащ/);
   assert.match(html, /q\('ba:0'\)/);
   assert.match(html, /В пути/);
-  assert.equal((html.match(/Принять<\/button>/g) ?? []).length, 1, 'only the counter-offer has buttons');
+  assert.equal((html.match(/class="ok"/g) ?? []).length, 1, 'only the counter-offer has buttons');
 });
 
 test('the deal card fits, draws its state escaped, and its handlers are fixed', () => {
@@ -267,6 +292,7 @@ test('a counter-offer is answered only by its buyer', async () => {
   const offers = { accept: async (a: string, id: string) => void done.push(`accept ${a} ${id}`), decline: async () => void done.push('decline') };
   const svc = new TelegramWidgetService(prisma as never, { client: null } as never, {} as never, {} as never, offers as never, {} as never);
   const tap = (data: string) => svc.query({ id: data, from: { id: CHAT }, chat: { id: CHAT, type: 'private' }, message_id: 80, data });
+  await saveWidgetCtx({ client: null } as never, CHAT, 80, { v: 2 });
   await tap('b');
   await tap('ba:0');
   await tap('ba:5');

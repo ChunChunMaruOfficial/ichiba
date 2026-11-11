@@ -25,8 +25,8 @@ export interface WCtx {
   notice?: NoticeCtx;
   /** A generic card (cards.ts): what it shows, and the item its «Открыть вещь» button opens. */
   card?: { item?: string; ns?: Record<string, unknown> };
-  /** Which menu template the message carries (widget.ts). */
-  tpl?: 'menu' | 'items';
+  /** The menu's version: 2 = the one template drawing blocks (widget-view.ts). Older menus are sent anew once. */
+  v?: number;
 }
 
 const TTL_S = 30 * 24 * 3600;
@@ -63,7 +63,13 @@ export function packState(state: Record<string, unknown>): string {
     const cut = (v: unknown): unknown => (typeof v === 'string' && v.length > n ? `${v.slice(0, n - 1)}…` : Array.isArray(v) ? v.map(cut) : v);
     json = JSON.stringify({ ...state, i: cut(state.i), T: cut(state.T), z: cut(state.z), t: cut(state.t), w: cut(state.w) });
   }
-  return Buffer.byteLength(json) > MAX_STATE ? JSON.stringify({ s: state.s, u: state.u, t: 'Слишком много данных — откройте на сайте' }) : json;
+  // A screen of blocks (widget-view.ts): its texts are cut down, never its commands or links.
+  for (let n = 40; Buffer.byteLength(json) > MAX_STATE && Array.isArray(state.B) && n >= 10; n -= 6) {
+    const cut = (v: unknown): unknown =>
+      typeof v === 'string' && v.length > n && !/^[\w:]+$/.test(v) && !v.startsWith('https://') ? `${v.slice(0, n - 1)}…` : Array.isArray(v) ? v.map(cut) : v;
+    json = JSON.stringify({ ...state, B: cut(state.B) });
+  }
+  return Buffer.byteLength(json) > MAX_STATE ? JSON.stringify({ s: state.s, H: state.H ?? ['Ichiba'], B: [['p', 'Слишком много данных — откройте на сайте']] }) : json;
 }
 const mem = new Map<string, { v: WCtx; until: number }>();
 const menus = new Map<string, number>();

@@ -23,7 +23,8 @@ import { tg } from './bot-api.js';
 import { linkedAccounts } from './notifier.js';
 import { refusal, TelegramShopService } from './shop.js';
 import { TG_CATEGORIES, tgPrefsOf } from './texts.js';
-import { ITEMS_HTML, MENU_HTML } from './widget-html.js';
+import { MENU_HTML } from './widget-html.js';
+import { toView } from './widget-view.js';
 import { ownerUsername } from './admin/access.js';
 import { UNLINK } from './notifier.js';
 import { siteLink } from './widget-notice.js';
@@ -43,13 +44,17 @@ export interface WidgetQuery {
 
 const PAGE = 6;
 /**
- * The menu's fixed height (Telegram allows 50–600). Every screen in its fullest state fits it: measured at 320 and
- * 430 px wide, the tallest (home with «Админка», another shop and deals waiting) is 558 px. Nothing scrolls inside
- * a widget, so long titles are cut to one line and lists of things to answer show three rows.
+ * The menu's fixed height (Telegram allows 50–600). It must fit the chat area of a small phone (~520 px under the
+ * header) and of a small Telegram Web window, so the back button never hides under the app's header. Every screen
+ * in its fullest state fits it: measured at 320 and 430 px wide, the tallest (home with «Админка», another shop
+ * and deals waiting) is 495 px. Nothing scrolls inside a widget, so long titles are cut to one line and lists of
+ * things to answer show three rows.
  */
-export const WIDGET_HEIGHT = 600;
+export const WIDGET_HEIGHT = 510;
 /** Rows of «Ждут ответа» / «Покупки» that fit the widget's one height. */
 const WIDGET_ROWS = 3;
+/** The menu's version (WCtx.v): a menu message of another version is sent anew on its next tap. */
+const MENU_V = 2;
 const MAX_PRICE = 100_000;
 const FILTERS: Record<string, Array<'PUBLISHED' | 'RESERVED' | 'HIDDEN' | 'DRAFT' | 'SOLD'>> = {
   a: ['PUBLISHED', 'RESERVED'],
@@ -131,27 +136,21 @@ export class TelegramWidgetService {
     }
   }
 
-  /** The list and an item live in their own widget (ITEMS_HTML); everything else in the menu (MENU_HTML). */
-  private tplOf(state: WidgetState): 'menu' | 'items' {
-    return state.s === 'l' || state.s === 'i' ? 'items' : 'menu';
-  }
-
   /**
-   * Sends the menu as a new message with the template its screen needs and takes the place of the chat's previous
-   * menu, which is deleted: the chat keeps one menu, at the bottom. No caption — apps draw it under the widget.
+   * Sends the menu as a new message and takes the place of the chat's previous menu, which is deleted: the chat
+   * keeps one menu, at the bottom. Every screen is drawn in this one message. No caption — apps draw it under it.
    */
   private async place(chatId: number, state: WidgetState, ctx: WCtx) {
-    const tpl = this.tplOf(state);
     const msg = await tg<{ message_id: number }>('sendWidget', {
       chat_id: chatId,
-      html: tpl === 'items' ? ITEMS_HTML : MENU_HTML,
+      html: MENU_HTML,
       // One height for every screen of the menu, so it never jumps while you move around in it.
       height: WIDGET_HEIGHT,
-      chat_data: packState(state),
+      chat_data: packState(toView(state)),
       allow_queries: true,
       protect_content: true,
     });
-    await this.save(chatId, msg.message_id, { ...ctx, tpl });
+    await this.save(chatId, msg.message_id, { ...ctx, v: MENU_V });
     const prev = await chatMenu(this.redis, chatId);
     await setChatMenu(this.redis, chatId, msg.message_id);
     if (prev && prev !== msg.message_id) await tg('deleteMessage', { chat_id: chatId, message_id: prev }).catch(() => undefined);
@@ -161,7 +160,7 @@ export class TelegramWidgetService {
   // ---------- a tap ----------
 
   async query(q: WidgetQuery) {
-    const answer = (state: WidgetState) => tg('answerWidgetQuery', { widget_query_id: q.id, data: packState(state) }).catch(() => undefined);
+    const answer = (state: WidgetState) => tg('answerWidgetQuery', { widget_query_id: q.id, data: packState(toView(state)) }).catch(() => undefined);
     const chatId = q.chat?.id;
     const messageId = q.message_id;
     if (!chatId || !messageId || q.chat?.type !== 'private' || chatId !== q.from.id) return answer({ e: 'Это меню работает только в личном чате с ботом' });
@@ -188,19 +187,19 @@ export class TelegramWidgetService {
       state = ctx.item ? await this.item(accounts, ctx, ctx.item) : await this.home(accounts, ctx);
       state.t = `⚠️ ${why}`;
     }
-    await this.save(chatId, messageId, ctx);
-    const packed = packState(state);
-    // Into the other template (menu ↔ items): the message is replaced, in place in the chat's flow.
-    if (this.tplOf(state) !== (ctx.tpl ?? 'menu')) {
+    // A menu sent before the block renderer cannot draw this state: it is replaced by a new one, once.
+    if (ctx.v !== MENU_V) {
       try {
         await this.place(chatId, state, ctx);
         await tg('deleteMessage', { chat_id: chatId, message_id: messageId }).catch(() => undefined);
         await tg('answerWidgetQuery', { widget_query_id: q.id }).catch(() => undefined);
         return;
       } catch (e) {
-        this.logger.warn(`widget swap: ${(e as Error).message}`);
+        this.logger.warn(`widget upgrade: ${(e as Error).message}`);
       }
     }
+    await this.save(chatId, messageId, ctx);
+    const packed = packState(toView(state));
     await tg('editMessageWidgetData', { chat_id: chatId, message_id: messageId, chat_data: packed }).catch(() => undefined);
     await tg('answerWidgetQuery', { widget_query_id: q.id, data: packed }).catch(() => undefined);
   }

@@ -31,11 +31,11 @@ button.c{display:block;text-align:left}
 .g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
 .c>:last-child,#a>:last-child,.g>.c{margin-bottom:0}
 .mu{color:var(--m);font-size:12px}
-.row{width:100%;margin-bottom:8px;background:var(--s);border:1px solid var(--l);text-align:left}
+.row{width:100%;margin-bottom:6px;padding:7px 11px;background:var(--s);border:1px solid var(--l);text-align:left}
 .row b{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.pr{font-size:30px;font-weight:700;text-align:center;flex:1}
+.pr{font-size:26px;font-weight:700;text-align:center;flex:1}
 .main{width:100%;justify-content:center;background:var(--r);color:var(--s);font-weight:700;padding:12px;margin:0 0 8px}
-.main[disabled]{opacity:.45}
+.main.off{opacity:.45}
 .ok{background:var(--gs);color:var(--g)}
 .no{background:var(--rs);color:var(--r)}
 .t{position:absolute;left:12px;right:12px;bottom:10px;text-align:center;font-size:13px;color:var(--s);background:var(--b);border-radius:10px;padding:8px;box-shadow:0 6px 18px rgba(28,26,23,.2)}
@@ -44,11 +44,13 @@ s{color:var(--m)}`;
 /** Only the menu: the grouped list, counters, «Подбор», switches, the chart. */
 export const CSS_MENU = `
 .n{font-size:24px;font-weight:700}
-.tl{gap:10px;padding:9px 12px;background:var(--s);border:1px solid var(--l);border-radius:14px;font-weight:600;text-align:left}
+.tl{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s);border:1px solid var(--l);border-radius:14px;font-weight:600;text-align:left}
 .tl svg{width:22px;height:22px;color:var(--b)}
 .tl .n{font-size:22px}
 .tl .mu{font-weight:400}
+.ar{display:flex;align-items:center;gap:8px;border-radius:12px}.ar button{padding:7px 9px}
 .bd{background:var(--r);color:var(--s);border-radius:99px;padding:1px 8px;font-size:12px;font-weight:700}
+.em{text-align:center;padding:20px 14px}.em svg{width:34px;height:34px;color:var(--b);margin-bottom:6px}.em b{display:block;font-size:16px;margin-bottom:4px}.em .main{margin:12px 0 0}
 .vb{background:var(--b);color:var(--s);border:0;padding:10px 12px;margin-bottom:8px}.vb .mu{color:var(--bs)}.vb svg{width:26px;height:26px;color:var(--s)}
 .sw{width:36px;height:22px;border-radius:99px;background:var(--l);position:relative;margin-left:auto;flex:none}
 .sw:after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
@@ -61,7 +63,7 @@ export const CSS_ITEMS = `
 .ch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 .ch button{padding:7px 10px;font-size:13px}
 .on{background:var(--b);color:var(--s)}
-.st{display:flex;align-items:center;gap:8px;margin:8px 0}
+.st{display:flex;align-items:center;gap:8px;margin:6px 0}
 .st button{width:44px;justify-content:center;font-size:20px}
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:12px;background:var(--k);color:var(--m)}
 .pill:before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
@@ -70,64 +72,60 @@ export const CSS_ITEMS = `
 
 /** Helpers both widgets share: escaping, money, buttons, icons, the request round-trip. */
 const COMMON_JS = `
-var W = TelegramWidget, S = {}, T = '';
+var W = TelegramWidget, S = {}, T = '', N = 0;
 var P = {
   back: 'M15 5l-7 7 7 7',
   check: 'M5 12.5l4.5 4.5L19 7',
   x: 'M6 6l12 12M18 6 6 18'
 };
-function ic(n) { return '<svg viewBox="0 0 24 24"><path d="' + P[n] + '"/></svg>'; }
+function ic(n) { var d = P[n] || (S.P || {})[n]; return d ? '<svg viewBox="0 0 24 24"><path d="' + d + '"/></svg>' : ''; }
 function e(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 function byn(n) { return n == null ? 'договорная' : Number(n).toLocaleString('ru-RU') + ' BYN'; }
 function b(t, c, k) { return '<button class="' + (k || '') + '" onclick="' + c + '">' + t + '</button>'; }
 function hap(k) { try { k ? W.HapticFeedback.impactOccurred('light') : W.HapticFeedback.selectionChanged(); } catch (x) {} }
 function q(d) {
-  hap(1);
-  W.request(d).then(function (a) { a && a.result ? set(a.result) : (T = '', r()); }, function (x) {
-    set(W.chatData);
+  hap(1); N++;
+  W.request(d).then(function (a) { N--; a && a.result ? set(a.result) : (T = '', r()); }, function (x) {
+    N--; set(W.chatData);
     T = x && x.code == 'RATE_LIMITED' ? 'Не так быстро' : 'Не получилось, повторите'; r();
   });
 }
 function seal(title, sub) { return '<div class="h"><div class="se">市</div><div class="u">' + title + (sub || '') + '</div></div>'; }
-function done(h) { document.getElementById('a').innerHTML = h + (T ? '<div class="t">' + e(T) + '</div>' : ''); }
+function fit() {
+  try {
+    var a = document.getElementById('a'), H = document.documentElement.clientHeight - 24, h = a.scrollHeight;
+    a.style.transform = ''; a.style.width = '';
+    if (H > 0 && h > H) { var k = H / h; a.style.transformOrigin = '0 0'; a.style.transform = 'scale(' + k + ')'; a.style.width = 100 / k + '%'; }
+  } catch (x) {}
+}
+function done(h) { document.getElementById('a').innerHTML = h + (T ? '<div class="t">' + e(T) + '</div>' : ''); fit(); }
 `;
 
 /**
- * The shop menu, in two widgets (a widget's code is fixed per message and must fit 4 KB compressed): MENU_JS —
- * home, what waits, purchases, statistics, notifications, shops; ITEMS_JS — the list and an item. Moving between the
- * two, the bot replaces the message (widget.ts), so the chat keeps one menu. Nesting: the 市 logo only on home,
- * «back» at the top left everywhere else (an item → its list, the rest → home).
+ * The shop menu: one widget, one message, every screen. It is a small renderer of blocks — the bot builds each
+ * screen (texts, buttons, data) in widget-view.ts and sends it as the state; the code here only draws it, keeps the
+ * few things that must answer at once on the tap (the price stepper, a second tap to confirm, a switch flip) and
+ * sends the commands the blocks carry. A screen is {H: [title, sub, back], B: [blocks], t: note}.
+ *
+ * Blocks (arrays, the first item names the kind):
+ *   ['g', tiles]            two-column tiles; a tile is [icon or number, label, command or https url, badge]
+ *   ['v', icon, title, sub, command]          the «Подбор» banner
+ *   ['r', label, command, icon, right]        a full-width row
+ *   ['a', icon, title, sub, yes, no]          a one-line row to answer: ✓ at once, ✕ after «Отклонить?»
+ *   ['c', ...lines]         a card; a line is ['b'|'m'|'p'|'pl'|'t', text, extra]
+ *   ['ch', chips]           chips; a chip is [label, command, on, confirm label, icon]
+ *   ['k', buttons]          two-column buttons; a button is [label, command, icon, confirm label, style]
+ *   ['st', price, warn]     the price stepper with «Сохранить»
+ *   ['s', label, on, command]                 a switch row (flips on the tap)
+ *   ['m', label, command]   a main (red) button
+ *   ['e', icon, title, text, label, command]  an empty state
+ *   ['bars', values, caption]                 the 7-day chart
+ *   ['pg', page, pages, previous, next]       a pager
+ *   ['o', label, https url, icon]             a link row (opens the site)
+ *   ['p', text]             a muted line
  */
 const MAIN_BASE = `
-var L = {};
-var ST = { P: 'В продаже', R: 'Идёт сделка', H: 'Снята с продажи', D: 'Черновик', S: 'Продана', B: 'Снята модератором' };
-var NC = ['Сделки', 'Предложения цены', 'Аукционы', 'Сообщения', 'Интерес к вещам', 'Вечерняя сводка', 'Избранное и подписки', 'Аккаунт'];
-var TT = { l: 'Вещи', i: 'Вещь', d: 'Ждут ответа', b: 'Покупки', t: 'Статистика', n: 'Уведомления', x: 'Магазины' };
-var TO;
-function set(j) {
-  try { S = j ? JSON.parse(j) : {}; } catch (x) { S = {}; }
-  L = {}; T = S.t || ''; r();
-  // A note from the bot floats over the bottom for a moment, then goes.
-  clearTimeout(TO); if (T) TO = setTimeout(function () { T = ''; r(); }, 3500);
-}
-function loc(k, v) { hap(); L[k] = v; r(); }
-function site(p) { W.openLink('https://ichiba.by' + (p || '')); }
-function r() {
-  var s = S.s, u = S.u ? '<div class="mu">@' + e(S.u) + '</div>' : '';
-  var back = s == 'i' ? "q('l:" + (S.f || 'a') + ":0')" : "q('h')";
-  var h = s && s != 'h' && s != 'x'
-    ? '<div class="h">' + b(ic('back'), back, 'bk') + '<div class="u">' + TT[s] + u + '</div></div>'
-    : seal('Ichiba', u);
-  if (!s) h += '<div class="c">' + (S.e ? e(S.e) : 'Магазин ichiba') + '</div>' + b('Открыть', "q('h')", 'main');
-  else h += (SCR[s] || SCR.h || function () { return ''; })();
-  done(h);
-}
-`;
-
-export const MENU_JS =
-  COMMON_JS +
-  MAIN_BASE +
-  `
+var L = {}, TO, LK = [];
 Object.assign(P, {
   box: 'M3 7.5 12 3l9 4.5v9L12 21l-9-4.5zM3 7.5l9 4.5 9-4.5M12 12v9',
   bag: 'M5 8h14l-1.2 12H6.2zM9 8V7a3 3 0 0 1 6 0v1',
@@ -138,92 +136,81 @@ Object.assign(P, {
   key: 'M15 4a5 5 0 1 0 0 10 5 5 0 0 0 0-10M11.5 12.5 4 20M7 17l2 2M5 19l1.5 1.5',
   help: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01',
   heart: 'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z',
-  tag: 'M3 12V3h9l9 9-9 9zM7.5 7.5h.01'
+  tag: 'M3 12V3h9l9 9-9 9zM7.5 7.5h.01',
+  eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5',
+  up: 'M12 19V5M6 11l6-6 6 6'
 });
-
-function home() {
-  var n = S.n || [0, 0, 0, 0], l = ['В продаже', 'Сняты', 'Черновики', 'Проданы'], f = 'ahds';
-  var nav = [['box', 'Вещи', 'l:a:0'], ['bag', 'Сделки', 'd', S.w], ['cart', 'Покупки', 'b'], ['chart', 'Статистика', 't'], ['bell', 'Уведомления', 'n']];
-  if (S.k) nav.push(['box', 'Другой магазин', 'x']);
-  if (S.ad) nav.unshift(['key', 'Админка', 'A']);
-  // «Подбор» stands apart from the account: the site's swipe, one photo at a time, in its own message.
-  return b(ic('heart') + '<span><b>Подбор вещей</b><br><span class="mu">листайте и лайкайте</span></span>', "q('V')", 'row vb') +
-    (S.w ? b(ic('bag') + 'Ждут вашего ответа: ' + S.w, "q('d')", 'main') : '') +
-    (n[0] + n[1] + n[2] + n[3] ? '<div class="g">' + n.map(function (v, i) { return b('<span class="n">' + v + '</span><span class="mu">' + l[i] + '</span>', "q('l:" + f[i] + ":0')", 'tl'); }).join('') + '</div>' : '') +
-    '<div class="g">' + nav.map(function (x) { return b(ic(x[0]) + x[1] + (x[3] ? '<span class="bd">' + x[3] + '</span>' : ''), "q('" + x[2] + "')", 'tl'); }).join('') +
-    b(ic('globe') + 'Сайт ichiba', 'site()', 'tl') + b(ic('help') + 'Помощь', "site('/how-it-works')", 'tl') + '</div>';
+P.hide = P.eye + 'M4 4l16 16';
+function set(j) {
+  try { S = j ? JSON.parse(j) : {}; } catch (x) { S = {}; }
+  // Taps still on their way keep what they show (a switch flipped twice fast does not blink back).
+  if (!N) L = {};
+  T = S.t || ''; r();
+  // A note from the bot floats over the bottom for a moment, then goes.
+  clearTimeout(TO); if (T) TO = setTimeout(function () { T = ''; r(); }, 3500);
 }
-function deals() {
-  var i = S.i || [];
-  return i.length ? i.map(function (x, k) {
-    return '<div class="c"><b class="el">' + ic(x[0] == 'r' ? 'bag' : 'tag') + ' @' + e(x[1]) + ' · ' + byn(x[3]) + '</b><div class="mu el" style="margin:4px 0 8px">' + e(x[2]) + '</div><div class="g">' +
-      b(ic('check') + 'Принять', "q('da:" + k + "')", 'ok') + (L.d === k ? b('Отклонить?', "q('dx:" + k + "')", 'no') : b(ic('x') + 'Отклонить', "loc('d'," + k + ')')) + '</div></div>';
-  }).join('') + (S.m ? '<p class="mu">Ещё ' + S.m + ' ждут — ответьте на эти</p>' : '') : '<p class="mu">Ничего не ждёт ответа.</p>';
+function loc(k, v) { hap(); L[k] = v; r(); }
+/** A command for a handler: only the app's own shapes, never anything else. */
+function cm(c) { return /^[\\w:]+$/.test(c || '') ? "q('" + c + "')" : ''; }
+function go(i) { W.openLink(LK[i]); }
+function flip(i) { var x = S.B[i]; L[i] = !(L[i] != null ? L[i] : x[2]); r(); q(x[3]); }
+function tile(t) {
+  return b((typeof t[0] == 'number' ? '<span class="n">' + t[0] + '</span><span class="mu">' + e(t[1]) + '</span>' : ic(t[0]) + e(t[1])) + (t[3] ? '<span class="bd">' + t[3] + '</span>' : ''), /^https:/.test(t[2]) ? 'go(' + (LK.push(t[2]) - 1) + ')' : cm(t[2]), 'tl');
 }
-function buys() {
-  var i = S.i || [];
-  return i.length ? i.map(function (x) {
-    return '<div class="c"><b class="el">' + e(x[1]) + ' · ' + byn(x[2]) + '</b><div class="mu el" style="margin:4px 0">' + e(x[3]) + '</div>' +
-      (x[0] == 'c' ? '<div class="g">' + b(ic('check') + 'Принять', "q('ba:" + x[4] + "')", 'ok') + (L.y === x[4] ? b('Отклонить?', "q('bx:" + x[4] + "')", 'no') : b(ic('x') + 'Отклонить', "loc('y'," + x[4] + ')')) + '</div>' : '') + '</div>';
-  }).join('') + (S.m ? '<p class="mu">Ещё ' + S.m + ' — на сайте</p>' : '') : '<p class="mu">Активных покупок нет.</p>';
+function line(l) {
+  return l[0] == 'b' ? '<b class="el" style="font-size:16px">' + e(l[1]) + '</b>'
+    : l[0] == 'p' ? '<div class="pr">' + e(l[1]) + (l[2] ? ' <s style="font-size:15px">' + e(l[2]) + '</s>' : '') + '</div>'
+    : l[0] == 'pl' ? '<div style="margin:6px 0"><span class="pill ' + l[2] + '">' + e(l[1]) + '</span></div>'
+    : '<div class="mu' + (l[0] == 't' ? ' el' : '') + '" style="margin:3px 0">' + e(l[1]) + '</div>';
 }
-function stats() {
-  var d = S.d || [], m = Math.max.apply(null, d.concat(1));
-  return '<div class="mu">Просмотры за 7 дней</div><div class="bars">' + d.map(function (v) { return '<i style="height:' + Math.round((v / m) * 100) + '%"></i>'; }).join('') + '</div><div class="g">' +
-    [['Просмотры', S.v], ['В избранном', S.f], ['В корзине', S.c], ['Чаты', S.m], ['Предложения', S.o], ['Запросы', S.r]].map(function (x) { return '<div class="c"><div class="n">' + x[1] + '</div><div class="mu">' + x[0] + '</div></div>'; }).join('') + '</div>';
+var BK = {
+  g: function (x) { return '<div class="g">' + x[1].map(tile).join('') + '</div>'; },
+  v: function (x) { return b(ic(x[1]) + '<b>' + e(x[2]) + '</b><span class="mu">' + e(x[3]) + '</span>', cm(x[4]), 'row vb'); },
+  r: function (x) { return b(ic(x[3]) + '<b>' + e(x[1]) + '</b>' + (x[4] != null ? '<span class="mu">' + e(x[4]) + '</span>' : ''), cm(x[2]), 'row'); },
+  a: function (x, i) {
+    return '<div class="row ar">' + ic(x[1]) + '<span class="el" style="flex:1"><b class="el">' + e(x[2]) + '</b><span class="mu el">' + e(x[3]) + '</span></span>' +
+      (x[4] ? b(ic('check'), cm(x[4]), 'ok') + (L[i] ? b('Отклонить?', cm(x[5]), 'no') : b(ic('x'), "loc('" + i + "',1)")) : '') + '</div>';
+  },
+  c: function (x) { return '<div class="c">' + x.slice(1).map(line).join('') + '</div>'; },
+  ch: function (x, i) {
+    return '<div class="ch">' + x[1].map(function (c, j) {
+      var id = i + '.' + j;
+      return L[id] ? b(e(c[3]), cm(c[1]), 'no') : b(e(c[0]) + ic(c[4]), c[3] ? "loc('" + id + "',1)" : cm(c[1]), c[2] ? 'on' : '');
+    }).join('') + '</div>';
+  },
+  k: function (x, i) {
+    return '<div class="g">' + x[1].map(function (a, j) {
+      var id = i + '.' + j;
+      return L[id] ? b(e(a[3]), cm(a[1]), 'no') : b(ic(a[2]) + e(a[0]), a[3] ? "loc('" + id + "',1)" : cm(a[1]), a[4] || '');
+    }).join('') + '</div>';
+  },
+  st: function (x) {
+    var c = L.c == null ? x[1] : L.c, sp = L.s || 5, h = '<div class="st">' + b('−', "loc('c'," + Math.max(1, c - sp) + ')') + '<span class="pr">' + byn(c) + '</span>' + b('+', "loc('c'," + Math.min(1e5, c + sp) + ')') + '</div>';
+    h += '<div class="ch">' + [1, 5, 10, 50, 100].map(function (v) { return b('±' + v, "loc('s'," + v + ')', sp == v ? 'on' : ''); }).join('') + '</div>';
+    if (c * 2 < x[1]) h += '<div class="mu" style="color:var(--r)">' + e(x[2]) + '</div>';
+    return h + b(ic('check') + 'Сохранить · ' + byn(c), c == x[1] ? '' : cm('P:' + c), 'main' + (c == x[1] ? ' off' : ''));
+  },
+  s: function (x, i) { var on = L[i] != null ? L[i] : x[2]; return b(e(x[1]) + '<span class="sw' + (on ? ' on' : '') + '"></span>', 'flip(' + i + ')', 'row'); },
+  m: function (x) { return b(e(x[1]), cm(x[2]), 'main'); },
+  e: function (x) { return '<div class="c em">' + ic(x[1]) + '<b>' + e(x[2]) + '</b><div class="mu">' + e(x[3]) + '</div>' + (x[4] ? b(e(x[4]), /^https:/.test(x[5]) ? 'go(' + (LK.push(x[5]) - 1) + ')' : cm(x[5]), 'main') : '') + '</div>'; },
+  bars: function (x) { var m = Math.max.apply(null, x[1].concat(1)); return '<div class="mu">' + e(x[2]) + '</div><div class="bars">' + x[1].map(function (v) { return '<i style="height:' + Math.round((v / m) * 100) + '%"></i>'; }).join('') + '</div>'; },
+  pg: function (x) { return '<div class="st">' + b('‹', cm(x[3])) + '<span class="pr" style="font-size:14px">' + x[1] + ' / ' + x[2] + '</span>' + b('›', cm(x[4])) + '</div>'; },
+  o: function (x) { return /^https:/.test(x[2]) ? b(ic(x[3]) + '<b>' + e(x[1]) + '</b>', 'go(' + (LK.push(x[2]) - 1) + ')', 'row') : ''; },
+  p: function (x) { return '<p class="mu">' + e(x[1]) + '</p>'; }
+};
+function r() {
+  var H = S.H || ['Ichiba'], u = H[1] ? '<div class="mu">' + e(H[1]) + '</div>' : '';
+  LK = [];
+  var h = H[2] ? '<div class="h">' + b(ic('back'), cm(H[2]), 'bk') + '<div class="u">' + e(H[0]) + u + '</div></div>' : seal(e(H[0]), u);
+  (S.B || []).forEach(function (x, i) { h += BK[x[0]] ? BK[x[0]](x, i) : ''; });
+  done(h);
 }
-function flip(k) { S.q[k] = S.q[k] ? 0 : 1; q('nt:' + k); r(); }
-function nots() {
-  return (S.q || []).map(function (v, k) { return b(NC[k] + '<span class="sw' + (v ? ' on' : '') + '"></span>', 'flip(' + k + ')', 'row'); }).join('') +
-    (L.k ? b('Точно отключить?', "q('K')", 'row no') : b(ic('x') + 'Отключить Telegram', "loc('k',1)", 'row'));
-}
-function acc() { return (S.a || []).map(function (x, k) { return b('@' + e(x), "q('xa:" + k + "')", 'row'); }).join(''); }
-var SCR = { h: home, d: deals, b: buys, t: stats, n: nots, x: acc };
-W.onEvent('chatDataChanged', function () { set(W.chatData); });
-set(W.chatData);
-try { W.ready(); } catch (x) {}
 `;
 
-export const ITEMS_JS =
+export const SHOP_JS =
   COMMON_JS +
   MAIN_BASE +
   `
-Object.assign(P, {
-  eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5',
-  up: 'M12 19V5M6 11l6-6 6 6',
-  tag: 'M3 12V3h9l9 9-9 9zM7.5 7.5h.01'
-});
-P.hide = P.eye + 'M4 4l16 16';
-
-function list() {
-  var f = S.f || 'a', h = '<div class="ch">' + [['a', 'В продаже'], ['h', 'Снятые'], ['d', 'Черновики'], ['s', 'Проданные']].map(function (x) { return b(x[1], "q('l:" + x[0] + ":0')", f == x[0] ? 'on' : ''); }).join('') + '</div>';
-  var i = S.i || [];
-  h += i.length ? i.map(function (x, k) { return b('<b>' + e(x[0]) + '</b><span class="mu">' + byn(x[1]) + '</span>', "q('o:" + k + "')", 'row'); }).join('') : '<p class="mu">Здесь пока пусто.</p>';
-  if (S.P > 1) h += '<div class="st">' + b('‹', S.p > 0 ? "q('l:" + f + ':' + (S.p - 1) + "')" : '') + '<span class="pr" style="font-size:14px">' + (S.p + 1) + ' / ' + S.P + '</span>' + b('›', S.p < S.P - 1 ? "q('l:" + f + ':' + (S.p + 1) + "')" : '') + '</div>';
-  return h;
-}
-function item() {
-  var c = L.c == null ? S.c : L.c, st = S.st, ed = /[PHD]/.test(st) && !S.au;
-  var h = '<div class="c"><b class="el" style="font-size:16px">' + e(S.T) + '</b><div style="margin:8px 0"><span class="pill ' + st + '">' + (ST[st] || st) + '</span></div>';
-  if (/[PR]/.test(st)) h += '<div class="mu">' + S.v + ' просмотров · ' + S.fv + ' в избранном' + (S.of ? ' · торг принимается' : '') + '</div>';
-  if (ed) {
-    var sp = L.s || 5;
-    h += '<div class="st">' + b('−', "loc('c'," + Math.max(1, (c || 0) - sp) + ')') + '<span class="pr">' + byn(c) + '</span>' + b('+', "loc('c'," + Math.min(1e5, (c || 0) + sp) + ')') + '</div>';
-    h += '<div class="ch">' + [1, 5, 10, 50, 100].map(function (x) { return b('±' + x, "loc('s'," + x + ')', sp == x ? 'on' : ''); }).join('') + '</div>';
-    if (S.c && c * 2 < S.c) h += '<p class="mu" style="color:var(--r)">Больше чем вдвое дешевле — точно?</p>';
-    h += '<button class="main" ' + (c == S.c || !c ? 'disabled' : '') + ' onclick="q(\\'P:' + c + '\\')">' + ic('check') + 'Сохранить · ' + byn(c) + '</button>';
-  } else h += '<div class="pr">' + byn(S.c) + (S.o ? ' <s style="font-size:16px">' + byn(S.o) + '</s>' : '') + '</div>';
-  h += '</div>';
-  var z = S.z || [];
-  if (z.length > 1) h += '<div class="mu">Размеры в наличии — нажмите проданный:</div><div class="ch">' + z.map(function (x, k) { return L.z === k ? b('Убрать ' + e(x) + '?', "q('Z:" + k + "')", 'no') : b(e(x) + ic('x'), "loc('z'," + k + ')'); }).join('') + '</div>';
-  var a = [];
-  if (st == 'P') { a.push(b(ic('hide') + 'Снять', "q('H')")); if (S.bu == 0) a.push(b(ic('up') + 'Поднять', "q('B')")); if (S.fx) a.push(b(ic('tag') + (S.of ? 'Торг: вкл' : 'Торг: выкл'), "q('O')", S.of ? 'ok' : '')); }
-  if (st == 'H' && !S.ha) a.push(b(ic('eye') + 'Вернуть в продажу', "q('U')", 'ok'));
-  if (st == 'D') a.push(b(ic('up') + 'Опубликовать', "q('U')", 'ok'));
-  if (st == 'P' || (st == 'H' && !S.ha)) a.push(L.x ? b('Точно продано? Да', "q('S')", 'no') : b(ic('check') + 'Продано', "loc('x',1)"));
-  return h + '<div class="g">' + a.join('') + '</div>';
-}
-var SCR = { l: list, i: item };
 W.onEvent('chatDataChanged', function () { set(W.chatData); });
 set(W.chatData);
 try { W.ready(); } catch (x) {}
