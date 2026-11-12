@@ -33,6 +33,8 @@ function passwordHash(key: string): string | null {
 }
 
 const REMOVED_ON_ICHIBA = 'снято на ichiba';
+/** How a shop's product is published: see createListing. */
+const SHOP_PUBLISH = { trustedPhotos: true, trustedContent: true, allowUnchecked: true } as const;
 /** The reason kept on a product whose new photos moderation turned down (see the photo top-up in syncSource). */
 const PHOTOS_REJECTED = 'новые фото магазина не прошли модерацию';
 /** A BYN price that moved less than this (mostly the exchange rate wobbling) is not copied to the listing. */
@@ -230,7 +232,7 @@ export class ShopImportService implements OnApplicationBootstrap {
           await save(productId, { status: 'OUT', reason: product.hidden ? 'скрыт в магазине' : 'нет в наличии', listingId: live.id, fingerprint });
         } else if (offer.available && live.status === 'HIDDEN' && row!.status === 'OUT') {
           // Only what the sync hid comes back; a listing the brand hid by hand stays hidden.
-          await this.listings.publish(userId, live.id, { trustedPhotos: true });
+          await this.listings.publish(userId, live.id, SHOP_PUBLISH);
           stats.shown++;
           await save(productId, { status: 'LISTED', listingId: live.id, fingerprint, ...note });
         } else {
@@ -474,7 +476,10 @@ export class ShopImportService implements OnApplicationBootstrap {
     try {
       if (publishedAt) await this.prisma.listing.update({ where: { id: draft.id }, data: { publishedAt, liftedAt: publishedAt } });
       // Product shots on one backdrop hash alike (a row of beanies); they are different products all the same.
-      await this.listings.publish(userId, draft.id, { trustedPhotos: true });
+      // The shop is a brand the site's owner connected (sources.ts): an AI rejection (studio shots read as renders)
+      // goes live and waits in the review queue, and an item the model couldn't look at yet is checked later by cron,
+      // instead of the brand's catalogue coming out with holes.
+      await this.listings.publish(userId, draft.id, SHOP_PUBLISH);
     } catch (e) {
       await this.listings.remove(userId, draft.id).catch(() => undefined);
       throw e;

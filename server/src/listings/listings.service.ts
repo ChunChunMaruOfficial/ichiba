@@ -404,7 +404,8 @@ export class ListingsService {
    * `trustedPhotos`: the photos were checked by hand as different items (a shop import), so the photo half of the
    * duplicate check is skipped; the text check and moderation still apply.
    * `allowUnchecked`: an import may go live while no model can look at the photos (cron checks them later).
-   * `trustedContent`: the item was checked by hand by the site's owner (a hand batch): what automatic moderation
+   * `trustedContent`: the item was checked by hand by the site's owner (a hand batch) or comes from a brand shop the
+   * owner connected (shops/sources.ts): what automatic moderation
    * rejects goes live anyway and waits for an admin in the review queue with the AI's reasons, instead of being lost.
    */
   async publish(userId: string, id: string, opts: { trustedPhotos?: boolean; allowUnchecked?: boolean; trustedContent?: boolean } = {}) {
@@ -499,7 +500,7 @@ export class ListingsService {
     }
     const verdict = await this.moderator.check(listing, keys, { allowUnchecked });
     if (verdict.decision === 'reject') {
-      if (trustedContent) return { ...verdict, decision: 'review' as const, reasons: ['Выставлено вручную владельцем площадки, автомодерация была против', ...verdict.reasons] };
+      if (trustedContent) return { ...verdict, decision: 'review' as const, reasons: ['Выставлено владельцем площадки (вручную или из магазина бренда), автомодерация была против', ...verdict.reasons] };
       throw new BadRequestException({ message: 'Объявление не прошло проверку', code: 'MODERATION', fields: verdict.fields, retry: !!verdict.retry });
     }
     return verdict;
