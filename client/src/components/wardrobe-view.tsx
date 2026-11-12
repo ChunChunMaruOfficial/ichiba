@@ -311,7 +311,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
         </div>
       ) : (
         // The seller's cover: aizome cloth, the nickname large, a brush label 箪笥 («wardrobe») at the side.
-        <header className="aizome aizome-fade-r relative flex flex-col gap-6 rounded-[28px] px-5 py-6 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
+        <header className="aizome aizome-fade-r relative flex flex-col gap-6 rounded-[28px] px-5 pb-6 pt-14 md:flex-row md:items-center md:justify-between md:px-10 md:py-12">
           <div className="absolute right-3 top-3 flex items-center gap-2 md:right-5 md:top-5">
             {/* Desktop: beside «Поделиться»; phones get it full width at the bottom of the cover. */}
             {!owner && me?.username !== s.username && (
@@ -329,15 +329,15 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </button>
           </div>
           <div className="min-w-0">
-            {/* Phones: the photo on its own row beside the corner buttons, the nickname under it across the whole cover
-                — beside the photo a long one ran under ⚙ and «Поделиться». */}
-            <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:gap-4">
+            {/* The photo left of the name on phones too, as on a computer. A phone's cover starts below the corner
+                buttons (pt-14), so the photo, the name and its seal have the whole width. */}
+            <div className="flex items-center gap-3 md:gap-4">
               <span className="group/avatar relative shrink-0">
                 {s.avatar ? (
-                  <Avatar username={s.username} avatar={s.avatar} ring className="size-16 md:size-20" />
+                  <Avatar username={s.username} avatar={s.avatar} ring className="size-12 md:size-20" />
                 ) : (
                   // No photo: a personal seal, the nickname's first letter pressed in cinnabar.
-                  <span aria-hidden className="grid size-14 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-3xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
+                  <span aria-hidden className="grid size-12 shrink-0 -rotate-3 place-items-center rounded-xl border-2 border-[#f4efe6]/30 bg-shu text-2xl font-bold uppercase text-[#f4efe6] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)] md:size-16 md:text-4xl">
                     {s.username.slice(0, 1)}
                   </span>
                 )}
@@ -373,8 +373,8 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                 {/* A brand is named as a brand: «MIRARWEAR», the account's nickname only small under it. The owner of an
                     ordinary account changes the nickname right here; a brand's name is the one that was verified. */}
                 {/* A brand mirrored from its own shop or channel carries the 連 «синхрон» seal right after its name. */}
-                <div className="flex min-w-0 items-center gap-3 md:gap-5">
-                  <h1 title={name} className={clsx("min-w-0 font-bold leading-[1.05] md:text-6xl", name.length > 16 ? "text-2xl" : name.length > 12 ? "text-3xl" : "text-4xl")}>
+                <div className="flex min-w-0 items-center gap-4 md:gap-6">
+                  <h1 title={name} className={clsx("min-w-0 font-bold leading-[1.05] [overflow-wrap:anywhere] md:text-6xl", name.length > 12 ? "text-xl" : name.length > 8 ? "text-2xl" : "text-3xl")}>
                   {owner && !s.brand ? (
                     <InlineText
                       value={s.username}
@@ -394,7 +394,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                       }}
                     />
                   ) : (
-                    <span className="block truncate">{name}</span>
+                    <span className="block md:truncate">{name}</span>
                   )}
                   </h1>
                   <SyncSeal sync={s.sync} />

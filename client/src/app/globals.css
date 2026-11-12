@@ -538,6 +538,108 @@ html[data-immersive] [data-chrome="main"] {
   .washi-slip { transition: none; }
 }
 
+/*
+ * The 連 seal beside a brand's name (components/trust SyncSeal): a round cinnabar stamp, see-through, with a dashed ring
+ * turning slowly around it — the catalogue mirrors the brand's own shop. Hover, focus or a tap drops a washi tag (fuda)
+ * from it on a red cord, with a little swing. Phones: the tag hangs to the left of the seal (it sits at the end of the
+ * name); from md up it hangs centred under it.
+ */
+.sync {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.sync-seal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 2px solid var(--shu);
+  border-radius: 999px;
+  color: var(--shu);
+  background: transparent;
+  rotate: -10deg;
+  transition: rotate 400ms cubic-bezier(0.3, 1.5, 0.5, 1), scale 300ms;
+}
+.sync:hover .sync-seal,
+.sync-open .sync-seal,
+.sync-seal:focus-visible {
+  rotate: 0deg;
+  scale: 1.08;
+}
+.sync-seal-ring {
+  position: absolute;
+  inset: -6px;
+  border: 1.5px dashed color-mix(in srgb, var(--shu) 75%, transparent);
+  border-radius: 999px;
+  animation: sync-turn 14s linear infinite;
+}
+.sync-seal-kanji {
+  font-family: var(--font-brush);
+  font-size: 21px;
+  line-height: 1;
+  translate: 0 1px;
+}
+@keyframes sync-turn {
+  to { rotate: 360deg; }
+}
+.sync-fuda {
+  position: absolute;
+  top: 100%;
+  right: -10px;
+  z-index: 30;
+  width: 16.5rem;
+  max-width: calc(100vw - 3rem);
+  padding-top: 20px;
+  transform-origin: calc(100% - 29px) 0;
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.35));
+  opacity: 0;
+  visibility: hidden;
+  rotate: -7deg;
+  translate: 0 -8px;
+  transition: opacity 200ms, visibility 200ms, rotate 650ms cubic-bezier(0.25, 1.7, 0.45, 1), translate 300ms;
+}
+.sync:hover .sync-fuda,
+.sync:focus-within .sync-fuda,
+.sync-open .sync-fuda {
+  opacity: 1;
+  visibility: visible;
+  rotate: 0deg;
+  translate: 0 0;
+}
+.sync-fuda-cord {
+  position: absolute;
+  top: 2px;
+  right: 28px;
+  width: 1.5px;
+  height: 20px;
+  background: var(--shu);
+}
+@media (min-width: 48rem) {
+  .sync-seal {
+    width: 46px;
+    height: 46px;
+  }
+  .sync-seal-kanji {
+    font-size: 25px;
+  }
+  .sync-fuda {
+    right: auto;
+    left: 50%;
+    margin-left: -8.25rem;
+    transform-origin: 50% 0;
+  }
+  .sync-fuda-cord {
+    right: auto;
+    left: calc(50% - 0.75px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sync-seal-ring { animation: none; }
+  .sync-seal, .sync-fuda { transition: opacity 150ms, visibility 150ms; rotate: none; translate: none; }
+}
+
 /* Hanko 判子: a seal stamped on a photo (sold, sale, new, reserved). Kanji by brush + the Russian word. */
 .hanko {
   display: inline-flex;
@@ -551,14 +653,6 @@ html[data-immersive] [data-chrome="main"] {
   background: color-mix(in srgb, var(--surface) 72%, transparent);
   transform: rotate(-6deg);
   line-height: 1;
-}
-/* The 連 «синхрон» seal beside a brand's name (components/trust SyncSeal): bigger, its tilt a utility so hover straightens it. */
-.hanko-name {
-  transform: none;
-  padding: 6px 9px 5px;
-}
-.hanko-name .hanko-kanji {
-  font-size: 22px;
 }
 .hanko-kanji {
   font-family: var(--font-brush);
