@@ -61,6 +61,10 @@ export class PrivacyService {
       this.prisma.signal.deleteMany({ where: { userId } }),
       this.prisma.feedImpression.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
+      // The «Ichiba» assistant chat: what the person wrote there, what it did for them (with the snapshots), suggestions.
+      this.prisma.assistantMessage.deleteMany({ where: { userId } }),
+      this.prisma.assistantAction.deleteMany({ where: { userId } }),
+      this.prisma.suggestion.deleteMany({ where: { userId } }),
       this.prisma.emailOutbox.deleteMany({ where: { userId } }),
       // Every photo and video of the person goes: first the listings' own (sold ones too: the buyer's history keeps the
       // title and price, not the pictures, which may show the person), then drafts and chat. Detached rows are what

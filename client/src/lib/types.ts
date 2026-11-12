@@ -37,6 +37,32 @@ export type RequestStatus =
 export interface UiPrefs {
   cardStyle?: "minimal" | "detailed";
   theme?: "system" | "light" | "dark";
+  /** The «Ichiba» assistant chat stays on top of the list of chats (the default) or takes its place by time. */
+  assistantPinned?: boolean;
+}
+
+/** A button under a message of the «Ichiba» assistant: `press` goes back to the server, `link` opens a page. */
+export interface AssistantButton {
+  id: string;
+  label: string;
+  kind: "press" | "link";
+  path?: string;
+}
+
+export interface AssistantMessage {
+  id: string;
+  fromBot: boolean;
+  body: string;
+  buttons: AssistantButton[][] | null;
+  createdAt: string;
+}
+
+/** The assistant's row in the list of chats. */
+export interface AssistantSummary {
+  lastMessage: string;
+  fromBot: boolean;
+  lastMessageAt: string;
+  unread: boolean;
 }
 
 /** The groups of mailed notifications, each switched on or off on its own (server: mail/templates NOTIFY_GROUPS). */
