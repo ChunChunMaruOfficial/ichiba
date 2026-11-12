@@ -15,7 +15,8 @@ import { RedisService } from '../redis/redis.js';
 import type { ShopProduct } from '../generated/prisma/client.js';
 import { ADOPT_SELECT, importerMayAdopt } from '../tg/adopt.js';
 import { download, downloadFirst, fetchProducts, lexicalText, type PayloadProduct, photoCandidates } from './payload.js';
-import { fetchTildaProducts } from './tilda.js';
+import { fetchMechtaProducts } from './mechta.js';
+import { fetchTildaCatalogs } from './tilda.js';
 import { colorFromName, listingTitle, materialFrom, SHOP_SOURCES, type ShopKind, type ShopSourceConfig, tidySize } from './sources.js';
 
 /**
@@ -117,7 +118,11 @@ export class ShopImportService implements OnApplicationBootstrap {
   async syncSource(cfg: ShopSourceConfig) {
     const rates = cfg.currency === 'BYN' ? null : await this.rates.get();
     if (cfg.currency !== 'BYN' && !rates) throw new Error('no exchange rates — prices cannot be converted');
-    const products = cfg.tilda ? await fetchTildaProducts(cfg.tilda) : await fetchProducts(cfg.origin);
+    const products = cfg.mechtaApi
+      ? await fetchMechtaProducts(cfg.mechtaApi)
+      : cfg.tilda
+        ? await fetchTildaCatalogs([cfg.tilda].flat())
+        : await fetchProducts(cfg.origin);
     if (!products.length) throw new Error('the shop returned no products');
     this.logger.log(`${cfg.key}: ${products.length} products read`);
 
