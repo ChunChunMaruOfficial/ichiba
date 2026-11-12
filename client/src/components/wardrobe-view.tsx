@@ -18,7 +18,7 @@ import type { Card, Deal, Offer, SellerSummary } from "@/lib/types";
 import { DealCard } from "./deal-actions";
 import { LookEditor, LookHighlights } from "./looks";
 import { ReviewsSection } from "./reviews";
-import { BundleNote, DealsInline, RatingInline, SyncPlaque } from "./trust";
+import { BundleNote, DealsInline, RatingInline, SyncSeal } from "./trust";
 import { OfferCard } from "./offer";
 import { Avatar } from "./avatar";
 import { AvatarCropper } from "./avatar-cropper";
@@ -372,7 +372,9 @@ export function WardrobeView({ username, initial }: { username: string; initial?
               <div className="min-w-0 max-w-full">
                 {/* A brand is named as a brand: «MIRARWEAR», the account's nickname only small under it. The owner of an
                     ordinary account changes the nickname right here; a brand's name is the one that was verified. */}
-                <h1 title={name} className={clsx("min-w-0 font-bold leading-[1.05] md:text-6xl", name.length > 16 ? "text-2xl" : name.length > 12 ? "text-3xl" : "text-4xl")}>
+                {/* A brand mirrored from its own shop or channel carries the 連 «синхрон» seal right after its name. */}
+                <div className="flex min-w-0 items-center gap-3 md:gap-5">
+                  <h1 title={name} className={clsx("min-w-0 font-bold leading-[1.05] md:text-6xl", name.length > 16 ? "text-2xl" : name.length > 12 ? "text-3xl" : "text-4xl")}>
                   {owner && !s.brand ? (
                     <InlineText
                       value={s.username}
@@ -394,7 +396,9 @@ export function WardrobeView({ username, initial }: { username: string; initial?
                   ) : (
                     <span className="block truncate">{name}</span>
                   )}
-                </h1>
+                  </h1>
+                  <SyncSeal sync={s.sync} />
+                </div>
                 <p className="mt-1 text-sm text-ink-2" title={`На ichiba с ${sinceLabel(s.createdAt)}`}>
                   {s.brand && <>@{s.username} · </>}
                   {owner ? (
@@ -439,7 +443,6 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </dl>
             <RatingInline rating={s.rating} username={s.username} className="mt-3" />
             <DealsInline count={s.completedDeals} className="mt-1" />
-            <SyncPlaque sync={s.sync} className="mt-4" />
             {owner ? (
               <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">
                 <InlineText value={s.bio ?? ""} placeholder="Рассказать о себе" label="Изменить описание" multiline maxLength={160} onSave={(v) => saveProfile({ bio: v || null }, v ? "Описание сохранено" : "Описание убрано")} />

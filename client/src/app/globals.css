@@ -552,6 +552,14 @@ html[data-immersive] [data-chrome="main"] {
   transform: rotate(-6deg);
   line-height: 1;
 }
+/* The 連 «синхрон» seal beside a brand's name (components/trust SyncSeal): bigger, its tilt a utility so hover straightens it. */
+.hanko-name {
+  transform: none;
+  padding: 6px 9px 5px;
+}
+.hanko-name .hanko-kanji {
+  font-size: 22px;
+}
 .hanko-kanji {
   font-family: var(--font-brush);
   font-size: 18px;

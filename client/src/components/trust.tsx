@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
 import { plural, timeAgo } from "@/lib/labels";
@@ -134,31 +134,56 @@ export function MadeToMeasureNote({ days, className }: { days: number | null; cl
 // ---------- live catalogue ----------
 
 /**
- * «Живой каталог»: the brand's items here mirror its own shop or Telegram channel, read within the last day — what a
- * buyer sees is what the brand has now. The source is named by kind only: a link to the brand's own shop would take
- * the deal off ichiba.
+ * The 連 «синхрон» seal beside a brand's name: its items here mirror its own shop or Telegram channel, read within the
+ * last day. Hover (a tap on a phone) shows what that means and when it last updated. The source is named by kind
+ * only: a link to the brand's own shop would take the deal off ichiba.
  */
-export function SyncPlaque({ sync, className }: { sync: { from: "site" | "telegram"; at: string } | null | undefined; className?: string }) {
+export function SyncSeal({ sync, className }: { sync: { from: "site" | "telegram"; at: string } | null | undefined; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
   if (!sync) return null;
   const where = sync.from === "site" ? "с сайта бренда" : "из Telegram-канала бренда";
   return (
-    <div className={clsx("inline-flex max-w-xl items-center gap-3 rounded-[18px] bg-ink/[0.07] py-2 pl-2 pr-4 ring-1 ring-ink/10", className)}>
-      {/* A seal stamped in cinnabar, slightly askew: 連 «linked». */}
-      <span aria-hidden lang="ja" className="grid size-11 shrink-0 -rotate-6 place-items-center rounded-[10px] bg-shu font-brush text-[26px] leading-none text-on-shu shadow-[0_2px_8px_rgb(0_0_0/0.25)]">
-        連
-      </span>
-      <p className="text-sm leading-snug text-ink-2">
-        <span className="flex items-center gap-2 font-semibold text-ink">
+    <span className={clsx("group/sync relative inline-flex shrink-0", className)} onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        aria-label="Синхрон: живой каталог"
+        aria-describedby={id}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setOpen(false)}
+        className="hanko hanko-name -rotate-6 cursor-help select-none outline-offset-4 transition-[rotate,scale] duration-200 hover:rotate-0 hover:scale-105 focus-visible:rotate-0"
+      >
+        <span className="hanko-kanji" aria-hidden lang="ja">
+          連
+        </span>
+        <span className="hanko-ru" aria-hidden>
+          синхрон
+        </span>
+      </button>
+      <span
+        role="tooltip"
+        id={id}
+        className={clsx(
+          "absolute top-full z-30 mt-3 w-72 max-w-[calc(100vw-3rem)] rounded-2xl bg-surface p-4 text-left text-sm font-normal leading-snug text-ink-2 shadow-[0_12px_32px_-8px_rgb(0_0_0/0.5)] ring-1 ring-line",
+          // Phones: the seal sits at the right of a long name, so the hint opens leftwards from its edge.
+          "right-0 md:right-auto md:left-1/2 md:-translate-x-1/2",
+          "invisible translate-y-1 opacity-0 transition-[opacity,visibility,translate] duration-200",
+          "group-hover/sync:visible group-hover/sync:translate-y-0 group-hover/sync:opacity-100 group-focus-within/sync:visible group-focus-within/sync:translate-y-0 group-focus-within/sync:opacity-100",
+          open && "visible translate-y-0 opacity-100",
+        )}
+      >
+        <span className="mb-1.5 flex items-center gap-2 font-semibold text-ink">
           <span aria-hidden className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-ok opacity-60 motion-reduce:hidden" />
             <span className="relative inline-flex size-2 rounded-full bg-ok" />
           </span>
           Живой каталог
         </span>
-        Вещи, цены и наличие обновляются сами {where}
-        <span className="whitespace-nowrap"> · {timeAgo(sync.at)}</span>
-      </p>
-    </div>
+        Вещи, цены и наличие обновляются сами {where}: новое появляется, проданное исчезает. Последнее обновление{" "}
+        <span className="whitespace-nowrap">{timeAgo(sync.at)}</span>.
+      </span>
+    </span>
   );
 }
 
