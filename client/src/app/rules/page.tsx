@@ -191,7 +191,7 @@ export default function RulesPage() {
                 </a>{" "}
                 ({LEGAL.hours.shown}) или на почту{" "}
                 <a href={`mailto:${LEGAL.email}`} className="underline underline-offset-4">
-                  {LEGAL.email}
+                  {LEGAL.emailShown}
                 </a>
                 .
               </li>
@@ -248,7 +248,7 @@ export default function RulesPage() {
               </a>
               , {LEGAL.hours.shown} ·{" "}
               <a href={`mailto:${LEGAL.email}`} className="underline underline-offset-4">
-                {LEGAL.email}
+                {LEGAL.emailShown}
               </a>
             </p>
           </Section>

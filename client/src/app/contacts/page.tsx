@@ -24,7 +24,7 @@ export default function ContactsPage() {
     "@id": `${SITE_URL}/#organization`,
     name: "ichiba",
     url: SITE_URL,
-    email: LEGAL.email,
+    email: LEGAL.emailShown,
     telephone: LEGAL.phone.shown,
     legalName: LEGAL.operatorFull,
     taxID: LEGAL.unp,
@@ -49,7 +49,7 @@ export default function ContactsPage() {
         <dt className="font-semibold text-ink">Почта</dt>
         <dd>
           <a href={`mailto:${LEGAL.email}`} className="font-medium text-ink underline underline-offset-4">
-            {LEGAL.email}
+            {LEGAL.emailShown}
           </a>
           <br />
           Отвечаем в рабочие дни, обычно в течение суток.

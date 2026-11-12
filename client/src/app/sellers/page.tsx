@@ -112,7 +112,7 @@ export default function SellersPage() {
           <p>
             Напишите на{" "}
             <a href={`mailto:${LEGAL.email}`} className={link}>
-              {LEGAL.email}
+              {LEGAL.emailShown}
             </a>{" "}
             или позвоните{" "}
             <a href={LEGAL.phone.href} className={`${link} whitespace-nowrap`}>

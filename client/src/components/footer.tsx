@@ -161,7 +161,7 @@ export function Footer() {
               who runs it, how to reach it and when, where buyers complain. */}
           <div className="flex max-w-4xl flex-col gap-1.5 leading-relaxed">
             <p>
-              © {new Date().getFullYear()} ichiba · Беларусь · <FooterLink href={`mailto:${LEGAL.email}`}>{LEGAL.email}</FooterLink> · <FooterLink href={LEGAL.phone.href}>{LEGAL.phone.shown}</FooterLink>, {LEGAL.hours.shown}
+              © {new Date().getFullYear()} ichiba · Беларусь · <FooterLink href={`mailto:${LEGAL.email}`}>{LEGAL.emailShown}</FooterLink> · <FooterLink href={LEGAL.phone.href}>{LEGAL.phone.shown}</FooterLink>, {LEGAL.hours.shown}
             </p>
             <p className="text-[13px]">
               {LEGAL.operator}, УНП {LEGAL.unp}, дата регистрации {LEGAL.registered.shown} · {LEGAL.address}
