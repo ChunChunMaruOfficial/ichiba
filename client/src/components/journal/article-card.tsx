@@ -26,9 +26,13 @@ export function Cover({ a, sizes, priority, className }: { a: ArticleMeta; sizes
 export function Meta({ a, className }: { a: ArticleMeta; className?: string }) {
   return (
     <p className={clsx("flex flex-wrap items-center gap-x-2 text-sm text-muted", className)}>
-      <Link href={rubricHref(a.rubric.slug)} className="font-medium text-indigo hover:underline">
-        {a.rubric.name}
-      </Link>
+      {a.rubric.slug ? (
+        <Link href={rubricHref(a.rubric.slug)} className="font-medium text-indigo hover:underline">
+          {a.rubric.name}
+        </Link>
+      ) : (
+        <span className="font-medium text-ink-2">{a.rubric.name}</span>
+      )}
       <span aria-hidden>·</span>
       <time dateTime={a.publishedAt}>{formatDate(a.publishedAt)}</time>
       <span aria-hidden>·</span>

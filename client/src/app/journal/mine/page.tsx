@@ -8,7 +8,7 @@ import { useToast } from "@/components/toast";
 import { Badge, ButtonLink, EmptyState, ErrorState, Skeleton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { ARTICLE_STATUS, type MyArticle } from "@/lib/journal-drafts";
-import { rubricBySlug } from "@/lib/journal-rubrics";
+import { rubricOrOwn } from "@/lib/journal-rubrics";
 
 /** «Мои статьи»: every article the reader started, where each one stands, and the way back into the editor. */
 export default function MyArticlesPage() {
@@ -81,13 +81,13 @@ function List() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.cover.urls.s} alt="" className="size-full object-cover" />
                     ) : (
-                      <span className="grid size-full place-items-center font-brush text-2xl text-shu/70">{rubricBySlug(a.rubric)?.kanji ?? "読"}</span>
+                      <span className="grid size-full place-items-center font-brush text-2xl text-shu/70">{rubricOrOwn(a.rubric)?.kanji ?? "読"}</span>
                     )}
                   </Link>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={s.tone}>{s.label}</Badge>
-                      {rubricBySlug(a.rubric) && <span className="text-xs text-muted">{rubricBySlug(a.rubric)!.name}</span>}
+                      {a.rubric && <span className="text-xs text-muted">{rubricOrOwn(a.rubric)!.name}</span>}
                     </div>
                     <Link href={href} className="mt-1.5 line-clamp-2 text-lg font-semibold leading-snug hover:underline">
                       {a.title || "Без названия"}

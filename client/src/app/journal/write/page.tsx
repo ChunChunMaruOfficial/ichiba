@@ -3,14 +3,14 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { MdPreview } from "@/components/journal/md-preview";
 import { RequireAuth } from "@/components/require-auth";
 import { useToast } from "@/components/toast";
-import { Badge, Button, ButtonLink, IconCamera, IconCheck, IconX, Spinner } from "@/components/ui";
+import { Badge, Button, ButtonLink, IconCamera, IconCheck, IconChevronDown, IconPlus, IconX, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { ARTICLE_LIMITS, ARTICLE_STATUS, editable, type MyArticle } from "@/lib/journal-drafts";
-import { RUBRICS, rubricBySlug } from "@/lib/journal-rubrics";
+import { RUBRICS, rubricBySlug, rubricOrOwn } from "@/lib/journal-rubrics";
 import type { Me } from "@/lib/types";
 import { uploadPhoto } from "@/lib/upload";
 
@@ -36,6 +36,10 @@ const EMPTY: Fields = {
   coverId: null,
 };
 const SAVE_AFTER_MS = 1200;
+
+/** An author's own rubric: as the server takes it (server/src/journal/journal.ts, OWN_RUBRIC). */
+const OWN_RUBRIC = [2, 40] as const;
+const ownRubricOk = (s: string) => s.trim().length >= OWN_RUBRIC[0] && /\p{L}/u.test(s);
 
 const countWords = (s: string) => s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
 
@@ -81,6 +85,11 @@ function Editor({ me }: { me: Me }) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [upload, setUpload] = useState<number | null>(null);
+  /** «Своя рубрика» picked; the name typed there is kept while another rubric is tried. */
+  const [ownOpen, setOwnOpen] = useState(false);
+  const [ownName, setOwnName] = useState("");
+  const ownInput = useRef<HTMLInputElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
 
   const id = useRef<string | null>(idParam);
   /** The article whose fields are in the form: opened by its id once, or created here (then nothing to load). */
@@ -113,6 +122,7 @@ function Editor({ me }: { me: Me }) {
           coverId: a.cover?.id ?? null,
         });
         setCover(a.cover);
+        if (a.rubric && !rubricBySlug(a.rubric)) setOwnName(a.rubric);
       })
       .catch((e) =>
         toast(e instanceof ApiError ? e.message : "Не удалось открыть статью", {
@@ -275,7 +285,7 @@ function Editor({ me }: { me: Me }) {
   // ---------- sending ----------
 
   const checks = [
-    { key: "rubric", ok: !!rubricBySlug(f.rubric), text: "Рубрика выбрана" },
+    { key: "rubric", ok: !!rubricBySlug(f.rubric) || ownRubricOk(f.rubric), text: "Рубрика выбрана" },
     {
       key: "title",
       ok: f.title.trim().length >= ARTICLE_LIMITS.title[0],
@@ -339,7 +349,22 @@ function Editor({ me }: { me: Me }) {
   }
 
   const words = countWords(f.body);
-  const rubric = rubricBySlug(f.rubric);
+  const rubric = rubricOrOwn(f.rubric);
+  // The switch sits under the text: the other view is read from its top, so the page goes there if that is out of sight.
+  const switchMode = (m: typeof mode) => {
+    if (m === mode) return;
+    setMode(m);
+    requestAnimationFrame(() => {
+      const top = topRef.current?.getBoundingClientRect().top ?? 0;
+      if (top < 0) window.scrollBy({ top: top - 96, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    });
+  };
+  const own = ownOpen || (!!f.rubric && !rubricBySlug(f.rubric));
+  const pickOwn = () => {
+    setOwnOpen(true);
+    if (f.rubric !== ownName) set("rubric", ownName);
+    requestAnimationFrame(() => ownInput.current?.focus());
+  };
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 pb-16 pt-4 md:px-6">
@@ -356,41 +381,7 @@ function Editor({ me }: { me: Me }) {
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
         <div className="min-w-0">
-          {/* The bar that stays: where the article is, whether it is saved, and the two views. */}
-          <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Badge tone={ARTICLE_STATUS[status].tone}>{ARTICLE_STATUS[status].label}</Badge>
-            <span className="text-xs text-muted" aria-live="polite">
-              {save === "saving"
-                ? "Сохраняем…"
-                : save === "error"
-                  ? "Не сохранилось — попробуем ещё раз"
-                  : savedAt
-                    ? `Сохранено в ${savedAt.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}`
-                    : article
-                      ? "Сохранено"
-                      : "Черновик сохранится сам"}
-            </span>
-            <div role="radiogroup" aria-label="Вид" className="ml-auto flex rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
-              {(
-                [
-                  ["edit", "Текст"],
-                  ["preview", "Как увидят читатели"],
-                ] as const
-              ).map(([m, label]) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === m}
-                  onClick={() => setMode(m)}
-                  className={clsx("h-8 rounded-full px-3.5 font-medium transition-colors", mode === m ? "bg-ink text-accent-ink" : "text-ink-2 hover:text-ink")}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
+          <div ref={topRef} />
           <StatusBanner article={article} onWithdraw={withdraw} />
 
           {mode === "preview" ? (
@@ -413,28 +404,6 @@ function Editor({ me }: { me: Me }) {
             </article>
           ) : (
             <fieldset disabled={!canEdit} className="flex min-w-0 flex-col gap-7 disabled:opacity-80">
-              <div>
-                <p className="mb-2 text-sm font-medium text-ink-2">Рубрика</p>
-                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Рубрика">
-                  {RUBRICS.map((r) => (
-                    <button
-                      key={r.slug}
-                      type="button"
-                      role="radio"
-                      aria-checked={f.rubric === r.slug}
-                      onClick={() => set("rubric", r.slug)}
-                      className={clsx("chip inline-flex h-9 items-center gap-2 px-4 text-sm font-medium", f.rubric === r.slug && "bg-ink text-accent-ink")}
-                    >
-                      <span aria-hidden className={clsx("font-brush text-xs", f.rubric === r.slug ? "text-accent-ink" : "text-shu")}>
-                        {r.kanji}
-                      </span>
-                      {r.name}
-                    </button>
-                  ))}
-                </div>
-                {errors.rubric && <p className="mt-2 text-sm text-danger">{errors.rubric}</p>}
-              </div>
-
               {/* The cover: one photo, shown 3:2 at the top of the article and on its card. */}
               <div>
                 <input
@@ -500,6 +469,78 @@ function Editor({ me }: { me: Me }) {
                 )}
               </div>
 
+              {/* The rubric: one of the six sections, or the author's own name for it (a label on the article, no hub). */}
+              <div>
+                <p id="rubric-label" className="mb-2 text-sm font-medium text-ink-2">
+                  Рубрика
+                </p>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="rubric-label">
+                  {RUBRICS.map((r) => {
+                    const on = !own && f.rubric === r.slug;
+                    return (
+                      <button
+                        key={r.slug}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => {
+                          setOwnOpen(false);
+                          set("rubric", r.slug);
+                        }}
+                        className="chip inline-flex h-9 items-center gap-2 px-4 text-sm font-medium"
+                      >
+                        <span aria-hidden className={clsx("font-brush text-xs transition-colors", on ? "text-current opacity-70" : "text-shu")}>
+                          {r.kanji}
+                        </span>
+                        {r.name}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={own}
+                    aria-controls="a-rubric-own"
+                    onClick={pickOwn}
+                    className="chip inline-flex h-9 items-center gap-1.5 px-4 text-sm font-medium"
+                  >
+                    <IconPlus className={clsx("size-3.5", own ? "opacity-70" : "text-shu")} aria-hidden />
+                    Своя рубрика
+                  </button>
+                </div>
+                <div className={clsx("grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none", own ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+                  <div className="min-h-0 overflow-hidden" inert={!own}>
+                    <div className="pt-3">
+                      <label htmlFor="a-rubric-own" className="sr-only">
+                        Название своей рубрики
+                      </label>
+                      <div className="flex items-center gap-2 rounded-2xl bg-surface px-4 shadow-[inset_0_0_0_1px_var(--line-strong)] transition-shadow focus-within:shadow-[inset_0_0_0_1.5px_var(--ink)]">
+                        <span aria-hidden className="font-brush text-sm text-shu">
+                          読
+                        </span>
+                        <input
+                          id="a-rubric-own"
+                          ref={ownInput}
+                          value={ownName}
+                          maxLength={OWN_RUBRIC[1]}
+                          onChange={(e) => {
+                            setOwnName(e.target.value);
+                            set("rubric", e.target.value);
+                          }}
+                          placeholder="Например: Обувь своими руками"
+                          className="h-11 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink/30"
+                        />
+                        <span className="shrink-0 text-xs text-muted tabular">
+                          {ownName.length}/{OWN_RUBRIC[1]}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs text-muted">Подпись над статьёй. Отдельного раздела у неё не будет — статья появится в общей ленте журнала.</p>
+                    </div>
+                  </div>
+                </div>
+                {errors.rubric && <p className="mt-2 text-sm text-danger">{errors.rubric}</p>}
+              </div>
+
               {/* The sizes sit on the wrappers: on touch screens a field's own size is max(16px, 1em) of its parent
                   (globals.css, against iOS zoom), so a text-3xl on the textarea itself would shrink to 16px. */}
               <div>
@@ -541,15 +582,14 @@ function Editor({ me }: { me: Me }) {
               </div>
 
               <div className="rounded-3xl bg-surface shadow-[var(--shadow-paper)] ring-1 ring-line">
-                {/* Stays under the site header (which slides away on the way down, as the chips row does) through a long text. */}
+                {/* Stays under the site header (which slides away on the way down) through a long text. `top`, not the chips
+                    row's transform: a transform moved the toolbar up off the text block while it was not stuck yet, leaving a
+                    gap; an unstuck sticky element ignores `top`. */}
                 <div
                   role="toolbar"
                   aria-label="Оформление текста"
-                  className="no-scrollbar sticky z-10 flex items-center gap-1 overflow-x-auto rounded-t-3xl border-b border-line bg-surface px-3 py-2 transition-transform duration-300"
-                  style={{
-                    top: "var(--header-h, 57px)",
-                    transform: "translateY(calc(var(--header-offset, var(--header-h, 57px)) - var(--header-h, 57px)))",
-                  }}
+                  className="no-scrollbar sticky z-10 flex items-center gap-1 overflow-x-auto rounded-t-3xl border-b border-line bg-surface px-3 py-2 transition-[top] duration-300"
+                  style={{ top: "var(--header-offset, var(--header-h, 57px))" }}
                 >
                   <Tool label="Заголовок раздела" onClick={() => prefixLines(() => "## ", "Заголовок раздела")}>
                     H2
@@ -626,6 +666,41 @@ function Editor({ me }: { me: Me }) {
             </fieldset>
           )}
 
+          {/* Under the text: where the article is, whether it is saved, and the two views. */}
+          <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Badge tone={ARTICLE_STATUS[status].tone}>{ARTICLE_STATUS[status].label}</Badge>
+            <span className="text-xs text-muted" aria-live="polite">
+              {save === "saving"
+                ? "Сохраняем…"
+                : save === "error"
+                  ? "Не сохранилось — попробуем ещё раз"
+                  : savedAt
+                    ? `Сохранено в ${savedAt.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}`
+                    : article
+                      ? "Сохранено"
+                      : "Черновик сохранится сам"}
+            </span>
+            <div role="radiogroup" aria-label="Вид" className="ml-auto flex rounded-full bg-surface p-0.5 text-sm shadow-[inset_0_0_0_1px_var(--line-strong)]">
+              {(
+                [
+                  ["edit", "Текст"],
+                  ["preview", "Как увидят читатели"],
+                ] as const
+              ).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m}
+                  onClick={() => switchMode(m)}
+                  className={clsx("h-8 rounded-full px-3.5 font-medium transition-colors", mode === m ? "bg-ink text-accent-ink" : "text-ink-2 hover:text-ink")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {canEdit && (
             <div className="mt-8 flex flex-col gap-4 rounded-3xl bg-kraft/40 p-5 md:flex-row md:items-center md:justify-between md:p-6">
               <ul className="flex flex-col gap-1.5 text-sm">
@@ -649,10 +724,9 @@ function Editor({ me }: { me: Me }) {
         </div>
 
         <aside className="mt-10 lg:mt-0">
-          <div className="flex flex-col gap-5 lg:sticky lg:top-24">
-            <section className="rounded-3xl bg-surface p-5">
-              <h2 className="text-base font-semibold">Как статья попадает в журнал</h2>
-              <ol className="mt-3 flex flex-col gap-3 text-sm text-ink-2">
+          <div className="flex flex-col gap-3 lg:sticky lg:top-24">
+            <Tip id="flow" title="Как статья попадает в журнал" kanji="道" defaultOpen>
+              <ol className="flex flex-col gap-3">
                 {[
                   ["Пишете", "Черновик сохраняется сам, вернуться к нему можно из «Моих статей»."],
                   ["ИИ смотрит тему", "Только тему: одежда, мода, покупка и продажа вещей, уход, бренды. Текст он не правит и не оценивает."],
@@ -666,20 +740,18 @@ function Editor({ me }: { me: Me }) {
                   </li>
                 ))}
               </ol>
-            </section>
-            <section className="rounded-3xl bg-surface p-5 text-sm text-ink-2">
-              <h2 className="text-base font-semibold text-ink">О чём писать</h2>
-              <ul className="mt-2 list-disc space-y-1 pl-4">
+            </Tip>
+            <Tip id="topics" title="О чём писать" kanji="題">
+              <ul className="list-disc space-y-1 pl-4">
                 <li>Как вы продали или нашли вещь и что поняли</li>
                 <li>Гид по бренду, материалу, посадке</li>
                 <li>Уход, ремонт, хранение</li>
                 <li>Винтаж: как отличить, где искать</li>
               </ul>
               <p className="mt-3">Пишите от себя и по делу. Ссылки можно, рекламу чужих сервисов — нельзя.</p>
-            </section>
-            <section className="hidden rounded-3xl bg-surface p-5 text-sm text-ink-2 lg:block">
-              <h2 className="text-base font-semibold text-ink">Разметка руками</h2>
-              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[13px]">
+            </Tip>
+            <Tip id="markdown" title="Разметка руками" kanji="記">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[13px]">
                 <dt>## Раздел</dt>
                 <dd className="font-sans">заголовок</dd>
                 <dt>**слово**</dt>
@@ -693,11 +765,65 @@ function Editor({ me }: { me: Me }) {
                 <dt>[текст](https://…)</dt>
                 <dd className="font-sans">ссылка</dd>
               </dl>
-            </section>
+              <p className="mt-3 text-xs text-muted">Или кнопки над текстом: Ctrl+B — жирный, Ctrl+I — курсив, Ctrl+K — ссылка.</p>
+            </Tip>
           </div>
         </aside>
       </div>
     </div>
+  );
+}
+
+const TIPS_KEY = "journal-write-tips";
+
+/**
+ * A note beside the editor that folds away. The head is a real button (aria-expanded), the body slides open on a grid
+ * row from 0fr to 1fr and is inert while closed, so neither its links nor its text are reached by Tab or a reader.
+ * What the author opened or closed is remembered on this device.
+ */
+function Tip({ id, title, kanji, defaultOpen = false, children }: { id: string; title: string; kanji: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const bodyId = useId();
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TIPS_KEY) ?? "{}") as Record<string, boolean>;
+      return typeof saved[id] === "boolean" ? saved[id] : defaultOpen;
+    } catch {
+      return defaultOpen;
+    }
+  });
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      const saved = JSON.parse(localStorage.getItem(TIPS_KEY) ?? "{}") as Record<string, boolean>;
+      localStorage.setItem(TIPS_KEY, JSON.stringify({ ...saved, [id]: next }));
+    } catch {
+      // Private mode: the note simply forgets.
+    }
+  };
+  return (
+    <section className={clsx("rounded-3xl bg-surface transition-shadow duration-300", open && "shadow-[var(--shadow-paper)]")}>
+      <h2>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={toggle}
+          className="group flex w-full items-center gap-3 rounded-3xl px-5 py-4 text-left"
+        >
+          <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-lg bg-kraft/60 font-brush text-sm text-shu transition-transform duration-300 group-hover:-rotate-6">
+            {kanji}
+          </span>
+          <span className="flex-1 text-base font-semibold text-ink">{title}</span>
+          <IconChevronDown className={clsx("size-4 shrink-0 text-muted transition-transform duration-300 group-hover:text-ink motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
+        </button>
+      </h2>
+      <div id={bodyId} className={clsx("grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+        <div className="min-h-0 overflow-hidden" inert={!open}>
+          <div className="px-5 pb-5 text-sm text-ink-2">{children}</div>
+        </div>
+      </div>
+    </section>
   );
 }
 

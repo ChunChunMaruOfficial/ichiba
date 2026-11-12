@@ -4,7 +4,7 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import GithubSlugger from "github-slugger";
 import { authorById, type Author } from "./journal-authors";
-import { rubricBySlug, type Rubric } from "./journal-rubrics";
+import { rubricBySlug, rubricOrOwn, type Rubric } from "./journal-rubrics";
 import { serverFetch, SITE_URL } from "./server";
 
 /**
@@ -149,7 +149,7 @@ interface CommunityRow {
 }
 
 function fromCommunity(r: CommunityRow): Article | null {
-  const rubric = rubricBySlug(r.rubric);
+  const rubric = rubricOrOwn(r.rubric);
   if (!rubric) return null;
   const words = countWords(r.body);
   const publishedAt = r.publishedAt.slice(0, 10);
@@ -242,13 +242,15 @@ export async function articlesForCatalog(path: string, limit = 3): Promise<Artic
 export async function relatedTo(a: Article, limit = 3): Promise<Article[]> {
   const all = await allArticles();
   const named = a.related.map((s) => all.find((x) => x.slug === s)).filter((x): x is Article => !!x && x.slug !== a.slug);
-  const same = all.filter((x) => x.rubric.slug === a.rubric.slug && x.slug !== a.slug && !named.includes(x));
+  // A reader's own rubric has no section: the newest articles of any section follow it.
+  const same = all.filter((x) => (!a.rubric.slug || x.rubric.slug === a.rubric.slug) && x.slug !== a.slug && !named.includes(x));
   return [...named, ...same].slice(0, limit);
 }
 
 export const articleHref = (slug: string) => `/journal/${slug}`;
 /** A cover as a full URL: editorial ones are under public/, readers' ones already on the photo host. */
 export const coverUrl = (cover: string) => (cover.startsWith("http") ? cover : `${SITE_URL}${cover}`);
-export const rubricHref = (slug: string) => `/journal/${slug}`;
+/** A section's hub; a reader's own rubric (empty slug) has none, so it leads to the journal itself. */
+export const rubricHref = (slug: string) => (slug ? `/journal/${slug}` : "/journal");
 
 export const formatDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });

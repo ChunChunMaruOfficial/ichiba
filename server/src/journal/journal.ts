@@ -23,8 +23,13 @@ import { PUBLIC_PROFILE } from '../users/visibility.js';
  * The editorial articles stay MDX files in the client; the client merges both lists (lib/journal.ts).
  */
 
-/** The journal's rubrics (client/src/lib/journal-rubrics.ts). */
+/**
+ * The journal's rubrics (client/src/lib/journal-rubrics.ts). An author may instead name a rubric of their own: it is
+ * stored as typed and shown on the article as a label, without a hub page of its own.
+ */
 const RUBRICS = ['sell', 'buy', 'brands-by', 'vintage', 'care', 'data'] as const;
+const OWN_RUBRIC = [2, 40] as const;
+const isRubric = (r: string) => (RUBRICS as readonly string[]).includes(r);
 
 /** What sending needs; a draft may be anything shorter. */
 const LIMITS = { title: [10, 120], description: [40, 300], body: [800, 40_000] } as const;
@@ -34,7 +39,11 @@ const MAX_UNPUBLISHED = 30;
 const EDITABLE: JournalArticleStatus[] = ['DRAFT', 'AI_REJECTED', 'REJECTED'];
 
 const DraftDto = z.object({
-  rubric: z.enum(RUBRICS).or(z.literal('')).optional(),
+  rubric: z
+    .string()
+    .transform((s) => s.replace(/\s+/g, ' ').trim())
+    .pipe(z.string().max(OWN_RUBRIC[1], `Название рубрики — не длиннее ${OWN_RUBRIC[1]} символов`))
+    .optional(),
   title: z.string().max(LIMITS.title[1]).optional(),
   description: z.string().max(LIMITS.description[1]).optional(),
   body: z.string().max(LIMITS.body[1]).optional(),
@@ -223,7 +232,8 @@ export class JournalService {
     const row = await this.own(userId, id);
     if (!EDITABLE.includes(row.status)) throw new ConflictException({ message: row.status === 'PENDING' ? 'Статья уже на проверке' : 'Статья уже опубликована' });
     const fields: Record<string, string> = {};
-    if (!(RUBRICS as readonly string[]).includes(row.rubric)) fields.rubric = 'Выберите рубрику';
+    if (!row.rubric) fields.rubric = 'Выберите рубрику или впишите свою';
+    else if (!isRubric(row.rubric) && (row.rubric.length < OWN_RUBRIC[0] || !/\p{L}/u.test(row.rubric))) fields.rubric = `Название своей рубрики — от ${OWN_RUBRIC[0]} букв`;
     const len = (k: keyof typeof LIMITS, label: string) => {
       const n = (k === 'body' ? row.body : row[k]).length;
       if (n < LIMITS[k][0]) fields[k] = `${label}: не короче ${LIMITS[k][0]} символов`;
@@ -283,7 +293,7 @@ export class JournalService {
     const admins = await this.prisma.user.findMany({ where: { role: 'ADMIN', tgChatId: { not: null }, blockedAt: null, deletedAt: null }, select: { tgChatId: true } });
     const chats = [...new Set(admins.map((a) => a.tgChatId!))];
     if (!chats.length) return;
-    const html = [`📝 <b>Статья на проверку</b>`, `«${esc(clip(title, 120))}»`, `Рубрика: ${esc(rubric)}${topic ? ` · тема по ИИ: ${esc(topic)}` : ''}`].join('\n');
+    const html = [`📝 <b>Статья на проверку</b>`, `«${esc(clip(title, 120))}»`, `Рубрика: ${esc(rubric)}${isRubric(rubric) ? '' : ' (своя)'}${topic ? ` · тема по ИИ: ${esc(topic)}` : ''}`].join('\n');
     const open = linkButton('Открыть', `/admin/journal?id=${id}`);
     for (const chatId of chats) await this.telegram.send(chatId, html, open.length ? [open] : []);
   }

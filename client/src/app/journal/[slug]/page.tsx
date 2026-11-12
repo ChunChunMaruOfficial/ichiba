@@ -136,7 +136,7 @@ async function RubricPage({ rubric }: { rubric: Rubric }) {
         <ul className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
           {RUBRICS.map((r) => (
             <li key={r.slug}>
-              <Link href={rubricHref(r.slug)} aria-current={r.slug === rubric.slug ? "page" : undefined} className="chip inline-flex h-9 shrink-0 items-center whitespace-nowrap px-4 text-sm font-medium aria-[current=page]:bg-ink aria-[current=page]:text-accent-ink">
+              <Link href={rubricHref(r.slug)} aria-current={r.slug === rubric.slug ? "page" : undefined} className="chip inline-flex h-9 shrink-0 items-center whitespace-nowrap px-4 text-sm font-medium">
                 {r.name}
               </Link>
             </li>
@@ -194,7 +194,7 @@ async function ArticlePage({ a }: { a: Article }) {
       keywords: a.tags.join(", ") || undefined,
       wordCount: a.words,
     },
-    crumbs([{ name: a.rubric.name, href: rubricHref(a.rubric.slug) }, { name: a.title }]),
+    crumbs([...(a.rubric.slug ? [{ name: a.rubric.name, href: rubricHref(a.rubric.slug) }] : []), { name: a.title }]),
   ];
   if (a.faq.length) {
     ld.push({
@@ -208,11 +208,18 @@ async function ArticlePage({ a }: { a: Article }) {
   return (
     <div className="mx-auto max-w-[1280px] px-4 pb-12 pt-4 md:px-6">
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(ld)} />
-      <ArticleTracker slug={a.slug} rubric={a.rubric.slug} />
+      <ArticleTracker slug={a.slug} rubric={a.rubric.slug || "own"} />
       <div className="lg:grid lg:grid-cols-[13rem_minmax(0,42rem)] lg:justify-center lg:gap-x-14">
         <div className="mx-auto max-w-[42rem] lg:col-start-2 lg:mx-0 lg:max-w-none">
           <nav aria-label="Хлебные крошки" className="mb-4 text-sm text-muted">
-            <Link href="/journal" className="hover:text-ink">Журнал</Link> / <Link href={rubricHref(a.rubric.slug)} className="hover:text-ink">{a.rubric.name}</Link>
+            <Link href="/journal" className="hover:text-ink">Журнал</Link> /{" "}
+            {a.rubric.slug ? (
+              <Link href={rubricHref(a.rubric.slug)} className="hover:text-ink">
+                {a.rubric.name}
+              </Link>
+            ) : (
+              <span>{a.rubric.name}</span>
+            )}
           </nav>
           <header>
             {a.draft && <p className="mb-3 inline-flex rounded-full bg-warn-soft px-3 py-1 text-xs font-medium text-warn">Черновик — виден только в разработке</p>}

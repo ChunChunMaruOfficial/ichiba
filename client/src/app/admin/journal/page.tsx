@@ -122,7 +122,7 @@ function Queue() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                       <Badge tone={s.tone}>{s.label}</Badge>
-                      <span>{rubricBySlug(r.rubric)?.name ?? r.rubric}</span>·
+                      <span>{rubricBySlug(r.rubric)?.name ?? `«${r.rubric}» (своя рубрика)`}</span>·
                       <Link href={`/u/${r.author.username}`} target="_blank" className="font-medium text-ink-2 hover:underline">
                         @{r.author.username}
                       </Link>

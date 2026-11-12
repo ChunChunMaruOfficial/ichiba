@@ -117,4 +117,10 @@ export const RUBRICS: Rubric[] = [
 ];
 
 export const rubricBySlug = (slug: string) => RUBRICS.find((r) => r.slug === slug);
+/**
+ * A reader may name a rubric of their own (/journal/write): it is stored as typed and shown as a label, with no hub
+ * page, so its slug is empty. Anything that isn't one of the six slugs is such a name.
+ */
+export const ownRubric = (name: string): Rubric => ({ slug: "", name, kanji: "読", title: name, description: "", intro: [], catalog: [] });
+export const rubricOrOwn = (value: string): Rubric | null => rubricBySlug(value) ?? (value.trim() ? ownRubric(value.trim()) : null);
 export const isRubric = (slug: string) => RUBRICS.some((r) => r.slug === slug);
