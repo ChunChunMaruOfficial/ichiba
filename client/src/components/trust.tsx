@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import { api, ApiError } from "@/lib/api";
-import { plural } from "@/lib/labels";
+import { plural, timeAgo } from "@/lib/labels";
 import type { BundleTier, FitHint, ListingStats } from "@/lib/types";
 import { useToast } from "./toast";
 import { Button } from "./ui";
@@ -126,6 +126,37 @@ export function MadeToMeasureNote({ days, className }: { days: number | null; cl
           вашего профиля
         </Link>{" "}
         придут ему вместе с заказом.
+      </p>
+    </div>
+  );
+}
+
+// ---------- live catalogue ----------
+
+/**
+ * «Живой каталог»: the brand's items here mirror its own shop or Telegram channel, read within the last day — what a
+ * buyer sees is what the brand has now. The source is named by kind only: a link to the brand's own shop would take
+ * the deal off ichiba.
+ */
+export function SyncPlaque({ sync, className }: { sync: { from: "site" | "telegram"; at: string } | null | undefined; className?: string }) {
+  if (!sync) return null;
+  const where = sync.from === "site" ? "с сайта бренда" : "из Telegram-канала бренда";
+  return (
+    <div className={clsx("inline-flex max-w-xl items-center gap-3 rounded-[18px] bg-ink/[0.07] py-2 pl-2 pr-4 ring-1 ring-ink/10", className)}>
+      {/* A seal stamped in cinnabar, slightly askew: 連 «linked». */}
+      <span aria-hidden lang="ja" className="grid size-11 shrink-0 -rotate-6 place-items-center rounded-[10px] bg-shu font-brush text-[26px] leading-none text-on-shu shadow-[0_2px_8px_rgb(0_0_0/0.25)]">
+        連
+      </span>
+      <p className="text-sm leading-snug text-ink-2">
+        <span className="flex items-center gap-2 font-semibold text-ink">
+          <span aria-hidden className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-ok opacity-60 motion-reduce:hidden" />
+            <span className="relative inline-flex size-2 rounded-full bg-ok" />
+          </span>
+          Живой каталог
+        </span>
+        Вещи, цены и наличие обновляются сами {where}
+        <span className="whitespace-nowrap"> · {timeAgo(sync.at)}</span>
       </p>
     </div>
   );

@@ -18,7 +18,7 @@ import type { Card, Deal, Offer, SellerSummary } from "@/lib/types";
 import { DealCard } from "./deal-actions";
 import { LookEditor, LookHighlights } from "./looks";
 import { ReviewsSection } from "./reviews";
-import { BundleNote, DealsInline, RatingInline } from "./trust";
+import { BundleNote, DealsInline, RatingInline, SyncPlaque } from "./trust";
 import { OfferCard } from "./offer";
 import { Avatar } from "./avatar";
 import { AvatarCropper } from "./avatar-cropper";
@@ -439,6 +439,7 @@ export function WardrobeView({ username, initial }: { username: string; initial?
             </dl>
             <RatingInline rating={s.rating} username={s.username} className="mt-3" />
             <DealsInline count={s.completedDeals} className="mt-1" />
+            <SyncPlaque sync={s.sync} className="mt-4" />
             {owner ? (
               <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink">
                 <InlineText value={s.bio ?? ""} placeholder="Рассказать о себе" label="Изменить описание" multiline maxLength={160} onSave={(v) => saveProfile({ bio: v || null }, v ? "Описание сохранено" : "Описание убрано")} />

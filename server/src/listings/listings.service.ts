@@ -61,6 +61,8 @@ const RETURN_LIFT_AFTER_MS = DAY_MS;
 const DISCOUNT_AFTER_MS = 7 * DAY_MS;
 /** Wardrobe page size (per section). */
 const WARDROBE_PAGE = 200;
+/** A shop or channel mirror read this recently is shown as a live catalogue (the syncs run every 3 hours). */
+const SYNC_FRESH_MS = 24 * 3600_000;
 /** «Гардеробы» page cap: every wardrobe is a collage and a summary. */
 const WARDROBES_MAX = 12;
 /** Views of one item by one person (or IP) are counted once a day; the dedupe map holds at most this many keys. */
@@ -964,7 +966,7 @@ export class ListingsService {
 
   /** Seller summaries for many sellers at once: one grouped query per metric, whatever the number of sellers. */
   async sellerSummaries(ids: string[], viewerId?: string) {
-    const [users, listingCounts, followers, following, deals, ratings, viewerFollows] = await Promise.all([
+    const [users, listingCounts, followers, following, deals, ratings, viewerFollows, shops, channels] = await Promise.all([
       this.prisma.user.findMany({
         where: { id: { in: ids } },
         select: { id: true, username: true, city: true, bio: true, createdAt: true, bundleDiscounts: true, brandVerifiedAt: true, brandName: true, avatar: { select: { key: true, provider: true } } },
@@ -975,7 +977,19 @@ export class ListingsService {
       this.prisma.buyRequest.groupBy({ by: ['sellerId'], where: { sellerId: { in: ids }, status: 'COMPLETED' }, _count: { _all: true } }),
       this.prisma.review.groupBy({ by: ['sellerId'], where: { sellerId: { in: ids }, hidden: false }, _avg: { rating: true }, _count: { _all: true } }),
       viewerId ? this.prisma.follow.findMany({ where: { followerId: viewerId, sellerId: { in: ids } }, select: { sellerId: true } }) : [],
+      // Accounts mirrored from the brand's own shop (shops/) or Telegram channel (tg/): the «живой каталог» plaque.
+      this.prisma.shopSource.findMany({ where: { userId: { in: ids }, enabled: true, lastSyncAt: { gte: new Date(Date.now() - SYNC_FRESH_MS) } }, select: { userId: true, lastSyncAt: true } }),
+      this.prisma.tgSource.findMany({ where: { userId: { in: ids }, enabled: true, lastSyncAt: { gte: new Date(Date.now() - SYNC_FRESH_MS) } }, select: { userId: true, lastSyncAt: true } }),
     ]);
+    // The latest sync of each account, by where it came from. Only a recent one counts: a shop the sync has failed to
+    // read for a day (site down, API changed) is no longer a live mirror and loses the plaque until it reads again.
+    const syncOf = new Map<string, { from: 'site' | 'telegram'; at: Date }>();
+    for (const [rows, from] of [[shops, 'site'], [channels, 'telegram']] as const) {
+      for (const r of rows) {
+        const prev = syncOf.get(r.userId);
+        if (r.lastSyncAt && (!prev || r.lastSyncAt > prev.at)) syncOf.set(r.userId, { from, at: r.lastSyncAt });
+      }
+    }
     const active = new Map<string, number>();
     const sold = new Map<string, number>();
     for (const r of listingCounts) {
@@ -1004,6 +1018,8 @@ export class ListingsService {
           isFollowing: !!viewerId && viewerId !== user.id && followed.has(user.id),
           rating: rating?._count._all ? { avg: Math.round((rating._avg.rating ?? 0) * 10) / 10, count: rating._count._all } : null,
           bundleDiscounts: tiersOf(bundleDiscounts),
+          /** The catalogue mirrors the brand's own shop or channel and was read within a day: where from, and when. */
+          sync: syncOf.get(user.id) ?? null,
         };
         return [user.id, summary] as const;
       }),

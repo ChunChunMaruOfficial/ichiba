@@ -214,6 +214,8 @@ export interface SellerSummary {
   isFollowing: boolean;
   rating: { avg: number; count: number } | null;
   bundleDiscounts: BundleTier[];
+  /** The catalogue mirrors the brand's own shop («site») or Telegram channel and was read within a day. */
+  sync?: { from: "site" | "telegram"; at: string } | null;
   avatar?: PhotoUrls | null;
 }
 
