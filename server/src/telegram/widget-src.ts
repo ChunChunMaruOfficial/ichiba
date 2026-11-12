@@ -41,13 +41,15 @@ button.c{display:block;text-align:left}
 s{color:var(--m)}`;
 
 /**
- * Only the menu: the grouped list, counters, «Подбор», switches, the chart. The menu is sent with a fixed height, so
- * its page is exactly that tall. Cards are not: their height is automatic, and Telegram sizes the bubble by the
+ * Only the menu: the grouped list, counters, «Подбор», switches, the chart. The menu is sent with a fixed height
+ * (WIDGET_HEIGHT in widget.ts, 510 px) and its page is that many pixels tall — in pixels, never 100%: Telegram Desktop
+ * lays the page out in its first ~50 px frame and doesn't redo 100% when the bubble grows, which left only the header
+ * painted over an empty dark bubble. Cards are not: their height is automatic, and Telegram sizes the bubble by the
  * document's height — a page pinned to 100% would report the bubble's first, tiny height (Telegram Desktop starts at
  * ~50 px) and stay a sliver with only the seal showing.
  */
 export const CSS_MENU = `
-html,body{height:100%;overflow:hidden}
+html,body{height:510px;overflow:hidden;background:var(--p)}
 .n{font-size:24px;font-weight:700}
 .tl{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s);border:1px solid var(--l);border-radius:14px;font-weight:600;text-align:left}
 .tl svg{width:22px;height:22px;color:var(--b)}

@@ -477,3 +477,16 @@ test('«Подбор»: one photo message flipped in place; ♡ and «не мо�
   await svc.button(CHAT, [B], `sw:l:${L3}`, async (t) => void answers.push(String(t)));
   assert.equal(swiped.length, 1, 'a chat not linked to the deck’s account swipes nothing');
 });
+
+test('widget pages never size themselves by the frame (Telegram Desktop lays out in a ~50 px frame first)', async () => {
+  const { MENU_HTML, CARD_HTML } = await import('../../src/telegram/widget-html.js');
+  const { WIDGET_HEIGHT } = await import('../../src/telegram/widget.js');
+  const { ADMIN_WIDGET_HTML } = await import('../../src/telegram/admin/widget-html.js');
+  // The fixed-height menu: its page is exactly the widget's height, in pixels.
+  assert.ok(MENU_HTML.includes(`html,body{height:${WIDGET_HEIGHT}px`), 'menu page height = WIDGET_HEIGHT');
+  for (const [name, html] of [['menu', MENU_HTML], ['card', CARD_HTML], ['admin', ADMIN_WIDGET_HTML]] as const) {
+    assert.doesNotMatch(html, /(?:html|body)[^{}]*\{[^}]*height:\s*100%|\d+vh/, `${name}: no page height relative to the frame`);
+  }
+  // Auto-height widgets: nothing pins the page, so its height is its content's.
+  for (const html of [CARD_HTML, ADMIN_WIDGET_HTML]) assert.doesNotMatch(html, /html,body\{height/);
+});
