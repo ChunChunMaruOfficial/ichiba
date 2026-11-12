@@ -24,7 +24,6 @@ export const ListingFilter = z
     ids: z.array(z.uuid()).max(MAX_ITEMS).optional().describe('конкретные вещи по id (из my_listings)'),
     status: z.enum(['on_sale', 'hidden', 'draft', 'reserved', 'sold', 'any']).optional().describe('по умолчанию on_sale'),
     category: z.enum(CATEGORY_SLUGS as [string, ...string[]]).optional(),
-    subcategory: z.string().max(40).optional(),
     words: z.array(z.string().min(2).max(30)).max(8).optional().describe('слова из названия, бренда или описания, в любой форме: вещь подходит, если есть хотя бы одно'),
     priceMin: z.number().int().min(0).optional(),
     priceMax: z.number().int().min(0).optional(),
@@ -60,7 +59,6 @@ export function listingWhere(userId: string, f: ListingFilterT, now = Date.now()
     status: { in: STATUS[f.status ?? 'on_sale'] },
     ...(f.ids?.length ? { id: { in: f.ids } } : {}),
     ...(f.category ? { category: f.category } : {}),
-    ...(f.subcategory ? { subcategory: f.subcategory } : {}),
     ...(f.priceMin != null || f.priceMax != null ? { price: { ...(f.priceMin != null ? { gte: f.priceMin } : {}), ...(f.priceMax != null ? { lte: f.priceMax } : {}) } } : {}),
     ...(f.olderThanDays ? { publishedAt: { lte: new Date(now - f.olderThanDays * 24 * 3600_000) } } : {}),
     ...(words.length
@@ -101,8 +99,8 @@ export async function findMyListings(prisma: PrismaService, userId: string, f: L
   return { items, total };
 }
 
-/** The category list for the model's prompt: «outerwear Верхняя одежда (jacket Куртка, …)». */
-export const categoryGuide = () => CATEGORIES.map((c) => `${c.slug} ${c.label} (${c.subcategories.map((s) => `${s.slug} ${s.label}`).join(', ')})`).join('\n');
+/** The categories for the model's prompt: «outerwear Верхняя одежда, tshirts Футболки, …». */
+export const categoryGuide = () => CATEGORIES.map((c) => `${c.slug} ${c.label}`).join(', ');
 
 export const byn = (n: number | null | undefined) => (n == null ? '—' : `${n} BYN`);
 export const clip = (s: string, n = 40) => (s.length > n ? `${s.slice(0, n - 1)}…` : s) || 'Без названия';

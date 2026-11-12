@@ -29,12 +29,37 @@ const json = (schema: z.ZodType) => {
   return JSON.stringify(s);
 };
 
+type Node = { type?: string; properties?: Record<string, Node>; required?: string[]; items?: Node; enum?: unknown[]; const?: unknown; anyOf?: Node[]; description?: string; format?: string };
+
+/**
+ * A tool's arguments in one short line — `{filter: FILTER, mode: percent|amount|exact, value: number}` — instead of
+ * the full JSON Schema: the prompt is three times shorter, which is what the providers' speed and per-minute token
+ * limits depend on. The schema itself still checks every call; this is only how the model is told about it.
+ */
+export function brief(node: Node, filter?: string): string {
+  const { description: _d, ...bare } = node;
+  if (filter && JSON.stringify(bare) === filter) return 'FILTER';
+  if (node.anyOf) return [...new Set(node.anyOf.map((n) => brief(n, filter)))].join('|');
+  if (node.enum) return node.enum.join('|');
+  if (node.const !== undefined) return String(node.const);
+  if (node.type === 'array') return `[${node.items ? brief(node.items, filter) : ''}]`;
+  if (node.type === 'object') {
+    const required = new Set(node.required ?? []);
+    const fields = Object.entries(node.properties ?? {}).map(([k, v]) => `${k}${required.has(k) ? '' : '?'}: ${brief(v, filter)}${v.description ? ` /* ${v.description} */` : ''}`);
+    return `{${fields.join(', ')}}`;
+  }
+  if (node.type === 'string') return node.format === 'uuid' ? 'id' : 'string';
+  return node.type === 'integer' ? 'int' : (node.type ?? 'any');
+}
+
 /** The tools as the model sees them; the item filter, shared by most of them, is spelled out once. */
 function toolGuide() {
-  const filter = json(ListingFilter);
-  const list = TOOLS.map((t) => `- ${t.name} [${t.kind === 'read' ? 'смотрит' : t.kind === 'write' ? 'меняет сразу, можно отменить' : 'необратимо, система сама спросит подтверждение'}]: ${t.about}\n  args: ${json(t.args).split(filter).join('"FILTER"')}`);
+  const filter = JSON.parse(json(ListingFilter)) as Node;
+  const same = JSON.stringify(filter);
+  const kind = { read: 'смотрит', write: 'меняет сразу, можно отменить', confirm: 'необратимо, система сама спросит подтверждение' };
+  const list = TOOLS.map((t) => `- ${t.name} [${kind[t.kind]}]: ${t.about}\n  args: ${brief(JSON.parse(json(t.args)) as Node, same)}`);
   const undo = '- undo_last [отменяет последнее, что изменил помощник]: когда человек пишет «отмени», «верни как было», «я передумал» про только что сделанное. args: {}';
-  return `FILTER (какие из моих вещей): ${filter}\n\n${list.join('\n')}\n${undo}`;
+  return `FILTER (какие из моих вещей; все поля необязательны): ${brief(filter)}\n\n${list.join('\n')}\n${undo}`;
 }
 
 const SYSTEM = `Ты — Ichiba, помощник внутри маркетплейса одежды ichiba.by (Беларусь). Ты говоришь с владельцем аккаунта в чате и делаешь то, о чём он просит, с его собственным аккаунтом: вещи, цены, заявки, настройки.
@@ -69,11 +94,22 @@ export interface PlanInput {
 let guide: string | null = null;
 
 export function buildPrompt(input: PlanInput) {
-  guide ??= `Инструменты:\n${toolGuide()}\n\nКатегории вещей (slug название (подкатегории)):\n${categoryGuide()}\n\nСтраницы для links: ${Object.entries(LINKS)
+  guide ??= `Инструменты:\n${toolGuide()}\n\nКатегории вещей (category): ${categoryGuide()}\n\nСтраницы для links: ${Object.entries(LINKS)
     .map(([k, [label]]) => `${k} «${label}»`)
-    .join(', ')}\n\nСправка:\n${TOPICS.map((t) => `${t.title}. ${t.text}`).join('\n')}`;
+    .join(', ')}`;
+  // Only the help sections the message touches go in whole; the rest are named, and `help` fetches one when needed.
+  const q = `${input.message} ${input.history.slice(-2).map((h) => h.text).join(' ')}`.toLowerCase();
+  const near = TOPICS.filter((t) => t.words.some((w) => q.includes(w))).slice(0, 3);
+  const others = TOPICS.filter((t) => !near.includes(t));
+  const helpText = [
+    near.length ? `Справка по теме:\n${near.map((t) => `${t.title}. ${t.text}`).join('\n')}` : '',
+    `${near.length ? 'Другие' : 'Разделы справки'} (текст раздела даёт help): ${others.map((t) => `${t.id} «${t.title}»`).join(', ')}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
   return [
     guide,
+    helpText,
     `Аккаунт: ${JSON.stringify(input.account)}`,
     input.history.length ? `Диалог (последние реплики):\n${input.history.map((h) => `${h.who}: ${h.text}`).join('\n')}` : '',
     input.observations.length ? `Наблюдения (результаты инструментов на этом шаге):\n${input.observations.map((o) => `${o.tool} ${JSON.stringify(o.args)} → ${JSON.stringify(o.result).slice(0, 6000)}`).join('\n')}` : '',
@@ -95,7 +131,9 @@ export async function planStep(ai: AiEnsemble, input: PlanInput, userId: string)
     tier: process.env.ASSISTANT_TIER === 'smart' ? 'smart' : 'fast',
     temperature: 0.1,
     maxTokens: 900,
-    timeoutMs: 25_000,
+    // A provider that hasn't answered in 7 s rarely does; past 14 s the person gets the menu instead of waiting on.
+    timeoutMs: 14_000,
+    graceMs: 7_000,
     subject: { type: 'user', id: userId },
     logResult: (votes) => votes[0]?.value.calls?.map((c) => c.tool) ?? [],
   });

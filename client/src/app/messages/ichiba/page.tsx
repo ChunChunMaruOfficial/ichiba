@@ -149,13 +149,19 @@ function AssistantChat() {
             )}
             {messages.map((m) => (
               <li key={m.id} className={clsx("flex flex-col", m.fromBot ? "items-start" : "items-end")}>
-                <Bubble mine={!m.fromBot} body={m.body} at={m.id === "welcome" ? null : m.createdAt} />
-                {m.fromBot && !!m.buttons?.length && <Buttons rows={m.buttons} disabled={busy} onPress={press} />}
+                {/* The message and its buttons are one block: as wide as the longer of the two, so the keyboard
+                    sits exactly under the bubble, as in a Telegram bot. */}
+                <div className={clsx("flex w-fit max-w-[85%] flex-col sm:max-w-[70%]", m.fromBot && !!m.buttons?.length && "min-w-48")}>
+                  <Bubble mine={!m.fromBot} body={m.body} at={m.id === "welcome" ? null : m.createdAt} />
+                  {m.fromBot && !!m.buttons?.length && <Buttons rows={m.buttons} disabled={busy} onPress={press} />}
+                </div>
               </li>
             ))}
             {pending && (
               <li className="flex flex-col items-end opacity-70">
-                <Bubble mine body={pending} at={null} />
+                <div className="flex w-fit max-w-[85%] flex-col sm:max-w-[70%]">
+                  <Bubble mine body={pending} at={null} />
+                </div>
               </li>
             )}
             {busy && (
@@ -228,7 +234,7 @@ function Bubble({ mine, body, at }: { mine: boolean; body: string; at: string | 
   return (
     <div
       className={clsx(
-        "max-w-[85%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug sm:max-w-[70%]",
+        "rounded-2xl px-3.5 py-2 text-[15px] leading-snug",
         mine ? "rounded-br-md bg-accent text-accent-ink" : "rounded-bl-md bg-surface text-ink shadow-[inset_0_0_0_1px_var(--line)]",
       )}
     >
@@ -241,7 +247,7 @@ function Bubble({ mine, body, at }: { mine: boolean; body: string; at: string | 
 /** The inline keyboard under a bot message: rows of equal buttons; «Отменить» and «Отмена» are quiet, «Сделать» stands out. */
 function Buttons({ rows, disabled, onPress }: { rows: AssistantButton[][]; disabled: boolean; onPress: (b: AssistantButton) => void }) {
   return (
-    <div className="mt-1.5 flex w-full max-w-[85%] flex-col gap-1.5 sm:max-w-[70%]">
+    <div className="mt-1.5 flex w-full flex-col gap-1.5">
       {rows.map((row, i) => (
         <div key={i} className="flex gap-1.5">
           {row.map((b) => (

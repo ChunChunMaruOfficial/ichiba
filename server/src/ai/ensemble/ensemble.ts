@@ -52,6 +52,8 @@ export interface EnsembleOptions<T> {
   timeoutMs?: number;
   /** How long to wait for the remaining providers after the first valid vote. */
   graceMs?: number;
+  /** first() only: how long one provider is waited for alone before the next is asked beside it. */
+  hedgeMs?: number;
   maxTokens?: number;
   temperature?: number;
   classifyUnsafe?: boolean;
@@ -473,17 +475,27 @@ ${schemaText(opts.schema)}`,
       classifyUnsafe: opts.classifyUnsafe ?? false,
     };
     const calls: Array<Record<string, unknown>> = [];
-    let vote: Vote<T> | null = null;
+    let vote = null as Vote<T> | null;
     const order = [...this.runtimes].filter((r) => r.available).sort((a, b) => b.provider.weight - a.provider.weight);
-    for (const rt of order) {
-      const models = rt.usable(rt.provider.models(tier, false));
-      if (!models.length || controller.signal.aborted) continue;
+    // The heaviest provider is asked first. If it hasn't answered within `hedgeMs`, the next one is asked beside it,
+    // and whichever gives a valid reply first is taken (the others are cut off): a slow or failing provider costs a
+    // couple of seconds, not its whole share of the wait. A provider that fails outright hands over at once.
+    const hedgeMs = opts.hedgeMs ?? 2_500;
+    let next = 0;
+    let active = 0;
+    let finish!: () => void;
+    const done = new Promise<void>((r) => (finish = r));
+    controller.signal.addEventListener('abort', () => finish(), { once: true });
+
+    const attempt = async (rt: ProviderRuntime): Promise<Vote<T> | null> => {
       const id = rt.provider.id;
       const turn = new AbortController();
       const turnTimer = setTimeout(() => turn.abort('turn'), perProviderMs);
       const req: LlmRequest = { ...base, signal: AbortSignal.any([controller.signal, turn.signal]) };
       try {
-        const { reply, model, latencyMs } = await rt.run(models, req, (a) => calls.push({ provider: id, model: a.model, ok: a.ok, kind: a.kind, latencyMs: a.latencyMs, inputTokens: a.reply?.inputTokens, outputTokens: a.reply?.outputTokens }));
+        const { reply, model, latencyMs } = await rt.run(rt.usable(rt.provider.models(tier, false)), req, (a) =>
+          calls.push({ provider: id, model: a.model, ok: a.ok, kind: a.kind, latencyMs: a.latencyMs, inputTokens: a.reply?.inputTokens, outputTokens: a.reply?.outputTokens }),
+        );
         let value: T | null = null;
         try {
           value = parseWith(opts.schema, extractJson(reply.text));
@@ -492,16 +504,41 @@ ${schemaText(opts.schema)}`,
         }
         if (value === null) {
           calls.push({ provider: id, model, kind: 'invalid', message: `schema mismatch: ${reply.text.slice(0, 160)}` });
-          continue;
+          return null;
         }
-        vote = { provider: id, model, weight: rt.provider.weight, value, latencyMs };
-        break;
+        return { provider: id, model, weight: rt.provider.weight, value, latencyMs };
       } catch {
-        // The attempt is already in `calls`; the next provider gets its turn.
+        // The attempt is already in `calls`.
+        return null;
       } finally {
         clearTimeout(turnTimer);
       }
-    }
+    };
+
+    const startNext = (): void => {
+      if (vote || controller.signal.aborted) return;
+      let rt = order[next++];
+      while (rt && !rt.usable(rt.provider.models(tier, false)).length) rt = order[next++];
+      if (!rt) return;
+      active++;
+      const hedge = setTimeout(startNext, hedgeMs);
+      void attempt(rt).then((v) => {
+        clearTimeout(hedge);
+        active--;
+        if (v && !vote) {
+          vote = v;
+          return finish();
+        }
+        if (vote) return;
+        // Failed with nobody else asked yet: the next provider gets its turn now.
+        if (active === 0) startNext();
+        if (active === 0) finish();
+      });
+    };
+    startNext();
+    if (active === 0) finish();
+    await done;
+    controller.abort('done');
     clearTimeout(deadline);
     if (!vote) this.logger.warn(`${opts.feature}: no provider answered`);
     this.prisma.aiRun

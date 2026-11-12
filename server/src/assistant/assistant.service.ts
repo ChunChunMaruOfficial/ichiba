@@ -17,6 +17,7 @@ import { findTopic } from './knowledge.js';
 import { linkRows } from './links.js';
 import { answerOf, asksMenu, asksUndo, BUSY, limitReached, NOTHING_TO_UNDO, LIMITS, menu, NOT_NOW, OFF_TOPIC, press, PRESETS, UNCLEAR, WELCOME } from './menu.js';
 import { looksLikeSteering, planStep, type PlanInput } from './planner.js';
+import { quick } from './quick.js';
 import { toolByName } from './tools/index.js';
 import { why } from './tools/shared.js';
 import { Refusal, type Keyboard, type Tool, type ToolCtx } from './types.js';
@@ -157,6 +158,9 @@ export class AssistantService {
     if (looksLikeSteering(text)) return [await this.say(userId, OFF_TOPIC, [[press('menu', 'Меню')]])];
     if (asksUndo(text)) return this.undoLast(userId);
     if (asksMenu(text)) return [await this.say(userId, 'Чем помочь? Напишите своими словами или выберите:', menu(await this.isSeller(userId)))];
+    // The commonest requests need no model: done at once (and when no provider answers).
+    const fast = quick(text);
+    if (fast) return [await this.act(userId, toolByName(fast.tool)!, toolByName(fast.tool)!.args.parse(fast.args))];
 
     if (!this.ai.available) return [await this.offline(userId, text)];
     // The message just saved is one of them, hence the +1.
@@ -312,6 +316,10 @@ export class AssistantService {
   // ---------- a pressed button ----------
 
   press(userId: string, id: string): Promise<{ messages: Sent[]; spent?: string[] }> {
+    // «Поднять вещи» needs no model to understand it: the tool runs at once.
+    if (id === 'say:bump') {
+      return this.oneAtATime(userId, async () => ({ messages: [await this.heard(userId, PRESETS.bump), await this.act(userId, toolByName('bump')!, { filter: {} })] }));
+    }
     // A menu button that sends a ready phrase takes the turn itself, in send().
     if (id.startsWith('say:')) return PRESETS[id.slice(4)] ? this.send(userId, PRESETS[id.slice(4)]) : Promise.resolve({ messages: [] });
     return this.oneAtATime(userId, () => this.pressed(userId, id));

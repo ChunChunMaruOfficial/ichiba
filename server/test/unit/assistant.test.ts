@@ -7,6 +7,7 @@ import { linkRows, LINKS } from '../../src/assistant/links.js';
 import { answerOf, asksMenu, asksUndo, limitReached, LIMITS, menu, waitWords } from '../../src/assistant/menu.js';
 import { ListingFilter, listingWhere, stem, things } from '../../src/assistant/my-listings.js';
 import { buildPrompt, looksLikeSteering, Step } from '../../src/assistant/planner.js';
+import { quick } from '../../src/assistant/quick.js';
 import { TOOLS, toolByName } from '../../src/assistant/tools/index.js';
 import { newPrice } from '../../src/assistant/tools/price.js';
 
@@ -114,6 +115,28 @@ test('plain «отмени» and «меню» are understood without a model, lo
   for (const t of ['отмени аукцион на куртку', 'отмени заявку от @vasya', 'верни куртку в продажу', 'как отменить сделку?']) assert.ok(!asksUndo(t), t);
   for (const t of ['меню', 'Привет!', '/start', 'что ты умеешь?']) assert.ok(asksMenu(t), t);
   assert.ok(!asksMenu('привет, подними мои вещи'));
+});
+
+test('the commonest requests are understood without a model, and only when nothing in them is left over', () => {
+  const price = (mode: string, value: number) => ({ tool: 'set_price', args: { filter: {}, mode, value } });
+  const cases: Array<[string, unknown]> = [
+    ['подними пару моих позиций', { tool: 'bump', args: { filter: { limit: 2 } } }],
+    ['Подними 5 вещей!', { tool: 'bump', args: { filter: { limit: 5 } } }],
+    ['подними все вещи', { tool: 'bump', args: { filter: {} } }],
+    ['подними мои объявления', { tool: 'bump', args: { filter: {} } }],
+    ['снизь цену всем позициям на 5%', price('percent', -5)],
+    ['Снизь цены на 10 процентов', price('percent', -10)],
+    ['снизь цену на 5% на все вещи', price('percent', -5)],
+    ['скинь цену всем на 10 рублей', price('amount', -10)],
+    ['подними цену на 15 %', price('percent', 15)],
+    ['повысь цены у всех моих вещей на 20 руб', price('amount', 20)],
+  ];
+  for (const [text, want] of cases) assert.deepEqual(quick(text), want, text);
+  for (const text of ['подними', 'подними цену', 'подними куртки', 'подними пару курток', 'снизь цену на джинсы на 10%', 'снизь цену на 5% кроме пальто', 'снизь цену на 95%', 'снизь цену до 50', 'поставь цену 80', 'как поднять вещь?', 'подними настроение']) {
+    assert.equal(quick(text), null, text);
+  }
+  // What it builds passes the tools' own schemas.
+  for (const [text] of cases) assert.ok(toolByName(quick(text)!.tool)!.args.safeParse(quick(text)!.args).success, text);
 });
 
 test('counting words', () => {
