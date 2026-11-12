@@ -448,4 +448,75 @@ export class AiEnsemble {
 
     return { votes, failures, blocked, latencyMs };
   }
+
+  /**
+   * One answer instead of a vote: the providers are asked in turn, the heaviest first, until one gives a reply that
+   * fits the schema. For a conversation (the assistant chat) a vote of three models per step would triple the cost
+   * and there is nothing to aggregate. Same queues, breakers and AiRun log as run().
+   */
+  async first<T>(opts: EnsembleOptions<T>): Promise<Vote<T> | null> {
+    const started = Date.now();
+    const tier = opts.tier ?? 'fast';
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort('deadline'), opts.timeoutMs ?? 20_000);
+    // One slow provider must not use up the whole wait: each gets its share, then the next is asked.
+    const perProviderMs = Math.min(opts.graceMs ?? 9_000, opts.timeoutMs ?? 20_000);
+    const base: Omit<LlmRequest, 'signal'> = {
+      system: `${opts.system}
+
+Ответь ТОЛЬКО одним JSON-объектом, строго по этой JSON Schema, без пояснений и markdown:
+${schemaText(opts.schema)}`,
+      prompt: opts.prompt,
+      images: [],
+      maxTokens: opts.maxTokens ?? 800,
+      temperature: opts.temperature ?? 0.2,
+      classifyUnsafe: opts.classifyUnsafe ?? false,
+    };
+    const calls: Array<Record<string, unknown>> = [];
+    let vote: Vote<T> | null = null;
+    const order = [...this.runtimes].filter((r) => r.available).sort((a, b) => b.provider.weight - a.provider.weight);
+    for (const rt of order) {
+      const models = rt.usable(rt.provider.models(tier, false));
+      if (!models.length || controller.signal.aborted) continue;
+      const id = rt.provider.id;
+      const turn = new AbortController();
+      const turnTimer = setTimeout(() => turn.abort('turn'), perProviderMs);
+      const req: LlmRequest = { ...base, signal: AbortSignal.any([controller.signal, turn.signal]) };
+      try {
+        const { reply, model, latencyMs } = await rt.run(models, req, (a) => calls.push({ provider: id, model: a.model, ok: a.ok, kind: a.kind, latencyMs: a.latencyMs, inputTokens: a.reply?.inputTokens, outputTokens: a.reply?.outputTokens }));
+        let value: T | null = null;
+        try {
+          value = parseWith(opts.schema, extractJson(reply.text));
+        } catch {
+          value = null;
+        }
+        if (value === null) {
+          calls.push({ provider: id, model, kind: 'invalid', message: `schema mismatch: ${reply.text.slice(0, 160)}` });
+          continue;
+        }
+        vote = { provider: id, model, weight: rt.provider.weight, value, latencyMs };
+        break;
+      } catch {
+        // The attempt is already in `calls`; the next provider gets its turn.
+      } finally {
+        clearTimeout(turnTimer);
+      }
+    }
+    clearTimeout(deadline);
+    if (!vote) this.logger.warn(`${opts.feature}: no provider answered`);
+    this.prisma.aiRun
+      .create({
+        data: {
+          feature: opts.feature,
+          subjectType: opts.subject?.type ?? null,
+          subjectId: opts.subject?.id ?? null,
+          calls: calls as Prisma.InputJsonValue,
+          votes: (vote ? [{ provider: vote.provider, model: vote.model, latencyMs: vote.latencyMs, value: vote.value }] : []) as Prisma.InputJsonValue,
+          result: (opts.logResult?.(vote ? [vote] : []) ?? undefined) as Prisma.InputJsonValue | undefined,
+          latencyMs: Date.now() - started,
+        },
+      })
+      .catch((e) => this.logger.warn(`AiRun log failed: ${(e as Error).message}`));
+    return vote;
+  }
 }

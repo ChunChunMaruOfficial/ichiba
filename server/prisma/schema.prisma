@@ -153,6 +153,8 @@ model User {
   /// a review of the seller and their stock: their new items with tags are listed there. Null = not admitted.
   catalogApprovedAt DateTime?
   onboardedAt       DateTime?
+  /// When the owner last opened the «Ichiba» assistant chat (src/assistant): its newer messages show as unread.
+  assistantReadAt   DateTime?
   /// Profile photo (one of the user's photos); shown on the profile and wardrobe cards.
   avatarId          String?   @unique
   avatar            Photo?    @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
@@ -188,6 +190,7 @@ model User {
   shopSources     ShopSource[]
   brandApplications BrandApplication[]
   deviceKeys      DeviceKey[]
+  assistantMessages AssistantMessage[]
   blockedAt       DateTime?
   /// Bumped when every session of the account must end (password reset, block, deletion): tokens carry the
   /// version they were issued with and are refused once it moves on.
@@ -1150,4 +1153,48 @@ model JournalArticle {
   @@index([authorId, updatedAt])
   @@index([status, submittedAt])
   @@index([status, publishedAt])
+}
+
+/// The «Ichiba» chat (src/assistant): the assistant that answers questions about the platform and does things on the
+/// account for its owner. One conversation per account, kept apart from Thread (which needs a listing and two people).
+model AssistantMessage {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromBot   Boolean
+  body      String
+  /// Rows of buttons under a bot message: [[{ id, label, kind: 'press' | 'link', path? }]]. Null = none (or used up).
+  buttons   Json?
+  /// The AssistantAction this message reports or asks to confirm.
+  actionId  String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// One thing the assistant did (or asked to confirm) for the account. The snapshot holds what was there before, so
+/// «Отменить» can put it back. PENDING (waits for «Сделать») → DONE → UNDONE; CANCELLED = the owner said no.
+model AssistantAction {
+  id        String    @id @default(uuid())
+  userId    String
+  tool      String
+  args      Json
+  snapshot  Json?
+  status    String    @default("DONE")
+  report    String    @default("")
+  createdAt DateTime  @default(now())
+  undoneAt  DateTime?
+
+  @@index([userId, createdAt])
+}
+
+/// «Предложить улучшение» from the assistant chat: goes to the admins' Telegram, kept here as the record.
+model Suggestion {
+  id        String   @id @default(uuid())
+  number    Int      @unique @default(autoincrement())
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

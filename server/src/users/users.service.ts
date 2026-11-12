@@ -90,60 +90,23 @@ export class UsersService {
       telegram: { available: botEnabled(), linked: tgLinked, username: tgLinked ? tgUsername : null, linkedAt: tgLinked ? tgLinkedAt : null, prefs: tgPrefsOf(tgPrefs) },
     };
   }
-}
 
-const UpdateMeDto = z.object({
-  /** The nickname, changed on the wardrobe page itself; the old /u/… address stops working. */
-  username: z.string().trim().toLowerCase().regex(USERNAME_RE, 'Латиница, цифры и _, от 3 до 24 символов').optional(),
-  city: z.enum(CITIES as [string, ...string[]]).nullish(),
-  bio: z
-    .string()
-    .trim()
-    .max(160, 'До 160 символов')
-    // The profile is not a way around the deal: buyers write in the chat here, and contacts open up once a deal is on.
-    .refine((v) => !findContacts(v).length, 'Контакты и ссылки в профиле запрещены — покупатели напишут вам в чат ichiba')
-    .nullish(),
-  phone: z
-    .string()
-    .trim()
-    .max(30)
-    .transform((v) => v.replace(/[\s()-]/g, ''))
-    .refine((v) => !v || /^\+?\d{7,15}$/.test(v), 'Введите номер в формате +375 29 123-45-67')
-    .nullish(),
-  sizes: SizesDto.nullish(),
-  bodyMeasurements: BodyMeasurementsDto.nullish(),
-  bundleDiscounts: BundleTiersDto.optional(),
-  emailPrefs: z.object({ deals: z.boolean().optional(), notifyOff: z.array(z.enum(NOTIFY_GROUPS)).max(NOTIFY_GROUPS.length).optional() }).strict().optional(),
-  /** A part of the look settings (client lib/prefs.ts): merged into what is stored. */
-  uiPrefs: z.object({ cardStyle: z.enum(['minimal', 'detailed']).optional(), theme: z.enum(['system', 'light', 'dark']).optional() }).strict().optional(),
-  onboarded: z.boolean().optional(),
-  /** One of the user's own uploaded photos (?for=avatar), or null to remove it. */
-  avatarId: z.uuid().nullish(),
-});
-
-@Controller('users')
-export class UsersController {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly users: UsersService,
-  ) {}
-
-  @Patch('me')
-  async update(@CurrentUser() user: AuthUser, @Body(new ZodPipe(UpdateMeDto)) dto: z.infer<typeof UpdateMeDto>) {
+  /** A part of the profile and settings (PATCH /users/me; the assistant chat changes settings through it too). */
+  async updateMe(userId: string, dto: UpdateMe) {
     const { onboarded, sizes, bodyMeasurements, bundleDiscounts, emailPrefs, avatarId, uiPrefs, ...rest } = dto;
-    const storedPrefs = uiPrefs !== undefined ? ((await this.prisma.user.findUnique({ where: { id: user.id }, select: { uiPrefs: true } }))?.uiPrefs as object | null) ?? {} : undefined;
+    const storedPrefs = uiPrefs !== undefined ? ((await this.prisma.user.findUnique({ where: { id: userId }, select: { uiPrefs: true } }))?.uiPrefs as object | null) ?? {} : undefined;
     // A part of the mail settings (one switch) is merged into what is stored, as the look settings are.
-    const storedMail = emailPrefs !== undefined ? emailPrefsOf((await this.prisma.user.findUnique({ where: { id: user.id }, select: { emailPrefs: true } }))?.emailPrefs) : undefined;
+    const storedMail = emailPrefs !== undefined ? emailPrefsOf((await this.prisma.user.findUnique({ where: { id: userId }, select: { emailPrefs: true } }))?.emailPrefs) : undefined;
     if (avatarId) {
       const photo = await this.prisma.photo.findUnique({ where: { id: avatarId }, select: { ownerId: true, listingId: true, messageId: true } });
-      if (!photo || photo.ownerId !== user.id || photo.listingId || photo.messageId) throw new BadRequestException({ message: 'Это фото нельзя поставить на аватар' });
+      if (!photo || photo.ownerId !== userId || photo.listingId || photo.messageId) throw new BadRequestException({ message: 'Это фото нельзя поставить на аватар' });
     }
     const json = (v: unknown) => (v ?? undefined) as Prisma.InputJsonValue | undefined;
     // A phone that moves is a phone nobody has confirmed yet.
     const phoneChange = rest.phone !== undefined ? { phone: rest.phone || null, phoneVerifiedAt: null } : {};
     try {
       await this.prisma.user.update({
-        where: { id: user.id },
+        where: { id: userId },
         data: {
           ...rest,
           ...phoneChange,
@@ -167,7 +130,51 @@ export class UsersController {
     }
     // A look setting is not a profile edit for the admin log.
     const edited = Object.keys(dto).filter((k) => k !== 'uiPrefs');
-    if (edited.length) recordActivity(this.prisma, user.id, 'profile_edited', { detail: edited.join(', ') });
-    return this.users.me(user.id);
+    if (edited.length) recordActivity(this.prisma, userId, 'profile_edited', { detail: edited.join(', ') });
+    return this.me(userId);
+  }
+}
+
+export const UpdateMeDto = z.object({
+  /** The nickname, changed on the wardrobe page itself; the old /u/… address stops working. */
+  username: z.string().trim().toLowerCase().regex(USERNAME_RE, 'Латиница, цифры и _, от 3 до 24 символов').optional(),
+  city: z.enum(CITIES as [string, ...string[]]).nullish(),
+  bio: z
+    .string()
+    .trim()
+    .max(160, 'До 160 символов')
+    // The profile is not a way around the deal: buyers write in the chat here, and contacts open up once a deal is on.
+    .refine((v) => !findContacts(v).length, 'Контакты и ссылки в профиле запрещены — покупатели напишут вам в чат ichiba')
+    .nullish(),
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .transform((v) => v.replace(/[\s()-]/g, ''))
+    .refine((v) => !v || /^\+?\d{7,15}$/.test(v), 'Введите номер в формате +375 29 123-45-67')
+    .nullish(),
+  sizes: SizesDto.nullish(),
+  bodyMeasurements: BodyMeasurementsDto.nullish(),
+  bundleDiscounts: BundleTiersDto.optional(),
+  emailPrefs: z.object({ deals: z.boolean().optional(), notifyOff: z.array(z.enum(NOTIFY_GROUPS)).max(NOTIFY_GROUPS.length).optional() }).strict().optional(),
+  /** A part of the look settings (client lib/prefs.ts): merged into what is stored. */
+  uiPrefs: z.object({ cardStyle: z.enum(['minimal', 'detailed']).optional(), theme: z.enum(['system', 'light', 'dark']).optional(), assistantPinned: z.boolean().optional() }).strict().optional(),
+  onboarded: z.boolean().optional(),
+  /** One of the user's own uploaded photos (?for=avatar), or null to remove it. */
+  avatarId: z.uuid().nullish(),
+});
+
+export type UpdateMe = z.infer<typeof UpdateMeDto>;
+
+@Controller('users')
+export class UsersController {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
+  ) {}
+
+  @Patch('me')
+  update(@CurrentUser() user: AuthUser, @Body(new ZodPipe(UpdateMeDto)) dto: UpdateMe) {
+    return this.users.updateMe(user.id, dto);
   }
 }

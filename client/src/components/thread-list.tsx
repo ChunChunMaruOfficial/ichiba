@@ -4,7 +4,9 @@ import clsx from "clsx";
 import Link from "next/link";
 import useSWR from "swr";
 import { timeAgo } from "@/lib/labels";
-import type { ThreadSummary } from "@/lib/types";
+import { usePrefs } from "@/lib/prefs";
+import type { AssistantSummary, ThreadSummary } from "@/lib/types";
+import { IconPushpin } from "./chat/icons";
 import { useSession } from "./session";
 import { DealBadge, EmptyState, ErrorState, Skeleton } from "./ui";
 
@@ -13,6 +15,8 @@ export function ThreadList({ activeId, compact }: { activeId?: string; compact?:
   const { realtime } = useSession();
   // Without a live channel the list polls for new messages.
   const { data, error, mutate } = useSWR<{ items: ThreadSummary[] }>("/threads", { refreshInterval: realtime === "live" ? 0 : 15_000 });
+  const assistant = useSWR<AssistantSummary>("/assistant/summary", { refreshInterval: 0 });
+  const { prefs } = usePrefs();
   if (error) return <ErrorState message="Не удалось загрузить сообщения" onRetry={() => mutate()} />;
   if (!data)
     return (
@@ -22,10 +26,23 @@ export function ThreadList({ activeId, compact }: { activeId?: string; compact?:
         ))}
       </div>
     );
-  if (data.items.length === 0) return <EmptyState title="Здесь появятся переписки с продавцами и покупателями" hint="Нажмите «Задать вопрос» на странице вещи" />;
+  // The assistant's chat is one of the rows: on top while pinned, by the time of its last message otherwise.
+  const at = assistant.data ? new Date(assistant.data.lastMessageAt).getTime() : 0;
+  const before = prefs.assistantPinned ? 0 : data.items.filter((t) => new Date(t.lastMessageAt).getTime() > at).length;
+  const row = (
+    <li key="ichiba">
+      <AssistantRow summary={assistant.data} active={activeId === ASSISTANT_ID} pinned={prefs.assistantPinned} />
+    </li>
+  );
   return (
     <ul className="flex flex-col divide-y divide-line">
-      {data.items.map((t, i) => (
+      {before === 0 && row}
+      {data.items.length === 0 && !compact && (
+        <li>
+          <EmptyState title="Здесь появятся переписки с продавцами и покупателями" hint="Нажмите «Задать вопрос» на странице вещи" />
+        </li>
+      )}
+      {data.items.flatMap((t, i) => [
         <li key={t.id} className="rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
           <Link
             href={`/messages/${t.id}`}
@@ -62,8 +79,50 @@ export function ThreadList({ activeId, compact }: { activeId?: string; compact?:
               </span>
             )}
           </Link>
-        </li>
-      ))}
+        </li>,
+        before === i + 1 ? row : null,
+      ])}
     </ul>
+  );
+}
+
+/** The segment of /messages/ichiba, as the layout passes it for the open chat. */
+export const ASSISTANT_ID = "ichiba";
+
+/** The assistant's seal: 市 of 市場, «ichiba». */
+export function AssistantSeal({ className }: { className?: string }) {
+  return (
+    <span aria-hidden className={clsx("grid shrink-0 place-items-center rounded-xl bg-shu font-brush leading-none text-on-shu", className)}>
+      市
+    </span>
+  );
+}
+
+function AssistantRow({ summary, active, pinned }: { summary?: AssistantSummary; active: boolean; pinned: boolean }) {
+  const unread = !!summary?.unread && !active;
+  return (
+    <Link href="/messages/ichiba" aria-current={active ? "page" : undefined} className={clsx("flex gap-3.5 rounded-2xl px-3 py-3.5 transition-colors", active ? "bg-surface" : "hover:bg-surface/70")}>
+      <AssistantSeal className="aspect-[4/5] w-14 text-3xl" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className={clsx("flex min-w-0 items-center gap-1.5", unread && "font-semibold")}>
+            <span className="truncate">Ichiba</span>
+            {pinned && <IconPushpin className="size-3.5 shrink-0 text-muted" />}
+            {pinned && <span className="sr-only">Закреплён</span>}
+          </p>
+          {summary && <span className="shrink-0 text-xs text-muted">{timeAgo(summary.lastMessageAt)}</span>}
+        </div>
+        <p className="truncate text-sm text-ink-2">Помощник площадки</p>
+        <p className={clsx("truncate text-sm", unread ? "font-medium text-ink" : "text-muted")}>
+          {summary && !summary.fromBot && "Вы: "}
+          {summary?.lastMessage ?? "Напишите, что сделать"}
+        </p>
+      </div>
+      {unread && (
+        <span className="mt-2 size-2.5 shrink-0 rounded-full bg-danger">
+          <span className="sr-only">Непрочитано</span>
+        </span>
+      )}
+    </Link>
   );
 }

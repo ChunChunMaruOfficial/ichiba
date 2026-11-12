@@ -13,7 +13,7 @@ import type { UiPrefs } from "@/lib/types";
  * up (components/prefs-sync.tsx), and every change goes to both. The device copy always mirrors the account, so it
  * is what the pages read — no wait for the API, no flicker.
  */
-export const DEFAULT_PREFS: Required<UiPrefs> = { cardStyle: "minimal", theme: "system" };
+export const DEFAULT_PREFS: Required<UiPrefs> = { cardStyle: "minimal", theme: "system", assistantPinned: true };
 
 const KEY = "ichiba:prefs";
 const EVENT = "ichiba:prefs-change";
@@ -24,6 +24,7 @@ export function sanitizePrefs(v: unknown): UiPrefs {
   const out: UiPrefs = {};
   if (o.cardStyle === "minimal" || o.cardStyle === "detailed") out.cardStyle = o.cardStyle;
   if (o.theme === "system" || o.theme === "light" || o.theme === "dark") out.theme = o.theme;
+  if (typeof o.assistantPinned === "boolean") out.assistantPinned = o.assistantPinned;
   return out;
 }
 

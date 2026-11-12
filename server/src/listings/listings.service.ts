@@ -177,7 +177,11 @@ export class ListingsService {
     return this.getForOwner(userId, listing.id);
   }
 
-  async update(userId: string, id: string, input: ListingInputT) {
+  /**
+   * `deferPriceDrop`: the caller announces a lower price itself, later (the assistant chat waits a minute, so an
+   * «Отменить» pressed at once leaves nobody notified) — see announcePriceDrop.
+   */
+  async update(userId: string, id: string, input: ListingInputT, opts: { deferPriceDrop?: boolean } = {}) {
     const listing = await this.ownListing(userId, id);
     if (listing.status === 'BLOCKED') throw new ForbiddenException({ message: 'Вещь заблокирована модератором' });
     const data = this.toData(input);
@@ -251,19 +255,29 @@ export class ListingsService {
     if (verdict) await this.moderator.record(prospective, verdict);
     if (priceChanged) await this.setMark(`price:${id}`, 30 * DAY_MS);
 
-    // At most one price-drop notice per item a day: lowering the price by 1 BYN at a time isn't a mailing list.
-    const notifiedAt = priceDropped ? await this.markAt(`price_drop:${id}`) : null;
-    if (priceDropped && (notifiedAt == null || Date.now() - notifiedAt >= DAY_MS)) {
-      await this.setMark(`price_drop:${id}`, DAY_MS);
-      // ♡ = save + watch: everyone who saved the item hears about the price drop (D3).
-      const favs = await this.prisma.favorite.findMany({ where: { listingId: id }, select: { userId: true } });
-      await this.notifications.notifyMany(
-        favs.map((f) => f.userId),
-        'price_drop',
-        { listingId: id, title: listing.title, oldPrice: listing.price, newPrice: data.price },
-      );
-    }
+    if (priceDropped && !opts.deferPriceDrop) await this.announcePriceDrop(id, listing.price!);
     return this.getForOwner(userId, id);
+  }
+
+  /**
+   * Tells everyone who saved the item that it costs less than `oldPrice` now. Reads the item again, so a price put
+   * back meanwhile (or an item no longer on sale) announces nothing.
+   */
+  async announcePriceDrop(id: string, oldPrice: number) {
+    const listing = await this.prisma.listing.findUnique({ where: { id }, select: { title: true, price: true, status: true } });
+    if (!listing || listing.status !== 'PUBLISHED' || listing.price == null || listing.price >= oldPrice) return false;
+    // At most one price-drop notice per item a day: lowering the price by 1 BYN at a time isn't a mailing list.
+    const notifiedAt = await this.markAt(`price_drop:${id}`);
+    if (notifiedAt != null && Date.now() - notifiedAt < DAY_MS) return false;
+    await this.setMark(`price_drop:${id}`, DAY_MS);
+    // ♡ = save + watch: everyone who saved the item hears about the price drop (D3).
+    const favs = await this.prisma.favorite.findMany({ where: { listingId: id }, select: { userId: true } });
+    await this.notifications.notifyMany(
+      favs.map((f) => f.userId),
+      'price_drop',
+      { listingId: id, title: listing.title, oldPrice, newPrice: listing.price },
+    );
+    return true;
   }
 
   /** The automatic section of an item of this seller in this condition (see market.ts). */
