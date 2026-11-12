@@ -16,7 +16,6 @@
 export const CSS = `
 :root{color-scheme:light;--p:#f4efe6;--s:#fbf8f2;--k:#ece5d8;--i:#1c1a17;--m:#6b6459;--l:#e2dacb;--r:#c8102e;--b:#23395b;--bs:#dfe5ee;--g:#3d6631;--gs:#e2ead6;--rs:#f7deda;--w:#855400;--ws:#f4e8cb}
 *{box-sizing:border-box;margin:0}
-html,body{height:100%;overflow:hidden}
 body{font:14px/1.35 serif;color:var(--i);background:var(--p);padding:12px;position:relative}
 .el{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -41,8 +40,14 @@ button.c{display:block;text-align:left}
 .t{position:absolute;left:12px;right:12px;bottom:10px;text-align:center;font-size:13px;color:var(--s);background:var(--b);border-radius:10px;padding:8px;box-shadow:0 6px 18px rgba(28,26,23,.2)}
 s{color:var(--m)}`;
 
-/** Only the menu: the grouped list, counters, «Подбор», switches, the chart. */
+/**
+ * Only the menu: the grouped list, counters, «Подбор», switches, the chart. The menu is sent with a fixed height, so
+ * its page is exactly that tall. Cards are not: their height is automatic, and Telegram sizes the bubble by the
+ * document's height — a page pinned to 100% would report the bubble's first, tiny height (Telegram Desktop starts at
+ * ~50 px) and stay a sliver with only the seal showing.
+ */
 export const CSS_MENU = `
+html,body{height:100%;overflow:hidden}
 .n{font-size:24px;font-weight:700}
 .tl{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s);border:1px solid var(--l);border-radius:14px;font-weight:600;text-align:left}
 .tl svg{width:22px;height:22px;color:var(--b)}
