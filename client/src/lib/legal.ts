@@ -25,7 +25,10 @@ export const LEGAL = {
   registered: { shown: "28 января 2026 г.", iso: "2026-01-28" },
   addressParts: ADDRESS,
   address: `${ADDRESS.postalCode}, ${ADDRESS.country}, г. ${ADDRESS.locality}, ${ADDRESS.street}`,
+  /** Where mailto: links go: the mailbox that is read today. */
   email: env(process.env.NEXT_PUBLIC_LEGAL_EMAIL) ?? "c4erkaoui@gmail.com",
+  /** The address written on the site: the company's own domain, while links still lead to `email` above. */
+  emailShown: "info@ichiba.by",
   phone: phone("+375 29 155-50-74"),
   /** Who takes buyers' complaints (Правила дистанционной торговли, пост. СМ № 31, п. 14.1). */
   complaintsPhone: phone("+375 29 113-23-25"),

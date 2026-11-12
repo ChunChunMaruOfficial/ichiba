@@ -195,7 +195,7 @@ export default function TermsPage() {
             <p>
               Автоматический отказ в публикации показывает причину — объявление можно исправить. Блокировку опубликованного объявления или аккаунта принимает человек; её можно обжаловать, написав на{" "}
               <a href={`mailto:${LEGAL.email}`} className="font-semibold text-ink underline">
-                {LEGAL.email}
+                {LEGAL.emailShown}
               </a>
               . Мы ответим в течение 15 дней.
             </p>
@@ -253,7 +253,7 @@ export default function TermsPage() {
               , {LEGAL.hours.shown}
               <br />
               <a href={`mailto:${LEGAL.email}`} className="underline">
-                {LEGAL.email}
+                {LEGAL.emailShown}
               </a>
             </p>
           </Section>
