@@ -1,0 +1,19 @@
+# Rehearsal on a copy of the production data, while the real site still runs on Railway:
+#   docker compose -f docker-compose.yml -f docker-compose.rehearsal.yml up -d
+# The copy must stay silent. With the production bot token the server would move the bot's webhook to itself
+# (Railway's bot goes deaf), and the copied outbox, imports and backups would write to people and to R2.
+services:
+  server:
+    environment:
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_ADMIN_BOT_TOKEN: ""
+      TELEGRAM_WEBHOOK_URL: ""
+      ALERTS_TELEGRAM: "off"
+      MAIL_PROVIDER: log
+      TG_IMPORT: "off"
+      SHOP_IMPORT: "off"
+      INDEXNOW: "off"
+      # No media backup from the copy: it would treat this disk as the truth about what R2 should hold.
+      BACKUP_S3_BUCKET: ""
+      # No Gemini quota spent on indexing photos that are already indexed in production.
+      PHOTO_EMBED_GEMINI: "off"

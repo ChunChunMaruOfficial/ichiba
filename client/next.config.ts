@@ -46,6 +46,9 @@ const privateHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // A self-contained server for the Docker image (deploy/client.Dockerfile sets NEXT_OUTPUT). Railway runs
+  // `next start`, which doesn't work with a standalone build, so it stays off there.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

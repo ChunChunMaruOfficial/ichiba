@@ -1,0 +1,59 @@
+# The only thing open to the internet: HTTPS for ichiba.by and media.ichiba.by (deploy/README.md).
+{
+	servers {
+		# Requests come through Cloudflare: the visitor's address is taken from its header, and only when the
+		# connection really is Cloudflare's (https://www.cloudflare.com/ips/). A direct connection is its own address.
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
+}
+
+# ichiba.by and www are «DNS only» records in Cloudflare: visitors connect straight to this server, so the
+# certificate must be a real one. CADDY_ISSUER (deploy/.env):
+#   internal — Caddy's own certificate: only for a rehearsal, before the DNS points here.
+#   acme     — a Let's Encrypt certificate, issued by itself once the DNS points here. Set at the cutover.
+
+ichiba.by, www.ichiba.by {
+	tls {
+		issuer {$CADDY_ISSUER:internal}
+	}
+
+	# The chat's WebSocket goes straight to the API: it answers on /ws only.
+	@ws path /ws
+	handle @ws {
+		reverse_proxy server:4000 {
+			header_up X-Real-IP {client_ip}
+		}
+	}
+
+	# Everything else is the site; it proxies /api/* to the API itself and redirects www to the bare domain.
+	handle {
+		reverse_proxy client:3000 {
+			# Rate limits count guests by this header: set here, so a visitor cannot send their own.
+			header_up X-Real-IP {client_ip}
+		}
+	}
+}
+
+# Photos and videos: MEDIA_PUBLIC_URL=https://media.ichiba.by/media. Nothing else of the API is served here.
+# This record is proxied by Cloudflare (it caches the photos). The certificate is a real one too, so the zone's SSL
+# mode may be «Full» or «Full (strict)»: it is first issued while the record is «DNS only» (README, cutover), and
+# renewed through the proxy over HTTP.
+media.ichiba.by {
+	tls {
+		issuer {$CADDY_ISSUER:internal}
+	}
+
+	@media path /media/*
+	handle @media {
+		reverse_proxy server:4000
+	}
+	handle {
+		respond 404
+	}
+}
+
+# A second project goes here as one more block, for example:
+# other.example.by {
+# 	reverse_proxy other-app:8080
+# }

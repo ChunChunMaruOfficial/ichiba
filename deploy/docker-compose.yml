@@ -1,0 +1,164 @@
+# ichiba on one VPS (2 vCPU / 2 GB RAM / 15 GB SSD): the same five parts as on Railway plus Caddy in front.
+# Only Caddy is open to the internet (80/443). How to set it up and move the data: deploy/README.md.
+#
+# Two files with values sit next to this one and are never committed:
+#   .env         — what this file substitutes (POSTGRES_PASSWORD, NEXT_PUBLIC_*, CADDY_ISSUER): env.example
+#   .env.server  — the server's secrets, copied from Railway: env.server.example
+#
+# mem_limit is a ceiling, not a reservation: measured on Railway the server takes about 0.6 GB, the site 0.5 GB,
+# Postgres 0.15 GB. Swap is required (README): the site is built on this machine.
+
+name: ichiba
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ichiba
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: ichiba
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=256MB
+      -c max_connections=50
+      -c work_mem=8MB
+    volumes:
+      # Since Postgres 18 the image keeps its data under /var/lib/postgresql/<version>.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ichiba -d ichiba"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    mem_limit: 320m
+    networks: [internal]
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # Job locks, rate-limit counters and chat fan-out: nothing worth keeping across a restart.
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
+    mem_limit: 96m
+    networks: [internal]
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/server.Dockerfile
+    restart: unless-stopped
+    env_file: .env.server
+    # Everything below wins over .env.server, so values copied from Railway can stay there as they are.
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      # POSTGRES_PASSWORD goes into a URL: letters and digits only (openssl rand -hex 24).
+      DATABASE_URL: postgresql://ichiba:${POSTGRES_PASSWORD}@postgres:5432/ichiba
+      REDIS_URL: redis://redis:6379
+      MEDIA_DRIVER: local
+      MEDIA_DIR: /data/media
+      MODELS_DIR: /data/models
+      MEDIA_PUBLIC_URL: https://media.ichiba.by/media
+      WEB_ORIGIN: https://ichiba.by
+      APP_URL: https://ichiba.by
+      # Railway told the server its own address; here each thing that used it is said outright.
+      REALTIME_DRIVER: ws
+      PUBLIC_WS_URL: wss://ichiba.by/ws
+      TELEGRAM_WEBHOOK_URL: https://ichiba.by/api/telegram/webhook
+      ALERTS_TELEGRAM: "on"
+      # Cloudflare → Caddy → (Next.js) → API: two trusted hops, as on Railway; guests are counted by the
+      # X-Real-IP Caddy sets (Caddyfile).
+      TRUST_PROXY: "2"
+      # Google does not serve Gemini in Belarus: its calls go through the relay below.
+      GEMINI_BASE_URL: http://gemini-proxy:8787/v1beta
+    volumes:
+      - media:/data/media
+      - models:/data/models
+    # Local only: the site's build reads the API through it (client.build below), and `curl 127.0.0.1:4000/health`.
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      gemini-proxy: { condition: service_started }
+    stop_grace_period: 20s
+    mem_limit: 768m
+    networks: [internal]
+
+  # Relay to Gemini through upstream proxies outside Belarus (gemini-proxy.mjs). The list — one
+  # `user:pass@host:port` per line — is the file .env.gemini-proxies next to this one, never committed.
+  gemini-proxy:
+    image: node:22-bookworm-slim
+    restart: unless-stopped
+    user: node
+    command: ["node", "/app/gemini-proxy.mjs"]
+    volumes:
+      - ./gemini-proxy.mjs:/app/gemini-proxy.mjs:ro
+      - ./.env.gemini-proxies:/app/proxies.txt:ro
+    mem_limit: 96m
+    networks: [internal]
+
+  client:
+    build:
+      context: ..
+      dockerfile: deploy/client.Dockerfile
+      # The build prerenders pages from the API: on the host network «server» is the port published above.
+      # Without a running API the build still passes (pages come out as shells and fill in within a minute).
+      network: host
+      extra_hosts:
+        - "server:127.0.0.1"
+      args:
+        API_URL: http://server:4000
+        NEXT_PUBLIC_SITE_URL: https://ichiba.by
+        NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-}
+        NEXT_PUBLIC_YM_ID: ${NEXT_PUBLIC_YM_ID:-}
+        NEXT_PUBLIC_LEGAL_EMAIL: ${NEXT_PUBLIC_LEGAL_EMAIL:-}
+    restart: unless-stopped
+    environment:
+      # Read at run time too, by server components (client/src/lib/server.ts).
+      API_URL: http://server:4000
+    depends_on:
+      server: { condition: service_healthy }
+    mem_limit: 640m
+    networks: [internal]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      CADDY_ISSUER: ${CADDY_ISSUER:-internal}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [client, server]
+    mem_limit: 192m
+    networks: [internal]
+
+  # Nightly dump to R2, the same script as Railway's cron service (docs/BACKUPS.md). Not started by `up`:
+  # the host's crontab runs `docker compose run --rm db-backup` (README).
+  db-backup:
+    profiles: [backup]
+    build:
+      context: ../scripts/backup
+    env_file: .env.server
+    environment:
+      DATABASE_URL: postgresql://ichiba:${POSTGRES_PASSWORD}@postgres:5432/ichiba
+    depends_on:
+      postgres: { condition: service_healthy }
+    mem_limit: 256m
+    networks: [internal]
+
+volumes:
+  pgdata:
+  media:
+  models:
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:
