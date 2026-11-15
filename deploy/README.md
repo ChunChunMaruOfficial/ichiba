@@ -115,7 +115,7 @@ docker compose exec postgres psql -U ichiba -d ichiba -c 'SELECT provider, count
 8. Ночной дамп базы — в crontab сервера (`sudo crontab -e`):
 
 ```
-17 0 * * * cd /opt/ichiba/deploy && docker compose run --rm db-backup >> /var/log/ichiba-backup.log 2>&1
+17 3 * * * cd /opt/ichiba/deploy && docker compose run --rm db-backup >> /var/log/ichiba-backup.log 2>&1
 ```
 
 Откат в первые дни: вернуть записи в Cloudflare и запустить сервисы на Railway. Всё, что люди сделали на новом сервере после переключения, при откате теряется, поэтому решение об откате — в первый час.

@@ -131,6 +131,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      # HTTP/3: Caddy announces it (Alt-Svc), so the port must really be open.
+      - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

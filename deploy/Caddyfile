@@ -18,6 +18,10 @@ ichiba.by, www.ichiba.by {
 		issuer {$CADDY_ISSUER:internal}
 	}
 
+	# The site compresses its own pages; this covers what it passes through as is — the sitemap (half a megabyte)
+	# and the API's JSON. Already-compressed answers are left alone.
+	encode zstd gzip
+
 	# The chat's WebSocket goes straight to the API: it answers on /ws only.
 	@ws path /ws
 	handle @ws {
