@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PRIVACY_VERSION } from '../auth/auth.service.js';
@@ -47,7 +48,8 @@ export class HandListingsService implements OnApplicationBootstrap {
    */
   private async setCover(listingId: string, folder: string, name: string) {
     const photos = await this.prisma.photo.findMany({ where: { listingId }, orderBy: { order: 'asc' }, select: { id: true, dhash: true } });
-    if (photos.length < 2) return false;
+    // A listed item's files may be gone from seed-data (seed-data/purged.txt): its photos already live in the media store.
+    if (photos.length < 2 || !existsSync(resolve(process.cwd(), 'seed-data', folder, name))) return false;
     const { dhash } = await this.media.searchImage(await readFile(resolve(process.cwd(), 'seed-data', folder, name)));
     const scored = photos.map((p) => ({ p, d: usableHash(p.dhash) ? hashDistance(usableHash(p.dhash)!, dhash) : 99 }));
     const [best, next] = [...scored].sort((a, b) => a.d - b.d);

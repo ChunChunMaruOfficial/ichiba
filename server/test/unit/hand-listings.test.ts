@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { categoryBySlug, COLOR_VALUES, MATERIALS, SIZES, sizeRequired, STYLE_TAGS } from '../../src/catalog/catalog.js';
 import { BATCHES } from '../../src/listings/hand-batches.js';
 
 const SEED = resolve(import.meta.dirname, '../../seed-data');
+// Photos of items already listed on prod, removed from the repo once their copies were in the media store
+// (scripts/purge-listed-photos.mjs). Only these may be missing.
+const PURGED = new Set(existsSync(resolve(SEED, 'purged.txt')) ? readFileSync(resolve(SEED, 'purged.txt'), 'utf8').split('\n').filter(Boolean) : []);
 
 test('every hand-listed item fits the catalogue and has its photos', () => {
   for (const batch of BATCHES) {
@@ -43,7 +46,7 @@ test('every hand-listed item fits the catalogue and has its photos', () => {
       for (const p of item.photos) {
         assert.ok(!photos.has(p), `${where}: photo ${p} used twice`);
         photos.add(p);
-        assert.ok(existsSync(resolve(SEED, batch.folder, p)), `${where}: photo ${p} missing`);
+        assert.ok(existsSync(resolve(SEED, batch.folder, p)) || PURGED.has(`${batch.folder}/${p}`), `${where}: photo ${p} missing`);
       }
     }
   }
