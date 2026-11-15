@@ -40,9 +40,8 @@ ichiba.by, www.ichiba.by {
 }
 
 # Photos and videos: MEDIA_PUBLIC_URL=https://media.ichiba.by/media. Nothing else of the API is served here.
-# This record is proxied by Cloudflare (it caches the photos). The certificate is a real one too, so the zone's SSL
-# mode may be «Full» or «Full (strict)»: it is first issued while the record is «DNS only» (README, cutover), and
-# renewed through the proxy over HTTP.
+# «DNS only» in Cloudflare since 2026-11-15, like the site itself: photos are served from this server in Belarus,
+# not from a CDN's nodes abroad (Указ № 60 wants the resource hosted in the country).
 media.ichiba.by {
 	tls {
 		issuer {$CADDY_ISSUER:internal}
