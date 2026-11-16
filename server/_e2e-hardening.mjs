@@ -117,11 +117,11 @@ async function session(login) {
   const username = `ap${Date.now().toString(36)}`.slice(0, 20);
   const noConsent = await fetch(`${API}/auth/complete`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, username }) });
   ok(noConsent.status === 400, 'completing an Apple sign-up without consent is refused');
-  const done = await fetch(`${API}/auth/complete`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, username, acceptPrivacy: true, acceptTransfer: true }) });
+  const done = await fetch(`${API}/auth/complete`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, username, acceptPrivacy: true }) });
   ok(done.status === 200 && !!done.headers.get('set-cookie'), `completing it with consent starts a session (got ${done.status})`);
   const u = (await db.query(`SELECT "appleSub", "privacyAcceptedAt", "privacyVersion", email FROM "User" WHERE username = $1`, [username])).rows[0];
   ok(u?.appleSub === sub && !!u.privacyAcceptedAt && !!u.privacyVersion, 'the account has the Apple id and a consent timestamp with the policy version');
-  const twice = await fetch(`${API}/auth/complete`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, username: `${username}x`, acceptPrivacy: true, acceptTransfer: true }) });
+  const twice = await fetch(`${API}/auth/complete`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, username: `${username}x`, acceptPrivacy: true }) });
   const users = Number((await db.query(`SELECT count(*) FROM "User" WHERE "appleSub" = $1`, [sub])).rows[0].count);
   ok(twice.status === 200 && users === 1, 'a second tab with the same token signs into the same account');
 }

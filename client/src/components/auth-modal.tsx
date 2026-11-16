@@ -74,8 +74,6 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [signup, setSignup] = useState<Signup | null>(null);
   const [username, setUsername] = useState("");
-  /** The separate consent to transfers abroad (Закон № 99-З, ст. 9): an empty box the person ticks themself. */
-  const [transfer, setTransfer] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -142,7 +140,7 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
 
   const completeSignup = () =>
     run(async () => {
-      finish(await api<SessionResult>("/auth/complete", { body: { token: signup!.token, username, acceptPrivacy: true, acceptTransfer: transfer } }));
+      finish(await api<SessionResult>("/auth/complete", { body: { token: signup!.token, username, acceptPrivacy: true } }));
       track("sign_up");
     });
 
@@ -339,30 +337,16 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
                 </button>
               )}
             </Field>
-            {/*
-              Two different things, kept apart: the agreement is a contract the account rests on; sending data to
-              countries without adequate protection needs a consent of its own, given knowingly — the box starts
-              empty, and the server refuses the account without it (acceptTransfer).
-            */}
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line px-3.5 py-3 text-sm leading-relaxed text-ink-2">
-              <input type="checkbox" name="acceptTransfer" checked={transfer} onChange={(e) => setTransfer(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--accent)]" />
-              <span>
-                Согласен(на) на передачу моих данных обработчикам в США, ОАЭ, Сингапуре и Китае: это ИИ-проверка объявлений, вход через Google и Telegram. Защита данных там слабее, чем в Беларуси.{" "}
-                <Link href="/privacy#abroad" target="_blank" className="font-medium text-ink underline underline-offset-4">
-                  Что передаётся и какие риски
-                </Link>
-              </span>
-            </label>
+            {/* Creating the account is the consent: the button sends acceptPrivacy and the server records it. */}
             <p className="text-sm text-ink-2">
-              Создавая аккаунт, вы принимаете{" "}
+              Продолжая, вы принимаете{" "}
               <Link href="/terms" target="_blank" className="font-medium text-ink underline underline-offset-4">
                 Соглашение
-              </Link>
-              . Как мы обрабатываем данные — в{" "}
+              </Link>{" "}
+              и{" "}
               <Link href="/privacy" target="_blank" className="font-medium text-ink underline underline-offset-4">
-                Политике конфиденциальности
+                Политику конфиденциальности
               </Link>
-              .
             </p>
           </>
         )}
@@ -400,7 +384,7 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
           </p>
         )}
 
-        <Button type="submit" size="lg" block loading={busy} disabled={(step === "code" && code.length < 6) || (step === "profile" && !transfer)}>
+        <Button type="submit" size="lg" block loading={busy} disabled={step === "code" && code.length < 6}>
           {byName ? "Войти" : { start: "Получить код", code: "Продолжить", profile: "Создать аккаунт", password: "Войти", reset: "Получить код", "reset-confirm": "Сохранить и войти" }[step]}
         </Button>
 
@@ -462,10 +446,10 @@ function AuthForm({ open, onClose, onSignedIn, startAt }: AuthModalProps) {
           Продолжая, вы принимаете{" "}
           <Link href="/terms" target="_blank" className="underline underline-offset-2">
             Соглашение
-          </Link>
-          . Как мы обрабатываем данные — в{" "}
+          </Link>{" "}
+          и{" "}
           <Link href="/privacy" target="_blank" className="underline underline-offset-2">
-            Политике конфиденциальности
+            Политику конфиденциальности
           </Link>
         </p>
       )}

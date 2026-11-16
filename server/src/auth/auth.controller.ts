@@ -41,9 +41,6 @@ const CompleteDto = z.object({
   token: z.string().min(20),
   username: z.string().trim().toLowerCase().regex(USERNAME_RE, 'Латиница, цифры и _, от 3 до 24 символов'),
   acceptPrivacy: z.literal(true, { error: 'Нужно согласие на обработку персональных данных' }),
-  // A consent of its own (Закон № 99-З, ст. 9): data goes to countries without adequate protection (AI providers,
-  // Google, Telegram). The box on the sign-up step starts empty; the account's privacyVersion records the edition.
-  acceptTransfer: z.literal(true, { error: 'Нужно согласие на передачу данных за рубеж: отметьте его, чтобы создать аккаунт' }),
 });
 
 @Controller('auth')

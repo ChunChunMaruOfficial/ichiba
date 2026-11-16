@@ -27,10 +27,10 @@ await call('/auth/start', { login: phone });
 const c1 = await call('/auth/confirm', { login: phone, code: '000000' });
 ok(c1.status === 200 && c1.data.signup?.token && c1.data.signup.suggestion, `new address → sign-up step (suggested @${c1.data.signup?.suggestion})`);
 ok((await call('/auth/complete', { token: c1.data.signup.token, username: `ph${stamp}` })).status === 400, 'no consent → 400');
-const done = await call('/auth/complete', { token: c1.data.signup.token, username: `ph${stamp}`, acceptPrivacy: true, acceptTransfer: true });
+const done = await call('/auth/complete', { token: c1.data.signup.token, username: `ph${stamp}`, acceptPrivacy: true });
 ok(done.status === 200 && done.data.isNew && done.data.user.username === `ph${stamp}`, 'account created after consent, session started');
 ok((await call('/auth/me')).data.user?.username === `ph${stamp}`, 'session cookie works');
-ok((await call('/auth/complete', { token: 'x'.repeat(30), username: 'zzz_test', acceptPrivacy: true, acceptTransfer: true })).data?.code === 'SIGNUP_EXPIRED', 'forged sign-up token refused');
+ok((await call('/auth/complete', { token: 'x'.repeat(30), username: 'zzz_test', acceptPrivacy: true })).data?.code === 'SIGNUP_EXPIRED', 'forged sign-up token refused');
 
 // Existing user by email: straight into the session.
 jar.cookie = '';
