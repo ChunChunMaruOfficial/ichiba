@@ -139,7 +139,9 @@ services:
       - caddy_config:/config
     depends_on: [client, server]
     mem_limit: 192m
-    networks: [internal]
+    # `web` is shared with other projects on this server (Vivoflex): they join it and Caddy serves their domains.
+    # Created once by hand: docker network create web
+    networks: [internal, web]
 
   # Nightly dump to R2, the same script as Railway's cron service (docs/BACKUPS.md). Not started by `up`:
   # the host's crontab runs `docker compose run --rm db-backup` (README).
@@ -164,3 +166,5 @@ volumes:
 
 networks:
   internal:
+  web:
+    external: true

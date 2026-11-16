@@ -60,3 +60,28 @@ media.ichiba.by {
 # other.example.by {
 # 	reverse_proxy other-app:8080
 # }
+
+# ---- Vivoflex (репозиторий flexoprint, свой compose-проект в /opt/vivoflex) ----
+# Сайт живёт в соседнем проекте и виден Caddy по общей сети `web` под именем `vivoflex`.
+vivoflex.by {
+	tls {
+		issuer {$CADDY_ISSUER:internal}
+	}
+	encode zstd gzip
+	# Форма расчёта принимает макеты до 20 МБ
+	request_body {
+		max_size 30MB
+	}
+	reverse_proxy vivoflex:3000 {
+		# The site's rate limit for requests reads this header: set here, so a visitor cannot send their own.
+		header_up X-Real-IP {client_ip}
+	}
+}
+
+# Everything else the owner holds leads to the one address, so search engines see a single site.
+www.vivoflex.by, vivoflex.ru, www.vivoflex.ru, vivoflex.online, www.vivoflex.online, vivoflex.site, www.vivoflex.site, vivoflex.xyz, www.vivoflex.xyz {
+	tls {
+		issuer {$CADDY_ISSUER:internal}
+	}
+	redir https://vivoflex.by{uri} permanent
+}
