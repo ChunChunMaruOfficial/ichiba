@@ -147,3 +147,17 @@ Google не обслуживает Gemini из Беларуси («User location
 ## Файлы с секретами
 
 Лежат рядом с `docker-compose.yml` под именами `.env*`, git их игнорирует: `.env`, `.env.server`, `.env.gemini-proxies`. Выгрузку Raw Editor из Railway в формат Docker переводит `node convert-railway-env.cjs <из> <в>`.
+
+## Бэкапы и восстановление базы
+
+Ночной дамп (03:17 по Минску, crontab сервера) шифруется паролем `BACKUP_PASSPHRASE` из `.env.server` (gpg, AES-256) и уходит в R2 как `db/daily/ichiba-<дата>.dump.gpg`; хранится 14 дней. Копию пароля держать вне сервера: без него дампы не прочитать никому. Фото копируются в `media/` как есть, без шифрования.
+
+Скачать и расшифровать свежий дамп, затем восстановить:
+
+```bash
+docker compose run --rm --no-deps -v "$PWD":/work --entrypoint bash db-backup /work/fetch-dump.sh
+docker compose stop server client
+docker compose exec -T postgres sh -c 'dropdb -U ichiba --force ichiba && createdb -U ichiba ichiba'
+docker compose exec -T postgres pg_restore --no-owner --no-privileges -U ichiba -d ichiba < ichiba.dump
+docker compose up -d
+```
