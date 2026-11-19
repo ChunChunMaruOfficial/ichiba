@@ -3,6 +3,7 @@ import { Spectral } from "next/font/google";
 import localFont from "next/font/local";
 import { Analytics } from "@/components/analytics";
 import { CookieNotice } from "@/components/cookie-notice";
+import { WipNote } from "@/components/wip-note";
 import { Footer } from "@/components/footer";
 import { BottomNav, Header, Main } from "@/components/header";
 import { PhotoFlight } from "@/components/photo-flight";
@@ -93,6 +94,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Footer />
           <BottomNav />
           <CookieNotice />
+          <WipNote />
           <Analytics />
           <PhotoFlight />
         </Providers>

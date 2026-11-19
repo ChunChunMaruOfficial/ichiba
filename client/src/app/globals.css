@@ -640,6 +640,73 @@ html[data-immersive] [data-chrome="main"] {
   .sync-seal, .sync-fuda { transition: opacity 150ms, visibility 150ms; rotate: none; translate: none; }
 }
 
+/*
+ * «Сайт ещё в разработке» (components/wip-note): a washi note taped in the bottom-right corner — a strip of masking
+ * tape over its top edge, a cinnabar 作 («в работе») stamp, slightly askew. It slides up once, fades out when closed.
+ */
+.wip-note {
+  filter: drop-shadow(0 8px 18px rgb(28 26 23 / 0.22));
+  rotate: -1.2deg;
+  animation: wip-in 520ms cubic-bezier(0.25, 1.4, 0.45, 1) both;
+}
+.wip-note[data-closing] {
+  animation: wip-out 260ms ease-in both;
+}
+.wip-note::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: -7px;
+  left: 50%;
+  width: 64px;
+  height: 18px;
+  margin-left: -32px;
+  rotate: -3deg;
+  background: rgb(232 205 160 / 0.78);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  -webkit-mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px));
+  mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px));
+}
+.wip-stamp {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid #b5121b;
+  border-radius: 6px;
+  color: #b5121b;
+  font-family: var(--font-brush);
+  font-size: 20px;
+  line-height: 1;
+  rotate: -8deg;
+}
+.wip-close {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  color: rgb(28 26 23 / 0.55);
+  transition: background-color 150ms, color 150ms;
+}
+.wip-close:hover {
+  background: rgb(28 26 23 / 0.08);
+  color: #1c1a17;
+}
+@keyframes wip-in {
+  from { opacity: 0; translate: 0 14px; rotate: 2deg; }
+}
+@keyframes wip-out {
+  to { opacity: 0; translate: 0 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wip-note, .wip-note[data-closing] { animation-duration: 1ms; }
+}
+
 /* Hanko 判子: a seal stamped on a photo (sold, sale, new, reserved). Kanji by brush + the Russian word. */
 .hanko {
   display: inline-flex;
