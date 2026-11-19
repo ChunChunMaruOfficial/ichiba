@@ -56,6 +56,15 @@ media.ichiba.by {
 	}
 }
 
+# The spare domain only leads to the site. Its records are «DNS only» too, so the redirect is answered from this
+# server in Belarus rather than from Cloudflare's nodes abroad (the БелГИЭ registration lists it with ichiba.by).
+ichiba.site, www.ichiba.site {
+	tls {
+		issuer {$CADDY_ISSUER:internal}
+	}
+	redir https://ichiba.by{uri} permanent
+}
+
 # A second project goes here as one more block, for example:
 # other.example.by {
 # 	reverse_proxy other-app:8080

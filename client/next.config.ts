@@ -60,7 +60,7 @@ const nextConfig: NextConfig = {
     ];
   },
   // One address for the site: www.ichiba.by and Railway's own address of the web service (else a second copy of the
-  // whole site for search engines) go to ichiba.by; ichiba.site is redirected by Cloudflare itself. Exact hosts only:
+  // whole site for search engines) go to ichiba.by; ichiba.site is redirected by Caddy on the server (deploy/Caddyfile). Exact hosts only:
   // Railway's healthcheck comes in under a name of its own and must get a 200.
   async redirects() {
     return ["www.ichiba.by", "client-production-bff5.up.railway.app"].map((host) => ({
